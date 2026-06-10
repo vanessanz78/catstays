@@ -12,7 +12,7 @@ import { ImageWithFallback } from '../../components/figma/ImageWithFallback';
 const logoIcon = '/assets/b463d12091f20e48be52186dedd2a0f6707d0b66.png';
 const logoWordmark = '/assets/9900b394e20a5e059447324d58daad1b1bf43ed6.png';
 const testimonialImage = '/assets/cf532b4a50a4305e3c8b2c2c4a7aaf8ff83e9a7e.png';
-const heroImage = 'https://images.unsplash.com/photo-1760452824452-f731d397a704?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjBjYXQlMjBib2FyZGluZyUyMHJvb20lMjBjb21mb3J0YWJsZXxlbnwxfHx8fDE3NzM2NTQzODF8MA&ixlib=rb-4.1.0&q=80&w=1600';
+const heroImage = '/assets/marketing/premium-cattery-sleeping-cat-hero.png';
 const catUpdateImage = 'https://images.unsplash.com/photo-1709398668435-bc1222eb405e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxoYXBweSUyMGNhdCUyMHBvcnRyYWl0JTIwY2xvc2UlMjB1cHxlbnwxfHx8fDE3NzM2NTQzODJ8MA&ixlib=rb-4.1.0&q=80&w=1080';
 const deloraineWebsitePreview = '/assets/marketing/deloraine-website-preview.png';
 const dashboardPreview = '/assets/marketing/catstays-dashboard-preview.png';
@@ -115,8 +115,8 @@ export function MarketingHome() {
       <section id="hero" className="relative min-h-[72vh] overflow-hidden bg-forest text-white">
         <ImageWithFallback
           src={heroImage}
-          alt="A comfortable cat boarding room"
-          className="absolute inset-0 h-full w-full object-cover"
+          alt="A relaxed cat sleeping in a premium cattery room"
+          className="absolute inset-0 h-full w-full object-cover object-center"
         />
         <div className="absolute inset-0 bg-gradient-to-r from-[#0A1128]/90 via-[#0A1128]/70 to-[#0A1128]/20" />
         <div className="relative max-w-7xl mx-auto px-4 py-16 md:py-24">
@@ -214,12 +214,14 @@ export function MarketingHome() {
                       delorainecattery.com
                     </div>
                   </div>
-                  <div className="h-[360px] overflow-y-auto overflow-x-hidden bg-white">
-                    <ImageWithFallback
-                      src={deloraineWebsitePreview}
-                      alt="Deloraine Cattery website above-the-fold preview"
-                      className="w-full h-auto"
-                    />
+                  <div className="h-[360px] overflow-y-auto overflow-x-hidden bg-[#F8F7F5] p-4">
+                    <div className="mx-auto w-full max-w-[330px] overflow-hidden rounded-lg bg-white shadow-sm">
+                      <ImageWithFallback
+                        src={deloraineWebsitePreview}
+                        alt="Deloraine Cattery website above-the-fold preview"
+                        className="w-full h-auto"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -462,12 +464,14 @@ export function MarketingHome() {
                     {websiteUrl || 'delorainecattery.com'}
                   </div>
                 </div>
-                <div className="max-h-[520px] overflow-y-auto overflow-x-hidden bg-white">
-                  <ImageWithFallback
-                    src={deloraineWebsitePreview}
-                    alt="Deloraine Cattery website preview"
-                    className="w-full h-auto"
-                  />
+                <div className="h-[520px] overflow-y-auto overflow-x-hidden bg-[#F8F7F5] p-4 sm:p-6">
+                  <div className="mx-auto w-full max-w-[820px] overflow-hidden rounded-xl bg-white shadow-sm">
+                    <ImageWithFallback
+                      src={deloraineWebsitePreview}
+                      alt="Deloraine Cattery website preview"
+                      className="w-full h-auto"
+                    />
+                  </div>
                 </div>
               </div>
 
