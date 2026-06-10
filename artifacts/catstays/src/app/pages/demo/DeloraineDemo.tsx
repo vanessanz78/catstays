@@ -14,6 +14,9 @@ import {
   type ImportedCatteryScrape,
 } from '../../lib/deloraineDemo';
 
+const logoIcon = '/assets/b463d12091f20e48be52186dedd2a0f6707d0b66.png';
+const logoWordmark = '/assets/9900b394e20a5e059447324d58daad1b1bf43ed6.png';
+
 type DemoMode = 'website' | 'dashboard' | 'client';
 
 interface DeloraineDemoPageProps {
@@ -87,6 +90,27 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
 
   return (
     <div className="min-h-screen bg-[#f8f4ed] text-[#10251f]">
+      <nav className="sticky top-0 z-50 border-b border-[#21483f]/10 bg-white/95 shadow-sm backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-3 sm:px-8 lg:px-10">
+          <Link to="/" className="flex items-center gap-2 hover:opacity-85">
+            <img src={logoIcon} alt="" className="h-10 w-10" />
+            <img src={logoWordmark} alt="CatStays" className="h-9" />
+          </Link>
+          <div className="flex items-center gap-2">
+            <Link to="/">
+              <Button variant="ghost" className="text-[#21483f] hover:bg-[#21483f]/5">
+                Back to homepage
+              </Button>
+            </Link>
+            <Link to="/#pricing">
+              <Button className="bg-[#A85A30] text-white hover:bg-[#8A3F20]">
+                Pricing
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </nav>
+
       <section
         className="relative min-h-[420px] overflow-hidden"
         style={{

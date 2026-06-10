@@ -116,7 +116,7 @@ export function FullWebsitePreview({ data, initialMode = 'dashboard', initialDev
 
     // Render the template with all the data
     return (
-      <div className="h-full w-full overflow-y-auto overflow-x-hidden bg-white">
+      <div className="min-h-full w-full bg-white">
         {/* Header */}
         <WebsiteHeader
           businessName={data.businessName || 'Our Cattery'}
@@ -294,8 +294,8 @@ export function FullWebsitePreview({ data, initialMode = 'dashboard', initialDev
   const deviceDimensions = deviceType === 'mobile'
     ? { width: 375, height: 667, scale: 1.0 }
     : deviceType === 'tablet'
-    ? { width: 768, height: 1024, scale: 0.75 }
-    : { width: 1440, height: 900, scale: 0.7 };
+    ? { width: 768, height: 1024, scale: 0.72 }
+    : { width: 1440, height: 900, scale: 0.62 };
 
   return (
     <div className="space-y-6">
@@ -400,15 +400,17 @@ export function FullWebsitePreview({ data, initialMode = 'dashboard', initialDev
       </div>
 
       {/* Device Preview Frame - ISOLATED VIEWPORT */}
-      <div className="flex justify-center items-center py-8 bg-gradient-to-b from-[#0A1128]/5 to-transparent rounded-3xl">
+      <div className="flex justify-center items-center overflow-hidden px-3 py-8 bg-gradient-to-b from-[#0A1128]/5 to-transparent rounded-3xl">
         <div
           className="relative shadow-2xl"
           style={{
             width: `${deviceDimensions.width * deviceDimensions.scale}px`,
             height: `${deviceDimensions.height * deviceDimensions.scale}px`,
+            maxWidth: '100%',
             borderRadius: deviceType === 'mobile' ? '36px' : deviceType === 'tablet' ? '24px' : '12px',
             backgroundColor: deviceType === 'mobile' ? '#1a1a1a' : deviceType === 'tablet' ? '#2a2a2a' : '#fff',
             border: deviceType === 'mobile' ? '8px solid #1a1a1a' : deviceType === 'tablet' ? '12px solid #2a2a2a' : '1px solid #e5e7eb',
+            boxSizing: 'border-box',
             overflow: 'hidden',
           }}
         >

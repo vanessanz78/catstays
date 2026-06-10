@@ -5,7 +5,6 @@ import { Badge } from '../../components/ui/badge';
 import {
   Check,
   Camera,
-  Globe,
   ArrowRight,
   Sparkles,
 } from 'lucide-react';
@@ -142,13 +141,12 @@ export function MarketingHome() {
               <div className="flex flex-col gap-3 sm:flex-row">
                 <label className="sr-only" htmlFor="hero-website-url">Cattery website URL</label>
                 <div className="relative flex-1">
-                  <Globe className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-[#0A1128]/45" />
                   <input
                     id="hero-website-url"
                     type="text"
                     value={websiteUrl}
                     onChange={(event) => setWebsiteUrl(event.target.value)}
-                    className="h-14 w-full rounded-xl border border-white/60 bg-white pl-12 pr-4 text-base font-semibold text-[#0A1128] shadow-inner outline-none transition focus:border-[#A85A30] focus:ring-4 focus:ring-white/25"
+                    className="h-14 w-full rounded-xl border border-white/60 bg-white px-4 text-base font-semibold text-[#0A1128] shadow-inner outline-none transition focus:border-[#A85A30] focus:ring-4 focus:ring-white/25"
                     placeholder="yourcattery.com"
                   />
                 </div>
@@ -176,10 +174,10 @@ export function MarketingHome() {
 
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 max-w-4xl pt-4">
               {[
-                ['Website', 'Launch on your CatStays subdomain'],
+                ['Website', 'Launch website in minutes'],
                 ['Dashboard', 'Accept and manage bookings anywhere'],
-                ['Customer portal', 'Owners manage cats, bookings and invoices'],
-                ['Postcards', 'AI-assisted photo updates from each cat'],
+                ['Client portal', 'Clients book cats and get updates'],
+                ['Updates', 'Owners keep in touch with their cat'],
               ].map(([label, detail]) => (
                 <div key={label} className="rounded-lg border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
                   <p className="text-sm font-semibold">{label}</p>
@@ -192,7 +190,7 @@ export function MarketingHome() {
       </section>
 
       {/* What CatStays Does Section */}
-      <section className="py-20 bg-white">
+      <section id="features" className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-serif font-semibold text-forest mb-4">
@@ -216,17 +214,19 @@ export function MarketingHome() {
                       delorainecattery.com
                     </div>
                   </div>
-                  <ImageWithFallback
-                    src={deloraineWebsitePreview}
-                    alt="Deloraine Cattery website above-the-fold preview"
-                    className="h-[360px] w-full object-cover object-top"
-                  />
+                  <div className="h-[360px] overflow-y-auto overflow-x-hidden bg-white">
+                    <ImageWithFallback
+                      src={deloraineWebsitePreview}
+                      alt="Deloraine Cattery website above-the-fold preview"
+                      className="w-full h-auto"
+                    />
+                  </div>
                 </div>
               </div>
               <CardHeader className="p-8 pt-6 flex-1">
-                <CardTitle className="text-2xl font-serif text-forest min-h-[36px]">Booking Website</CardTitle>
+                <CardTitle className="text-2xl font-serif text-forest min-h-[36px]">Website</CardTitle>
                 <CardDescription className="text-base leading-7">
-                  Turn your current site into a polished, booking-ready CatStays preview.
+                  Beautiful website ready to take cat bookings.
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -246,7 +246,7 @@ export function MarketingHome() {
                         <Camera className="w-4 h-4 text-sage" />
                       </div>
                       <div className="flex-1">
-                        <p className="text-xs font-semibold text-forest">Postcard from Luna</p>
+                        <p className="text-xs font-semibold text-forest">Update from Luna</p>
                       </div>
                     </div>
                     <p className="text-xs text-forest/70 leading-relaxed">
@@ -256,7 +256,7 @@ export function MarketingHome() {
                 </div>
               </div>
               <CardHeader className="p-8 pt-6 flex-1">
-                <CardTitle className="text-2xl font-serif text-forest min-h-[36px]">Cat Postcards</CardTitle>
+                <CardTitle className="text-2xl font-serif text-forest min-h-[36px]">Keep in Touch</CardTitle>
                 <CardDescription className="text-base leading-7">
                   Send warm photo updates through the customer portal in a few taps.
                 </CardDescription>
@@ -272,13 +272,13 @@ export function MarketingHome() {
                     <ImageWithFallback
                       src={dashboardPreview}
                       alt="CatStays mobile dashboard preview"
-                      className="h-full w-full object-cover object-top"
+                      className="h-full w-full object-contain object-top bg-white"
                     />
                   </div>
                 </div>
               </div>
               <CardHeader className="p-8 pt-6 flex-1">
-                <CardTitle className="text-2xl font-serif text-forest min-h-[36px]">Phone Dashboard</CardTitle>
+                <CardTitle className="text-2xl font-serif text-forest min-h-[36px]">Dashboard</CardTitle>
                 <CardDescription className="text-base leading-7">
                   Accept bookings, check occupancy, and message owners from your phone.
                 </CardDescription>
@@ -462,11 +462,13 @@ export function MarketingHome() {
                     {websiteUrl || 'delorainecattery.com'}
                   </div>
                 </div>
-                <ImageWithFallback
-                  src={deloraineWebsitePreview}
-                  alt="Deloraine Cattery website preview"
-                  className="w-full max-h-[520px] object-cover object-top"
-                />
+                <div className="max-h-[520px] overflow-y-auto overflow-x-hidden bg-white">
+                  <ImageWithFallback
+                    src={deloraineWebsitePreview}
+                    alt="Deloraine Cattery website preview"
+                    className="w-full h-auto"
+                  />
+                </div>
               </div>
 
               <p className="mt-6 text-center text-sm text-forest/55">
@@ -474,97 +476,6 @@ export function MarketingHome() {
               </p>
             </div>
           </Card>
-        </div>
-      </section>
-
-      {/* Platform Features Section */}
-      <section id="features" className="py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="text-center mb-16">
-            <Badge className="bg-sage/10 text-sage border-sage/20 mb-4">Complete Platform</Badge>
-            <h2 className="text-4xl md:text-5xl font-serif font-semibold text-forest mb-4">
-              Built for cat boarding, not generic pet care
-            </h2>
-            <p className="text-lg text-forest/65 max-w-3xl mx-auto">
-              Every feature supports the daily rhythm of a cattery: rooms, cats, owners, photos, payments, and repeat stays.
-            </p>
-          </div>
-
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3 items-stretch">
-            {[
-              {
-                image: deloraineWebsitePreview,
-                title: 'Website import',
-                copy: 'Bring over the look, photos, and useful copy from your current cattery website.',
-              },
-              {
-                image: dashboardPreview,
-                title: 'Mobile dashboard',
-                copy: 'Check arrivals, departures, occupancy, bookings, and payments from your phone.',
-              },
-              {
-                image: catUpdateImage,
-                title: 'Cat postcards',
-                copy: 'Send photo updates that feel personal, warm, and easy for owners to reply to.',
-              },
-              {
-                image: heroImage,
-                title: 'Room calendar',
-                copy: 'Keep rooms, blockout dates, repeat stays, and daily movements in one clear view.',
-              },
-              {
-                image: 'https://images.unsplash.com/photo-1574144611937-0df059b5ef3e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1200',
-                title: 'Customer portal',
-                copy: 'Owners can manage cat profiles, bookings, invoices, reminders, and messages themselves.',
-              },
-              {
-                image: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1200',
-                title: 'Payments and records',
-                copy: 'Connect Stripe, request deposits, and keep care notes beside each booking.',
-              },
-            ].map((feature) => (
-              <Card key={feature.title} className="border-sage/10 shadow-md rounded-2xl overflow-hidden hover:shadow-lg transition-shadow h-full flex flex-col text-center">
-                <div className="h-48 bg-cream overflow-hidden">
-                  <ImageWithFallback
-                    src={feature.image}
-                    alt={feature.title}
-                    className="h-full w-full object-cover object-top"
-                  />
-                </div>
-                <CardHeader className="p-6 flex-1">
-                  <CardTitle className="font-serif text-2xl text-forest min-h-[36px] flex items-center justify-center">
-                    {feature.title}
-                  </CardTitle>
-                  <CardDescription className="text-sm text-forest/60 leading-6">
-                    {feature.copy}
-                  </CardDescription>
-                </CardHeader>
-              </Card>
-            ))}
-          </div>
-
-          <div className="mt-10 flex justify-center">
-            <form
-              onSubmit={handleGeneratePreview}
-              className="w-full max-w-3xl rounded-2xl border border-sage/15 bg-cream p-3 shadow-inner"
-            >
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <label className="sr-only" htmlFor="features-website-url">Cattery website URL</label>
-                <input
-                  id="features-website-url"
-                  type="text"
-                  value={websiteUrl}
-                  onChange={(event) => setWebsiteUrl(event.target.value)}
-                  className="h-14 flex-1 rounded-xl border border-sage/10 bg-white px-4 text-base font-semibold text-forest outline-none transition focus:border-[#A85A30] focus:ring-4 focus:ring-[#A85A30]/10"
-                  placeholder="yourcattery.com"
-                />
-                <Button type="submit" className="h-14 bg-[#A85A30] hover:bg-[#8A3F20] text-white rounded-xl px-6">
-                  Generate preview
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </div>
-            </form>
-          </div>
         </div>
       </section>
 
@@ -597,30 +508,30 @@ export function MarketingHome() {
                   </div>
                 </div>
                 <p className="text-[#0A1128]/70 italic text-sm">
-                  A calm, simple way to run your cattery
+                  Get online, take bookings, and start getting paid.
                 </p>
               </CardHeader>
               <CardContent className="p-8 pt-0 flex flex-1 flex-col">
                 <div className="space-y-3 flex-1">
                   <div className="flex items-start gap-3">
                     <span className="text-[#C46A3A] text-lg">🐾</span>
-                    <span className="text-[#0A1128]/70">Online bookings</span>
+                    <span className="text-[#0A1128]/70">Cattery website</span>
                   </div>
                   <div className="flex items-start gap-3">
                     <span className="text-[#C46A3A] text-lg">🐾</span>
-                    <span className="text-[#0A1128]/70">Customer & cat profiles</span>
+                    <span className="text-[#0A1128]/70">Booking dashboard</span>
                   </div>
                   <div className="flex items-start gap-3">
                     <span className="text-[#C46A3A] text-lg">🐾</span>
-                    <span className="text-[#0A1128]/70">Calendar management</span>
+                    <span className="text-[#0A1128]/70">Availability and rooms setup</span>
                   </div>
                   <div className="flex items-start gap-3">
                     <span className="text-[#C46A3A] text-lg">🐾</span>
-                    <span className="text-[#0A1128]/70">Email confirmations</span>
+                    <span className="text-[#0A1128]/70">Customer communication</span>
                   </div>
                   <div className="flex items-start gap-3">
                     <span className="text-[#C46A3A] text-lg">🐾</span>
-                    <span className="text-[#0A1128]/70">Mobile dashboard</span>
+                    <span className="text-[#0A1128]/70">Stripe-ready payments</span>
                   </div>
                 </div>
                 <Button
@@ -651,7 +562,7 @@ export function MarketingHome() {
                   </div>
                 </div>
                 <p className="text-[#0A1128]/70 italic text-sm">
-                  Where your cattery starts to flow
+                  Add client self-service, updates, and better reporting.
                 </p>
               </CardHeader>
               <CardContent className="p-8 pt-0 flex flex-1 flex-col">
@@ -662,19 +573,19 @@ export function MarketingHome() {
                   </div>
                   <div className="flex items-start gap-3">
                     <span className="text-[#C46A3A] text-lg">🐾</span>
-                    <span className="text-[#0A1128]/70">Unlimited bookings</span>
+                    <span className="text-[#0A1128]/70">Client portal logins</span>
                   </div>
                   <div className="flex items-start gap-3">
                     <span className="text-[#C46A3A] text-lg">🐾</span>
-                    <span className="text-[#0A1128]/70">Daily photo updates</span>
+                    <span className="text-[#0A1128]/70">Cat photo updates</span>
                   </div>
                   <div className="flex items-start gap-3">
                     <span className="text-[#C46A3A] text-lg">🐾</span>
-                    <span className="text-[#0A1128]/70">Automated reminders</span>
+                    <span className="text-[#0A1128]/70">Booking reminders</span>
                   </div>
                   <div className="flex items-start gap-3">
                     <span className="text-[#C46A3A] text-lg">🐾</span>
-                    <span className="text-[#0A1128]/70">Priority support</span>
+                    <span className="text-[#0A1128]/70">Revenue and occupancy reports</span>
                   </div>
                 </div>
                 <Button
@@ -702,7 +613,7 @@ export function MarketingHome() {
                   </div>
                 </div>
                 <p className="text-[#0A1128]/70 italic text-sm">
-                  For established catteries that want their own domain and deeper automation
+                  Your own domain, marketing tools, and deeper business controls.
                 </p>
               </CardHeader>
               <CardContent className="p-8 pt-0 flex flex-1 flex-col">
@@ -713,19 +624,19 @@ export function MarketingHome() {
                   </div>
                   <div className="flex items-start gap-3">
                     <span className="text-[#C46A3A] text-lg">🐾</span>
-                    <span className="text-[#0A1128]/70">Custom domain request workflow</span>
+                    <span className="text-[#0A1128]/70">Own domain</span>
                   </div>
                   <div className="flex items-start gap-3">
                     <span className="text-[#C46A3A] text-lg">🐾</span>
-                    <span className="text-[#0A1128]/70">Advanced cat postcard and social AI</span>
+                    <span className="text-[#0A1128]/70">Marketing tools</span>
                   </div>
                   <div className="flex items-start gap-3">
                     <span className="text-[#C46A3A] text-lg">🐾</span>
-                    <span className="text-[#0A1128]/70">Advanced website controls</span>
+                    <span className="text-[#0A1128]/70">Advanced reports</span>
                   </div>
                   <div className="flex items-start gap-3">
                     <span className="text-[#C46A3A] text-lg">🐾</span>
-                    <span className="text-[#0A1128]/70">Priority platform support</span>
+                    <span className="text-[#0A1128]/70">Accounting-ready exports</span>
                   </div>
                 </div>
                 <Button
