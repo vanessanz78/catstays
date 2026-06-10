@@ -26,7 +26,9 @@ import { MarketingStudio } from '../../components/MarketingStudio';
 interface SuccessScreenProps {
   subdomain: string;
   onGoToWebsite: () => void;
-  subscriptionTier?: 'starter' | 'professional';
+  onContinueToDataImport?: () => void;
+  subscriptionTier?: 'starter' | 'professional' | 'premium';
+  trialFullAccess?: boolean;
   businessData?: {
     businessName: string;
     location: string;
@@ -49,8 +51,8 @@ interface SuccessScreenProps {
   };
 }
 
-export function SuccessScreen({ subdomain, onGoToWebsite, businessData, subscriptionTier }: SuccessScreenProps) {
-  const isProfessional = subscriptionTier === 'professional';
+export function SuccessScreen({ subdomain, onGoToWebsite, onContinueToDataImport, businessData, subscriptionTier, trialFullAccess }: SuccessScreenProps) {
+  const hasMarketingAccess = trialFullAccess || subscriptionTier === 'professional' || subscriptionTier === 'premium';
   const [showShareModal, setShowShareModal] = useState(false);
   const [showMaterialsModal, setShowMaterialsModal] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -491,11 +493,25 @@ export function SuccessScreen({ subdomain, onGoToWebsite, businessData, subscrip
             </div>
           </div>
 
+          <div className="bg-white border-2 border-[#C46A3A]/20 rounded-2xl p-6 max-w-2xl mx-auto mb-10 text-left">
+            <div className="flex items-start gap-4">
+              <div className="w-10 h-10 rounded-full bg-[#C46A3A]/10 flex items-center justify-center flex-shrink-0">
+                <Mail className="w-5 h-5 text-[#C46A3A]" />
+              </div>
+              <div>
+                <h4 className="font-semibold text-[#0A1128] mb-2">Confirm your email when you are ready</h4>
+                <p className="text-sm text-[#0A1128]/70 leading-relaxed">
+                  We sent the secure confirmation link to {businessData?.email || 'your email'}. Finish exploring first, then confirm your login from your inbox.
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Primary CTA */}
           <Button
             size="lg"
             className="bg-[#C46A3A] hover:bg-[#A85A30] text-white rounded-xl px-12 py-7 text-xl shadow-2xl hover:shadow-xl hover:scale-105 transition-all duration-200 mb-6"
-            onClick={() => window.open(`https://${subdomain}.catstays.app`, '_blank', 'noopener,noreferrer')}
+            onClick={onGoToWebsite}
           >
             <Rocket className="w-6 h-6 mr-3" />
             Go to My Website
@@ -511,7 +527,7 @@ export function SuccessScreen({ subdomain, onGoToWebsite, businessData, subscrip
               Share on social media
             </button>
             <span className="text-[#0A1128]/20 hidden sm:inline">•</span>
-            {isProfessional ? (
+            {hasMarketingAccess ? (
               <button 
                 className="text-[#C46A3A] hover:text-[#A85A30] hover:underline transition-colors flex items-center gap-2"
                 onClick={handleDownloadMaterials}
@@ -527,18 +543,32 @@ export function SuccessScreen({ subdomain, onGoToWebsite, businessData, subscrip
               </span>
             )}
           </div>
+
+          {onContinueToDataImport && (
+            <div className="mt-8">
+              <Button
+                variant="outline"
+                size="lg"
+                className="rounded-xl border-[#0A1128]/20 px-10 py-6 text-[#0A1128] hover:bg-[#F8F7F5]"
+                onClick={onContinueToDataImport}
+              >
+                Continue to Data Import
+                <Download className="w-5 h-5 ml-2" />
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
       {/* Marketing Kit Generator Section */}
-      {isProfessional && businessData && (
+      {hasMarketingAccess && businessData && (
         <div>
           <MarketingStudio businessData={businessData} />
         </div>
       )}
 
       {/* Upgrade prompt for non-Professional subscribers */}
-      {!isProfessional && (
+      {!hasMarketingAccess && (
         <Card className="border-[#0A1128]/10 shadow-lg rounded-2xl overflow-hidden">
           <CardContent className="p-8 text-center">
             <div className="w-16 h-16 rounded-full bg-[#0A1128]/5 flex items-center justify-center mx-auto mb-4">

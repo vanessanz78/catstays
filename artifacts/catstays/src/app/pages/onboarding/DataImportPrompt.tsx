@@ -34,25 +34,25 @@ export function DataImportPrompt({ onImport, onSkip }: DataImportPromptProps) {
         <CardContent className="p-12">
           {/* What You Can Import */}
           <div className="grid md:grid-cols-3 gap-6 mb-10">
-            <div className="text-center p-6 rounded-2xl bg-gradient-to-br from-blue-50 to-[#F8F7F5] border border-blue-100">
-              <div className="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-4">
-                <Users className="w-7 h-7 text-blue-600" />
+            <div className="text-center p-6 rounded-2xl bg-gradient-to-br from-[#F8F7F5] to-white border border-[#C46A3A]/20">
+              <div className="w-14 h-14 rounded-full bg-[#C46A3A]/10 flex items-center justify-center mx-auto mb-4">
+                <Users className="w-7 h-7 text-[#C46A3A]" />
               </div>
               <h3 className="font-semibold text-[#0A1128] mb-2">Customers</h3>
               <p className="text-sm text-[#0A1128]/60">Contact details & history</p>
             </div>
 
-            <div className="text-center p-6 rounded-2xl bg-gradient-to-br from-green-50 to-[#F8F7F5] border border-green-100">
-              <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
-                <Cat className="w-7 h-7 text-green-600" />
+            <div className="text-center p-6 rounded-2xl bg-gradient-to-br from-[#F8F7F5] to-white border border-[#0A1128]/10">
+              <div className="w-14 h-14 rounded-full bg-[#0A1128]/10 flex items-center justify-center mx-auto mb-4">
+                <Cat className="w-7 h-7 text-[#0A1128]" />
               </div>
               <h3 className="font-semibold text-[#0A1128] mb-2">Pets</h3>
               <p className="text-sm text-[#0A1128]/60">Profiles & preferences</p>
             </div>
 
-            <div className="text-center p-6 rounded-2xl bg-gradient-to-br from-purple-50 to-[#F8F7F5] border border-purple-100">
-              <div className="w-14 h-14 rounded-full bg-purple-100 flex items-center justify-center mx-auto mb-4">
-                <Calendar className="w-7 h-7 text-purple-600" />
+            <div className="text-center p-6 rounded-2xl bg-gradient-to-br from-[#F8F7F5] to-white border border-[#8A6F4D]/20">
+              <div className="w-14 h-14 rounded-full bg-[#8A6F4D]/10 flex items-center justify-center mx-auto mb-4">
+                <Calendar className="w-7 h-7 text-[#8A6F4D]" />
               </div>
               <h3 className="font-semibold text-[#0A1128] mb-2">Bookings</h3>
               <p className="text-sm text-[#0A1128]/60">Past & upcoming stays</p>

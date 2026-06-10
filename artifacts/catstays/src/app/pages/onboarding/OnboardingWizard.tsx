@@ -1,9 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { Elements } from '@stripe/react-stripe-js';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/utils/supabase/client';
-import { getStripe, stripeConfigured, stripeLiveMode } from '@/utils/stripe';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
@@ -12,7 +10,6 @@ import { Progress } from '../../components/ui/progress';
 import { Badge } from '../../components/ui/badge';
 import { Textarea } from '../../components/ui/textarea';
 import { AddressAutocomplete } from '../../components/AddressAutocomplete';
-import { PaymentForm } from '../../components/PaymentForm';
 import { 
   Sparkles, 
   Calendar, 
@@ -43,7 +40,6 @@ import {
   FileText,
   Link as LinkIcon,
   ChevronRight,
-  Mail,
   PawPrint,
   Copy,
   Share2,
@@ -57,14 +53,99 @@ import { WebsiteBuilder } from './WebsiteBuilder';
 import { SuccessScreen } from './SuccessScreen';
 import { DataImportPrompt } from './DataImportPrompt';
 import { DataImportFlow } from './DataImportFlow';
-import { ResendEmailButton } from './ResendEmailButton';
 import { BookingRulesForm } from './BookingRulesForm';
 import { DashboardPreviewStep } from './DashboardPreviewStep';
 import { FullWebsitePreview } from './FullWebsitePreview';
 
 const logoIcon = '/assets/b463d12091f20e48be52186dedd2a0f6707d0b66.png';
 
-const stripePromise = getStripe();
+type PlanTier = 'starter' | 'professional' | 'premium';
+
+const planDetails: Record<PlanTier, {
+  name: string;
+  price: number;
+  description: string;
+  badge?: string;
+  features: string[];
+}> = {
+  starter: {
+    name: 'Starter',
+    price: 49,
+    description: 'A calm, simple way to launch your cattery online.',
+    features: [
+      'Booking-ready cattery website',
+      'Dashboard to manage bookings',
+      'Customer communication tools',
+      'Payment request setup',
+      'Availability and room setup',
+    ],
+  },
+  professional: {
+    name: 'Professional',
+    price: 79,
+    description: 'For catteries ready to give customers more self-service.',
+    badge: 'Most Popular',
+    features: [
+      'Everything in Starter',
+      'Client portal logins',
+      'Customer-managed bookings',
+      'Photo updates and reminders',
+      'Reports for bookings and revenue',
+    ],
+  },
+  premium: {
+    name: 'Premium',
+    price: 99,
+    description: 'For established catteries that want the complete growth toolkit.',
+    badge: 'Complete',
+    features: [
+      'Everything in Professional',
+      'Custom domain request workflow',
+      'Marketing kit and social assets',
+      'Accounting and financial tools',
+      'Advanced reports',
+    ],
+  },
+};
+
+const templateCards = [
+  {
+    id: 'boutique-luxury',
+    name: 'Boutique Luxury',
+    description: 'Editorial hero, refined rooms, calm premium feel',
+    image: 'https://images.unsplash.com/photo-1518791841217-8f162f1e1131?w=900&h=600&fit=crop',
+  },
+  {
+    id: 'clean-modern',
+    name: 'Clean Modern',
+    description: 'Spacious sections, clear booking paths, minimal UI',
+    image: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=900&h=600&fit=crop',
+  },
+  {
+    id: 'playful-family',
+    name: 'Warm Family',
+    description: 'Friendly photography, reassuring copy, easy booking',
+    image: 'https://images.unsplash.com/photo-1543852786-1cf6624b9987?w=900&h=600&fit=crop',
+  },
+  {
+    id: 'image-focused',
+    name: 'Image Led',
+    description: 'Full-bleed gallery sections for beautiful facilities',
+    image: 'https://images.unsplash.com/photo-1573865526739-10c1de0e0ef2?w=900&h=600&fit=crop',
+  },
+  {
+    id: 'split-layout',
+    name: 'Split Story',
+    description: 'Strong storytelling beside real cattery images',
+    image: 'https://images.unsplash.com/photo-1495360010541-f48722b34f7d?w=900&h=600&fit=crop',
+  },
+  {
+    id: 'classic-service',
+    name: 'Classic Service',
+    description: 'Structured service layout for established catteries',
+    image: 'https://images.unsplash.com/photo-1574144611937-0df059b5ef3e?w=900&h=600&fit=crop',
+  },
+];
 
 export function OnboardingWizard() {
   const navigate = useNavigate();
@@ -72,14 +153,11 @@ export function OnboardingWizard() {
   const [step, setStep] = useState(1);
   const totalSteps = 9; // Account, Cattery Details, Website Builder, Booking Setup, Website Preview, Choose Plan, Publish, Success, Data Import
   const [accountCreated, setAccountCreated] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
   const [showDataImportFlow, setShowDataImportFlow] = useState(false);
   const [showTemplateSelection, setShowTemplateSelection] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
-  const [paymentMethodId, setPaymentMethodId] = useState<string | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState<'starter' | 'professional'>('professional');
-  const paymentFormRef = useRef<any>(null);
+  const [selectedPlan, setSelectedPlan] = useState<PlanTier>('professional');
 
   const [data, setData] = useState<any>({
     // Step 1 - Account Creation
@@ -315,8 +393,6 @@ export function OnboardingWizard() {
     }
 
     setAccountCreated(true);
-    setEmailSent(true);
-
     localStorage.setItem('catstays_account', JSON.stringify({
       name: data.name,
       email: data.email,
@@ -325,6 +401,7 @@ export function OnboardingWizard() {
     }));
 
     handleSaveProgress();
+    setStep(2);
   };
 
   const handleImportWebsite = async () => {
@@ -738,39 +815,39 @@ export function OnboardingWizard() {
   const handleTemplateSelect = (template: string) => {
     const templateConfig = {
       'boutique-luxury': {
-        primaryColor: '#5a5a5a',
-        accentColor: '#d4a574',
-        backgroundColor: '#faf9f7',
+        primaryColor: '#0A1128',
+        accentColor: '#C46A3A',
+        backgroundColor: '#F8F7F5',
         typography: 'playfair'
       },
       'clean-modern': {
-        primaryColor: '#4a90e2',
-        accentColor: '#6db3f2',
-        backgroundColor: '#ffffff',
+        primaryColor: '#18233F',
+        accentColor: '#B86A3F',
+        backgroundColor: '#FFFFFF',
         typography: 'inter'
       },
       'playful-family': {
-        primaryColor: '#ff6b6b',
-        accentColor: '#feca57',
-        backgroundColor: '#fff5e6',
+        primaryColor: '#0A1128',
+        accentColor: '#D98C6A',
+        backgroundColor: '#FAF7F2',
         typography: 'nunito'
       },
       'image-focused': {
-        primaryColor: '#2d8659',
-        accentColor: '#45b883',
-        backgroundColor: '#f0f9f4',
+        primaryColor: '#1D2A3F',
+        accentColor: '#8A6F4D',
+        backgroundColor: '#F8F7F5',
         typography: 'inter'
       },
       'split-layout': {
-        primaryColor: '#6c5ce7',
-        accentColor: '#a29bfe',
-        backgroundColor: '#f8f7ff',
+        primaryColor: '#243044',
+        accentColor: '#C46A3A',
+        backgroundColor: '#F6F2EA',
         typography: 'poppins'
       },
       'classic-service': {
-        primaryColor: '#475569',
-        accentColor: '#94a3b8',
-        backgroundColor: '#f8fafc',
+        primaryColor: '#0A1128',
+        accentColor: '#9B7653',
+        backgroundColor: '#F8F7F5',
         typography: 'inter'
       }
     };
@@ -822,7 +899,7 @@ export function OnboardingWizard() {
 
       // Update subscription status — persist the chosen plan tier
       if (cattery?.id) {
-        const trialStatus = selectedPlan === 'professional' ? 'trial_professional' : 'trial_starter';
+        const trialStatus = `trial_${selectedPlan}`;
         await supabase
           .from('catteries')
           .update({ subscription_status: trialStatus })
@@ -997,7 +1074,7 @@ export function OnboardingWizard() {
                         autoComplete="email"
                       />
                       <p className="text-xs text-forest/60 mt-2">
-                        We'll send you a confirmation email to verify your account
+                        We'll use this for your login and send the confirmation after setup.
                       </p>
                     </div>
 
@@ -1018,23 +1095,23 @@ export function OnboardingWizard() {
                     </div>
 
                     <div className="bg-cream-dark rounded-2xl p-6 mt-4">
-                      <h4 className="font-semibold text-forest mb-3">What you'll get:</h4>
+                      <h4 className="font-semibold text-forest mb-3">Your trial includes:</h4>
                       <ul className="space-y-2 text-sm text-forest/70">
                         <li className="flex items-center gap-2">
                           <Check className="w-4 h-4 text-sage" />
-                          <span>Custom branded booking website</span>
+                          <span>Full access to every CatStays feature for 14 days</span>
                         </li>
                         <li className="flex items-center gap-2">
                           <Check className="w-4 h-4 text-sage" />
-                          <span>Mobile dashboard for managing bookings</span>
+                          <span>Premium website, dashboard, customer portal, and marketing tools</span>
                         </li>
                         <li className="flex items-center gap-2">
                           <Check className="w-4 h-4 text-sage" />
-                          <span>Online payment processing</span>
+                          <span>Booking, payment, and customer communication setup</span>
                         </li>
                         <li className="flex items-center gap-2">
                           <Check className="w-4 h-4 text-sage" />
-                          <span>14-day free trial, no credit card required</span>
+                          <span>No credit card required to start</span>
                         </li>
                       </ul>
                     </div>
@@ -1070,73 +1147,31 @@ export function OnboardingWizard() {
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-4 text-center py-6 px-4">
-                    {/* Top Icon - CatStays Logo */}
+                  <div className="space-y-5 text-center py-6 px-4">
                     <div className="relative w-24 h-24 mx-auto mb-2">
-                      <div className="absolute inset-0 bg-gradient-to-br from-[#C46A3A]/20 to-[#0A1128]/10 rounded-full blur-xl animate-pulse"></div>
-                      <div className="relative w-24 h-24 rounded-full bg-gradient-to-br from-[#F8F7F5] to-[#F8F7F5] flex items-center justify-center border-2 border-[#C46A3A]/20 shadow-sm">
+                      <div className="absolute inset-0 bg-gradient-to-br from-[#C46A3A]/20 to-[#0A1128]/10 rounded-full blur-xl"></div>
+                      <div className="relative w-24 h-24 rounded-full bg-[#F8F7F5] flex items-center justify-center border-2 border-[#C46A3A]/20 shadow-sm">
                         <img src={logoIcon} alt="CatStays" className="w-16 h-16" />
                       </div>
                     </div>
-                    
-                    {/* Headline */}
+
                     <div>
                       <h3 className="text-3xl font-serif font-semibold text-[#0A1128] mb-3" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
-                        Account created
+                        Account ready
                       </h3>
-                      <p className="text-lg text-[#0A1128]/70 mb-4">
-                        You're one step closer to launching your cattery online
+                      <p className="text-lg text-[#0A1128]/70">
+                        Keep going while the setup is fresh. We will handle email confirmation at the end.
                       </p>
-                      
-                      {/* Email Display */}
-                      <div className="mb-4">
-                        <p className="text-sm text-[#0A1128]/50 mb-1">
-                          Confirmation sent to
-                        </p>
-                        <p className="text-lg font-semibold text-[#C46A3A]">
-                          {data.email}
-                        </p>
-                      </div>
                     </div>
 
-                    {/* Email Section - Soft Info Card */}
-                    <div className="bg-[#F8F7F5] border-2 border-[#C46A3A]/20 rounded-2xl p-6 text-left">
-                      <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 rounded-full bg-[#C46A3A]/10 flex items-center justify-center flex-shrink-0">
-                          <Mail className="w-6 h-6 text-[#C46A3A]" />
-                        </div>
-                        <div className="flex-1">
-                          <h4 className="font-semibold text-[#0A1128] mb-2 text-base">Check your email to confirm your account</h4>
-                          <p className="text-sm text-[#0A1128]/70 leading-relaxed">
-                            We've sent you a secure link to verify your email. Click the link to continue setting up your cattery.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Secondary Text */}
-                    <p className="text-sm text-[#0A1128]/50 italic">
-                      Can't find it? Check your spam folder or continue and confirm later
-                    </p>
-
-                    {/* CTA Button */}
-                    <div className="space-y-3 pt-2">
-                      <Button 
-                        onClick={handleNext}
-                        size="lg"
-                        className="w-full bg-[#C46A3A] hover:bg-[#A85A30] text-white rounded-xl py-7 text-lg shadow-lg transition-all duration-200 hover:shadow-xl hover:scale-[1.02]"
-                      >
-                        Continue Setup →
-                      </Button>
-                      
-                      {/* Microcopy under button */}
-                      <p className="text-xs text-[#0A1128]/50 italic">
-                        This will only take a couple of minutes
-                      </p>
-                      
-                      {/* Resend Email Link */}
-                      <ResendEmailButton email={data.email} />
-                    </div>
+                    <Button
+                      onClick={handleNext}
+                      size="lg"
+                      className="w-full bg-[#C46A3A] hover:bg-[#A85A30] text-white rounded-xl py-7 text-lg shadow-lg"
+                    >
+                      Continue Setup
+                      <ArrowRight className="w-5 h-5 ml-2" />
+                    </Button>
                   </div>
                 )}
               </CardContent>
@@ -1176,7 +1211,7 @@ export function OnboardingWizard() {
                       id="location"
                       placeholder="Start typing your address..."
                       value={data.location}
-                      onChange={(value) => setData({ ...data, location: value })}
+                      onChange={(value) => setData({ ...data, location: value, address: data.address || value })}
                       className="rounded-xl h-12 text-lg"
                     />
                     <p className="text-xs text-forest/60 mt-2">
@@ -1347,144 +1382,42 @@ export function OnboardingWizard() {
               <CardContent className="p-8">
                 {/* Template Grid */}
                 <div className="grid md:grid-cols-3 gap-6 mb-8">
-                  {/* Template 1: Boutique Luxury */}
-                  <button
-                    onClick={() => handleTemplateSelect('boutique-luxury')}
-                    className="group relative bg-white rounded-2xl border-2 border-sage/20 hover:border-sage hover:shadow-xl transition-all duration-300 overflow-hidden"
-                  >
-                    <div className="aspect-[4/3] bg-gradient-to-br from-stone-100 to-stone-50 p-6 flex items-center justify-center">
-                      <div className="text-center space-y-2">
-                        <div className="text-4xl font-serif text-stone-800">Aa</div>
-                        <div className="w-32 h-1 bg-stone-300 mx-auto"></div>
-                        <div className="text-xs text-stone-500">Elegant • Minimal</div>
-                      </div>
-                    </div>
-                    <div className="p-4 bg-white">
-                      <h3 className="font-semibold text-forest mb-1">Boutique Luxury</h3>
-                      <p className="text-sm text-forest/70">Large hero, elegant serif headings, minimal layout</p>
-                    </div>
-                    <div className="absolute inset-0 bg-sage/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
-                  </button>
-
-                  {/* Template 2: Clean Modern */}
-                  <button
-                    onClick={() => handleTemplateSelect('clean-modern')}
-                    className="group relative bg-white rounded-2xl border-2 border-sage/20 hover:border-sage hover:shadow-xl transition-all duration-300 overflow-hidden"
-                  >
-                    <div className="aspect-[4/3] bg-gradient-to-br from-blue-50 to-white p-6 flex items-center justify-center">
-                      <div className="space-y-3 w-full">
-                        <div className="flex gap-2">
-                          <div className="w-16 h-16 bg-blue-200 rounded"></div>
-                          <div className="flex-1 space-y-2">
-                            <div className="h-3 bg-blue-200 rounded w-3/4"></div>
-                            <div className="h-3 bg-blue-100 rounded w-1/2"></div>
+                  {templateCards.map((template) => (
+                    <button
+                      key={template.id}
+                      onClick={() => handleTemplateSelect(template.id)}
+                      className="group relative bg-white rounded-2xl border-2 border-sage/20 hover:border-[#C46A3A] hover:shadow-xl transition-all duration-300 overflow-hidden text-left"
+                    >
+                      <div className="aspect-[4/3] bg-[#F8F7F5] p-4">
+                        <div className="h-full rounded-xl overflow-hidden border border-[#0A1128]/10 shadow-sm bg-white">
+                          <div className="h-6 bg-white border-b border-[#0A1128]/10 flex items-center gap-1.5 px-3">
+                            <span className="w-2 h-2 rounded-full bg-[#C46A3A]"></span>
+                            <span className="w-2 h-2 rounded-full bg-[#D8C7B6]"></span>
+                            <span className="w-2 h-2 rounded-full bg-[#0A1128]"></span>
+                          </div>
+                          <div className="relative h-[58%]">
+                            <img src={template.image} alt="" className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-[#0A1128]/45"></div>
+                            <div className="absolute inset-x-4 bottom-4 text-white">
+                              <div className="h-2 w-16 bg-white/80 rounded-full mb-3"></div>
+                              <div className="h-4 w-36 max-w-full bg-white rounded-sm"></div>
+                              <div className="h-2 w-24 bg-white/70 rounded-full mt-3"></div>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2 p-3">
+                            <span className="h-8 rounded-lg bg-[#F8F7F5] border border-[#C46A3A]/10"></span>
+                            <span className="h-8 rounded-lg bg-[#F8F7F5] border border-[#C46A3A]/10"></span>
+                            <span className="h-8 rounded-lg bg-[#F8F7F5] border border-[#C46A3A]/10"></span>
                           </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div className="h-12 bg-blue-100 rounded"></div>
-                          <div className="h-12 bg-blue-100 rounded"></div>
-                        </div>
                       </div>
-                    </div>
-                    <div className="p-4 bg-white">
-                      <h3 className="font-semibold text-forest mb-1">Clean Modern</h3>
-                      <p className="text-sm text-forest/70">Simple grid, sans-serif fonts, balanced spacing</p>
-                    </div>
-                    <div className="absolute inset-0 bg-sage/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
-                  </button>
-
-                  {/* Template 3: Playful Family */}
-                  <button
-                    onClick={() => handleTemplateSelect('playful-family')}
-                    className="group relative bg-white rounded-2xl border-2 border-sage/20 hover:border-sage hover:shadow-xl transition-all duration-300 overflow-hidden"
-                  >
-                    <div className="aspect-[4/3] bg-gradient-to-br from-orange-50 to-pink-50 p-6 flex items-center justify-center">
-                      <div className="text-center space-y-3">
-                        <div className="flex gap-2 justify-center">
-                          <div className="w-12 h-12 bg-orange-300 rounded-full"></div>
-                          <div className="w-12 h-12 bg-pink-300 rounded-full"></div>
-                        </div>
-                        <div className="text-2xl font-bold text-orange-600">😺</div>
-                        <div className="space-y-1">
-                          <div className="h-2 bg-orange-200 rounded-full w-24 mx-auto"></div>
-                          <div className="h-2 bg-pink-200 rounded-full w-16 mx-auto"></div>
-                        </div>
+                      <div className="p-4 bg-white min-h-[116px]">
+                        <h3 className="font-semibold text-forest mb-1">{template.name}</h3>
+                        <p className="text-sm text-forest/70 leading-snug">{template.description}</p>
                       </div>
-                    </div>
-                    <div className="p-4 bg-white">
-                      <h3 className="font-semibold text-forest mb-1">Playful Family</h3>
-                      <p className="text-sm text-forest/70">Bright colors, rounded elements, friendly typography</p>
-                    </div>
-                    <div className="absolute inset-0 bg-sage/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
-                  </button>
-
-                  {/* Template 4: Image Focused */}
-                  <button
-                    onClick={() => handleTemplateSelect('image-focused')}
-                    className="group relative bg-white rounded-2xl border-2 border-sage/20 hover:border-sage hover:shadow-xl transition-all duration-300 overflow-hidden"
-                  >
-                    <div className="aspect-[4/3] bg-gradient-to-br from-emerald-100 to-teal-50 p-6">
-                      <div className="space-y-2">
-                        <div className="h-20 bg-emerald-300 rounded"></div>
-                        <div className="grid grid-cols-3 gap-2">
-                          <div className="h-12 bg-emerald-200 rounded"></div>
-                          <div className="h-12 bg-teal-200 rounded"></div>
-                          <div className="h-12 bg-emerald-200 rounded"></div>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="p-4 bg-white">
-                      <h3 className="font-semibold text-forest mb-1">Image Focused</h3>
-                      <p className="text-sm text-forest/70">Full-width photography, gallery-heavy, minimal text</p>
-                    </div>
-                    <div className="absolute inset-0 bg-sage/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
-                  </button>
-
-                  {/* Template 5: Split Layout */}
-                  <button
-                    onClick={() => handleTemplateSelect('split-layout')}
-                    className="group relative bg-white rounded-2xl border-2 border-sage/20 hover:border-sage hover:shadow-xl transition-all duration-300 overflow-hidden"
-                  >
-                    <div className="aspect-[4/3] bg-gradient-to-br from-purple-50 to-indigo-50 p-6">
-                      <div className="grid grid-cols-2 gap-3 h-full">
-                        <div className="space-y-2">
-                          <div className="h-3 bg-purple-200 rounded w-3/4"></div>
-                          <div className="h-2 bg-purple-100 rounded"></div>
-                          <div className="h-2 bg-purple-100 rounded w-5/6"></div>
-                          <div className="h-2 bg-purple-100 rounded w-2/3"></div>
-                        </div>
-                        <div className="bg-indigo-200 rounded"></div>
-                      </div>
-                    </div>
-                    <div className="p-4 bg-white">
-                      <h3 className="font-semibold text-forest mb-1">Split Layout</h3>
-                      <p className="text-sm text-forest/70">Text left, image right, structured sections</p>
-                    </div>
-                    <div className="absolute inset-0 bg-sage/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
-                  </button>
-
-                  {/* Template 6: Classic Service */}
-                  <button
-                    onClick={() => handleTemplateSelect('classic-service')}
-                    className="group relative bg-white rounded-2xl border-2 border-sage/20 hover:border-sage hover:shadow-xl transition-all duration-300 overflow-hidden"
-                  >
-                    <div className="aspect-[4/3] bg-gradient-to-br from-slate-100 to-gray-50 p-6">
-                      <div className="space-y-2">
-                        <div className="h-4 bg-slate-300 rounded w-1/2 mx-auto"></div>
-                        <div className="h-12 bg-slate-200 rounded"></div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div className="h-8 bg-slate-100 rounded"></div>
-                          <div className="h-8 bg-slate-100 rounded"></div>
-                        </div>
-                        <div className="h-8 bg-slate-200 rounded"></div>
-                      </div>
-                    </div>
-                    <div className="p-4 bg-white">
-                      <h3 className="font-semibold text-forest mb-1">Classic Service</h3>
-                      <p className="text-sm text-forest/70">Traditional stacked layout, familiar structure</p>
-                    </div>
-                    <div className="absolute inset-0 bg-sage/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
-                  </button>
+                      <div className="absolute inset-0 bg-[#C46A3A]/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                    </button>
+                  ))}
                 </div>
 
                 {/* Reassurance message */}
@@ -1658,83 +1591,57 @@ export function OnboardingWizard() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-8">
-                <div className="grid md:grid-cols-2 gap-6 mb-8">
-                  {/* Starter Plan */}
-                  <button
-                    type="button"
-                    onClick={() => setSelectedPlan('starter')}
-                    className={`text-left rounded-2xl border-2 p-6 transition-all focus:outline-none ${
-                      selectedPlan === 'starter'
-                        ? 'border-sage bg-sage/5 ring-2 ring-sage/30'
-                        : 'border-forest/10 hover:border-sage/40 bg-white'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-4">
-                      <span className="text-lg font-semibold text-forest">Starter</span>
-                      {selectedPlan === 'starter' && (
-                        <span className="bg-sage text-white text-xs font-semibold px-2 py-1 rounded-full">Selected</span>
-                      )}
-                    </div>
-                    <div className="mb-4">
-                      <span className="text-4xl font-bold text-forest">$29</span>
-                      <span className="text-forest/60 ml-1">NZD/month</span>
-                    </div>
-                    <ul className="space-y-2 text-sm text-forest/80">
-                      {[
-                        'Online booking system',
-                        'Customer portal',
-                        'Calendar & room management',
-                        'Automated invoicing',
-                        'Mobile-friendly dashboard',
-                        '1 staff account',
-                      ].map((f) => (
-                        <li key={f} className="flex items-center gap-2">
-                          <Check className="w-4 h-4 text-sage flex-shrink-0" />
-                          {f}
-                        </li>
-                      ))}
-                    </ul>
-                  </button>
+                <div className="mb-6 rounded-2xl bg-[#F8F7F5] border border-[#C46A3A]/20 p-5 text-center">
+                  <p className="text-sm font-semibold text-[#0A1128]">
+                    Every trial starts with full Premium access for 14 days. Your selected plan only applies after the trial.
+                  </p>
+                </div>
 
-                  {/* Professional Plan */}
-                  <button
-                    type="button"
-                    onClick={() => setSelectedPlan('professional')}
-                    className={`text-left rounded-2xl border-2 p-6 transition-all focus:outline-none relative ${
-                      selectedPlan === 'professional'
-                        ? 'border-terracotta bg-terracotta/5 ring-2 ring-terracotta/30'
-                        : 'border-forest/10 hover:border-terracotta/40 bg-white'
-                    }`}
-                  >
-                    <div className="absolute -top-3 left-6">
-                      <span className="bg-terracotta text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">Most Popular</span>
-                    </div>
-                    <div className="flex items-center justify-between mb-4 mt-2">
-                      <span className="text-lg font-semibold text-forest">Professional</span>
-                      {selectedPlan === 'professional' && (
-                        <span className="bg-terracotta text-white text-xs font-semibold px-2 py-1 rounded-full">Selected</span>
-                      )}
-                    </div>
-                    <div className="mb-4">
-                      <span className="text-4xl font-bold text-forest">$49</span>
-                      <span className="text-forest/60 ml-1">NZD/month</span>
-                    </div>
-                    <ul className="space-y-2 text-sm text-forest/80">
-                      {[
-                        'Everything in Starter',
-                        'Unlimited staff accounts',
-                        'Revenue analytics & reports',
-                        'Custom domain support',
-                        'Priority email support',
-                        'Marketing materials kit',
-                      ].map((f) => (
-                        <li key={f} className="flex items-center gap-2">
-                          <Check className="w-4 h-4 text-terracotta flex-shrink-0" />
-                          {f}
-                        </li>
-                      ))}
-                    </ul>
-                  </button>
+                <div className="grid lg:grid-cols-3 gap-6 mb-8 items-stretch">
+                  {(Object.entries(planDetails) as Array<[PlanTier, typeof planDetails[PlanTier]]>).map(([tier, plan]) => {
+                    const isSelected = selectedPlan === tier;
+                    return (
+                      <button
+                        key={tier}
+                        type="button"
+                        onClick={() => setSelectedPlan(tier)}
+                        className={`text-left rounded-2xl border-2 p-6 transition-all focus:outline-none relative h-full flex flex-col ${
+                          isSelected
+                            ? 'border-[#C46A3A] bg-[#C46A3A]/5 ring-2 ring-[#C46A3A]/20'
+                            : 'border-forest/10 hover:border-[#C46A3A]/40 bg-white'
+                        }`}
+                      >
+                        {plan.badge && (
+                          <div className="absolute -top-3 left-6">
+                            <span className="bg-[#C46A3A] text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+                              {plan.badge}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex items-start justify-between gap-3 mb-4 mt-1">
+                          <div>
+                            <span className="text-xl font-semibold text-forest block">{plan.name}</span>
+                            <p className="text-sm text-forest/60 mt-2 leading-snug">{plan.description}</p>
+                          </div>
+                          {isSelected && (
+                            <span className="bg-[#C46A3A] text-white text-xs font-semibold px-2 py-1 rounded-full">Selected</span>
+                          )}
+                        </div>
+                        <div className="mb-5">
+                          <span className="text-4xl font-bold text-forest">${plan.price}</span>
+                          <span className="text-forest/60 ml-1">NZD/month</span>
+                        </div>
+                        <ul className="space-y-2 text-sm text-forest/80 flex-1">
+                          {plan.features.map((feature) => (
+                            <li key={feature} className="flex items-start gap-2">
+                              <Check className="w-4 h-4 text-[#C46A3A] flex-shrink-0 mt-0.5" />
+                              <span>{feature}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </button>
+                    );
+                  })}
                 </div>
 
                 <div className="flex justify-between mt-4">
@@ -1750,7 +1657,7 @@ export function OnboardingWizard() {
                     onClick={handleNext}
                     className="bg-gradient-to-r from-sage to-sage-dark hover:opacity-90 text-white rounded-xl px-8 shadow-lg"
                   >
-                    Continue with {selectedPlan === 'professional' ? 'Professional' : 'Starter'}
+                    Continue with {planDetails[selectedPlan].name}
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
                 </div>
@@ -1811,58 +1718,40 @@ export function OnboardingWizard() {
                       <Check className="w-5 h-5 text-[#C46A3A] mt-0.5" />
                       <div>
                         <h4 className="font-semibold text-[#0A1128] mb-2">
-                          14-Day Free Trial — {selectedPlan === 'professional' ? 'Professional ($49 NZD/mo)' : 'Starter ($29 NZD/mo)'}
+                          14-Day Full-Access Trial
                         </h4>
                         <ul className="space-y-1 text-sm text-[#0A1128]/80">
-                          <li>✓ Full access to all features</li>
-                          <li>✓ Credit card required (not charged today)</li>
-                          <li>✓ Cancel anytime before day 15</li>
-                          <li>✓ Auto-billed ${selectedPlan === 'professional' ? '49' : '29'} NZD/month after trial</li>
+                          <li>✓ Premium features unlocked during the trial</li>
+                          <li>✓ No credit card required to publish today</li>
+                          <li>✓ Selected plan after trial: {planDetails[selectedPlan].name} (${planDetails[selectedPlan].price} NZD/month)</li>
+                          <li>✓ Upgrade or change plans anytime from your dashboard</li>
                         </ul>
                       </div>
                     </div>
                   </div>
 
-                  {/* Payment Form - Wrapped in Stripe Elements */}
-                  <div className="relative">
-                    {/* Prominent Section Header */}
-                    <div className="mb-6">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="w-12 h-12 rounded-2xl bg-[#0A1128] flex items-center justify-center shadow-lg">
-                          <CreditCard className="w-6 h-6 text-white" />
-                        </div>
-                        <div>
-                          <h3 className="text-2xl font-semibold text-[#0A1128]">
-                            Payment Information
-                          </h3>
-                          <p className="text-sm text-[#0A1128]/60">Secure checkout • No charge today</p>
-                        </div>
+                  <div className="bg-white border-2 border-[#0A1128]/10 rounded-2xl p-6 shadow-sm">
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 rounded-2xl bg-[#0A1128] flex items-center justify-center shadow-lg flex-shrink-0">
+                        <CreditCard className="w-6 h-6 text-white" />
                       </div>
-                      <div className="h-px bg-gradient-to-r from-[#0A1128]/20 via-[#C46A3A]/20 to-transparent"></div>
-                    </div>
-
-                    {/* Payment Form Card */}
-                    <div className="bg-white border-2 border-[#0A1128]/10 rounded-2xl p-6 shadow-sm">
-                      <Elements stripe={stripePromise}>
-                        <PaymentForm
-                          ref={paymentFormRef}
-                          onPaymentMethodCreated={(id) => {
-                            setPaymentMethodId(id);
-                            setPaymentError(null);
-                          }}
-                          onError={(error) => setPaymentError(error)}
-                          isProcessing={isProcessingPayment}
-                        />
-                      </Elements>
-                    </div>
-
-                    {paymentError && (
-                      <div className="mt-4 p-4 bg-red-50 border-2 border-red-200 rounded-xl flex items-start gap-3">
-                        <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
-                        <p className="text-sm text-red-800 font-medium">{paymentError}</p>
+                      <div>
+                        <h3 className="text-xl font-semibold text-[#0A1128] mb-2">
+                          Billing and Stripe setup come next
+                        </h3>
+                        <p className="text-sm text-[#0A1128]/70 leading-relaxed">
+                          You can publish the trial now. From the dashboard, connect Stripe for customer payments and add billing before the trial ends.
+                        </p>
                       </div>
-                    )}
+                    </div>
                   </div>
+
+                  {paymentError && (
+                    <div className="p-4 bg-red-50 border-2 border-red-200 rounded-xl flex items-start gap-3">
+                      <AlertCircle className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+                      <p className="text-sm text-red-800 font-medium">{paymentError}</p>
+                    </div>
+                  )}
 
                   {/* Divider */}
                   <div className="relative py-4">
@@ -1884,7 +1773,7 @@ export function OnboardingWizard() {
                         <div className="w-6 h-6 rounded-full bg-sage/20 flex items-center justify-center text-sage text-sm font-bold flex-shrink-0">
                           2
                         </div>
-                        <p className="text-sm text-forest/70">We'll email you login details for your dashboard</p>
+                        <p className="text-sm text-forest/70">We'll send your email confirmation after setup</p>
                       </div>
                       <div className="flex items-start gap-3">
                         <div className="w-6 h-6 rounded-full bg-sage/20 flex items-center justify-center text-sage text-sm font-bold flex-shrink-0">
@@ -1932,13 +1821,11 @@ export function OnboardingWizard() {
         {step === 8 && (
           <SuccessScreen 
             subdomain={data.subdomain}
-            onGoToWebsite={() => setStep(9)}
+            onGoToWebsite={() => window.open(`https://${data.subdomain}.catstays.app`, '_blank', 'noopener,noreferrer')}
+            onContinueToDataImport={() => setStep(9)}
             businessData={data}
-            subscriptionTier={
-              cattery?.subscription_status?.includes('professional')
-                ? 'professional'
-                : 'starter'
-            }
+            subscriptionTier={selectedPlan}
+            trialFullAccess
           />
         )}
 

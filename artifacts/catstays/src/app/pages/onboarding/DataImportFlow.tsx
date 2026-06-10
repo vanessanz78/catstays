@@ -197,10 +197,10 @@ export function DataImportFlow({ onComplete, onCancel }: DataImportFlowProps) {
                   <p className="text-sm text-[#0A1128]/50 mt-4">CSV files only (.csv)</p>
                 </>
               ) : (
-                <div className="flex items-center justify-between bg-gradient-to-br from-green-50 to-[#F8F7F5] rounded-xl p-6 border border-green-200">
+                <div className="flex items-center justify-between bg-gradient-to-br from-[#F8F7F5] to-white rounded-xl p-6 border border-[#C46A3A]/20">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center">
-                      <FileText className="w-6 h-6 text-green-600" />
+                    <div className="w-12 h-12 rounded-full bg-[#C46A3A]/10 flex items-center justify-center">
+                      <FileText className="w-6 h-6 text-[#C46A3A]" />
                     </div>
                     <div className="text-left">
                       <p className="font-semibold text-[#0A1128]">{file.name}</p>
@@ -275,19 +275,19 @@ export function DataImportFlow({ onComplete, onCancel }: DataImportFlowProps) {
           </CardHeader>
 
           <CardContent className="p-8">
-            <div className="grid grid-cols-3 gap-4 mb-8">
-              <div className="bg-gradient-to-br from-blue-50 to-[#F8F7F5] border-2 border-blue-100 rounded-2xl p-6 text-center">
-                <Users className="w-8 h-8 text-blue-600 mx-auto mb-3" />
+            <div className="grid sm:grid-cols-3 gap-4 mb-8">
+              <div className="bg-gradient-to-br from-[#F8F7F5] to-white border-2 border-[#C46A3A]/20 rounded-2xl p-6 text-center">
+                <Users className="w-8 h-8 text-[#C46A3A] mx-auto mb-3" />
                 <p className="text-3xl font-bold text-[#0A1128] mb-1">{parsedData.customers}</p>
                 <p className="text-sm text-[#0A1128]/60">Customers</p>
               </div>
-              <div className="bg-gradient-to-br from-green-50 to-[#F8F7F5] border-2 border-green-100 rounded-2xl p-6 text-center">
-                <Cat className="w-8 h-8 text-green-600 mx-auto mb-3" />
+              <div className="bg-gradient-to-br from-[#F8F7F5] to-white border-2 border-[#0A1128]/10 rounded-2xl p-6 text-center">
+                <Cat className="w-8 h-8 text-[#0A1128] mx-auto mb-3" />
                 <p className="text-3xl font-bold text-[#0A1128] mb-1">{parsedData.pets}</p>
                 <p className="text-sm text-[#0A1128]/60">Pets</p>
               </div>
-              <div className="bg-gradient-to-br from-purple-50 to-[#F8F7F5] border-2 border-purple-100 rounded-2xl p-6 text-center">
-                <Calendar className="w-8 h-8 text-purple-600 mx-auto mb-3" />
+              <div className="bg-gradient-to-br from-[#F8F7F5] to-white border-2 border-[#8A6F4D]/20 rounded-2xl p-6 text-center">
+                <Calendar className="w-8 h-8 text-[#8A6F4D] mx-auto mb-3" />
                 <p className="text-3xl font-bold text-[#0A1128] mb-1">{parsedData.bookings}</p>
                 <p className="text-sm text-[#0A1128]/60">Bookings</p>
               </div>
@@ -312,7 +312,7 @@ export function DataImportFlow({ onComplete, onCancel }: DataImportFlowProps) {
                     <div className="space-y-3">
                       {parsedData.previewRows.map((row, i) => (
                         <div key={i} className="flex items-start gap-3 text-sm">
-                          <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0 mt-1.5"></div>
+                          <div className="w-2 h-2 rounded-full bg-[#C46A3A] flex-shrink-0 mt-1.5"></div>
                           <span className="text-[#0A1128]/70 break-all">{row}</span>
                         </div>
                       ))}
@@ -348,8 +348,8 @@ export function DataImportFlow({ onComplete, onCancel }: DataImportFlowProps) {
         <Card className="max-w-2xl w-full border-[#0A1128]/10 shadow-2xl rounded-3xl overflow-hidden">
           <CardContent className="p-12 text-center">
             <div className="relative w-24 h-24 mx-auto mb-8">
-              <div className="absolute inset-0 bg-gradient-to-br from-green-400/30 to-[#4F6F5A]/30 rounded-full blur-2xl animate-pulse"></div>
-              <div className="relative w-24 h-24 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center shadow-xl">
+              <div className="absolute inset-0 bg-gradient-to-br from-[#C46A3A]/30 to-[#0A1128]/20 rounded-full blur-2xl animate-pulse"></div>
+              <div className="relative w-24 h-24 rounded-full bg-gradient-to-br from-[#C46A3A] to-[#8A6F4D] flex items-center justify-center shadow-xl">
                 <Check className="w-12 h-12 text-white" />
               </div>
             </div>
@@ -364,17 +364,17 @@ export function DataImportFlow({ onComplete, onCancel }: DataImportFlowProps) {
             <div className="bg-gradient-to-br from-[#F8F7F5] to-white border border-[#0A1128]/10 rounded-2xl p-6 mb-8">
               <div className="flex items-center justify-center gap-8 text-center">
                 <div>
-                  <p className="text-2xl font-bold text-blue-600">{parsedData.customers}</p>
+                  <p className="text-2xl font-bold text-[#C46A3A]">{parsedData.customers}</p>
                   <p className="text-sm text-[#0A1128]/60">Customers</p>
                 </div>
                 <div className="w-px h-12 bg-[#0A1128]/10"></div>
                 <div>
-                  <p className="text-2xl font-bold text-green-600">{parsedData.pets}</p>
+                  <p className="text-2xl font-bold text-[#0A1128]">{parsedData.pets}</p>
                   <p className="text-sm text-[#0A1128]/60">Pets</p>
                 </div>
                 <div className="w-px h-12 bg-[#0A1128]/10"></div>
                 <div>
-                  <p className="text-2xl font-bold text-purple-600">{parsedData.bookings}</p>
+                  <p className="text-2xl font-bold text-[#8A6F4D]">{parsedData.bookings}</p>
                   <p className="text-sm text-[#0A1128]/60">Bookings</p>
                 </div>
               </div>

@@ -1304,7 +1304,7 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
                   <div className="space-y-3">
                     <Label className="text-base font-semibold">Address</Label>
                     <Textarea
-                      value={data.address}
+                      value={data.address || data.location || ''}
                       onChange={(e) => setData({ ...data, address: e.target.value })}
                       className="rounded-xl"
                       rows={3}
@@ -1365,9 +1365,9 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
               primaryColor={data.primaryColor || '#0A1128'}
               accentColor={data.accentColor || '#C46A3A'}
               businessName={data.businessName || 'CatStays'}
-              businessAddress={data.businessAddress || '123 Main St, City, State 12345'}
-              businessPhone={data.businessPhone || '(555) 123-4567'}
-              businessEmail={data.businessEmail || 'hello@catstays.app'}
+              businessAddress={data.address || data.location || '123 Main St, City, State 12345'}
+              businessPhone={data.phone || '(555) 123-4567'}
+              businessEmail={data.email || 'hello@catstays.app'}
               businessLogo={data.businessLogo}
               onCreateBooking={() => {
                 // Switch to booking flow - show search view first

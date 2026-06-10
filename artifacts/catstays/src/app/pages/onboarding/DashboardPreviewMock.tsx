@@ -487,7 +487,7 @@ export function DashboardPreviewMock({ businessName = 'Purrfect Haven' }: Dashbo
         className={`absolute top-0 left-0 bottom-0 bg-white shadow-2xl z-50 transform transition-transform duration-300 ${
           menuOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
-        style={{ width: '280px', maxWidth: '75%' }}
+        style={{ width: '280px', maxWidth: '75%', height: '100dvh', maxHeight: '100dvh' }}
       >
         {/* Fixed Header */}
         <div className="sticky top-0 bg-[#0A1128] p-4 border-b border-white/10 z-10">
@@ -498,8 +498,8 @@ export function DashboardPreviewMock({ businessName = 'Purrfect Haven' }: Dashbo
         </div>
 
         {/* Scrollable Menu Content */}
-        <nav className="overflow-y-auto overflow-x-hidden overscroll-contain" style={{ height: 'calc(100% - 80px)' }}>
-          <div className="p-2 pb-6">
+        <nav className="overflow-y-auto overflow-x-hidden overscroll-contain" style={{ height: 'calc(100dvh - 80px)' }}>
+          <div className="p-2 pb-24">
             {menuItems.map((item) => {
               const Icon = item.icon;
               const isActive = currentPage === item.id;
@@ -2690,9 +2690,9 @@ export function DashboardPreviewMock({ businessName = 'Purrfect Haven' }: Dashbo
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex items-start gap-3 p-3 rounded-lg bg-gradient-to-r from-green-50 to-transparent border border-green-100">
-                <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                  <ArrowUp className="w-4 h-4 text-green-600" />
+              <div className="flex items-start gap-3 p-3 rounded-lg bg-gradient-to-r from-[#F8F7F5] to-transparent border border-[#C46A3A]/20">
+                <div className="w-8 h-8 rounded-full bg-[#C46A3A]/10 flex items-center justify-center flex-shrink-0">
+                  <ArrowUp className="w-4 h-4 text-[#C46A3A]" />
                 </div>
                 <div className="flex-1">
                   <div className="text-sm font-medium text-[#0A1128]">
@@ -2704,9 +2704,9 @@ export function DashboardPreviewMock({ businessName = 'Purrfect Haven' }: Dashbo
                 </div>
               </div>
               
-              <div className="flex items-start gap-3 p-3 rounded-lg bg-gradient-to-r from-orange-50 to-transparent border border-orange-100">
-                <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
-                  <AlertCircle className="w-4 h-4 text-orange-600" />
+              <div className="flex items-start gap-3 p-3 rounded-lg bg-gradient-to-r from-[#F6F2EA] to-transparent border border-[#8A6F4D]/20">
+                <div className="w-8 h-8 rounded-full bg-[#8A6F4D]/10 flex items-center justify-center flex-shrink-0">
+                  <AlertCircle className="w-4 h-4 text-[#8A6F4D]" />
                 </div>
                 <div className="flex-1">
                   <div className="text-sm font-medium text-[#0A1128]">
@@ -2718,9 +2718,9 @@ export function DashboardPreviewMock({ businessName = 'Purrfect Haven' }: Dashbo
                 </div>
               </div>
               
-              <div className="flex items-start gap-3 p-3 rounded-lg bg-gradient-to-r from-blue-50 to-transparent border border-blue-100">
-                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                  <TrendingUp className="w-4 h-4 text-blue-600" />
+              <div className="flex items-start gap-3 p-3 rounded-lg bg-gradient-to-r from-[#F8F7F5] to-transparent border border-[#0A1128]/10">
+                <div className="w-8 h-8 rounded-full bg-[#0A1128]/10 flex items-center justify-center flex-shrink-0">
+                  <TrendingUp className="w-4 h-4 text-[#0A1128]" />
                 </div>
                 <div className="flex-1">
                   <div className="text-sm font-medium text-[#0A1128]">
@@ -4299,8 +4299,8 @@ export function DashboardPreviewMock({ businessName = 'Purrfect Haven' }: Dashbo
             <CardContent className="space-y-3">
               <div className="flex items-center justify-between p-3 bg-[#F8F7F5] rounded-xl">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-                    <CheckCircle2 className="w-5 h-5 text-green-600" />
+                  <div className="w-10 h-10 rounded-lg bg-[#C46A3A]/10 flex items-center justify-center">
+                    <CheckCircle2 className="w-5 h-5 text-[#C46A3A]" />
                   </div>
                   <div>
                     <div className="font-semibold text-[#0A1128]">Customers_2024.xlsx</div>
@@ -4312,8 +4312,8 @@ export function DashboardPreviewMock({ businessName = 'Purrfect Haven' }: Dashbo
               
               <div className="flex items-center justify-between p-3 bg-[#F8F7F5] rounded-xl">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-                    <CheckCircle2 className="w-5 h-5 text-green-600" />
+                  <div className="w-10 h-10 rounded-lg bg-[#C46A3A]/10 flex items-center justify-center">
+                    <CheckCircle2 className="w-5 h-5 text-[#C46A3A]" />
                   </div>
                   <div>
                     <div className="font-semibold text-[#0A1128]">Bookings_March.csv</div>
@@ -4325,8 +4325,8 @@ export function DashboardPreviewMock({ businessName = 'Purrfect Haven' }: Dashbo
 
               <div className="flex items-center justify-between p-3 bg-[#F8F7F5] rounded-xl">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-                    <CheckCircle2 className="w-5 h-5 text-green-600" />
+                  <div className="w-10 h-10 rounded-lg bg-[#C46A3A]/10 flex items-center justify-center">
+                    <CheckCircle2 className="w-5 h-5 text-[#C46A3A]" />
                   </div>
                   <div>
                     <div className="font-semibold text-[#0A1128]">Room_Setup.xlsx</div>
@@ -4349,10 +4349,10 @@ export function DashboardPreviewMock({ businessName = 'Purrfect Haven' }: Dashbo
             <CardContent className="space-y-3">
               <button 
                 onClick={() => alert('Google Sheets integration coming soon!')}
-                className="w-full flex items-center justify-between p-4 bg-gradient-to-br from-blue-50 to-green-50 rounded-xl hover:shadow-md transition border border-blue-200"
+                className="w-full flex items-center justify-between p-4 bg-gradient-to-br from-[#F8F7F5] to-white rounded-xl hover:shadow-md transition border border-[#C46A3A]/20"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-green-600 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-lg bg-[#C46A3A] flex items-center justify-center">
                     <FileSpreadsheet className="w-5 h-5 text-white" />
                   </div>
                   <div className="text-left">
@@ -4365,10 +4365,10 @@ export function DashboardPreviewMock({ businessName = 'Purrfect Haven' }: Dashbo
 
               <button 
                 onClick={() => alert('PetLinx integration coming soon!')}
-                className="w-full flex items-center justify-between p-4 bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl hover:shadow-md transition border border-purple-200"
+                className="w-full flex items-center justify-between p-4 bg-gradient-to-br from-[#F8F7F5] to-white rounded-xl hover:shadow-md transition border border-[#0A1128]/10"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-purple-600 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-lg bg-[#0A1128] flex items-center justify-center">
                     <Upload className="w-5 h-5 text-white" />
                   </div>
                   <div className="text-left">
@@ -4381,10 +4381,10 @@ export function DashboardPreviewMock({ businessName = 'Purrfect Haven' }: Dashbo
 
               <button 
                 onClick={() => alert('Gingr integration coming soon!')}
-                className="w-full flex items-center justify-between p-4 bg-gradient-to-br from-orange-50 to-yellow-50 rounded-xl hover:shadow-md transition border border-orange-200"
+                className="w-full flex items-center justify-between p-4 bg-gradient-to-br from-[#F6F2EA] to-white rounded-xl hover:shadow-md transition border border-[#8A6F4D]/20"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-orange-600 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-lg bg-[#8A6F4D] flex items-center justify-center">
                     <Upload className="w-5 h-5 text-white" />
                   </div>
                   <div className="text-left">
@@ -4770,7 +4770,7 @@ export function DashboardPreviewMock({ businessName = 'Purrfect Haven' }: Dashbo
                       <div className="flex items-center gap-2 mb-1">
                         <Badge variant="outline" className="text-xs">{expense.category}</Badge>
                         {expense.taxDeductible && (
-                          <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                          <Badge variant="outline" className="text-xs bg-[#F8F7F5] text-[#8A6F4D] border-[#8A6F4D]/30">
                             Tax Deductible
                           </Badge>
                         )}
@@ -7224,6 +7224,81 @@ export function DashboardPreviewMock({ businessName = 'Purrfect Haven' }: Dashbo
     );
   }
 
+  // Insights Page
+  if (currentPage === 'insights') {
+    const insights = [
+      { label: 'Occupancy', value: '72%', detail: 'Average across the next 30 days', icon: BarChart3 },
+      { label: 'Revenue', value: '$8.4k', detail: 'Confirmed stays this month', icon: DollarSign },
+      { label: 'Repeat Clients', value: '64%', detail: 'Customers with more than one stay', icon: Users },
+      { label: 'Lead Time', value: '18 days', detail: 'Average booking notice', icon: CalendarIcon },
+    ];
+
+    return (
+      <div
+        className="h-full bg-[#F8F7F5] w-full relative overflow-hidden"
+        style={{ boxSizing: 'border-box' }}
+      >
+        <Header />
+        <MenuOverlay />
+
+        <div className="h-[calc(100%-64px)] overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
+          <div className="p-4 space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-[#C46A3A]" />
+                  Insights
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 gap-3 mb-5">
+                  {insights.map((insight) => {
+                    const Icon = insight.icon;
+                    return (
+                      <div key={insight.label} className="rounded-xl border border-[#0A1128]/10 bg-white p-4">
+                        <div className="w-9 h-9 rounded-lg bg-[#C46A3A]/10 flex items-center justify-center mb-3">
+                          <Icon className="w-5 h-5 text-[#C46A3A]" />
+                        </div>
+                        <div className="text-2xl font-bold text-[#0A1128]">{insight.value}</div>
+                        <div className="text-sm font-semibold text-[#0A1128] mt-1">{insight.label}</div>
+                        <div className="text-xs text-[#0A1128]/60 mt-1 leading-snug">{insight.detail}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="space-y-3">
+                  <div className="rounded-xl bg-[#0A1128] p-4 text-white">
+                    <div className="flex items-start gap-3">
+                      <Lightbulb className="w-5 h-5 text-[#C46A3A] flex-shrink-0 mt-0.5" />
+                      <div>
+                        <div className="font-semibold mb-1">Weekend stays are filling first</div>
+                        <p className="text-sm text-white/75">
+                          Consider nudging repeat customers to book school holidays earlier.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="rounded-xl bg-white border border-[#C46A3A]/20 p-4">
+                    <div className="flex items-start gap-3">
+                      <TrendingUp className="w-5 h-5 text-[#C46A3A] flex-shrink-0 mt-0.5" />
+                      <div>
+                        <div className="font-semibold text-[#0A1128] mb-1">Premium rooms are strongest</div>
+                        <p className="text-sm text-[#0A1128]/65">
+                          Premium Suite bookings are tracking ahead of standard rooms this month.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Payment Integration Page
   if (currentPage === 'payment') {
     return (
@@ -7651,10 +7726,10 @@ export function DashboardPreviewMock({ businessName = 'Purrfect Haven' }: Dashbo
                 })()}
               </div>
               <p className="text-[#0A1128]/60 mb-2">
-                This page is available in your full dashboard.
+                This workspace is queued for the full dashboard build.
               </p>
               <p className="text-sm text-[#0A1128]/40">
-                Use the menu to explore other sections
+                The main booking, customer, payment, marketing, and insights sections are available from the menu.
               </p>
             </div>
           </CardContent>

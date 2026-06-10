@@ -97,3 +97,17 @@ AI should reduce owner work, not remove owner control.
 10. Add stay photo updates, AI postcard generation, and customer notifications.
 11. Add PWA polish for owner and customer dashboards.
 12. Audit, test, and deploy through GitHub as the source of truth.
+
+## Active Follow-Up List
+
+- Branded Supabase auth emails: replace the generic confirmation email with CatStays templates for signup confirmation, magic links, password reset, trial reminders, and billing reminders.
+- Email confirmation timing: keep setup moving first, then ask the owner to confirm their email from the final success screen.
+- Premium website templates: rebuild the six starter templates as real above-the-fold cattery websites with real photography, polished type, booking CTAs, and mobile-safe responsive layouts.
+- Tenant dashboard routing: platform owner admin belongs at `catstays.app/admin`; each cattery owner dashboard belongs at `{slug}.catstays.app/staff-dashboard`; each customer portal belongs at `{slug}.catstays.app/client-portal`.
+- Tenant data isolation: new cattery dashboards must start empty except for imported data; demo occupancy, bookings, and customers must never appear in a live tenant dashboard.
+- Desktop dashboard layout: keep the current mobile-first dashboard, then add a proper laptop/iPad dashboard layout with richer cards, photos where useful, wider notifications, and no stretched mobile view.
+- CatStays dashboard palette: dashboard states, badges, charts, tabs, imports, and payment screens should use navy, greys, terracotta, sand, and muted brown only.
+- Data import validation: keep CSV detection, then add downloadable sample files for customers, cats, and bookings, plus mapping review before import.
+- Stripe test mode: connect platform billing and cattery payment setup in test mode before live payments.
+- Custom domain workflow: premium domain requests should create an owner-admin action for CatStays to configure Replit and Cloudflare, then show the cattery owner the DNS instructions they need.
+- Marketing access during trial: all marketing materials and social tools are unlocked during the 14-day full-access trial, then locked by plan after the trial ends.

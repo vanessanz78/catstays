@@ -174,27 +174,27 @@ export function SuitesSection({ data, template }: SectionProps) {
           </h2>
           <p className="text-lg md:text-xl text-gray-600" style={{ fontFamily: getBodyFontClass(data.bodyFont || 'inter') }}>Choose the perfect accommodation for your cat</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
           {(data.suites && data.suites.length > 0 ? data.suites : [
             { name: 'Standard Suite', price: '$35/night', description: 'Cozy space with daily play and photo updates', image: catImages.room1 },
             { name: 'Premium Suite', price: '$55/night', description: 'Spacious room with extra playtime and video calls', image: catImages.room2, popular: true },
             { name: 'Luxury Villa', price: '$85/night', description: 'Private villa with garden access and premium treats', image: catImages.hero1 }
           ]).map((room: any, i: number) => (
-            <div key={i} className="bg-white rounded-2xl p-6 md:p-8 shadow-lg relative hover:shadow-2xl transition-shadow">
+            <div key={i} className="bg-white rounded-2xl p-5 sm:p-6 md:p-7 shadow-lg relative hover:shadow-2xl transition-shadow flex flex-col min-w-0">
               {room.popular && (
                 <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-sm font-semibold text-white whitespace-nowrap" style={{ backgroundColor: data.accentColor || '#C46A3A' }}>
                   Most Popular
                 </div>
               )}
               {room.image && (
-                <div className="mb-4 -mx-6 md:-mx-8 -mt-6 md:-mt-8">
+                <div className="mb-4 -mx-5 sm:-mx-6 md:-mx-7 -mt-5 sm:-mt-6 md:-mt-7">
                   <img src={room.image} alt={room.name} className="w-full h-48 object-cover rounded-t-2xl" />
                 </div>
               )}
-              <h3 className="text-lg md:text-xl lg:text-2xl font-bold mb-2 md:mb-4 break-words leading-tight" style={{ color: data.primaryColor || '#0A1128', fontFamily: getSubheadingFontClass(data.subheadingFont || 'inter') }}>{room.name}</h3>
-              {room.price && <div className="text-2xl md:text-3xl lg:text-4xl font-bold mb-3 md:mb-4" style={{ color: data.accentColor || '#C46A3A', fontFamily: getHeadingFontClass(data.headingFont || data.typography || 'playfair') }}>{room.price}</div>}
-              <p className="text-sm md:text-base text-gray-600 mb-4 md:mb-6 break-words leading-relaxed" style={{ fontFamily: getBodyFontClass(data.bodyFont || 'inter') }}>{room.description}</p>
-              <Button className="w-full rounded-xl px-6 md:px-8" style={{ backgroundColor: room.popular ? data.accentColor || '#C46A3A' : data.primaryColor || '#0A1128', color: 'white' }}>
+              <h3 className="text-xl lg:text-2xl font-bold mb-3 break-words leading-tight" style={{ color: data.primaryColor || '#0A1128', fontFamily: getSubheadingFontClass(data.subheadingFont || 'inter') }}>{room.name}</h3>
+              {room.price && <div className="text-[clamp(1.5rem,4vw,2.5rem)] font-bold mb-3 leading-none whitespace-nowrap" style={{ color: data.accentColor || '#C46A3A', fontFamily: getHeadingFontClass(data.headingFont || data.typography || 'playfair') }}>{room.price}</div>}
+              <p className="text-sm md:text-base text-gray-600 mb-5 break-words leading-relaxed flex-1" style={{ fontFamily: getBodyFontClass(data.bodyFont || 'inter') }}>{room.description}</p>
+              <Button className="w-full rounded-xl px-4 md:px-6 whitespace-nowrap" style={{ backgroundColor: room.popular ? data.accentColor || '#C46A3A' : data.primaryColor || '#0A1128', color: 'white' }}>
                 Book Now
               </Button>
             </div>
