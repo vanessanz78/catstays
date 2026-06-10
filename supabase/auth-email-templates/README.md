@@ -1,6 +1,6 @@
 # CatStays Email Templates
 
-Supabase Auth email templates are configured in the Supabase dashboard, not through SQL migrations.
+Supabase Auth email templates are hosted Auth settings, not SQL migrations.
 
 Use these files as the versioned source for the CatStays-branded templates:
 
@@ -10,7 +10,16 @@ Use these files as the versioned source for the CatStays-branded templates:
 - `trial-reminder.html` - App transactional email for trial ending reminders.
 - `billing-reminder.html` - App transactional email for billing reminders.
 
-For Supabase Auth templates, paste the HTML into:
+For Supabase Auth templates, either run the scripted setup:
+
+```bash
+SUPABASE_ACCESS_TOKEN="your-personal-access-token" pnpm --filter @workspace/scripts catstays:email-templates
+```
+
+By default, the script updates the CatStays project `iwyoezwqorddkmqnjbif`.
+To target another project, set `SUPABASE_PROJECT_REF`.
+
+Or paste the HTML manually into:
 
 Authentication > Emails > Templates
 
