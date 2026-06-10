@@ -199,8 +199,8 @@ export function MarketingFeatures() {
             <Link to="/pricing" className="text-gray-600 hover:text-gray-900 transition">
               Pricing
             </Link>
-            <Link to="/demo" className="text-gray-600 hover:text-gray-900 transition">
-              Demo
+            <Link to="/demo/deloraine" className="text-gray-600 hover:text-gray-900 transition">
+              Live Example
             </Link>
             <Link to="/signup">
               <Button>Start Free Trial</Button>

@@ -57,10 +57,10 @@ export function MarketingHeader() {
                 Pricing
               </Link>
               <Link 
-                to="/demo" 
+                to="/demo/deloraine"
                 className="text-sm font-medium text-[#0A1128]/70 hover:text-[#0A1128] transition-colors"
               >
-                Demo
+                Live Example
               </Link>
             </nav>
 
@@ -75,7 +75,7 @@ export function MarketingHeader() {
               </Button>
               <Button 
                 asChild
-                className="bg-[#C46A3A] hover:bg-[#A85A30] text-white"
+                className="bg-[#A85A30] hover:bg-[#8A3F20] text-white"
               >
                 <Link to="/signup">Start Free Trial</Link>
               </Button>
@@ -113,11 +113,11 @@ export function MarketingHeader() {
                   Pricing
                 </Link>
                 <Link 
-                  to="/demo" 
+                  to="/demo/deloraine"
                   className="text-sm font-medium text-[#0A1128]/70 hover:text-[#0A1128]"
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  Demo
+                  Live Example
                 </Link>
                 <div className="pt-4 border-t border-[#0A1128]/10 flex flex-col gap-2">
                   <Button 
@@ -131,7 +131,7 @@ export function MarketingHeader() {
                   </Button>
                   <Button 
                     asChild
-                    className="w-full bg-[#C46A3A] hover:bg-[#A85A30] text-white"
+                    className="w-full bg-[#A85A30] hover:bg-[#8A3F20] text-white"
                   >
                     <Link to="/signup" onClick={() => setMobileMenuOpen(false)}>
                       Start Free Trial

@@ -15,7 +15,7 @@ interface SignupModalProps {
 const planDetails = {
   starter: {
     name: 'Starter',
-    price: '$29',
+    price: '$49',
     period: '/month',
     features: [
       'Online bookings',
@@ -27,7 +27,7 @@ const planDetails = {
   },
   professional: {
     name: 'Professional',
-    price: '$69',
+    price: '$79',
     period: '/month',
     features: [
       'Everything in Starter',
@@ -45,8 +45,8 @@ const planDetails = {
       'Everything in Professional',
       'Custom domain request workflow',
       'Advanced cat postcard and social AI',
-      'Premium website setup support',
-      'VIP support'
+      'Advanced website controls',
+      'Priority platform support'
     ]
   }
 };
@@ -146,9 +146,9 @@ export function SignupModal({ open, onOpenChange, selectedPlan = null }: SignupM
           <form onSubmit={handleSubmit} className="space-y-5">
             <Button
               type="submit"
-              className="w-full bg-[#C46A3A] hover:bg-[#A85A30] text-white rounded-xl py-6 text-base font-medium shadow-lg"
+              className="w-full bg-[#A85A30] hover:bg-[#8A3F20] text-white rounded-xl py-6 text-base font-medium shadow-lg"
             >
-              {plan ? `Start ${plan.name} Setup` : 'Continue to Setup'}
+              Continue to setup
             </Button>
           </form>
 

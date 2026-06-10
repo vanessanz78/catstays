@@ -8,20 +8,12 @@ import {
   Smartphone,
   Camera,
   Globe,
-  PlayCircle,
   ArrowRight,
-  DollarSign,
-  Bell,
   Shield,
   Users,
-  MessageSquare,
-  BarChart3,
-  Heart,
   Sparkles,
   Monitor,
   CreditCard,
-  FileText,
-  Clock
 } from 'lucide-react';
 import { ImageWithFallback } from '../../components/figma/ImageWithFallback';
 const logoIcon = '/assets/b463d12091f20e48be52186dedd2a0f6707d0b66.png';
@@ -29,7 +21,8 @@ const logoWordmark = '/assets/9900b394e20a5e059447324d58daad1b1bf43ed6.png';
 const testimonialImage = '/assets/cf532b4a50a4305e3c8b2c2c4a7aaf8ff83e9a7e.png';
 const heroImage = 'https://images.unsplash.com/photo-1760452824452-f731d397a704?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxsdXh1cnklMjBjYXQlMjBib2FyZGluZyUyMHJvb20lMjBjb21mb3J0YWJsZXxlbnwxfHx8fDE3NzM2NTQzODF8MA&ixlib=rb-4.1.0&q=80&w=1600';
 const catUpdateImage = 'https://images.unsplash.com/photo-1709398668435-bc1222eb405e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxoYXBweSUyMGNhdCUyMHBvcnRyYWl0JTIwY2xvc2UlMjB1cHxlbnwxfHx8fDE3NzM2NTQzODJ8MA&ixlib=rb-4.1.0&q=80&w=1080';
-const dashboardImage = 'https://images.unsplash.com/photo-1630522790545-67ad2cb700fe?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjB3ZWJzaXRlJTIwbW9ja3VwJTIwbGFwdG9wfGVufDF8fHx8MTc3MzYwMTY0M3ww&ixlib=rb-4.1.0&q=80&w=1080';
+const deloraineWebsitePreview = '/assets/marketing/deloraine-website-preview.png';
+const dashboardPreview = '/assets/marketing/catstays-dashboard-preview.png';
 import { useState } from 'react';
 import { SignupModal } from '../../components/SignupModal';
 
@@ -85,7 +78,7 @@ export function MarketingHome() {
                 onClick={() => scrollToSection('demo')}
                 className="text-forest/70 hover:text-forest transition-colors font-medium"
               >
-                Demo
+                Live Example
               </button>
             </div>
 
@@ -95,7 +88,7 @@ export function MarketingHome() {
                 <Button variant="ghost" className="text-forest">Sign In</Button>
               </Link>
               <Button
-                className="bg-sage hover:bg-sage-dark text-white shadow-md rounded-xl"
+                className="bg-[#A85A30] hover:bg-[#8A3F20] text-white shadow-md rounded-xl"
                 onClick={() => {
                   // Clear any cached session data
                   localStorage.clear();
@@ -127,17 +120,17 @@ export function MarketingHome() {
             </Badge>
 
             <h1 className="text-4xl md:text-6xl font-serif font-semibold leading-tight">
-              Run your cattery from your phone, with a website and booking system built for cats.
+              A calmer way to run your cattery.
             </h1>
 
             <p className="text-lg md:text-2xl text-white/85 leading-relaxed max-w-3xl">
-              CatStays gives each cattery a public website, owner dashboard, customer portal, Stripe-ready payments, and cat-voice photo updates in one simple SaaS platform.
+              Set up a polished cattery website, take bookings, and keep owners reassured without living in admin.
             </p>
 
             <div className="flex flex-wrap gap-4">
               <Button
                 size="lg"
-                className="bg-[#C46A3A] hover:bg-[#A85A30] text-white shadow-lg rounded-xl px-8 py-6 text-lg"
+                className="bg-[#A85A30] hover:bg-[#8A3F20] text-white shadow-lg rounded-xl px-8 py-6 text-lg"
                 onClick={() => {
                   setSignupModalOpen(true);
                   setSelectedPlan('starter');
@@ -146,15 +139,16 @@ export function MarketingHome() {
                 Start with your cattery
                 <ArrowRight className="w-5 h-5 ml-2" />
               </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                className="border-white bg-white text-[#0A1128] hover:bg-cream hover:text-[#0A1128] rounded-xl px-8 py-6 text-lg shadow-lg"
-                onClick={() => scrollToSection('how-it-works')}
-              >
-                <Globe className="w-5 h-5 mr-2" />
-                See setup flow
-              </Button>
+              <Link to="/demo/deloraine">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="border-white bg-white !text-[#0A1128] hover:bg-cream hover:!text-[#0A1128] rounded-xl px-8 py-6 text-lg shadow-lg"
+                >
+                  <Globe className="w-5 h-5 mr-2" />
+                  See live example
+                </Button>
+              </Link>
             </div>
 
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 max-w-4xl pt-4">
@@ -179,53 +173,46 @@ export function MarketingHome() {
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-4xl md:text-5xl font-serif font-semibold text-forest mb-4">
-              Everything Your Cattery Needs in One Platform
+              Everything your cattery needs in one platform
             </h2>
+            <p className="text-lg text-forest/65 max-w-2xl mx-auto">
+              A public website, owner dashboard, client portal, payments, and photo updates working together from day one.
+            </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-3 gap-8 items-stretch">
             {/* Card 1: Beautiful Booking Website */}
-            <Card className="border-sage/10 shadow-xl rounded-3xl overflow-hidden hover:shadow-2xl transition-shadow">
-              <div className="bg-gradient-to-br from-sage/5 to-rose/10 p-8">
+            <Card className="border-sage/10 shadow-xl rounded-3xl overflow-hidden hover:shadow-2xl transition-shadow h-full flex flex-col">
+              <div className="bg-gradient-to-br from-sage/5 to-rose/10 p-6">
                 <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-sage/10">
                   <ImageWithFallback
-                    src={heroImage}
-                    alt="Cattery website preview"
-                    className="w-full h-32 object-cover"
+                    src={deloraineWebsitePreview}
+                    alt="Imported Deloraine Cattery website preview"
+                    className="w-full h-64 object-cover object-top"
                   />
-                  <div className="p-5 space-y-4">
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-sage font-semibold">Website import</p>
-                      <p className="text-lg font-serif font-semibold text-forest">delorainecattery.co.nz</p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="rounded-lg bg-sage/10 p-2 text-forest">Logo found</div>
-                      <div className="rounded-lg bg-sage/10 p-2 text-forest">Photos found</div>
-                      <div className="rounded-lg bg-sage/10 p-2 text-forest">Rooms drafted</div>
-                      <div className="rounded-lg bg-sage/10 p-2 text-forest">Prices detected</div>
-                    </div>
-                    <div className="rounded-xl bg-[#C46A3A] px-4 py-3 text-center text-sm font-semibold text-white">
-                      Preview four site styles
+                  <div className="p-4">
+                    <div className="rounded-xl bg-[#A85A30] px-4 py-3 text-center text-sm font-semibold text-white">
+                      delorainecattery.com imported
                     </div>
                   </div>
                 </div>
               </div>
-              <CardHeader>
+              <CardHeader className="p-8 pt-2 flex-1">
                 <CardTitle className="text-2xl font-serif text-forest">Fast Cattery Website</CardTitle>
-                <CardDescription className="text-base">
-                  Paste an existing website link or start fresh. CatStays drafts the site, booking flow, and dashboard setup.
+                <CardDescription className="text-base leading-7">
+                  Paste your current cattery website or start fresh. CatStays drafts your copy, rooms, photos, booking flow, and public cattery site.
                 </CardDescription>
               </CardHeader>
             </Card>
 
             {/* Card 2: Daily Cat Updates */}
-            <Card className="border-sage/10 shadow-xl rounded-3xl overflow-hidden hover:shadow-2xl transition-shadow">
-              <div className="bg-gradient-to-br from-rose/10 to-sage/5 p-8">
-                <div className="bg-white rounded-2xl shadow-lg overflow-hidden max-w-[200px] mx-auto">
+            <Card className="border-sage/10 shadow-xl rounded-3xl overflow-hidden hover:shadow-2xl transition-shadow h-full flex flex-col">
+              <div className="bg-gradient-to-br from-rose/10 to-sage/5 p-6">
+                <div className="bg-white rounded-2xl shadow-lg overflow-hidden max-w-[240px] mx-auto">
                   <ImageWithFallback
                     src={catUpdateImage}
-                    alt="Cat update"
-                    className="w-full h-48 object-cover"
+                    alt="Postcard from a cat"
+                    className="w-full h-56 object-cover"
                   />
                   <div className="p-4 space-y-3">
                     <div className="flex items-center gap-2">
@@ -242,49 +229,29 @@ export function MarketingHome() {
                   </div>
                 </div>
               </div>
-              <CardHeader>
-                <CardTitle className="text-2xl font-serif text-forest">Cat-Voice Updates</CardTitle>
-                <CardDescription className="text-base">
-                  Upload a stay photo, let AI draft the postcard from the cat, then approve or edit before sending.
+              <CardHeader className="p-8 pt-2 flex-1">
+                <CardTitle className="text-2xl font-serif text-forest">Postcards from your cat</CardTitle>
+                <CardDescription className="text-base leading-7">
+                  Upload a stay photo, add a quick note, and let AI draft a warm postcard owners can receive through their client portal.
                 </CardDescription>
               </CardHeader>
             </Card>
 
             {/* Card 3: Mobile Cattery Dashboard */}
-            <Card className="border-sage/10 shadow-xl rounded-3xl overflow-hidden hover:shadow-2xl transition-shadow">
-              <div className="bg-gradient-to-br from-sage/5 to-rose/10 p-8">
-                <div className="bg-forest rounded-2xl shadow-lg overflow-hidden max-w-[200px] mx-auto">
-                  <div className="p-4 space-y-3">
-                    {/* Dashboard Header */}
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-semibold text-white">Today</p>
-                      <Bell className="w-5 h-5 text-white/70" />
-                    </div>
-
-                    {/* Stats Cards */}
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="bg-sage/20 backdrop-blur-sm rounded-xl p-3 space-y-1">
-                        <p className="text-[10px] text-white/70">Cats in</p>
-                        <p className="text-xl font-bold text-white">18</p>
-                      </div>
-                      <div className="bg-sage/20 backdrop-blur-sm rounded-xl p-3 space-y-1">
-                        <p className="text-[10px] text-white/70">Arrivals</p>
-                        <p className="text-xl font-bold text-white">5</p>
-                      </div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="space-y-2">
-                      <div className="rounded-lg bg-sage/40 px-3 py-2 text-xs font-medium text-white">Accept new booking</div>
-                      <div className="rounded-lg bg-white/10 px-3 py-2 text-xs font-medium text-white">Take photo update</div>
-                    </div>
-                  </div>
+            <Card className="border-sage/10 shadow-xl rounded-3xl overflow-hidden hover:shadow-2xl transition-shadow h-full flex flex-col">
+              <div className="bg-gradient-to-br from-sage/5 to-rose/10 p-6">
+                <div className="bg-white rounded-2xl shadow-lg overflow-hidden border border-sage/10 max-w-[240px] mx-auto">
+                  <ImageWithFallback
+                    src={dashboardPreview}
+                    alt="CatStays mobile dashboard preview"
+                    className="w-full h-80 object-cover object-top"
+                  />
                 </div>
               </div>
-              <CardHeader>
+              <CardHeader className="p-8 pt-2 flex-1">
                 <CardTitle className="text-2xl font-serif text-forest">Mobile Cattery Dashboard</CardTitle>
-                <CardDescription className="text-base">
-                  Manage check-ins, rooms, payments and customer messages from your phone.
+                <CardDescription className="text-base leading-7">
+                  See arrivals, departures, occupancy, bookings, payments, and owner messages while you are away from the desk.
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -326,143 +293,145 @@ export function MarketingHome() {
             </h2>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 relative">
-            {/* Connection Line */}
-            <div className="hidden md:block absolute top-24 left-0 right-0 h-0.5 bg-gradient-to-r from-sage/20 via-sage to-sage/20 z-0"></div>
-
-            {/* Step 1 */}
-            <div className="relative z-10">
-              <Card className="border-sage/10 shadow-lg rounded-3xl p-8 text-center bg-white">
-                <div className="w-16 h-16 rounded-full bg-sage text-white flex items-center justify-center text-2xl font-bold mx-auto mb-6 shadow-lg">
-                  1
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4 items-stretch">
+            {[
+              {
+                number: '1',
+                title: 'Import or Start Fresh',
+                items: [
+                  'Paste your current cattery website link',
+                  'Or answer a few guided setup questions',
+                  'AI drafts your website copy and room setup',
+                  'Real photos are used wherever possible',
+                ],
+              },
+              {
+                number: '2',
+                title: 'Choose Your Preview',
+                items: [
+                  'Compare four cattery website styles',
+                  'Adjust colors, fonts, and photos',
+                  'Claim your cattery handle',
+                  'Preview the live booking flow',
+                ],
+              },
+              {
+                number: '3',
+                title: 'Launch & Accept Bookings',
+                items: [
+                  'Publish your CatStays subdomain',
+                  'Connect Stripe when ready',
+                  'Receive booking requests in your dashboard',
+                  'Manage rooms, stays, and payments',
+                ],
+              },
+              {
+                number: '4',
+                title: 'Keep Owners Close',
+                items: [
+                  'Invite customers into the client portal',
+                  'Send cat postcards and photos',
+                  'Let owners manage cats, bookings, and invoices',
+                  'Keep conversations in one place',
+                ],
+              },
+            ].map((step) => (
+              <Card key={step.number} className="border-sage/10 shadow-lg rounded-3xl p-7 text-center bg-white h-full min-h-[430px] flex flex-col">
+                <div className="w-16 h-16 rounded-full bg-sage text-white flex items-center justify-center text-2xl font-bold mx-auto mb-7 shadow-lg">
+                  {step.number}
                 </div>
-                <h3 className="text-2xl font-serif font-semibold text-forest mb-4">Import or Start Fresh</h3>
-                <div className="space-y-3 text-forest/70 text-left">
-                  <div className="flex items-start gap-3">
-                    <Check className="w-5 h-5 text-sage mt-0.5 flex-shrink-0" />
-                    <span>Paste your current cattery website link</span>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <Check className="w-5 h-5 text-sage mt-0.5 flex-shrink-0" />
-                    <span>Or answer a few guided setup questions</span>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <Check className="w-5 h-5 text-sage mt-0.5 flex-shrink-0" />
-                    <span>AI drafts your website copy and room setup</span>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <Check className="w-5 h-5 text-sage mt-0.5 flex-shrink-0" />
-                    <span>Real photos are used wherever available</span>
-                  </div>
+                <h3 className="text-2xl font-serif font-semibold text-forest mb-6 min-h-[64px] flex items-center justify-center">
+                  {step.title}
+                </h3>
+                <div className="space-y-4 text-forest/70 text-left flex-1">
+                  {step.items.map((item) => (
+                    <div key={item} className="flex items-start gap-3">
+                      <Check className="w-5 h-5 text-sage mt-0.5 flex-shrink-0" />
+                      <span className="leading-7">{item}</span>
+                    </div>
+                  ))}
                 </div>
               </Card>
-            </div>
+            ))}
+          </div>
 
-            {/* Step 2 */}
-            <div className="relative z-10">
-              <Card className="border-sage/10 shadow-lg rounded-3xl p-8 text-center bg-white">
-                <div className="w-16 h-16 rounded-full bg-sage text-white flex items-center justify-center text-2xl font-bold mx-auto mb-6 shadow-lg">
-                  2
-                </div>
-                <h3 className="text-2xl font-serif font-semibold text-forest mb-4">Choose Your Preview</h3>
-                <div className="space-y-3 text-forest/70 text-left">
-                  <div className="flex items-start gap-3">
-                    <Check className="w-5 h-5 text-sage mt-0.5 flex-shrink-0" />
-                    <span>Compare four cattery website styles</span>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <Check className="w-5 h-5 text-sage mt-0.5 flex-shrink-0" />
-                    <span>Adjust colors, fonts, and photos</span>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <Check className="w-5 h-5 text-sage mt-0.5 flex-shrink-0" />
-                    <span>Claim your cattery handle</span>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <Check className="w-5 h-5 text-sage mt-0.5 flex-shrink-0" />
-                    <span>Preview your live booking flow</span>
-                  </div>
-                </div>
-              </Card>
-            </div>
-
-            {/* Step 3 */}
-            <div className="relative z-10">
-              <Card className="border-sage/10 shadow-lg rounded-3xl p-8 text-center bg-white">
-                <div className="w-16 h-16 rounded-full bg-sage text-white flex items-center justify-center text-2xl font-bold mx-auto mb-6 shadow-lg">
-                  3
-                </div>
-                <h3 className="text-2xl font-serif font-semibold text-forest mb-4">Launch & Accept Bookings</h3>
-                <p className="text-forest/70 text-left">
-                  Publish to your CatStays subdomain, connect Stripe when ready, and receive booking requests straight in the owner dashboard.
-                </p>
-                <Button
-                  className="w-full mt-6 bg-sage hover:bg-sage-dark text-white rounded-xl"
-                  onClick={() => {
-                    setSignupModalOpen(true);
-                    setSelectedPlan(null);
-                  }}
-                >
-                  Get Started Now
-                </Button>
-              </Card>
-            </div>
+          <div className="mt-10 flex flex-wrap justify-center gap-4">
+            <Button
+              className="bg-[#A85A30] hover:bg-[#8A3F20] text-white rounded-xl px-8 py-6 text-base"
+              onClick={() => {
+                setSignupModalOpen(true);
+                setSelectedPlan(null);
+              }}
+            >
+              Start your setup
+              <ArrowRight className="w-4 h-4 ml-1" />
+            </Button>
+            <Link to="/demo/deloraine">
+              <Button
+                variant="outline"
+                className="border-sage/30 bg-white !text-forest hover:bg-sage/5 hover:!text-forest rounded-xl px-8 py-6 text-base"
+              >
+                View Deloraine example
+              </Button>
+            </Link>
           </div>
         </div>
       </section>
 
-      {/* Demo Video Section */}
+      {/* Live Example Section */}
       <section id="demo" className="py-20 bg-gradient-to-b from-white to-cream">
         <div className="max-w-6xl mx-auto px-4">
-          <div className="text-center mb-12">
-            <Badge className="bg-sage/10 text-sage border-sage/20 mb-4">Watch Demo</Badge>
+          <div className="text-center mb-10">
+            <Badge className="bg-sage/10 text-sage border-sage/20 mb-4">Self-serve setup</Badge>
             <h2 className="text-4xl md:text-5xl font-serif font-semibold text-forest mb-4">
-              See CatStays in Action
+              Try a real cattery import
             </h2>
+            <p className="text-lg text-forest/65 max-w-2xl mx-auto">
+              Start with your current website link and CatStays turns it into a previewable cattery website and dashboard setup.
+            </p>
           </div>
 
-          <Card className="border-sage/10 shadow-2xl rounded-3xl overflow-hidden">
-            <div className="relative bg-gradient-to-br from-forest to-sage aspect-video flex items-center justify-center cursor-pointer hover:scale-[1.02] transition-transform">
-              <ImageWithFallback
-                src={dashboardImage}
-                alt="CatStays dashboard preview"
-                className="absolute inset-0 w-full h-full object-cover opacity-30"
-              />
-              <div className="relative z-10 text-center">
-                <div className="w-24 h-24 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center mx-auto mb-4 shadow-2xl hover:scale-110 transition-transform">
-                  <PlayCircle className="w-12 h-12 text-sage" />
+          <Card className="border-sage/10 shadow-2xl rounded-3xl overflow-hidden bg-white">
+            <div className="grid lg:grid-cols-[0.9fr_1.1fr] gap-0">
+              <div className="p-8 md:p-10 flex flex-col justify-center">
+                <div className="rounded-2xl border border-sage/15 bg-cream p-3 flex flex-col sm:flex-row gap-3 shadow-inner">
+                  <div className="flex-1 rounded-xl bg-white px-4 py-3 text-left text-forest/75 border border-sage/10">
+                    delorainecattery.com
+                  </div>
+                  <Link to="/demo/deloraine">
+                    <Button className="w-full sm:w-auto bg-[#A85A30] hover:bg-[#8A3F20] text-white rounded-xl px-5 py-6">
+                      Generate preview
+                      <ArrowRight className="w-4 h-4 ml-1" />
+                    </Button>
+                  </Link>
                 </div>
-                <p className="text-white text-xl font-semibold">Watch 2-Minute Demo</p>
+
+                <div className="grid sm:grid-cols-2 gap-4 mt-8">
+                  {[
+                    ['Website copy', 'Drafted from the public site'],
+                    ['Real photos', 'Used wherever available'],
+                    ['Rooms', 'Created from service data'],
+                    ['Dashboard', 'Prepared for bookings'],
+                  ].map(([label, detail]) => (
+                    <div key={label} className="rounded-2xl bg-cream border border-sage/10 p-4">
+                      <p className="font-semibold text-forest">{label}</p>
+                      <p className="text-sm text-forest/60 mt-1">{detail}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-forest/5 p-6 md:p-8">
+                <div className="rounded-2xl overflow-hidden shadow-xl border border-sage/10 bg-white">
+                  <ImageWithFallback
+                    src={deloraineWebsitePreview}
+                    alt="Deloraine Cattery imported website preview"
+                    className="w-full h-[420px] object-cover object-top"
+                  />
+                </div>
               </div>
             </div>
           </Card>
-
-          <div className="grid md:grid-cols-4 gap-6 mt-12">
-            <div className="text-center">
-              <div className="w-12 h-12 rounded-full bg-sage/10 flex items-center justify-center mx-auto mb-3">
-                <Globe className="w-6 h-6 text-sage" />
-              </div>
-              <p className="text-sm text-forest/70">Creating a website</p>
-            </div>
-            <div className="text-center">
-              <div className="w-12 h-12 rounded-full bg-sage/10 flex items-center justify-center mx-auto mb-3">
-                <Monitor className="w-6 h-6 text-sage" />
-              </div>
-              <p className="text-sm text-forest/70">Preview design</p>
-            </div>
-            <div className="text-center">
-              <div className="w-12 h-12 rounded-full bg-sage/10 flex items-center justify-center mx-auto mb-3">
-                <Calendar className="w-6 h-6 text-sage" />
-              </div>
-              <p className="text-sm text-forest/70">Booking calendar</p>
-            </div>
-            <div className="text-center">
-              <div className="w-12 h-12 rounded-full bg-sage/10 flex items-center justify-center mx-auto mb-3">
-                <Smartphone className="w-6 h-6 text-sage" />
-              </div>
-              <p className="text-sm text-forest/70">Admin dashboard</p>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -472,75 +441,67 @@ export function MarketingHome() {
           <div className="text-center mb-16">
             <Badge className="bg-sage/10 text-sage border-sage/20 mb-4">Complete Platform</Badge>
             <h2 className="text-4xl md:text-5xl font-serif font-semibold text-forest mb-4">
-              Everything You Need to Run Your Cattery
+              Built for cat boarding, not generic pet care
             </h2>
+            <p className="text-lg text-forest/65 max-w-3xl mx-auto">
+              Every feature supports the daily rhythm of a cattery: rooms, cats, owners, photos, payments, and repeat stays.
+            </p>
           </div>
 
-          <div className="grid md:grid-cols-4 gap-6">
-            {/* Feature Grid */}
-            <Card className="border-sage/10 shadow-md rounded-2xl p-6 hover:shadow-lg transition-shadow text-center">
-              <div className="w-12 h-12 rounded-full bg-sage/10 flex items-center justify-center mx-auto mb-4">
-                <Calendar className="w-6 h-6 text-sage" />
-              </div>
-              <h3 className="font-semibold text-forest mb-2">Online Booking Calendar</h3>
-              <p className="text-sm text-forest/60">Real-time availability</p>
-            </Card>
-
-            <Card className="border-sage/10 shadow-md rounded-2xl p-6 hover:shadow-lg transition-shadow text-center">
-              <div className="w-12 h-12 rounded-full bg-sage/10 flex items-center justify-center mx-auto mb-4">
-                <BarChart3 className="w-6 h-6 text-sage" />
-              </div>
-              <h3 className="font-semibold text-forest mb-2">Room Availability</h3>
-              <p className="text-sm text-forest/60">Track occupancy</p>
-            </Card>
-
-            <Card className="border-sage/10 shadow-md rounded-2xl p-6 hover:shadow-lg transition-shadow text-center">
-              <div className="w-12 h-12 rounded-full bg-sage/10 flex items-center justify-center mx-auto mb-4">
-                <Users className="w-6 h-6 text-sage" />
-              </div>
-              <h3 className="font-semibold text-forest mb-2">Cat Profiles</h3>
-              <p className="text-sm text-forest/60">Detailed guest info</p>
-            </Card>
-
-            <Card className="border-sage/10 shadow-md rounded-2xl p-6 hover:shadow-lg transition-shadow text-center">
-              <div className="w-12 h-12 rounded-full bg-sage/10 flex items-center justify-center mx-auto mb-4">
-                <Shield className="w-6 h-6 text-sage" />
-              </div>
-              <h3 className="font-semibold text-forest mb-2">Vaccination Tracking</h3>
-              <p className="text-sm text-forest/60">Stay compliant</p>
-            </Card>
-
-            <Card className="border-sage/10 shadow-md rounded-2xl p-6 hover:shadow-lg transition-shadow text-center">
-              <div className="w-12 h-12 rounded-full bg-sage/10 flex items-center justify-center mx-auto mb-4">
-                <CreditCard className="w-6 h-6 text-sage" />
-              </div>
-              <h3 className="font-semibold text-forest mb-2">Payment Requests</h3>
-              <p className="text-sm text-forest/60">Online payments</p>
-            </Card>
-
-            <Card className="border-sage/10 shadow-md rounded-2xl p-6 hover:shadow-lg transition-shadow text-center">
-              <div className="w-12 h-12 rounded-full bg-sage/10 flex items-center justify-center mx-auto mb-4">
-                <Camera className="w-6 h-6 text-sage" />
-              </div>
-              <h3 className="font-semibold text-forest mb-2">Daily Photo Updates</h3>
-              <p className="text-sm text-forest/60">Keep owners happy</p>
-            </Card>
-
-            <Card className="border-sage/10 shadow-md rounded-2xl p-6 hover:shadow-lg transition-shadow text-center">
-              <div className="w-12 h-12 rounded-full bg-sage/10 flex items-center justify-center mx-auto mb-4">
-                <MessageSquare className="w-6 h-6 text-sage" />
-              </div>
-              <h3 className="font-semibold text-forest mb-2">Customer Portal</h3>
-              <p className="text-sm text-forest/60">Bookings, invoices and cat updates</p>
-            </Card>
-
-            <Card className="border-sage/10 shadow-md rounded-2xl p-6 hover:shadow-lg transition-shadow text-center">
-              <div className="w-12 h-12 rounded-full bg-sage/10 flex items-center justify-center mx-auto mb-4">
-                <Smartphone className="w-6 h-6 text-sage" />
-              </div>
-              <h3 className="font-semibold text-forest mb-2">Mobile Dashboard</h3>
-              <p className="text-sm text-forest/60">Manage anywhere</p>
-            </Card>
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4 items-stretch">
+            {[
+              {
+                icon: Globe,
+                title: 'AI Website Import',
+                copy: 'Turn an existing cattery website into a fresh CatStays preview with real photos and room content.',
+              },
+              {
+                icon: Calendar,
+                title: 'Room Calendar',
+                copy: 'See arrivals, departures, occupancy, room holds, and blockout dates without spreadsheet juggling.',
+              },
+              {
+                icon: Smartphone,
+                title: 'Owner Mobile Dashboard',
+                copy: 'Accept bookings, check cats in and out, update rooms, and answer customers from your phone.',
+              },
+              {
+                icon: Users,
+                title: 'Client Portal',
+                copy: 'Customers can manage their cats, details, bookings, invoices, repeat stays, and reminders.',
+              },
+              {
+                icon: Camera,
+                title: 'Cat Postcards',
+                copy: 'Upload stay photos and send approved postcard-style updates that feel personal to each owner.',
+              },
+              {
+                icon: CreditCard,
+                title: 'Stripe-Ready Payments',
+                copy: 'Request deposits, take balances, and keep payment status beside the booking record.',
+              },
+              {
+                icon: Shield,
+                title: 'Care Notes & Vaccinations',
+                copy: 'Keep feeding notes, medication instructions, vaccination status, and behavioural details close.',
+              },
+              {
+                icon: Monitor,
+                title: 'Subdomain or Own Domain',
+                copy: 'Launch quickly on your CatStays handle, then upgrade to your own domain when ready.',
+              },
+            ].map((feature) => {
+              const Icon = feature.icon;
+              return (
+                <Card key={feature.title} className="border-sage/10 shadow-md rounded-2xl p-6 hover:shadow-lg transition-shadow h-full min-h-[245px] flex flex-col">
+                  <div className="w-12 h-12 rounded-full bg-sage/10 flex items-center justify-center mb-5">
+                    <Icon className="w-6 h-6 text-sage" />
+                  </div>
+                  <h3 className="font-semibold text-forest mb-3 min-h-[48px] flex items-center">{feature.title}</h3>
+                  <p className="text-sm text-forest/60 leading-6">{feature.copy}</p>
+                </Card>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -569,7 +530,7 @@ export function MarketingHome() {
                 </CardTitle>
                 <div className="mb-4">
                   <div className="flex items-baseline">
-                    <span className="text-5xl font-bold text-[#0A1128]">$29</span>
+                    <span className="text-5xl font-bold text-[#0A1128]">$49</span>
                     <span className="text-[#0A1128]/60 ml-2">/month</span>
                   </div>
                 </div>
@@ -599,7 +560,7 @@ export function MarketingHome() {
                   <span className="text-[#0A1128]/70">Mobile dashboard</span>
                 </div>
                 <Button
-                  className="w-full mt-6 bg-[#C46A3A] hover:bg-[#A85A30] text-white rounded-xl py-6"
+                  className="w-full mt-6 bg-[#A85A30] hover:bg-[#8A3F20] text-white rounded-xl py-6"
                   onClick={() => {
                     setSignupModalOpen(true);
                     setSelectedPlan('starter');
@@ -612,7 +573,7 @@ export function MarketingHome() {
 
             {/* Professional - Most Popular */}
             <Card className="border-[#C46A3A] border-2 shadow-2xl rounded-[20px] overflow-hidden hover:shadow-2xl transition-all hover:-translate-y-2 bg-[#F1ECE8] relative scale-105">
-              <div className="absolute top-4 right-4 bg-[#C46A3A] text-white px-4 py-1.5 rounded-full text-xs font-semibold">
+              <div className="absolute top-4 right-4 bg-[#A85A30] text-white px-4 py-1.5 rounded-full text-xs font-semibold">
                 Most Popular
               </div>
               <CardHeader className="p-8 pb-6">
@@ -621,7 +582,7 @@ export function MarketingHome() {
                 </CardTitle>
                 <div className="mb-4">
                   <div className="flex items-baseline">
-                    <span className="text-5xl font-bold text-[#0A1128]">$69</span>
+                    <span className="text-5xl font-bold text-[#0A1128]">$79</span>
                     <span className="text-[#0A1128]/60 ml-2">/month</span>
                   </div>
                 </div>
@@ -651,7 +612,7 @@ export function MarketingHome() {
                   <span className="text-[#0A1128]/70">Priority support</span>
                 </div>
                 <Button
-                  className="w-full mt-6 bg-[#C46A3A] hover:bg-[#A85A30] text-white rounded-xl py-6"
+                  className="w-full mt-6 bg-[#A85A30] hover:bg-[#8A3F20] text-white rounded-xl py-6"
                   onClick={() => {
                     setSignupModalOpen(true);
                     setSelectedPlan('professional');
@@ -693,14 +654,14 @@ export function MarketingHome() {
                 </div>
                 <div className="flex items-start gap-3">
                   <span className="text-[#C46A3A] text-lg">🐾</span>
-                  <span className="text-[#0A1128]/70">Premium website setup support</span>
+                  <span className="text-[#0A1128]/70">Advanced website controls</span>
                 </div>
                 <div className="flex items-start gap-3">
                   <span className="text-[#C46A3A] text-lg">🐾</span>
-                  <span className="text-[#0A1128]/70">VIP support</span>
+                  <span className="text-[#0A1128]/70">Priority platform support</span>
                 </div>
                 <Button
-                  className="w-full mt-6 bg-[#C46A3A] hover:bg-[#A85A30] text-white rounded-xl py-6"
+                  className="w-full mt-6 bg-[#A85A30] hover:bg-[#8A3F20] text-white rounded-xl py-6"
                   onClick={() => {
                     setSignupModalOpen(true);
                     setSelectedPlan('premium');
@@ -728,16 +689,16 @@ export function MarketingHome() {
       <section className="py-24 bg-gradient-to-br from-sage to-forest text-white relative overflow-hidden">
         <div className="max-w-4xl mx-auto px-4 text-center relative z-10">
           <h2 className="text-4xl md:text-5xl font-serif font-semibold mb-6">
-            Give Cat Owners Peace of Mind
+            Set up your cattery with ease
           </h2>
           <p className="text-xl opacity-90 mb-12 max-w-2xl mx-auto">
-            Create a beautiful cattery website and manage everything in one place.
+            Launch your website, booking flow, dashboard, payments, and customer portal in one guided setup.
           </p>
 
           <div className="flex flex-wrap gap-4 justify-center">
             <Button
               size="lg"
-              className="bg-white text-forest hover:bg-cream shadow-xl rounded-2xl px-8 py-6 text-lg"
+              className="bg-white !text-[#0A1128] hover:bg-cream hover:!text-[#0A1128] shadow-xl rounded-2xl px-8 py-6 text-lg"
               onClick={() => {
                 setSignupModalOpen(true);
                 setSelectedPlan('starter');
@@ -746,15 +707,15 @@ export function MarketingHome() {
               Start Free Trial
               <ArrowRight className="w-5 h-5 ml-2" />
             </Button>
-            <Button
-              size="lg"
-              variant="outline"
-              className="border-white/30 text-white hover:bg-white/10 rounded-2xl px-8 py-6 text-lg backdrop-blur-sm"
-              onClick={() => scrollToSection('demo')}
-            >
-              <PlayCircle className="w-5 h-5 mr-2" />
-              Book Demo
-            </Button>
+            <Link to="/demo/deloraine">
+              <Button
+                size="lg"
+                variant="outline"
+                className="border-white/40 bg-[#0A1128] text-white hover:bg-white hover:!text-[#0A1128] rounded-2xl px-8 py-6 text-lg backdrop-blur-sm"
+              >
+                View live example
+              </Button>
+            </Link>
           </div>
 
           <p className="text-sm opacity-75 mt-8">
@@ -784,7 +745,7 @@ export function MarketingHome() {
               <ul className="space-y-2 text-white/70">
                 <li><button onClick={() => scrollToSection('features')} className="hover:text-white transition-colors">Features</button></li>
                 <li><button onClick={() => scrollToSection('pricing')} className="hover:text-white transition-colors">Pricing</button></li>
-                <li><button onClick={() => scrollToSection('demo')} className="hover:text-white transition-colors">Demo</button></li>
+                <li><button onClick={() => scrollToSection('demo')} className="hover:text-white transition-colors">Live example</button></li>
               </ul>
             </div>
 
@@ -794,7 +755,7 @@ export function MarketingHome() {
               <ul className="space-y-2 text-white/70">
                 <li><button onClick={() => scrollToSection('how-it-works')} className="hover:text-white transition-colors">Setup flow</button></li>
                 <li><button onClick={() => scrollToSection('pricing')} className="hover:text-white transition-colors">Plans</button></li>
-                <li><button onClick={() => scrollToSection('demo')} className="hover:text-white transition-colors">Book demo</button></li>
+                <li><button onClick={() => scrollToSection('demo')} className="hover:text-white transition-colors">Live example</button></li>
               </ul>
             </div>
           </div>

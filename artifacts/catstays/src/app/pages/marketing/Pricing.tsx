@@ -22,8 +22,8 @@ export function MarketingPricing() {
             <Link to="/pricing" className="text-[#0A1128] font-medium">
               Pricing
             </Link>
-            <Link to="/demo" className="text-[#0A1128]/70 hover:text-[#0A1128] transition-colors font-medium">
-              Demo
+            <Link to="/demo/deloraine" className="text-[#0A1128]/70 hover:text-[#0A1128] transition-colors font-medium">
+              Live Example
             </Link>
           </nav>
           <div className="flex items-center gap-3">
@@ -31,7 +31,7 @@ export function MarketingPricing() {
               <Button variant="ghost" className="text-[#0A1128]">Sign In</Button>
             </Link>
             <Link to="/signup">
-              <Button className="bg-[#C46A3A] hover:bg-[#A85A30] text-white shadow-md rounded-xl">
+              <Button className="bg-[#A85A30] hover:bg-[#8A3F20] text-white shadow-md rounded-xl">
                 Start Free Trial
               </Button>
             </Link>
@@ -61,7 +61,7 @@ export function MarketingPricing() {
               </CardTitle>
               <div className="mb-4">
                 <div className="flex items-baseline">
-                  <span className="text-5xl font-bold text-[#0A1128]">$29</span>
+                  <span className="text-5xl font-bold text-[#0A1128]">$49</span>
                   <span className="text-[#0A1128]/60 ml-2">/month</span>
                 </div>
               </div>
@@ -91,7 +91,7 @@ export function MarketingPricing() {
                 <span className="text-[#0A1128]/70">Mobile dashboard</span>
               </div>
               <Link to="/signup">
-                <Button className="w-full mt-6 bg-[#C46A3A] hover:bg-[#A85A30] text-white rounded-xl py-6">
+                <Button className="w-full mt-6 bg-[#A85A30] hover:bg-[#8A3F20] text-white rounded-xl py-6">
                   Start Free Trial
                 </Button>
               </Link>
@@ -100,7 +100,7 @@ export function MarketingPricing() {
 
           {/* Professional - Most Popular */}
           <Card className="border-[#C46A3A] border-2 shadow-2xl rounded-[20px] overflow-hidden hover:shadow-2xl transition-all hover:-translate-y-2 bg-[#F1ECE8] relative scale-105">
-            <div className="absolute top-4 right-4 bg-[#C46A3A] text-white px-4 py-1.5 rounded-full text-xs font-semibold">
+            <div className="absolute top-4 right-4 bg-[#A85A30] text-white px-4 py-1.5 rounded-full text-xs font-semibold">
               Most Popular
             </div>
             <CardHeader className="p-8 pb-6">
@@ -109,7 +109,7 @@ export function MarketingPricing() {
               </CardTitle>
               <div className="mb-4">
                 <div className="flex items-baseline">
-                  <span className="text-5xl font-bold text-[#0A1128]">$69</span>
+                  <span className="text-5xl font-bold text-[#0A1128]">$79</span>
                   <span className="text-[#0A1128]/60 ml-2">/month</span>
                 </div>
               </div>
@@ -139,7 +139,7 @@ export function MarketingPricing() {
                 <span className="text-[#0A1128]/70">Priority support</span>
               </div>
               <Link to="/signup">
-                <Button className="w-full mt-6 bg-[#C46A3A] hover:bg-[#A85A30] text-white rounded-xl py-6">
+                <Button className="w-full mt-6 bg-[#A85A30] hover:bg-[#8A3F20] text-white rounded-xl py-6">
                   Start Free Trial
                 </Button>
               </Link>
@@ -169,22 +169,22 @@ export function MarketingPricing() {
               </div>
               <div className="flex items-start gap-3">
                 <span className="text-[#C46A3A] text-lg">🐾</span>
-                <span className="text-[#0A1128]/70">Daycare module</span>
+                <span className="text-[#0A1128]/70">Custom domain request workflow</span>
               </div>
               <div className="flex items-start gap-3">
                 <span className="text-[#C46A3A] text-lg">🐾</span>
-                <span className="text-[#0A1128]/70">Grooming module</span>
+                <span className="text-[#0A1128]/70">Advanced cat postcard and social AI</span>
               </div>
               <div className="flex items-start gap-3">
                 <span className="text-[#C46A3A] text-lg">🐾</span>
-                <span className="text-[#0A1128]/70">Advanced automation</span>
+                <span className="text-[#0A1128]/70">Advanced website controls</span>
               </div>
               <div className="flex items-start gap-3">
                 <span className="text-[#C46A3A] text-lg">🐾</span>
-                <span className="text-[#0A1128]/70">VIP support</span>
+                <span className="text-[#0A1128]/70">Priority platform support</span>
               </div>
               <Link to="/signup">
-                <Button className="w-full mt-6 bg-[#C46A3A] hover:bg-[#A85A30] text-white rounded-xl py-6">
+                <Button className="w-full mt-6 bg-[#A85A30] hover:bg-[#8A3F20] text-white rounded-xl py-6">
                   Start Free Trial
                 </Button>
               </Link>
@@ -224,7 +224,7 @@ export function MarketingPricing() {
               <ul className="space-y-2 text-white/70">
                 <li><Link to="/features" className="hover:text-white transition-colors">Features</Link></li>
                 <li><Link to="/pricing" className="hover:text-white transition-colors">Pricing</Link></li>
-                <li><Link to="/demo" className="hover:text-white transition-colors">Demo</Link></li>
+                <li><Link to="/demo/deloraine" className="hover:text-white transition-colors">Live example</Link></li>
               </ul>
             </div>
 

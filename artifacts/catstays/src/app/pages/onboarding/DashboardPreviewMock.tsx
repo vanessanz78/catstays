@@ -73,10 +73,7 @@ import {
   Type,
   Lock,
   User,
-  Scissors,
   Crown,
-  Brush,
-  Droplet,
   Save
 } from 'lucide-react';
 import { format, addDays, subDays, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, isSameDay } from 'date-fns';
@@ -85,7 +82,7 @@ import { Input } from '../../components/ui/input';
 import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
 
-type Page = 'home' | 'overview' | 'calendar' | 'room-planner' | 'bookings' | 'customers' | 'smart-import' | 'accounting' | 'financials' | 'templates' | 'promotions' | 'social' | 'cat-updates' | 'insights' | 'settings' | 'grooming' | 'payment' | 'website-editor' | 'booking-setup' | 'marketing' | 'subscription';
+type Page = 'home' | 'overview' | 'calendar' | 'room-planner' | 'bookings' | 'customers' | 'smart-import' | 'accounting' | 'financials' | 'templates' | 'promotions' | 'social' | 'cat-updates' | 'insights' | 'settings' | 'care-extras' | 'payment' | 'website-editor' | 'booking-setup' | 'marketing' | 'subscription';
 
 interface DashboardPreviewMockProps {
   businessName?: string;
@@ -416,7 +413,7 @@ export function DashboardPreviewMock({ businessName = 'Purrfect Haven' }: Dashbo
     { id: 'room-planner', icon: LayoutGrid, label: 'Room Planner', description: 'Visual room grid' },
     { id: 'bookings', icon: BookOpen, label: 'Bookings', description: 'All reservations' },
     { id: 'customers', icon: Users, label: 'Customers', description: 'Contact details' },
-    { id: 'grooming', icon: Scissors, label: 'Grooming', description: 'Grooming appointments', badge: 'PRO' },
+    { id: 'care-extras', icon: Heart, label: 'Care Extras', description: 'Food and comfort add-ons', badge: 'PRO' },
     { id: 'smart-import', icon: Upload, label: 'Smart Import', description: 'Import your data', badge: 'AI' },
     { id: 'accounting', icon: CreditCard, label: 'Accounting', description: 'Payments & invoices' },
     { id: 'financials', icon: DollarSign, label: 'Financials', description: 'Revenue & expenses' },
@@ -1080,7 +1077,7 @@ export function DashboardPreviewMock({ businessName = 'Purrfect Haven' }: Dashbo
       let total = nights * bookingForm.selectedPets.length * basePrice;
       
       // Additional services
-      if (bookingForm.additionalServices.includes('grooming')) total += 45 * bookingForm.selectedPets.length;
+      if (bookingForm.additionalServices.includes('comfort-care')) total += 45 * bookingForm.selectedPets.length;
       if (bookingForm.additionalServices.includes('medication')) total += 15 * nights * bookingForm.selectedPets.length;
       if (bookingForm.additionalServices.includes('premium-food')) total += 10 * nights * bookingForm.selectedPets.length;
       
@@ -1119,13 +1116,13 @@ export function DashboardPreviewMock({ businessName = 'Purrfect Haven' }: Dashbo
       const roomRate = nights * bookingForm.selectedPets.length * basePrice;
       
       const services = {
-        grooming: bookingForm.additionalServices.includes('grooming') ? 45 * bookingForm.selectedPets.length : 0,
+        comfortCare: bookingForm.additionalServices.includes('comfort-care') ? 45 * bookingForm.selectedPets.length : 0,
         medication: bookingForm.additionalServices.includes('medication') ? 15 * nights * bookingForm.selectedPets.length : 0,
         premiumFood: bookingForm.additionalServices.includes('premium-food') ? 10 * nights * bookingForm.selectedPets.length : 0
       };
       
       let miscCharge = 0;
-      let subtotal = roomRate + services.grooming + services.medication + services.premiumFood;
+      let subtotal = roomRate + services.comfortCare + services.medication + services.premiumFood;
       
       if (bookingForm.miscChargeAmount) {
         const amount = parseFloat(bookingForm.miscChargeAmount);
@@ -1560,7 +1557,7 @@ export function DashboardPreviewMock({ businessName = 'Purrfect Haven' }: Dashbo
                 {showAdditionalServices && (
                   <div className="space-y-2 pt-2">
                     {[
-                      { id: 'grooming', name: 'Grooming', price: 45 },
+                      { id: 'comfort-care', name: 'Comfort Care', price: 45 },
                       { id: 'medication', name: 'Medication Administration', price: 15 },
                       { id: 'premium-food', name: 'Premium Food', price: 10 }
                     ].map(service => (
@@ -1690,10 +1687,10 @@ export function DashboardPreviewMock({ businessName = 'Purrfect Haven' }: Dashbo
                     </div>
                     
                     {/* Additional Services */}
-                    {breakdown.services.grooming > 0 && (
+                    {breakdown.services.comfortCare > 0 && (
                       <div className="flex justify-between items-center text-sm">
-                        <span className="opacity-90">Grooming</span>
-                        <span className="font-medium">${breakdown.services.grooming.toFixed(2)}</span>
+                        <span className="opacity-90">Comfort Care</span>
+                        <span className="font-medium">${breakdown.services.comfortCare.toFixed(2)}</span>
                       </div>
                     )}
                     {breakdown.services.medication > 0 && (
@@ -6858,8 +6855,8 @@ export function DashboardPreviewMock({ businessName = 'Purrfect Haven' }: Dashbo
     );
   }
 
-  // Grooming Module Page
-  if (currentPage === 'grooming') {
+  // Care Extras Page
+  if (currentPage === 'care-extras') {
     return (
       <div 
         className="h-full bg-[#F8F7F5] w-full relative overflow-hidden" 
@@ -6876,7 +6873,7 @@ export function DashboardPreviewMock({ businessName = 'Purrfect Haven' }: Dashbo
                 <CardContent className="p-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl bg-[#C46A3A]/10 flex items-center justify-center">
-                      <Scissors className="w-5 h-5 text-[#C46A3A]" />
+                      <Heart className="w-5 h-5 text-[#C46A3A]" />
                     </div>
                     <div>
                       <div className="text-2xl font-bold text-[#0A1128]">8</div>
@@ -6900,13 +6897,13 @@ export function DashboardPreviewMock({ businessName = 'Purrfect Haven' }: Dashbo
               </Card>
             </div>
 
-            {/* Today's Grooming Appointments */}
+            {/* Today's Care Extras */}
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
                     <CalendarIcon className="w-5 h-5 text-[#C46A3A]" />
-                    Today's Appointments
+                    Today's Care Extras
                   </CardTitle>
                   <Badge className="bg-[#C46A3A]">3 scheduled</Badge>
                 </div>
@@ -6916,21 +6913,21 @@ export function DashboardPreviewMock({ businessName = 'Purrfect Haven' }: Dashbo
                 <div className="bg-gradient-to-br from-[#C46A3A]/5 to-white rounded-xl p-4 border border-[#C46A3A]/10">
                   <div className="flex items-start justify-between mb-3">
                     <div>
-                      <div className="font-bold text-[#0A1128]">Whiskers - Deluxe Bath & Brush</div>
+                      <div className="font-bold text-[#0A1128]">Whiskers - Comfort Care</div>
                       <div className="text-sm text-[#0A1128]/60">Sarah Johnson</div>
                     </div>
                     <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200">10:00 AM</Badge>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-[#0A1128]/70 mb-3">
                     <Clock className="w-4 h-4" />
-                    <span>60 minutes</span>
+                    <span>Comfort check</span>
                     <span className="text-[#0A1128]/30">•</span>
                     <span className="font-semibold text-[#C46A3A]">$45</span>
                   </div>
                   <div className="flex gap-2">
                     <Button size="sm" className="flex-1 bg-[#C46A3A] hover:bg-[#C46A3A]/90">
                       <CheckCircle2 className="w-4 h-4 mr-1" />
-                      Start
+                      Complete
                     </Button>
                     <Button size="sm" variant="outline" className="flex-1">
                       <MessageSquare className="w-4 h-4 mr-1" />
@@ -6943,14 +6940,14 @@ export function DashboardPreviewMock({ businessName = 'Purrfect Haven' }: Dashbo
                 <div className="bg-gradient-to-br from-[#0A1128]/5 to-white rounded-xl p-4 border border-[#0A1128]/10">
                   <div className="flex items-start justify-between mb-3">
                     <div>
-                      <div className="font-bold text-[#0A1128]">Luna - Nail Trim</div>
+                      <div className="font-bold text-[#0A1128]">Luna - Medication Check</div>
                       <div className="text-sm text-[#0A1128]/60">Mike Chen</div>
                     </div>
                     <Badge variant="secondary">2:30 PM</Badge>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-[#0A1128]/70 mb-3">
                     <Clock className="w-4 h-4" />
-                    <span>20 minutes</span>
+                    <span>Daily note</span>
                     <span className="text-[#0A1128]/30">•</span>
                     <span className="font-semibold text-[#C46A3A]">$20</span>
                   </div>
@@ -6965,14 +6962,14 @@ export function DashboardPreviewMock({ businessName = 'Purrfect Haven' }: Dashbo
                 <div className="bg-gradient-to-br from-[#0A1128]/5 to-white rounded-xl p-4 border border-[#0A1128]/10">
                   <div className="flex items-start justify-between mb-3">
                     <div>
-                      <div className="font-bold text-[#0A1128]">Oliver - Full Spa Package</div>
+                      <div className="font-bold text-[#0A1128]">Oliver - Premium Enrichment</div>
                       <div className="text-sm text-[#0A1128]/60">Emma Davis</div>
                     </div>
                     <Badge variant="secondary">4:00 PM</Badge>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-[#0A1128]/70 mb-3">
                     <Clock className="w-4 h-4" />
-                    <span>90 minutes</span>
+                    <span>Play and reassurance</span>
                     <span className="text-[#0A1128]/30">•</span>
                     <span className="font-semibold text-[#C46A3A]">$85</span>
                   </div>
@@ -6985,22 +6982,22 @@ export function DashboardPreviewMock({ businessName = 'Purrfect Haven' }: Dashbo
 
                 <Button className="w-full" variant="outline">
                   <Plus className="w-4 h-4 mr-2" />
-                  Add Appointment
+                  Add Care Extra
                 </Button>
               </CardContent>
             </Card>
 
-            {/* Grooming Services Offered */}
+            {/* Care Services Offered */}
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
-                    <Scissors className="w-5 h-5 text-[#C46A3A]" />
+                    <Heart className="w-5 h-5 text-[#C46A3A]" />
                     Your Services
                   </CardTitle>
                   <Button size="sm" className="bg-[#C46A3A] hover:bg-[#C46A3A]/90">
                     <Plus className="w-4 h-4 mr-1" />
-                    Add Service
+                    Add Extra
                   </Button>
                 </div>
               </CardHeader>
@@ -7012,8 +7009,8 @@ export function DashboardPreviewMock({ businessName = 'Purrfect Haven' }: Dashbo
                       <Sparkles className="w-5 h-5 text-[#C46A3A]" />
                     </div>
                     <div>
-                      <div className="font-semibold text-[#0A1128]">Deluxe Bath & Brush</div>
-                      <div className="text-xs text-[#0A1128]/60">60 min • Most popular</div>
+                      <div className="font-semibold text-[#0A1128]">Comfort Care</div>
+                      <div className="text-xs text-[#0A1128]/60">Daily reassurance • Most popular</div>
                     </div>
                   </div>
                   <div className="text-right">
@@ -7026,11 +7023,11 @@ export function DashboardPreviewMock({ businessName = 'Purrfect Haven' }: Dashbo
                 <div className="flex items-center justify-between p-3 bg-[#F8F7F5] rounded-xl hover:bg-[#0A1128]/5 transition">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg bg-[#C46A3A]/10 flex items-center justify-center">
-                      <Scissors className="w-5 h-5 text-[#C46A3A]" />
+                      <Bell className="w-5 h-5 text-[#C46A3A]" />
                     </div>
                     <div>
-                      <div className="font-semibold text-[#0A1128]">Nail Trim & File</div>
-                      <div className="text-xs text-[#0A1128]/60">20 min</div>
+                      <div className="font-semibold text-[#0A1128]">Medication Check</div>
+                      <div className="text-xs text-[#0A1128]/60">Daily</div>
                     </div>
                   </div>
                   <div className="text-right">
@@ -7046,8 +7043,8 @@ export function DashboardPreviewMock({ businessName = 'Purrfect Haven' }: Dashbo
                       <Crown className="w-5 h-5 text-[#C46A3A]" />
                     </div>
                     <div>
-                      <div className="font-semibold text-[#0A1128]">Full Spa Package</div>
-                      <div className="text-xs text-[#0A1128]/60">90 min • Premium</div>
+                      <div className="font-semibold text-[#0A1128]">Premium Enrichment</div>
+                      <div className="text-xs text-[#0A1128]/60">Play and reassurance • Premium</div>
                     </div>
                   </div>
                   <div className="text-right">
@@ -7060,11 +7057,11 @@ export function DashboardPreviewMock({ businessName = 'Purrfect Haven' }: Dashbo
                 <div className="flex items-center justify-between p-3 bg-[#F8F7F5] rounded-xl hover:bg-[#0A1128]/5 transition">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg bg-[#C46A3A]/10 flex items-center justify-center">
-                      <Brush className="w-5 h-5 text-[#C46A3A]" />
+                      <Camera className="w-5 h-5 text-[#C46A3A]" />
                     </div>
                     <div>
-                      <div className="font-semibold text-[#0A1128]">Brush & De-shedding</div>
-                      <div className="text-xs text-[#0A1128]/60">45 min</div>
+                      <div className="font-semibold text-[#0A1128]">Photo Postcard</div>
+                      <div className="text-xs text-[#0A1128]/60">Extra update</div>
                     </div>
                   </div>
                   <div className="text-right">
@@ -7077,11 +7074,11 @@ export function DashboardPreviewMock({ businessName = 'Purrfect Haven' }: Dashbo
                 <div className="flex items-center justify-between p-3 bg-[#F8F7F5] rounded-xl hover:bg-[#0A1128]/5 transition">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg bg-[#C46A3A]/10 flex items-center justify-center">
-                      <Droplet className="w-5 h-5 text-[#C46A3A]" />
+                      <Sparkles className="w-5 h-5 text-[#C46A3A]" />
                     </div>
                     <div>
-                      <div className="font-semibold text-[#0A1128]">Ear Cleaning</div>
-                      <div className="text-xs text-[#0A1128]/60">15 min • Add-on</div>
+                      <div className="font-semibold text-[#0A1128]">Premium Food</div>
+                      <div className="text-xs text-[#0A1128]/60">Daily add-on</div>
                     </div>
                   </div>
                   <div className="text-right">
@@ -7109,7 +7106,7 @@ export function DashboardPreviewMock({ businessName = 'Purrfect Haven' }: Dashbo
                       <div className="flex items-center gap-3">
                         <div className="text-xs font-bold text-[#0A1128]/60 w-16">11:00 AM</div>
                         <div>
-                          <div className="font-semibold text-[#0A1128] text-sm">Bella - Nail Trim</div>
+                          <div className="font-semibold text-[#0A1128] text-sm">Bella - Medication Check</div>
                           <div className="text-xs text-[#0A1128]/60">Linda Park</div>
                         </div>
                       </div>
@@ -7119,7 +7116,7 @@ export function DashboardPreviewMock({ businessName = 'Purrfect Haven' }: Dashbo
                       <div className="flex items-center gap-3">
                         <div className="text-xs font-bold text-[#0A1128]/60 w-16">3:00 PM</div>
                         <div>
-                          <div className="font-semibold text-[#0A1128] text-sm">Max - Full Spa</div>
+                          <div className="font-semibold text-[#0A1128] text-sm">Max - Premium Enrichment</div>
                           <div className="text-xs text-[#0A1128]/60">Tom Wilson</div>
                         </div>
                       </div>
@@ -7136,7 +7133,7 @@ export function DashboardPreviewMock({ businessName = 'Purrfect Haven' }: Dashbo
                       <div className="flex items-center gap-3">
                         <div className="text-xs font-bold text-[#0A1128]/60 w-16">10:00 AM</div>
                         <div>
-                          <div className="font-semibold text-[#0A1128] text-sm">Simba - Deluxe Bath</div>
+                          <div className="font-semibold text-[#0A1128] text-sm">Simba - Comfort Care</div>
                           <div className="text-xs text-[#0A1128]/60">Rachel Green</div>
                         </div>
                       </div>
@@ -7146,7 +7143,7 @@ export function DashboardPreviewMock({ businessName = 'Purrfect Haven' }: Dashbo
                       <div className="flex items-center gap-3">
                         <div className="text-xs font-bold text-[#0A1128]/60 w-16">1:30 PM</div>
                         <div>
-                          <div className="font-semibold text-[#0A1128] text-sm">Chloe - Brush & De-shed</div>
+                          <div className="font-semibold text-[#0A1128] text-sm">Chloe - Photo Postcard</div>
                           <div className="text-xs text-[#0A1128]/60">Mark Anderson</div>
                         </div>
                       </div>
@@ -7169,11 +7166,11 @@ export function DashboardPreviewMock({ businessName = 'Purrfect Haven' }: Dashbo
               <CardContent className="grid grid-cols-2 gap-3">
                 <Button className="h-auto py-4 flex-col gap-2 bg-[#C46A3A] hover:bg-[#C46A3A]/90">
                   <Plus className="w-5 h-5" />
-                  <span className="text-sm">New Appointment</span>
+                  <span className="text-sm">New Care Extra</span>
                 </Button>
                 <Button variant="outline" className="h-auto py-4 flex-col gap-2">
                   <Settings className="w-5 h-5" />
-                  <span className="text-sm">Service Settings</span>
+                  <span className="text-sm">Care Settings</span>
                 </Button>
                 <Button variant="outline" className="h-auto py-4 flex-col gap-2">
                   <BarChart3 className="w-5 h-5" />
@@ -7194,28 +7191,28 @@ export function DashboardPreviewMock({ businessName = 'Purrfect Haven' }: Dashbo
                 </div>
                 <div>
                   <div className="flex items-center gap-2 mb-2">
-                    <h3 className="font-bold">PRO Grooming Module</h3>
+                    <h3 className="font-bold">PRO Care Extras</h3>
                     <Badge className="bg-[#C46A3A]">Active</Badge>
                   </div>
                   <p className="text-sm opacity-90 mb-3">
-                    You're using all premium grooming features
+                    You're using all premium care-extra features
                   </p>
                   <div className="space-y-2 text-sm">
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-[#C46A3A]" />
-                      <span>Unlimited grooming appointments</span>
+                      <span>Unlimited care extras</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-[#C46A3A]" />
-                      <span>Custom service packages</span>
+                      <span>Custom care packages</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-[#C46A3A]" />
-                      <span>Automated appointment reminders</span>
+                      <span>Automated care reminders</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-[#C46A3A]" />
-                      <span>Grooming history & notes</span>
+                      <span>Care history & notes</span>
                     </div>
                   </div>
                 </div>
@@ -7586,7 +7583,7 @@ export function DashboardPreviewMock({ businessName = 'Purrfect Haven' }: Dashbo
                       </div>
                       <div className="flex items-center gap-3 opacity-40">
                         <XCircle className="w-5 h-5 flex-shrink-0" />
-                        <span className="text-sm text-[#0A1128]">Grooming module <Badge variant="secondary" className="ml-1 text-xs">PRO</Badge></span>
+                        <span className="text-sm text-[#0A1128]">Advanced marketing kit <Badge variant="secondary" className="ml-1 text-xs">PRO</Badge></span>
                       </div>
                     </CardContent>
                   </Card>
