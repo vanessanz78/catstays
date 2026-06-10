@@ -505,7 +505,7 @@ export function CustomerPetsView({
           </DialogHeader>
           {editingPet && (
             <>
-              <PetForm pet={editingPet} setPet={setEditingPet} />
+              <PetForm pet={editingPet} setPet={(pet) => setEditingPet((current) => current ? { ...current, ...pet } : pet as any)} />
               <div className="flex gap-2 pt-4">
                 <Button 
                   className="flex-1"

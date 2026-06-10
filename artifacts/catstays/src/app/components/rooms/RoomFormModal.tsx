@@ -4,6 +4,7 @@ import { Button } from '../ui/button';
 import { Room } from '../../types/room-planner';
 
 interface RoomFormModalProps {
+  isOpen?: boolean;
   room: Room | null;
   onSave: (room: Room) => void;
   onClose: () => void;

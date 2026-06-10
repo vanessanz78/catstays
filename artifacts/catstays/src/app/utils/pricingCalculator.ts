@@ -6,22 +6,37 @@ import { parseISO, eachDayOfInterval, getDay, differenceInDays, isWithinInterval
 export interface PriceBreakdown {
   basePrice: number;
   totalNights: number;
-  appliedRules: Array<{
-    name: string;
-    adjustment: number;
-    type: 'discount' | 'premium';
-  }>;
+  appliedRules: string[];
   finalPrice: number;
+  total: number;
   averagePerNight: number;
 }
 
 export function calculatePrice(
-  room: Room,
-  checkIn: string,
-  checkOut: string,
+  roomOrBaseRate: Room | number,
+  checkInValue: string | Date,
+  checkOutValue: string | Date,
   pricingRules: PricingRule[],
-  specialEvents: SpecialEvent[]
+  specialEvents: SpecialEvent[] = []
 ): PriceBreakdown {
+  const room: Room =
+    typeof roomOrBaseRate === 'number'
+      ? {
+          id: 'ad-hoc',
+          name: 'Room',
+          type: 'standard',
+          baseRate: roomOrBaseRate,
+          maxOccupancy: 1,
+          amenities: [],
+          status: 'available',
+          size: 0,
+          active: true,
+        }
+      : roomOrBaseRate;
+  const checkIn =
+    checkInValue instanceof Date ? checkInValue.toISOString().split('T')[0] : checkInValue;
+  const checkOut =
+    checkOutValue instanceof Date ? checkOutValue.toISOString().split('T')[0] : checkOutValue;
   const checkInDate = parseISO(checkIn);
   const checkOutDate = parseISO(checkOut);
   const totalNights = differenceInDays(checkOutDate, checkInDate);
@@ -32,12 +47,13 @@ export function calculatePrice(
       totalNights: 0,
       appliedRules: [],
       finalPrice: 0,
+      total: 0,
       averagePerNight: 0,
     };
   }
 
   const basePrice = room.baseRate * totalNights;
-  const appliedRules: Array<{ name: string; adjustment: number; type: 'discount' | 'premium' }> = [];
+  const appliedRules: string[] = [];
   
   let totalMultiplier = 1;
   const bookingDate = new Date();
@@ -58,11 +74,7 @@ export function calculatePrice(
   if (activeEvents.length > 0) {
     const highestMultiplier = Math.max(...activeEvents.map(e => e.priceMultiplier));
     const adjustment = ((highestMultiplier - 1) * 100);
-    appliedRules.push({
-      name: activeEvents[0].name,
-      adjustment,
-      type: 'premium',
-    });
+    appliedRules.push(`${activeEvents[0].name} +${Math.round(adjustment)}%`);
     totalMultiplier *= highestMultiplier;
   }
 
@@ -83,11 +95,7 @@ export function calculatePrice(
           if (inRange && rule.multiplier) {
             applies = true;
             const adjustment = ((rule.multiplier - 1) * 100);
-            appliedRules.push({
-              name: rule.name,
-              adjustment,
-              type: rule.multiplier > 1 ? 'premium' : 'discount',
-            });
+            appliedRules.push(`${rule.name} ${adjustment >= 0 ? '+' : ''}${Math.round(adjustment)}%`);
             totalMultiplier *= rule.multiplier;
           }
         }
@@ -101,11 +109,7 @@ export function calculatePrice(
           if (weekendDays.length > 0) {
             applies = true;
             const adjustment = ((rule.multiplier - 1) * 100);
-            appliedRules.push({
-              name: rule.name,
-              adjustment,
-              type: 'premium',
-            });
+            appliedRules.push(`${rule.name} +${Math.round(adjustment)}%`);
             totalMultiplier *= rule.multiplier;
           }
         }
@@ -119,11 +123,7 @@ export function calculatePrice(
           if (weekdayCount > 0 && weekdayCount === stayDays.length) {
             applies = true;
             const adjustment = ((rule.multiplier - 1) * 100);
-            appliedRules.push({
-              name: rule.name,
-              adjustment,
-              type: 'discount',
-            });
+            appliedRules.push(`${rule.name} ${Math.round(adjustment)}%`);
             totalMultiplier *= rule.multiplier;
           }
         }
@@ -133,11 +133,7 @@ export function calculatePrice(
         if (rule.minNights && totalNights >= rule.minNights && rule.multiplier) {
           applies = true;
           const adjustment = ((rule.multiplier - 1) * 100);
-          appliedRules.push({
-            name: rule.name,
-            adjustment,
-            type: 'discount',
-          });
+          appliedRules.push(`${rule.name} ${Math.round(adjustment)}%`);
           totalMultiplier *= rule.multiplier;
         }
         break;
@@ -146,11 +142,7 @@ export function calculatePrice(
         if (rule.daysThreshold && daysUntilCheckIn <= rule.daysThreshold && rule.multiplier) {
           applies = true;
           const adjustment = ((rule.multiplier - 1) * 100);
-          appliedRules.push({
-            name: rule.name,
-            adjustment,
-            type: 'discount',
-          });
+          appliedRules.push(`${rule.name} ${Math.round(adjustment)}%`);
           totalMultiplier *= rule.multiplier;
         }
         break;
@@ -170,6 +162,7 @@ export function calculatePrice(
     totalNights,
     appliedRules,
     finalPrice,
+    total: finalPrice,
     averagePerNight,
   };
 }

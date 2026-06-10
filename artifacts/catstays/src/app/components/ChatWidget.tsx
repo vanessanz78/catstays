@@ -4,6 +4,7 @@ import { Button } from './ui/button';
 import { Input } from './ui/input';
 
 interface ChatWidgetProps {
+  primaryColor?: string;
   accentColor?: string;
   businessName?: string;
 }

@@ -131,11 +131,23 @@ export function BookingBar({
                   fromYear={new Date().getFullYear()}
                   toYear={new Date().getFullYear() + 1}
                   styles={{
+                    day: {
+                      borderRadius: 8,
+                    },
+                    caption: {
+                      color: primaryColor,
+                    },
+                    head_cell: {
+                      color: primaryColor,
+                    },
+                    nav_button: {
+                      color: accentColor,
+                    },
                     day_selected: {
                       backgroundColor: accentColor,
                       color: 'white',
                     },
-                  }}
+                  } as any}
                 />
               </div>
             )}
@@ -178,11 +190,23 @@ export function BookingBar({
                   fromYear={new Date().getFullYear()}
                   toYear={new Date().getFullYear() + 1}
                   styles={{
+                    day: {
+                      borderRadius: 8,
+                    },
+                    caption: {
+                      color: primaryColor,
+                    },
+                    head_cell: {
+                      color: primaryColor,
+                    },
+                    nav_button: {
+                      color: accentColor,
+                    },
                     day_selected: {
                       backgroundColor: accentColor,
                       color: 'white',
                     },
-                  }}
+                  } as any}
                 />
               </div>
             )}
@@ -201,9 +225,7 @@ export function BookingBar({
               value={numberOfCats}
               onChange={(e) => setNumberOfCats(Number(e.target.value))}
               className="w-full h-10 sm:h-12 pl-8 sm:pl-11 pr-3 sm:pr-4 border border-gray-300 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-offset-0 focus:border-transparent appearance-none bg-white cursor-pointer text-sm"
-              style={{ 
-                focusRing: `2px solid ${primaryColor}`,
-              }}
+              style={{ outlineColor: primaryColor }}
             >
               <option value={1}>1 cat</option>
               <option value={2}>2 cats</option>

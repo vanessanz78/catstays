@@ -105,7 +105,9 @@ const BookingTile = ({ booking, startDate, dates, onBookingClick, onMoveBooking 
 
   return (
     <div
-      ref={drag}
+      ref={(node) => {
+        drag(node);
+      }}
       onClick={() => onBookingClick(booking)}
       className="absolute cursor-move group"
       style={{
@@ -187,7 +189,9 @@ const RoomRow = ({ room, bookings, dates, onBookingClick, onMoveBooking }: RoomR
 
       {/* Date Cells */}
       <div 
-        ref={drop}
+        ref={(node) => {
+          drop(node);
+        }}
         className={`flex-1 min-h-[80px] relative transition-colors
           ${isOver && canDrop ? 'bg-[#C46A3A]/5' : ''}
         `}

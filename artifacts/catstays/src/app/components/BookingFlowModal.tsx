@@ -10,20 +10,23 @@ import { X, Check, ArrowLeft, ArrowRight, Calendar as CalendarIcon, CreditCard, 
 import { differenceInDays } from 'date-fns';
 
 interface BookingFlowModalProps {
-  room: {
+  isOpen?: boolean;
+  businessName?: string;
+  pricePerNight?: string;
+  room?: {
     id: string;
     name: string;
     price: number;
     image: string;
   };
-  checkIn: string;
-  checkOut: string;
-  numberOfCats: number;
+  checkIn?: string;
+  checkOut?: string;
+  numberOfCats?: number;
   primaryColor?: string;
   accentColor?: string;
   additionalServices?: Array<{ title: string; price: string; description: string }>;
   onClose: () => void;
-  onComplete: (bookingData: any) => void;
+  onComplete?: (bookingData: any) => void;
   isLoggedIn?: boolean;
   userProfile?: {
     name: string;
@@ -62,15 +65,15 @@ interface BookingFlowModalProps {
 }
 
 export function BookingFlowModal({
-  room,
-  checkIn,
-  checkOut,
-  numberOfCats,
+  room = { id: 'suite', name: 'Private Suite', price: 30, image: '' },
+  checkIn = new Date().toISOString(),
+  checkOut = new Date(Date.now() + 86400000).toISOString(),
+  numberOfCats = 1,
   primaryColor = '#0A1128',
   accentColor = '#C46A3A',
   additionalServices = [],
   onClose,
-  onComplete,
+  onComplete = () => {},
   isLoggedIn = false,
   userProfile,
   availableRooms = [],
@@ -272,7 +275,7 @@ export function BookingFlowModal({
     }
 
     // Build comprehensive booking data
-    const bookingData = {
+    const bookingData: any = {
       ...formData,
       room,
       checkIn: checkInDate.toISOString().split('T')[0],

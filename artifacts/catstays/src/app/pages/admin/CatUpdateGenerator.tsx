@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Textarea } from '../../components/ui/textarea';
 import { Badge } from '../../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import { Label } from '../../components/ui/label';
 import { 
   Menu, Camera, Sparkles, Send, Copy, RefreshCw, 
   MessageSquare, Mail, Facebook, Instagram, Globe
@@ -281,8 +282,4 @@ export function CatUpdateGenerator() {
       </main>
     </div>
   );
-}
-
-function Label({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return <label className={className}>{children}</label>;
 }

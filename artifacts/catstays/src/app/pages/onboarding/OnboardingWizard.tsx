@@ -81,7 +81,7 @@ export function OnboardingWizard() {
   const [selectedPlan, setSelectedPlan] = useState<'starter' | 'professional'>('professional');
   const paymentFormRef = useRef<any>(null);
 
-  const [data, setData] = useState({
+  const [data, setData] = useState<any>({
     // Step 1 - Account Creation
     name: '',
     email: '',

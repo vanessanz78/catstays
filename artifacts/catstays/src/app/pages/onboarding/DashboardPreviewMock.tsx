@@ -76,7 +76,8 @@ import {
   Scissors,
   Crown,
   Brush,
-  Droplet
+  Droplet,
+  Save
 } from 'lucide-react';
 import { format, addDays, subDays, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday, isSameDay } from 'date-fns';
 import { NotificationBell } from '../../components/NotificationBell';

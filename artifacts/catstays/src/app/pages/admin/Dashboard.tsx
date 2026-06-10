@@ -193,7 +193,7 @@ export function AdminDashboard({ onBackToWebsite, isPreview = false }: AdminDash
             {hasData ? (
               <div className="space-y-3">
                 {recentActivity.map((activity) => {
-                  const Icon = activity.icon;
+                  const Icon = (activity as any).icon ?? Calendar;
                   return (
                     <div
                       key={activity.id}

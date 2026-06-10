@@ -12,7 +12,8 @@ import {
   Award,
   PieChart,
   BarChart3,
-  Lightbulb
+  Lightbulb,
+  TrendingDown
 } from 'lucide-react';
 import { getRooms, getBookings } from '../../utils/roomPlannerStorage';
 import { Booking, Room } from '../../types/room-planner';
