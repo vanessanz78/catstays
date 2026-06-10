@@ -683,9 +683,9 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
                     <div className="flex items-center justify-between p-3">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         {suite.image && (
-                          <img 
-                            src={suite.image} 
-                            alt={suite.name} 
+                          <img
+                            src={suite.image}
+                            alt={suite.name}
                             className="w-12 h-12 rounded object-cover flex-shrink-0"
                           />
                         )}
@@ -896,7 +896,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
             </div>
 
             {(data.additionalServices && data.additionalServices.length > 0 ? data.additionalServices : [
-              { title: 'Grooming', price: '$35', description: 'Professional bathing and brushing' },
+              { title: 'Extra Comfort Check', price: '$8/day', description: 'Additional wellbeing check during the stay' },
               { title: 'Medication Administration', price: '$10/day', description: 'Careful medication management' },
               { title: 'Special Diet', price: '$15/day', description: 'Custom meal preparation' },
               { title: 'Extended Playtime', price: '$20/day', description: 'Extra one-on-one attention' }
@@ -998,7 +998,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
                             newServices[index] = { ...newServices[index], title: e.target.value };
                             setData({ ...data, additionalServices: newServices });
                           }}
-                          placeholder="e.g., Grooming"
+                          placeholder="e.g., Extra Comfort Check"
                           className="h-9 rounded-lg text-sm"
                         />
                       </div>
@@ -1818,7 +1818,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <p className="text-sm text-gray-600 mb-4">Add your social media links to display icons in the footer</p>
-          
+
           <div className="space-y-2">
             <Label>Facebook URL</Label>
             <Input
@@ -1878,7 +1878,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <p className="text-sm text-gray-600 mb-4">Customize the footer Quick Links and Services sections</p>
-          
+
           <div className="space-y-2">
             <Label>Quick Links (comma-separated)</Label>
             <Input
@@ -1893,9 +1893,9 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
           <div className="space-y-2">
             <Label>Services Links (comma-separated)</Label>
             <Input
-              value={data.footerServices || 'Cat Boarding, Grooming, Special Care, Day Care'}
+              value={data.footerServices || 'Cat Boarding, Cat Suites, Special Care, Photo Updates'}
               onChange={(e) => setData({ ...data, footerServices: e.target.value })}
-              placeholder="Cat Boarding, Grooming, Special Care, Day Care"
+              placeholder="Cat Boarding, Cat Suites, Special Care, Photo Updates"
               className="rounded-lg"
             />
             <p className="text-xs text-gray-500">Separate services with commas</p>

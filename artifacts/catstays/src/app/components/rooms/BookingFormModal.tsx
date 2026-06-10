@@ -6,7 +6,7 @@ import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Badge } from '../ui/badge';
-import { 
+import {
   Save,
   X,
   DollarSign,
@@ -33,7 +33,7 @@ interface BookingFormModalProps {
 const availableAddOns: Omit<AddOn, 'quantity'>[] = [
   { id: 'premium-food', name: 'Premium Food', price: 8 },
   { id: 'playtime', name: 'Extended Playtime', price: 12 },
-  { id: 'grooming', name: 'Grooming', price: 35 },
+  { id: 'comfort-check', name: 'Extra Comfort Check', price: 8 },
   { id: 'medication', name: 'Medication Administration', price: 5 },
   { id: 'photo-updates', name: 'Daily Photo Updates', price: 5 },
   { id: 'outdoor-time', name: 'Private Outdoor Time', price: 10 },
@@ -65,7 +65,7 @@ export function BookingFormModal({
 
   useEffect(() => {
     setRooms(getRooms().filter(r => r.active));
-    
+
     if (booking) {
       setFormData({
         roomId: booking.roomId,
@@ -85,7 +85,7 @@ export function BookingFormModal({
   }, [booking]);
 
   const selectedRoom = rooms.find(r => r.id === formData.roomId);
-  
+
   const numberOfNights = formData.checkIn && formData.checkOut
     ? Math.max(0, differenceInDays(parseISO(formData.checkOut), parseISO(formData.checkIn)))
     : 0;
@@ -100,7 +100,7 @@ export function BookingFormModal({
       )
     : { total: 0, basePrice: 0, appliedRules: [] };
 
-  const addOnsTotal = formData.addOns.reduce((sum, addon) => 
+  const addOnsTotal = formData.addOns.reduce((sum, addon) =>
     sum + (addon.price * addon.quantity), 0
   );
 
@@ -163,7 +163,7 @@ export function BookingFormModal({
   const handleAddOnQuantityChange = (addOnId: string, quantity: number) => {
     setFormData({
       ...formData,
-      addOns: formData.addOns.map(a => 
+      addOns: formData.addOns.map(a =>
         a.id === addOnId ? { ...a, quantity: Math.max(1, quantity) } : a
       )
     });
@@ -397,7 +397,7 @@ export function BookingFormModal({
                   <span className="text-gray-600">Base Rate ({numberOfNights} nights × ${selectedRoom.baseRate})</span>
                   <span className="font-medium">${priceCalculation.basePrice.toFixed(2)}</span>
                 </div>
-                
+
                 {priceCalculation.appliedRules && priceCalculation.appliedRules.length > 0 && (
                   <div className="pl-4 space-y-1 text-xs text-gray-600">
                     {priceCalculation.appliedRules.map((rule, idx) => (

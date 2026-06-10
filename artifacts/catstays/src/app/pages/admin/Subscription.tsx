@@ -29,7 +29,7 @@ const PLAN_FEATURES = [
   'Customer database',
   'Analytics & insights',
   'Automated email notifications',
-  'Grooming & marketing tools',
+  'Cat update and marketing tools',
   'Photo updates for customers',
   'Priority support',
 ];

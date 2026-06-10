@@ -59,7 +59,7 @@ export function AvailableRooms({
       name: 'Luxury Villa',
       capacity: 3,
       price: 85,
-      features: ['Private villa', 'Garden access', 'Premium treats', '24/7 monitoring', 'Spa services'],
+      features: ['Private villa', 'Garden access', 'Premium treats', '24/7 monitoring', 'Comfort checks'],
       image: 'https://images.unsplash.com/photo-1574114908319-2efa632834d1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=600',
       available: true
     },
@@ -68,7 +68,7 @@ export function AvailableRooms({
       name: 'VIP Penthouse',
       capacity: 4,
       price: 120,
-      features: ['Ultimate luxury', 'Private outdoor area', 'Gourmet meals', 'Concierge service', 'Daily grooming'],
+      features: ['Ultimate luxury', 'Private outdoor area', 'Gourmet meals', 'Concierge service', 'Daily photo updates'],
       image: 'https://images.unsplash.com/photo-1725419876939-f8f9987cf0d2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=600',
       available: true
     }
@@ -101,12 +101,12 @@ export function AvailableRooms({
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Search
           </Button>
-          
+
           <h1 className="text-3xl md:text-4xl font-bold mb-2" style={{ color: primaryColor }}>
             Available Rooms
           </h1>
           <p className="text-gray-600">
-            {new Date(checkIn).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} 
+            {new Date(checkIn).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             {' → '}
             {new Date(checkOut).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
             {' • '}
@@ -134,19 +134,19 @@ export function AvailableRooms({
               return (
                 <Card key={room.id} className="overflow-hidden hover:shadow-xl transition-shadow relative">
                   {isPopular && (
-                    <div 
+                    <div
                       className="absolute top-4 right-4 z-10 px-3 py-1 rounded-full text-xs font-semibold text-white"
                       style={{ backgroundColor: accentColor }}
                     >
                       Most Popular
                     </div>
                   )}
-                  
+
                   {/* Room Image */}
                   <div className="h-48 overflow-hidden">
-                    <img 
-                      src={room.image} 
-                      alt={room.name} 
+                    <img
+                      src={room.image}
+                      alt={room.name}
                       className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                     />
                   </div>

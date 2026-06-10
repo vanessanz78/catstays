@@ -46,7 +46,6 @@ import { PaymentPausedComparison } from "./pages/subscription/PaymentPausedCompa
 import { DashboardWebsiteEditor } from "./pages/admin/WebsiteEditor";
 import { BookingSetup } from "./pages/admin/BookingSetup";
 import { MarketingKit } from "./pages/admin/MarketingKit";
-import { Grooming } from "./pages/admin/Grooming";
 import { Subscription } from "./pages/admin/Subscription";
 import { PaymentIntegration } from "./pages/admin/PaymentIntegration";
 import { DomainSettings } from "./pages/admin/DomainSettings";
@@ -89,7 +88,7 @@ import { RoomsPricingDemo } from "./pages/demo/RoomsPricingDemo";
 import BookingSystemDemo from "./pages/BookingSystemDemo";
 
 export const router = createBrowserRouter([
-  // Marketing website (petstays.nz)
+  // Marketing website (catstays.app)
   {
     path: "/",
     Component: MarketingHome,
@@ -160,7 +159,7 @@ export const router = createBrowserRouter([
     Component: SubscriptionPreviewStep,
     ErrorBoundary: RootErrorBoundary,
   },
-  
+
   // Admin dashboard
   {
     path: "/admin",
@@ -292,7 +291,7 @@ export const router = createBrowserRouter([
     Component: PaymentPausedComparison,
     ErrorBoundary: RootErrorBoundary,
   },
-  
+
   // New Dashboard Components
   {
     path: "/admin/website-editor",
@@ -307,11 +306,6 @@ export const router = createBrowserRouter([
   {
     path: "/admin/marketing-kit",
     Component: MarketingKit,
-    ErrorBoundary: RootErrorBoundary,
-  },
-  {
-    path: "/admin/grooming",
-    Component: Grooming,
     ErrorBoundary: RootErrorBoundary,
   },
   {
@@ -347,11 +341,6 @@ export const router = createBrowserRouter([
     ErrorBoundary: RootErrorBoundary,
   },
   {
-    path: "/dashboard/grooming",
-    Component: Grooming,
-    ErrorBoundary: RootErrorBoundary,
-  },
-  {
     path: "/dashboard/subscription",
     Component: Subscription,
     ErrorBoundary: RootErrorBoundary,
@@ -361,7 +350,7 @@ export const router = createBrowserRouter([
     Component: PaymentIntegration,
     ErrorBoundary: RootErrorBoundary,
   },
-  
+
   // Room Planner
   {
     path: "/rooms/room-planner-dashboard",
@@ -373,15 +362,15 @@ export const router = createBrowserRouter([
     Component: RoomManagement,
     ErrorBoundary: RootErrorBoundary,
   },
-  
+
   // Public pages
   {
     path: "/update",
     Component: UpdatePage,
     ErrorBoundary: RootErrorBoundary,
   },
-  
-  // Tenant website (businessname.petstays.nz)
+
+  // Tenant website (businessname.catstays.app)
   {
     path: "/site",
     Component: TenantHome,
@@ -422,7 +411,7 @@ export const router = createBrowserRouter([
     Component: TenantLogin,
     ErrorBoundary: RootErrorBoundary,
   },
-  
+
   // Tenant website with dynamic tenant ID
   {
     path: "/tenant/:tenantId",
@@ -464,7 +453,7 @@ export const router = createBrowserRouter([
     Component: TenantLogin,
     ErrorBoundary: RootErrorBoundary,
   },
-  
+
   // Customer portal
   {
     path: "/customer",
@@ -481,7 +470,7 @@ export const router = createBrowserRouter([
     Component: CustomerProfile,
     ErrorBoundary: RootErrorBoundary,
   },
-  
+
   // Website Builder & Platform Admin
   {
     path: "/builder/website-editor",
@@ -503,7 +492,7 @@ export const router = createBrowserRouter([
     Component: AdminLogin,
     ErrorBoundary: RootErrorBoundary,
   },
-  
+
   // Demo pages
   {
     path: "/demo/auth-flow",
@@ -520,7 +509,7 @@ export const router = createBrowserRouter([
     Component: BookingSystemDemo,
     ErrorBoundary: RootErrorBoundary,
   },
-  
+
   // Not found
   {
     path: "*",

@@ -43,9 +43,9 @@ const planDetails = {
     period: '/month',
     features: [
       'Everything in Professional',
-      'Daycare module',
-      'Grooming module',
-      'Advanced automation',
+      'Custom domain request workflow',
+      'Advanced cat postcard and social AI',
+      'Premium website setup support',
       'VIP support'
     ]
   }
@@ -68,10 +68,10 @@ export function SignupModal({ open, onOpenChange, selectedPlan = null }: SignupM
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     // Store selected plan for onboarding
-    localStorage.setItem('catstays_signup_data', JSON.stringify({ 
-      selectedPlan 
+    localStorage.setItem('catstays_signup_data', JSON.stringify({
+      selectedPlan
     }));
-    
+
     // Close modal first, then navigate after cleanup
     onOpenChange(false);
     setTimeout(() => {
@@ -118,7 +118,7 @@ export function SignupModal({ open, onOpenChange, selectedPlan = null }: SignupM
           <h2 className="text-3xl font-serif font-semibold text-[#0A1128] text-center mb-2" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
             {plan ? `Start your free trial with ${plan.name}` : 'Start your free trial'}
           </h2>
-          
+
           {/* Subtext */}
           <p className="text-center text-[#0A1128]/60 text-sm mb-8">
             No credit card required • 14-day free trial
@@ -144,8 +144,8 @@ export function SignupModal({ open, onOpenChange, selectedPlan = null }: SignupM
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               className="w-full bg-[#C46A3A] hover:bg-[#A85A30] text-white rounded-xl py-6 text-base font-medium shadow-lg"
             >
               {plan ? `Start ${plan.name} Setup` : 'Continue to Setup'}
@@ -155,7 +155,7 @@ export function SignupModal({ open, onOpenChange, selectedPlan = null }: SignupM
           {/* Login Link */}
           <div className="mt-6 text-center text-sm text-[#0A1128]/60">
             Already have an account?{' '}
-            <button 
+            <button
               onClick={handleLoginClick}
               className="text-[#C46A3A] hover:underline font-medium"
             >

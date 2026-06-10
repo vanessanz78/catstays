@@ -6,8 +6,8 @@ import { Textarea } from '../../components/ui/textarea';
 import { Badge } from '../../components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Label } from '../../components/ui/label';
-import { 
-  Menu, Camera, Sparkles, Send, Copy, RefreshCw, 
+import {
+  Menu, Camera, Sparkles, Send, Copy, RefreshCw,
   MessageSquare, Mail, Facebook, Instagram, Globe
 } from 'lucide-react';
 
@@ -24,17 +24,17 @@ export function CatUpdateGenerator() {
 
   const handleGenerate = () => {
     setGenerating(true);
-    
+
     // Simulate AI generation
     setTimeout(() => {
       setGeneratedOwnerMessage(
         "Hi Mum! 🐱\n\nI'm having the most wonderful time at my luxury holiday here at Deloraine Cattery! Today I spent hours bird watching from my private sun deck - there were so many colourful birds to watch. The staff gave me extra pats and treats, and I've been napping in the comfiest spot all afternoon.\n\nDon't worry about me - I'm living my best life! See you soon!\n\nLove,\nWhiskers 💕"
       );
-      
+
       setGeneratedSocialPost(
-        "Meet Whiskers enjoying her luxury cattery holiday! 🐱✨\n\nThis gorgeous girl spent her morning bird watching from her private sun deck at Deloraine Cattery. She's living her best life with premium accommodation, gourmet meals, and plenty of attention from our caring staff.\n\nYour cat deserves a holiday too! Book now at deloraine.petstays.nz\n\n#DeloraineCattery #CatBoarding #LuxuryPetCare #WhangāreiCats #HappyCats #CatHoliday #PetCareNZ"
+        "Meet Whiskers enjoying her luxury cattery holiday! 🐱✨\n\nThis gorgeous girl spent her morning bird watching from her private sun deck at Deloraine Cattery. She's living her best life with premium accommodation, gourmet meals, and plenty of attention from our caring staff.\n\nYour cat deserves a holiday too! Book now at delorainecattery.catstays.app\n\n#DeloraineCattery #CatBoarding #LuxuryPetCare #WhangāreiCats #HappyCats #CatHoliday #PetCareNZ"
       );
-      
+
       setGenerating(false);
     }, 1500);
   };
@@ -124,8 +124,8 @@ export function CatUpdateGenerator() {
 
         {/* Generate Button */}
         {imageUploaded && !generatedOwnerMessage && (
-          <Button 
-            className="w-full" 
+          <Button
+            className="w-full"
             size="lg"
             onClick={handleGenerate}
             disabled={generating}
@@ -167,8 +167,8 @@ export function CatUpdateGenerator() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label className="text-sm font-medium">Message from Whiskers</Label>
-                      <Button 
-                        variant="ghost" 
+                      <Button
+                        variant="ghost"
                         size="sm"
                         onClick={handleGenerate}
                       >
@@ -176,7 +176,7 @@ export function CatUpdateGenerator() {
                         Regenerate
                       </Button>
                     </div>
-                    <Textarea 
+                    <Textarea
                       value={generatedOwnerMessage}
                       onChange={(e) => setGeneratedOwnerMessage(e.target.value)}
                       rows={10}
@@ -206,8 +206,8 @@ export function CatUpdateGenerator() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label className="text-sm font-medium">Social Media Caption</Label>
-                      <Button 
-                        variant="ghost" 
+                      <Button
+                        variant="ghost"
                         size="sm"
                         onClick={handleGenerate}
                       >
@@ -215,7 +215,7 @@ export function CatUpdateGenerator() {
                         Regenerate
                       </Button>
                     </div>
-                    <Textarea 
+                    <Textarea
                       value={generatedSocialPost}
                       onChange={(e) => setGeneratedSocialPost(e.target.value)}
                       rows={10}
@@ -224,28 +224,28 @@ export function CatUpdateGenerator() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
-                    <Button 
+                    <Button
                       className="bg-blue-600 hover:bg-blue-700"
                       onClick={() => handlePostSocial('Facebook')}
                     >
                       <Facebook className="w-4 h-4 mr-2" />
                       Facebook
                     </Button>
-                    <Button 
+                    <Button
                       className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
                       onClick={() => handlePostSocial('Instagram')}
                     >
                       <Instagram className="w-4 h-4 mr-2" />
                       Instagram
                     </Button>
-                    <Button 
+                    <Button
                       variant="outline"
                       onClick={() => handlePostSocial('Website')}
                     >
                       <Globe className="w-4 h-4 mr-2" />
                       Website Feed
                     </Button>
-                    <Button 
+                    <Button
                       variant="outline"
                       onClick={() => navigator.clipboard.writeText(generatedSocialPost)}
                     >

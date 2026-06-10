@@ -2,25 +2,24 @@ import { useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { 
-  Menu, 
-  X, 
-  Home, 
-  Calendar, 
-  LayoutGrid, 
-  BookOpen, 
-  Users, 
-  CreditCard, 
-  MessageSquare, 
-  Megaphone, 
-  Share2, 
-  Camera, 
-  BarChart3, 
+import {
+  Menu,
+  X,
+  Home,
+  Calendar,
+  LayoutGrid,
+  BookOpen,
+  Users,
+  CreditCard,
+  MessageSquare,
+  Megaphone,
+  Share2,
+  Camera,
+  BarChart3,
   Settings,
   ChevronRight,
   Upload,
   Globe,
-  Scissors,
   Download,
   Crown
 } from 'lucide-react';
@@ -35,7 +34,6 @@ export function RightMenu() {
     { path: '/admin/room-planner', icon: LayoutGrid, label: 'Room Planner', description: 'Visual room grid' },
     { path: '/admin/bookings', icon: BookOpen, label: 'Bookings', description: 'All reservations' },
     { path: '/admin/customers', icon: Users, label: 'Customers', description: 'Contact details' },
-    { path: '/dashboard/grooming', icon: Scissors, label: 'Grooming', description: 'Grooming appointments', badge: 'PRO' },
     { path: '/admin/smart-import', icon: Upload, label: 'Smart Import', description: 'Import your data', badge: 'AI' },
     { path: '/admin/accounting', icon: CreditCard, label: 'Accounting', description: 'Payments & invoices' },
     { path: '/dashboard/payment', icon: CreditCard, label: 'Payment Setup', description: 'Stripe integration' },
@@ -65,7 +63,7 @@ export function RightMenu() {
 
       {/* Overlay */}
       {isOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 z-50 transition-opacity"
           onClick={() => setIsOpen(false)}
         />

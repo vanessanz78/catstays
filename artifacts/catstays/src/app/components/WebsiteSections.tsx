@@ -1,5 +1,5 @@
 import { Button } from './ui/button';
-import { 
+import {
   Star,
   Shield,
   Heart,
@@ -238,7 +238,7 @@ export function ServicesSection({ data, template }: SectionProps) {
             { icon: 'Home', title: 'Luxury Boarding', description: 'Premium accommodations with individual suites', image: catImages.room1 },
             { icon: 'Camera', title: 'Daily Photo Updates', description: 'Professional photos sent to you daily', image: catImages.happy },
             { icon: 'Heart', title: 'Special Care', description: 'Medication administration and dietary needs', image: catImages.care },
-            { icon: 'Star', title: 'Grooming Services', description: 'Professional grooming by appointment', image: catImages.playing }
+            { icon: 'Star', title: 'Comfort Checks', description: 'Regular wellbeing checks during every stay', image: catImages.playing }
           ]).map((service: any, i: number) => {
             const IconComponent = getIconComponent(service.icon);
             return (
@@ -383,7 +383,7 @@ export function ContactSection({ data, template }: SectionProps) {
             <h3 className="text-base sm:text-lg font-semibold mb-2 break-words" style={{ color: data.primaryColor || '#0A1128', fontFamily: getSubheadingFontClass(data.subheadingFont || 'inter') }}>Phone</h3>
             <p className="text-xs sm:text-sm md:text-base text-gray-600 break-all" style={{ fontFamily: getBodyFontClass(data.bodyFont || 'inter') }}>{data.phone || '(555) 123-4567'}</p>
           </div>
-          
+
           {/* Email */}
           <div className="text-center">
             <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto rounded-full flex items-center justify-center mb-3 sm:mb-4" style={{ backgroundColor: `${data.accentColor || '#C46A3A'}20` }}>
@@ -392,7 +392,7 @@ export function ContactSection({ data, template }: SectionProps) {
             <h3 className="text-base sm:text-lg font-semibold mb-2 break-words" style={{ color: data.primaryColor || '#0A1128', fontFamily: getSubheadingFontClass(data.subheadingFont || 'inter') }}>Email</h3>
             <p className="text-xs sm:text-sm md:text-base text-gray-600 break-all" style={{ fontFamily: getBodyFontClass(data.bodyFont || 'inter') }}>{data.email || 'hello@cattery.com'}</p>
           </div>
-          
+
           {/* Address */}
           <div className="text-center">
             <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto rounded-full flex items-center justify-center mb-3 sm:mb-4" style={{ backgroundColor: `${data.accentColor || '#C46A3A'}20` }}>
@@ -499,7 +499,7 @@ export function FooterSection({ data, template }: SectionProps) {
           <div className="md:col-span-1">
             <h3 className="text-xl md:text-2xl font-bold mb-4" style={{ fontFamily: getHeadingFontClass(data.headingFont || data.typography || 'playfair') }}>{data.businessName || 'CatStays'}</h3>
             <p className="text-white/70 text-sm md:text-base mb-6" style={{ fontFamily: getBodyFontClass(data.bodyFont || 'inter') }}>Premium cat boarding with love and care.</p>
-            
+
             {/* Social Media Icons */}
             {hasSocialMedia && (
               <div className="flex gap-3 mt-4">
@@ -542,7 +542,7 @@ export function FooterSection({ data, template }: SectionProps) {
           <div>
             <h4 className="font-semibold mb-4" style={{ fontFamily: getSubheadingFontClass(data.subheadingFont || 'inter') }}>Services</h4>
             <ul className="space-y-2 text-white/70 text-sm md:text-base" style={{ fontFamily: getBodyFontClass(data.bodyFont || 'inter') }}>
-              {(data.footerServices || 'Cat Boarding, Grooming, Special Care, Day Care').split(',').map((service: string, i: number) => (
+              {(data.footerServices || 'Cat Boarding, Cat Suites, Special Care, Photo Updates').split(',').map((service: string, i: number) => (
                 <li key={i}>{service.trim()}</li>
               ))}
             </ul>
