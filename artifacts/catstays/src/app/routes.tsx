@@ -85,6 +85,7 @@ import { AdminLogin } from "./pages/platform/AdminLogin";
 // Demo pages
 import { AuthFlowDemo } from "./pages/demo/AuthFlowDemo";
 import { RoomsPricingDemo } from "./pages/demo/RoomsPricingDemo";
+import { DeloraineDemo, DeloraineDemoClientPortal, DeloraineDemoDashboard } from "./pages/demo/DeloraineDemo";
 import BookingSystemDemo from "./pages/BookingSystemDemo";
 
 export const router = createBrowserRouter([
@@ -507,6 +508,21 @@ export const router = createBrowserRouter([
   {
     path: "/demo/booking-system",
     Component: BookingSystemDemo,
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
+    path: "/demo/deloraine",
+    Component: DeloraineDemo,
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
+    path: "/demo/deloraine-dashboard",
+    Component: DeloraineDemoDashboard,
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
+    path: "/demo/deloraine-client",
+    Component: DeloraineDemoClientPortal,
     ErrorBoundary: RootErrorBoundary,
   },
 

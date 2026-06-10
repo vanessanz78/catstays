@@ -96,11 +96,13 @@ interface FullWebsitePreviewProps {
       endDate: string;
     }>;
   };
+  initialMode?: 'website' | 'dashboard' | 'client';
+  initialDevice?: 'mobile' | 'tablet' | 'desktop';
 }
 
-export function FullWebsitePreview({ data }: FullWebsitePreviewProps) {
-  const [previewMode, setPreviewMode] = useState<'website' | 'dashboard' | 'client'>('dashboard');
-  const [deviceType, setDeviceType] = useState<'mobile' | 'tablet' | 'desktop'>('mobile');
+export function FullWebsitePreview({ data, initialMode = 'dashboard', initialDevice = 'mobile' }: FullWebsitePreviewProps) {
+  const [previewMode, setPreviewMode] = useState<'website' | 'dashboard' | 'client'>(initialMode);
+  const [deviceType, setDeviceType] = useState<'mobile' | 'tablet' | 'desktop'>(initialDevice);
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [showDashboard, setShowDashboard] = useState<'staff' | 'client' | null>(null);
 
@@ -478,7 +480,7 @@ export function FullWebsitePreview({ data }: FullWebsitePreviewProps) {
               </h4>
               <p className="text-sm text-[#0A1128]/70 leading-relaxed">
                 {previewMode === 'website' 
-                  ? `Your customers will access this at ${data.subdomain}.catstays.com. They can browse rooms, learn about your cattery, and book online.`
+                  ? `Your customers will access this at ${data.subdomain}.catstays.app. They can browse rooms, learn about your cattery, and book online.`
                   : previewMode === 'dashboard'
                   ? `You and your staff will access this dashboard to manage bookings, view arrivals/departures, track payments, and communicate with customers.`
                   : `Your customers can log in to view their bookings, manage pet profiles, receive photo updates, and communicate with you.`
