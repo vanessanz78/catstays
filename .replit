@@ -1,0 +1,40 @@
+modules = ["nodejs-24", "postgresql-16"]
+
+[[artifacts]]
+id = "artifacts/api-server"
+
+[[artifacts]]
+id = "artifacts/mockup-sandbox"
+
+[deployment]
+router = "application"
+deploymentTarget = "autoscale"
+
+[deployment.postBuild]
+args = ["pnpm", "store", "prune"]
+env = { "CI" = "true" }
+
+[workflows]
+runButton = "Project"
+
+[agent]
+stack = "PNPM_WORKSPACE"
+expertMode = true
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 20000
+
+[userenv]
+
+[userenv.shared]
+VITE_SUPABASE_URL = "https://iwyoezwqorddkmqnjbif.supabase.co"
+VITE_SUPABASE_ANON_KEY = "sb_publishable_Y4Hwj84ljj86Lfec3xkUkg_TSsfZKG7"
+STRIPE_API_KEY = "$STRIPE_SECRET_KEY"
+STRIPE_PUBLIC_KEY = "pk_live_51TE1rTB3RIUlHBEr7mKyoXvhRRZX8kfO7cUc8f5f8CJLPXVFwJS9pzI0hL80qTIFU39Hfd1gUiCfyPIg73m6HSKf00rWNV4Ofo"
+RESEND_API_KEY = "re_iReL8qx8_KAUtFY1oNUirbtLtTCQXsiyn"
+SUPABASE_SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml3eW9lendxb3JkZGttcW5qYmlmIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NDIxOTA4OCwiZXhwIjoyMDg5Nzk1MDg4fQ.CRYp_sIvg4nA2NyUR92b6tUSSsVqkCOJH6AvTUyW78k"
+STRIPE_WEBHOOK_SECRET = "whsec_RmvKPed12viUFEvI0ff6IYuT9KYlVOYz"
+
+[nix]
+channel = "stable-25_05"
