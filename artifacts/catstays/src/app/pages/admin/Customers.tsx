@@ -42,7 +42,7 @@ export function AdminCustomers() {
         <div className="max-w-lg mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <Link to="/admin">
+              <Link to="/staff-dashboard">
                 <Button variant="ghost" size="icon" className="rounded-full">
                   <ArrowLeft className="w-5 h-5" style={{ color: '#7DAF7B' }} />
                 </Button>

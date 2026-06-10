@@ -27,7 +27,7 @@ export function AdminLoginModal({ isOpen, onClose }: AdminLoginModalProps) {
     
     // In production: verify admin credentials via API
     // For demo: navigate to platform admin
-    navigate('/platform/dashboard');
+    navigate('/admin');
     onClose();
   };
 

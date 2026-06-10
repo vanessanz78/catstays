@@ -89,7 +89,7 @@ export function TenantHome() {
                 <button key={s} onClick={() => scrollToSection(s)} className="text-forest/70 hover:text-forest transition-colors capitalize">{s === 'hero' ? 'Home' : s.charAt(0).toUpperCase() + s.slice(1)}</button>
               ))}
               <div className="h-4 w-px bg-sage/20" />
-              <Link to="/admin">
+              <Link to="/staff-dashboard">
                 <Button variant="ghost" size="sm" className="text-sage hover:bg-sage/5 gap-2">
                   <Settings className="w-4 h-4" />
                   <span className="hidden lg:inline">Staff Portal</span>

@@ -236,7 +236,7 @@ export function AdminBookings() {
     }
 
     setShowCreateBooking(false);
-    navigate('/admin/bookings');
+    navigate('/staff-dashboard/bookings');
     setStep(1);
     setSelectedCustomer(null);
     setCats([]);
@@ -258,7 +258,7 @@ export function AdminBookings() {
                 <Button
                   onClick={() => {
                     setShowCreateBooking(false);
-                    navigate('/admin/bookings');
+                    navigate('/staff-dashboard/bookings');
                   }}
                   variant="ghost"
                   size="icon"

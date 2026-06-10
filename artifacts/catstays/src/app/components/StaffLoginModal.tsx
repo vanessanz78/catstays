@@ -30,13 +30,13 @@ export function StaffLoginModal({ isOpen, onClose, primaryColor = '#0A1128', acc
       console.log('StaffLoginModal: Login successful', { hasCallback: !!onStaffLogin });
       onClose();
       // If onStaffLogin callback is provided (from preview), use it
-      // Otherwise, navigate to /admin (from regular site)
+      // Otherwise, navigate to the cattery staff dashboard (from regular site)
       if (onStaffLogin) {
         console.log('StaffLoginModal: Calling onStaffLogin callback');
         onStaffLogin();
       } else {
-        console.log('StaffLoginModal: No callback, navigating to /admin');
-        navigate('/admin');
+        console.log('StaffLoginModal: No callback, navigating to /staff-dashboard');
+        navigate('/staff-dashboard');
       }
     } else {
       setError('Invalid email or password. Try: staff@catstays.app / C@t$tays');

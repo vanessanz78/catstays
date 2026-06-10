@@ -62,7 +62,7 @@ export function SubscriptionCheckout() {
       
       // Navigate to dashboard after 2 seconds
       setTimeout(() => {
-        navigate('/admin/modern-dashboard');
+        navigate('/staff-dashboard');
       }, 2000);
     }, 2000);
   };

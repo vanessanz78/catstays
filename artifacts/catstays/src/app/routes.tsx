@@ -71,6 +71,7 @@ import { TenantLogin } from "./pages/tenant/Login";
 import { CustomerDashboard } from "./pages/customer/Dashboard";
 import { CustomerBookings } from "./pages/customer/Bookings";
 import { CustomerProfile } from "./pages/customer/Profile";
+import { ClientPortalEntry } from "./pages/customer/ClientPortalEntry";
 
 // Error handling
 import { RootErrorBoundary } from "./components/RootErrorBoundary";
@@ -81,6 +82,7 @@ import { WebsiteEditor } from "./pages/builder/WebsiteEditor";
 import { WebsiteBuilderStudio } from "./pages/WebsiteBuilderStudio";
 import { PlatformDashboard } from "./pages/platform/PlatformDashboard";
 import { AdminLogin } from "./pages/platform/AdminLogin";
+import { StaffDashboard } from "./pages/staff/StaffDashboard";
 
 // Demo pages
 import { AuthFlowDemo } from "./pages/demo/AuthFlowDemo";
@@ -161,12 +163,111 @@ export const router = createBrowserRouter([
     ErrorBoundary: RootErrorBoundary,
   },
 
-  // Admin dashboard
+  // Platform owner admin
   {
     path: "/admin",
-    Component: DashboardPreviewMock,
+    Component: PlatformDashboard,
     ErrorBoundary: RootErrorBoundary,
   },
+
+  // Cattery staff dashboard
+  {
+    path: "/staff-dashboard",
+    Component: StaffDashboard,
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
+    path: "/staff-dashboard/bookings",
+    Component: AdminBookings,
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
+    path: "/staff-dashboard/customers",
+    Component: AdminCustomers,
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
+    path: "/staff-dashboard/calendar",
+    Component: AdminCalendar,
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
+    path: "/staff-dashboard/room-planner",
+    Component: RoomPlannerDashboard,
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
+    path: "/staff-dashboard/smart-import",
+    Component: SmartImport,
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
+    path: "/staff-dashboard/smart-data-import",
+    Component: SmartDataImport,
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
+    path: "/staff-dashboard/accounting",
+    Component: AdminAccounting,
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
+    path: "/staff-dashboard/messages",
+    Component: AdminMessages,
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
+    path: "/staff-dashboard/promotions",
+    Component: AdminPromotions,
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
+    path: "/staff-dashboard/social",
+    Component: AdminSocial,
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
+    path: "/staff-dashboard/cat-update-generator",
+    Component: CatUpdateGenerator,
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
+    path: "/staff-dashboard/insights",
+    Component: AdminInsights,
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
+    path: "/staff-dashboard/settings",
+    Component: AdminSettings,
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
+    path: "/staff-dashboard/booking-setup",
+    Component: BookingSetup,
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
+    path: "/staff-dashboard/payment",
+    Component: PaymentIntegration,
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
+    path: "/staff-dashboard/website-editor",
+    Component: DashboardWebsiteEditor,
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
+    path: "/staff-dashboard/marketing",
+    Component: MarketingKit,
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
+    path: "/staff-dashboard/subscription",
+    Component: Subscription,
+    ErrorBoundary: RootErrorBoundary,
+  },
+
+  // Legacy cattery dashboard routes
   {
     path: "/admin/overview",
     Component: AdminDashboard,
@@ -456,6 +557,21 @@ export const router = createBrowserRouter([
   },
 
   // Customer portal
+  {
+    path: "/client-portal",
+    Component: ClientPortalEntry,
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
+    path: "/client-portal/bookings",
+    Component: ClientPortalEntry,
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
+    path: "/client-portal/profile",
+    Component: ClientPortalEntry,
+    ErrorBoundary: RootErrorBoundary,
+  },
   {
     path: "/customer",
     Component: CustomerDashboard,

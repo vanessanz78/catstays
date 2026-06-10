@@ -56,7 +56,7 @@ export function PublishSuccessScreen() {
   const handleOpenDashboard = () => {
     // In production: window.location.href = `https://${fullUrl}/admin`;
     // For demo: navigate to admin
-    navigate('/admin');
+    navigate('/staff-dashboard');
   };
 
   return (

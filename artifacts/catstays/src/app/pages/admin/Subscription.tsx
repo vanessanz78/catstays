@@ -184,7 +184,7 @@ export function Subscription() {
       <div className="sticky top-0 z-40 bg-white border-b shadow-sm">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
-            <Link to="/admin" className="p-2 hover:bg-[#F6F4EF] rounded-lg transition-colors">
+            <Link to="/staff-dashboard" className="p-2 hover:bg-[#F6F4EF] rounded-lg transition-colors">
               <ArrowLeft className="w-5 h-5" style={{ color: '#2d3e2f' }} />
             </Link>
             <div>

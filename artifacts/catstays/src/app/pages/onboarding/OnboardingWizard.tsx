@@ -149,7 +149,7 @@ const templateCards = [
 
 export function OnboardingWizard() {
   const navigate = useNavigate();
-  const { cattery, refreshCattery, signUp } = useAuth();
+  const { cattery, refreshCattery } = useAuth();
   const [step, setStep] = useState(1);
   const totalSteps = 9; // Account, Cattery Details, Website Builder, Booking Setup, Website Preview, Choose Plan, Publish, Success, Data Import
   const [accountCreated, setAccountCreated] = useState(false);
@@ -356,51 +356,17 @@ export function OnboardingWizard() {
 
     setIsSaving(true);
 
-    const businessName = data.businessName || data.name;
-    const { error, userId } = await signUp(data.email, data.password, businessName, data.name);
-
-    setIsSaving(false);
-
-    if (error) {
-      const msg = error.message;
-      if (msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('already been registered')) {
-        setCreateAccountError('An account with this email already exists. Please sign in instead.');
-      } else {
-        setCreateAccountError(msg);
-      }
-      return;
-    }
-
-    // Ensure cattery row exists — the DB trigger creates it automatically, but
-    // as an explicit safety net we check and insert if missing.
-    // We use the userId returned directly from signUp (available even when
-    // email confirmation is required and no session exists yet).
-    if (userId) {
-      const { data: existingCattery } = await supabase
-        .from('catteries')
-        .select('id')
-        .eq('owner_id', userId)
-        .maybeSingle();
-      if (!existingCattery) {
-        await supabase.from('catteries').insert({
-          owner_id: userId,
-          name: businessName,
-          email: data.email,
-          subscription_status: 'trial',
-        });
-      }
-      await refreshCattery();
-    }
-
-    setAccountCreated(true);
-    localStorage.setItem('catstays_account', JSON.stringify({
+    const draftAccount = {
       name: data.name,
       email: data.email,
       createdAt: new Date().toISOString(),
       emailConfirmed: false,
-    }));
-
-    handleSaveProgress();
+      status: 'draft',
+    };
+    setAccountCreated(true);
+    localStorage.setItem('catstays_account', JSON.stringify(draftAccount));
+    localStorage.setItem('catstays_onboarding', JSON.stringify({ step: 2, data, accountCreated: true }));
+    setIsSaving(false);
     setStep(2);
   };
 
@@ -869,18 +835,73 @@ export function OnboardingWizard() {
     setPaymentError(null);
 
     try {
-      // Save all cattery data to Supabase
-      await handleSaveProgress();
+      let activeCatteryId = cattery?.id ?? null;
 
-      // Create rooms from the roomTypes defined in booking setup
+      if (!activeCatteryId) {
+        if (!data.name || !data.email || !data.password || data.password.length < 8) {
+          setCreateAccountError('Please complete your account details before publishing.');
+          setStep(1);
+          return;
+        }
+
+        localStorage.setItem('catstays_onboarding', JSON.stringify({ step, data, accountCreated: true }));
+
+        const response = await fetch('/api/cattery/provision', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data, plan: selectedPlan }),
+        });
+
+        const payload = await response.json().catch(() => ({})) as {
+          error?: string;
+          catteryId?: string;
+          slug?: string;
+        };
+
+        if (!response.ok) {
+          const message = payload.error || 'Something went wrong while publishing your cattery.';
+          if (response.status === 409 && message.toLowerCase().includes('account')) {
+            setCreateAccountError(message);
+            setAccountCreated(false);
+            setStep(1);
+            return;
+          }
+          throw new Error(message);
+        }
+
+        activeCatteryId = payload.catteryId || null;
+        if (payload.slug && payload.slug !== data.subdomain) {
+          setData((prev: any) => ({ ...prev, subdomain: payload.slug }));
+        }
+
+        localStorage.setItem('catstays_account', JSON.stringify({
+          name: data.name,
+          email: data.email,
+          businessName: data.businessName,
+          createdAt: new Date().toISOString(),
+          emailConfirmed: false,
+          catteryId: activeCatteryId,
+          slug: payload.slug || data.subdomain,
+          status: 'confirmation_sent',
+        }));
+        await refreshCattery();
+      } else {
+        // Save all cattery data to Supabase for already-authenticated owners.
+        await handleSaveProgress();
+      }
+
+      // Create rooms from the roomTypes defined in booking setup.
+      // New unconfirmed users are provisioned server-side because RLS prevents
+      // browser writes until the confirmation link is clicked.
       if (cattery?.id && data.roomTypes.length > 0) {
         const defaultRate = parseFloat(data.pricingRates[0]?.price || '30');
         const roomInserts = data.roomTypes.map((rt: any) => ({
-          cattery_id: cattery.id,
+          cattery_id: activeCatteryId,
           name: rt.name,
           type: 'standard',
           description: `Capacity: ${rt.maxCatsPerRoom} cat${Number(rt.maxCatsPerRoom) > 1 ? 's' : ''} per room`,
           price_per_night: defaultRate,
+          max_cats: parseInt(rt.maxCatsPerRoom) || 1,
           capacity: parseInt(rt.maxCatsPerRoom) || 1,
           amenities: [],
           is_active: true,
@@ -890,27 +911,28 @@ export function OnboardingWizard() {
         const { data: existingRooms } = await supabase
           .from('rooms')
           .select('id')
-          .eq('cattery_id', cattery.id);
+          .eq('cattery_id', activeCatteryId);
 
         if (!existingRooms || existingRooms.length === 0) {
           await supabase.from('rooms').insert(roomInserts);
         }
       }
 
-      // Update subscription status — persist the chosen plan tier
-      if (cattery?.id) {
+      // Update subscription status — persist the chosen plan tier.
+      if (cattery?.id && activeCatteryId) {
         const trialStatus = `trial_${selectedPlan}`;
         await supabase
           .from('catteries')
           .update({ subscription_status: trialStatus })
-          .eq('id', cattery.id);
+          .eq('id', activeCatteryId);
         await refreshCattery();
       }
 
       // Move to success screen
       setStep(8);
     } catch (error) {
-      setPaymentError('Something went wrong. Please try again.');
+      const message = error instanceof Error ? error.message : 'Something went wrong. Please try again.';
+      setPaymentError(message);
     } finally {
       setIsProcessingPayment(false);
     }
@@ -918,7 +940,7 @@ export function OnboardingWizard() {
 
   const handleGoToDashboard = () => {
     localStorage.removeItem('catstays_onboarding');
-    navigate('/admin');
+    navigate('/staff-dashboard');
   };
 
   const progress = (step / totalSteps) * 100;
@@ -1132,18 +1154,18 @@ export function OnboardingWizard() {
                       {isSaving ? (
                         <>
                           <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                          Creating Account...
+                          Saving Details...
                         </>
                       ) : (
                         <>
-                          Create Account
+                          Continue Setup
                           <ArrowRight className="w-5 h-5 ml-2" />
                         </>
                       )}
                     </Button>
 
                     <p className="text-xs text-center text-forest/60 mt-4">
-                      By creating an account, you agree to our Terms of Service and Privacy Policy
+                      Your account is created when you publish your cattery. By continuing, you agree to our Terms of Service and Privacy Policy.
                     </p>
                   </div>
                 ) : (

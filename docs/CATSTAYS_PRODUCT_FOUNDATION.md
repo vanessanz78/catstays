@@ -100,11 +100,11 @@ AI should reduce owner work, not remove owner control.
 
 ## Active Follow-Up List
 
-- Branded Supabase auth emails: replace the generic confirmation email with CatStays templates for signup confirmation, magic links, password reset, trial reminders, and billing reminders.
-- Email confirmation timing: keep setup moving first, then ask the owner to confirm their email from the final success screen.
+- Branded Supabase auth emails: templates now live in `supabase/auth-email-templates/` for signup confirmation, magic links, password reset, trial reminders, and billing reminders. Next step is pasting the Auth templates into Supabase and wiring the app transactional templates into scheduled billing/trial jobs.
+- Email confirmation timing: account details are now saved as an onboarding draft first; the real Supabase user, cattery row, room setup, selected plan, and confirmation email are created when the owner publishes the site.
 - Premium website templates: rebuild the six starter templates as real above-the-fold cattery websites with real photography, polished type, booking CTAs, and mobile-safe responsive layouts.
-- Tenant dashboard routing: platform owner admin belongs at `catstays.app/admin`; each cattery owner dashboard belongs at `{slug}.catstays.app/staff-dashboard`; each customer portal belongs at `{slug}.catstays.app/client-portal`.
-- Tenant data isolation: new cattery dashboards must start empty except for imported data; demo occupancy, bookings, and customers must never appear in a live tenant dashboard.
+- Tenant dashboard routing: `catstays.app/admin` now points to the CatStays platform admin, `/staff-dashboard` is the cattery owner/staff dashboard entry, and `/client-portal` is the customer portal entry. The subdomain router also exposes `/staff-dashboard` and `/client-portal`.
+- Tenant data isolation: publish-time provisioning is now server-side and creates the cattery/rooms from onboarding data instead of relying on browser writes before email confirmation. `/staff-dashboard` now opens a live/empty dashboard shell backed by tenant hooks instead of the demo-filled preview, and `/client-portal` now opens a clean portal entry instead of demo customer data. Next step is moving the remaining legacy admin subpages off mock data.
 - Desktop dashboard layout: keep the current mobile-first dashboard, then add a proper laptop/iPad dashboard layout with richer cards, photos where useful, wider notifications, and no stretched mobile view.
 - CatStays dashboard palette: dashboard states, badges, charts, tabs, imports, and payment screens should use navy, greys, terracotta, sand, and muted brown only.
 - Data import validation: keep CSV detection, then add downloadable sample files for customers, cats, and bookings, plus mapping review before import.

@@ -34,7 +34,7 @@ export function Login() {
 
     // Give auth state a moment to propagate, then navigate
     await new Promise(r => setTimeout(r, 400));
-    navigate('/admin/modern-dashboard');
+    navigate('/staff-dashboard');
     setIsLoading(false);
   };
 
