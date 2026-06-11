@@ -4,6 +4,8 @@ CatStays is a specialised SaaS platform for cat boarding businesses. It is built
 
 GitHub is the single source of truth for CatStays. Product decisions, workflow notes, architecture, deployment status, business rules, and implementation decisions should be documented here before they are treated as durable project knowledge.
 
+Every new Codex session should begin by reading this hub and the [Project Operating System](./project-operating-system.md). If GitHub documentation and chat history conflict, GitHub documentation wins.
+
 ## Current Status
 
 Last reviewed: 2026-06-12
@@ -43,6 +45,7 @@ See [Platform Architecture](./platform-architecture.md) and [Database Architectu
 | [Deployment Status](./deployment-status.md) | GitHub, Replit, Supabase, production status, and Replit pull instructions. |
 | [Changelog](./changelog.md) | Durable project change log. |
 | [Business Rules](./business-rules.md) | Product rules, pricing, trial logic, tenant rules, and scope boundaries. |
+| [Project Operating System](./project-operating-system.md) | Documentation-first workflow and source-of-truth rules for all project work. |
 | [Product Foundation](./CATSTAYS_PRODUCT_FOUNDATION.md) | Earlier product foundation and implementation notes. |
 | [Replit Secrets](./CATSTAYS_REPLIT_SECRETS.md) | Replit environment variable checklist. |
 
@@ -59,6 +62,8 @@ See [Platform Architecture](./platform-architecture.md) and [Database Architectu
 
 ## Documentation Rules
 
+- Read this hub before performing project work.
+- Follow the [Project Operating System](./project-operating-system.md) for documentation-first workflow.
 - Update this hub when new docs are added or renamed.
 - Update [Current State Audit](./current-state.md) after meaningful workflow or architecture changes.
 - Update [Changelog](./changelog.md) for significant commits.

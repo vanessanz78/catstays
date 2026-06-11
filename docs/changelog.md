@@ -2,6 +2,7 @@
 
 ## 2026-06-12
 
+- Added the project operating system documenting the documentation-first workflow and GitHub source-of-truth rules.
 - Added the CatStays Master Documentation Hub.
 - Added current-state audit covering platform status, product vision, architecture, journeys, booking, boarding, database, mobile, technical debt, deployment, and next actions.
 - Added documentation files for architecture, onboarding, booking, boarding, cattery management, customer journey, database, integrations, roadmap, deployment status, and business rules.
