@@ -43,6 +43,7 @@ See [Platform Architecture](./platform-architecture.md) and [Database Architectu
 | [Integrations](./integrations.md) | Supabase, Replit, Stripe, Resend, website scraping, Cloudflare, and future services. |
 | [Roadmap](./roadmap.md) | Prioritised build plan. |
 | [Deployment Status](./deployment-status.md) | GitHub, Replit, Supabase, production status, and Replit pull instructions. |
+| [UAT Test Plan](./uat-test-plan.md) | Manual user acceptance testing checklist for published Replit builds. |
 | [Changelog](./changelog.md) | Durable project change log. |
 | [Business Rules](./business-rules.md) | Product rules, pricing, trial logic, tenant rules, and scope boundaries. |
 | [Project Operating System](./project-operating-system.md) | Documentation-first workflow and source-of-truth rules for all project work. |
@@ -59,6 +60,7 @@ See [Platform Architecture](./platform-architecture.md) and [Database Architectu
 6. Build the full boarding workflow: arrivals, check-in, stay notes, photo updates, checkout, and operational tasks.
 7. Verify Stripe in test mode before live billing or cattery payment processing.
 8. Verify Replit deployment and production routing after each significant release.
+9. Run the [UAT Test Plan](./uat-test-plan.md) against each published Replit build before treating it as ready for deeper product work.
 
 ## Documentation Rules
 
