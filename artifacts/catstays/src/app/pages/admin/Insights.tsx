@@ -45,7 +45,7 @@ export function AdminInsights() {
       <header className="bg-white shadow-sm sticky top-0 z-40">
         <div className="max-w-lg mx-auto px-4 py-4">
           <div className="flex items-center gap-3">
-            <Link to="/admin">
+            <Link to="/staff-dashboard">
               <Button variant="ghost" size="icon" className="rounded-full">
                 <ArrowLeft className="w-5 h-5" style={{ color: '#7DAF7B' }} />
               </Button>
@@ -153,7 +153,7 @@ export function AdminInsights() {
                 </p>
               )}
 
-              <Link to="/admin/promotions">
+              <Link to="/staff-dashboard/promotions">
                 <Button className="w-full bg-[#E9C46A] hover:bg-[#E9C46A]/90 text-[#2d3e2f] rounded-xl shadow-sm">
                   <Sparkles className="w-4 h-4 mr-2" />
                   Create Promotion
@@ -283,7 +283,7 @@ export function AdminInsights() {
                 </div>
               </div>
 
-              <Link to="/admin/accounting" className="block mt-4">
+              <Link to="/staff-dashboard/accounting" className="block mt-4">
                 <Button
                   variant="outline"
                   className="w-full border-[#7DAF7B] text-[#7DAF7B] hover:bg-[#7DAF7B]/5 rounded-xl"

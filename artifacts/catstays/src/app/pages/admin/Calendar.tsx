@@ -171,7 +171,7 @@ export function AdminCalendar() {
             <h1 className="text-xl font-bold text-[#0A1128]">Calendar View</h1>
             <p className="text-xs text-gray-500">Booking overview</p>
           </div>
-          <Link to="/admin">
+          <Link to="/staff-dashboard">
             <Button variant="ghost" size="icon">
               <Menu className="w-6 h-6" />
             </Button>
@@ -270,7 +270,7 @@ export function AdminCalendar() {
         </Card>
 
         <div className="mt-4 flex gap-2">
-          <Link to="/admin/room-planner" className="flex-1">
+          <Link to="/staff-dashboard/room-planner" className="flex-1">
             <Button className="w-full h-9" variant="outline">
               Switch to Room Planner
             </Button>

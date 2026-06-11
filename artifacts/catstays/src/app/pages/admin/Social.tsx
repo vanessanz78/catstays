@@ -9,7 +9,7 @@ export function AdminSocial() {
       <header className="bg-white border-b">
         <div className="px-4 py-3 flex items-center justify-between">
           <h1 className="text-xl font-bold">Social Media</h1>
-          <Link to="/admin"><Button variant="ghost" size="icon"><Menu /></Button></Link>
+          <Link to="/staff-dashboard"><Button variant="ghost" size="icon"><Menu /></Button></Link>
         </div>
       </header>
       <main className="p-4">
@@ -24,7 +24,7 @@ export function AdminSocial() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Link to="/admin/cat-update-generator">
+            <Link to="/staff-dashboard/cat-update-generator">
               <Button className="w-full">
                 <ImageIcon className="w-4 h-4 mr-2" />
                 Create Cat Update

@@ -224,7 +224,7 @@ export function MarketingPricing() {
               <ul className="space-y-2 text-white/70">
                 <li><Link to="/features" className="hover:text-white transition-colors">Features</Link></li>
                 <li><Link to="/pricing" className="hover:text-white transition-colors">Pricing</Link></li>
-                <li><Link to="/demo/deloraine" className="hover:text-white transition-colors">Live example</Link></li>
+                <li><Link to="/demo/deloraine" className="hover:text-white transition-colors">Demo example</Link></li>
               </ul>
             </div>
 
@@ -232,9 +232,9 @@ export function MarketingPricing() {
             <div>
               <h4 className="font-semibold mb-4">Company</h4>
               <ul className="space-y-2 text-white/70">
-                <li><Link to="/about" className="hover:text-white transition-colors">About</Link></li>
-                <li><Link to="/contact" className="hover:text-white transition-colors">Contact</Link></li>
-                <li><Link to="/support" className="hover:text-white transition-colors">Support</Link></li>
+                <li><Link to="/features" className="hover:text-white transition-colors">About CatStays</Link></li>
+                <li><a href="mailto:hello@catstays.app" className="hover:text-white transition-colors">Contact</a></li>
+                <li><a href="mailto:hello@catstays.app?subject=CatStays%20support" className="hover:text-white transition-colors">Support</a></li>
               </ul>
             </div>
           </div>

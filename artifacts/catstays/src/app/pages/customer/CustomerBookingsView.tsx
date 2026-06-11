@@ -669,20 +669,26 @@ export function CustomerBookingsView({
                           {booking.services.map((serviceId) => {
                             const service = services.find(s => s.id === serviceId);
                             return service ? (
-                              <button
+                              <span
                                 key={serviceId}
-                                onClick={() => handleViewServiceDetails(service)}
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium transition-all hover:shadow-sm"
+                                className="inline-flex items-center gap-1 rounded px-1 py-0.5 text-xs font-medium transition-all hover:shadow-sm"
                                 style={{ 
                                   backgroundColor: `${accentColor}12`,
                                   color: accentColor,
                                   border: `1px solid ${accentColor}30`
                                 }}
                               >
-                                <Info className="w-3 h-3" />
-                                {service.name}
+                                <button
+                                  type="button"
+                                  onClick={() => handleViewServiceDetails(service)}
+                                  className="inline-flex items-center gap-1 px-1"
+                                >
+                                  <Info className="w-3 h-3" />
+                                  {service.name}
+                                </button>
                                 {(booking.status === 'upcoming' || booking.status === 'confirmed') && (
                                   <button
+                                    type="button"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       handleRemoveService(booking, serviceId);
@@ -693,7 +699,7 @@ export function CustomerBookingsView({
                                     <X className="w-2.5 h-2.5 text-red-600" />
                                   </button>
                                 )}
-                              </button>
+                              </span>
                             ) : null;
                           })}
                           {(booking.status === 'upcoming' || booking.status === 'confirmed') && (

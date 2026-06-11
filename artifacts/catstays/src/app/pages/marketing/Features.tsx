@@ -6,13 +6,16 @@ import {
   BarChart3, Zap, Clock, DollarSign, Users, Image, FileText, Shield
 } from 'lucide-react';
 
+const logoIcon = '/assets/b463d12091f20e48be52186dedd2a0f6707d0b66.png';
+const logoWordmark = '/assets/27a96bc77bb44652af8bbe48276cf991397c568f.png';
+
 export function MarketingFeatures() {
   const features = [
     {
       icon: Calendar,
       title: "Smart Booking System",
       description: "Real-time availability checking with intelligent room allocation. Customers can book instantly 24/7.",
-      color: "text-blue-500",
+      color: "text-[#A85A30]",
       details: [
         "Instant availability widget",
         "15-minute time slots",
@@ -24,7 +27,7 @@ export function MarketingFeatures() {
       icon: Smartphone,
       title: "Mobile-First Dashboard",
       description: "Manage your entire cattery from your phone. Optimized for speed with swipe gestures.",
-      color: "text-purple-500",
+      color: "text-[#A85A30]",
       details: [
         "Swipe between days",
         "One-tap check-in/out",
@@ -36,7 +39,7 @@ export function MarketingFeatures() {
       icon: Sparkles,
       title: "AI Cat Updates",
       description: "Take a photo and AI writes personalized updates from your cat's perspective.",
-      color: "text-pink-500",
+      color: "text-[#A85A30]",
       details: [
         "Owner updates via SMS/email",
         "Social media captions",
@@ -48,7 +51,7 @@ export function MarketingFeatures() {
       icon: TrendingUp,
       title: "Occupancy Health Meter",
       description: "Monitor bookings and get alerted when occupancy drops below optimal levels.",
-      color: "text-orange-500",
+      color: "text-[#A85A30]",
       details: [
         "Weekly forecasting",
         "Visual health indicators",
@@ -60,7 +63,7 @@ export function MarketingFeatures() {
       icon: Zap,
       title: "Last-Minute Promotions",
       description: "AI generates promotional campaigns when you have empty rooms.",
-      color: "text-yellow-500",
+      color: "text-[#A85A30]",
       details: [
         "Auto-generated SMS campaigns",
         "Email templates",
@@ -72,7 +75,7 @@ export function MarketingFeatures() {
       icon: MessageSquare,
       title: "Messaging Centre",
       description: "Automated SMS and email for confirmations, reminders, and updates.",
-      color: "text-green-500",
+      color: "text-[#A85A30]",
       details: [
         "Booking confirmations",
         "Payment reminders",
@@ -84,7 +87,7 @@ export function MarketingFeatures() {
       icon: Settings,
       title: "Room Planner",
       description: "Visual calendar with drag-and-drop booking management.",
-      color: "text-indigo-500",
+      color: "text-[#A85A30]",
       details: [
         "Horizontal timeline view",
         "Cleaning buffer logic",
@@ -96,7 +99,7 @@ export function MarketingFeatures() {
       icon: BarChart3,
       title: "GST & Accounting",
       description: "Track revenue, expenses, and GST automatically.",
-      color: "text-violet-500",
+      color: "text-[#A85A30]",
       details: [
         "GST period tracking",
         "Expense categories",
@@ -108,7 +111,7 @@ export function MarketingFeatures() {
       icon: DollarSign,
       title: "Payment Processing",
       description: "Accept payments via Stripe, bank transfer, or cash.",
-      color: "text-emerald-500",
+      color: "text-[#A85A30]",
       details: [
         "Stripe integration",
         "Automatic deposit tracking",
@@ -120,7 +123,7 @@ export function MarketingFeatures() {
       icon: Users,
       title: "Customer Portal",
       description: "Give customers a dedicated login to manage bookings and view cat updates.",
-      color: "text-cyan-500",
+      color: "text-[#A85A30]",
       details: [
         "Self-service booking",
         "Stay Story viewing",
@@ -132,7 +135,7 @@ export function MarketingFeatures() {
       icon: Image,
       title: "Social Media Manager",
       description: "Create and schedule posts for Facebook, Instagram, and TikTok.",
-      color: "text-rose-500",
+      color: "text-[#A85A30]",
       details: [
         "AI caption generation",
         "Multi-platform publishing",
@@ -144,7 +147,7 @@ export function MarketingFeatures() {
       icon: FileText,
       title: "Blog Generator",
       description: "AI suggests and writes blog posts about cat care and boarding.",
-      color: "text-amber-500",
+      color: "text-[#A85A30]",
       details: [
         "Topic suggestions",
         "AI draft generation",
@@ -156,7 +159,7 @@ export function MarketingFeatures() {
       icon: Shield,
       title: "Petcover Integration",
       description: "Offer complimentary 4-week insurance and earn commission.",
-      color: "text-teal-500",
+      color: "text-[#A85A30]",
       details: [
         "Auto-offer during booking",
         "One-click activation",
@@ -168,7 +171,7 @@ export function MarketingFeatures() {
       icon: Clock,
       title: "Rebooking Automation",
       description: "Automatically remind customers to rebook for holidays and special dates.",
-      color: "text-fuchsia-500",
+      color: "text-[#A85A30]",
       details: [
         "School holiday reminders",
         "Anniversary invites",
@@ -179,44 +182,40 @@ export function MarketingFeatures() {
   ];
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-[#F8F7F5]">
       {/* Header */}
-      <header className="border-b bg-white sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-xl">P</span>
-            </div>
-            <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              Petstays
-            </span>
+      <header className="border-b border-[#0A1128]/10 bg-white sticky top-0 z-50 shadow-sm">
+        <div className="container mx-auto px-6 py-5 flex items-center justify-between">
+          <Link to="/" className="flex items-end gap-2">
+            <img src={logoIcon} alt="" className="h-12 w-12" />
+            <img src={logoWordmark} alt="CatStays" className="h-10" />
           </Link>
           
           <nav className="hidden md:flex items-center gap-6">
-            <Link to="/features" className="text-gray-900 font-medium">
+            <Link to="/features" className="text-[#0A1128] font-medium">
               Features
             </Link>
-            <Link to="/pricing" className="text-gray-600 hover:text-gray-900 transition">
+            <Link to="/pricing" className="text-[#0A1128]/70 hover:text-[#0A1128] transition">
               Pricing
             </Link>
-            <Link to="/demo/deloraine" className="text-gray-600 hover:text-gray-900 transition">
-              Live Example
+            <Link to="/demo/deloraine" className="text-[#0A1128]/70 hover:text-[#0A1128] transition">
+              Demo Example
             </Link>
             <Link to="/signup">
-              <Button>Start Free Trial</Button>
+              <Button className="bg-[#A85A30] hover:bg-[#8A3F20] text-white rounded-xl">Start Free Trial</Button>
             </Link>
           </nav>
         </div>
       </header>
 
       {/* Hero */}
-      <section className="bg-gradient-to-b from-blue-50 to-white py-20">
+      <section className="bg-gradient-to-b from-[#F1ECE8] to-[#F8F7F5] py-20">
         <div className="container mx-auto px-4 text-center">
-          <h1 className="text-5xl md:text-6xl font-bold mb-6">
+          <h1 className="text-5xl md:text-6xl font-serif font-semibold text-[#0A1128] mb-6" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
             Everything you need to run a modern cattery
           </h1>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-8">
-            From booking to check-out, Petstays handles every aspect of your cat boarding business
+          <p className="text-xl text-[#0A1128]/70 max-w-3xl mx-auto mb-8">
+            From booking to check-out, CatStays handles every part of your cat boarding business.
           </p>
         </div>
       </section>
@@ -227,7 +226,7 @@ export function MarketingFeatures() {
           {features.map((feature, index) => {
             const Icon = feature.icon;
             return (
-              <Card key={index} className="border-2">
+              <Card key={index} className="border border-[#0A1128]/10 rounded-[20px] shadow-sm bg-white">
                 <CardHeader>
                   <Icon className={`w-12 h-12 ${feature.color} mb-4`} />
                   <CardTitle className="text-2xl">{feature.title}</CardTitle>
@@ -238,8 +237,8 @@ export function MarketingFeatures() {
                 <CardContent>
                   <ul className="space-y-2">
                     {feature.details.map((detail, idx) => (
-                      <li key={idx} className="flex items-center gap-2 text-sm text-gray-600">
-                        <div className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
+                      <li key={idx} className="flex items-center gap-2 text-sm text-[#0A1128]/65">
+                        <div className="w-1.5 h-1.5 bg-[#A85A30] rounded-full" />
                         {detail}
                       </li>
                     ))}
@@ -253,7 +252,7 @@ export function MarketingFeatures() {
 
       {/* CTA */}
       <section className="container mx-auto px-4 py-20">
-        <div className="bg-gradient-to-r from-blue-500 to-purple-500 rounded-3xl p-12 text-center text-white">
+        <div className="bg-[#0A1128] rounded-[28px] p-12 text-center text-white">
           <h2 className="text-4xl font-bold mb-4">Ready to get started?</h2>
           <p className="text-xl mb-8 opacity-90">
             Start your 14-day free trial today

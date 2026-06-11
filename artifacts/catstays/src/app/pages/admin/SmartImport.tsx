@@ -171,7 +171,7 @@ export function SmartImport() {
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <Link to="/admin/dashboard">
+                <Link to="/staff-dashboard">
                   <Button variant="ghost" size="sm" className="text-navy/70 hover:text-navy">
                     <ArrowLeft className="w-4 h-4 mr-1" />
                     Back to Dashboard
@@ -615,19 +615,19 @@ export function SmartImport() {
               </p>
               
               <div className="grid md:grid-cols-3 gap-3 mb-8">
-                <Link to="/admin/dashboard">
+                <Link to="/staff-dashboard">
                   <Button className="w-full bg-terracotta hover:bg-terracotta-dark text-white">
                     <Home className="w-4 h-4 mr-2" />
                     Go to Dashboard
                   </Button>
                 </Link>
-                <Link to="/admin/customers">
+                <Link to="/staff-dashboard/customers">
                   <Button variant="outline" className="w-full border-navy/20 text-navy hover:bg-navy/5">
                     <Users className="w-4 h-4 mr-2" />
                     View Customers
                   </Button>
                 </Link>
-                <Link to="/admin/bookings">
+                <Link to="/staff-dashboard/bookings">
                   <Button variant="outline" className="w-full border-navy/20 text-navy hover:bg-navy/5">
                     <Calendar className="w-4 h-4 mr-2" />
                     View Bookings

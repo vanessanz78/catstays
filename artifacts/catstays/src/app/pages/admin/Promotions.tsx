@@ -9,7 +9,7 @@ export function AdminPromotions() {
       <header className="bg-white border-b">
         <div className="px-4 py-3 flex items-center justify-between">
           <h1 className="text-xl font-bold">Promotions</h1>
-          <Link to="/admin"><Button variant="ghost" size="icon"><Menu /></Button></Link>
+          <Link to="/staff-dashboard"><Button variant="ghost" size="icon"><Menu /></Button></Link>
         </div>
       </header>
       <main className="p-4">

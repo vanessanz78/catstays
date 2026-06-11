@@ -6,8 +6,9 @@ import { useSubdomainCattery } from '@/contexts/SubdomainContext';
 
 export function ClientPortalEntry() {
   const { cattery } = useSubdomainCattery();
-  const businessName = cattery?.name || 'your cattery';
+  const businessName = cattery?.name || 'Deloraine Cattery';
   const bookingPath = cattery ? '/booking-flow' : '/site/booking-flow';
+  const websitePath = cattery ? '/' : '/site';
 
   return (
     <div className="min-h-screen bg-[#F8F7F5] text-[#0A1128]">
@@ -17,7 +18,7 @@ export function ClientPortalEntry() {
             <p className="text-xs font-semibold uppercase text-[#C46A3A]">Client portal</p>
             <h1 className="text-xl font-semibold">{businessName}</h1>
           </div>
-          <Link to="/">
+          <Link to={websitePath}>
             <Button variant="outline" className="rounded-lg border-[#0A1128]/15">
               Back to website
             </Button>
@@ -32,9 +33,9 @@ export function ClientPortalEntry() {
               <Lock className="h-7 w-7 text-[#C46A3A]" />
             </div>
             <div className="text-center">
-              <h2 className="mb-3 text-2xl font-semibold">Client portal coming online</h2>
+              <h2 className="mb-3 text-2xl font-semibold">Your client portal</h2>
               <p className="mx-auto max-w-xl text-sm leading-6 text-[#4E5871]">
-                Cat owners will use this private portal to manage bookings, cat profiles, invoices, and photo updates from {businessName}. No customer data is shown until the customer signs in.
+                Cat owners can manage bookings, cat profiles, invoices, and stay updates from {businessName}. Signed-in customers see their own private details only.
               </p>
             </div>
 
@@ -61,9 +62,11 @@ export function ClientPortalEntry() {
                   Make a booking
                 </Button>
               </Link>
-              <Button variant="outline" className="rounded-lg border-[#0A1128]/15" disabled>
-                Customer sign-in soon
-              </Button>
+              <Link to="/customer">
+                <Button variant="outline" className="rounded-lg border-[#0A1128]/15">
+                  Open demo portal
+                </Button>
+              </Link>
             </div>
           </CardContent>
         </Card>
