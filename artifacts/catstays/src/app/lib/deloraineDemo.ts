@@ -1,5 +1,6 @@
 export const DELORAINE_SOURCE_URL = 'https://www.delorainecattery.com/';
 export const PREVIEW_URL_STORAGE_KEY = 'catstays_preview_url';
+export const PREVIEW_SOURCE_INTENT_STORAGE_KEY = 'catstays_preview_source_intent';
 export const PREVIEW_DATA_STORAGE_KEY = 'catstays_preview_data';
 export const IMPORT_URL_STORAGE_KEY = 'catstays_import_url';
 

@@ -9,7 +9,10 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { ImageWithFallback } from '../../components/figma/ImageWithFallback';
-import { PREVIEW_URL_STORAGE_KEY } from '../../lib/deloraineDemo';
+import {
+  PREVIEW_SOURCE_INTENT_STORAGE_KEY,
+  PREVIEW_URL_STORAGE_KEY,
+} from '../../lib/deloraineDemo';
 const logoIcon = '/assets/b463d12091f20e48be52186dedd2a0f6707d0b66.png';
 const logoWordmark = '/assets/9900b394e20a5e059447324d58daad1b1bf43ed6.png';
 const testimonialImage = '/assets/marketing/vanessa-with-cat.png';
@@ -20,14 +23,19 @@ const dashboardPreview = '/assets/marketing/catstays-dashboard-preview.png';
 import { useState } from 'react';
 import { SignupModal } from '../../components/SignupModal';
 
+const defaultPreviewWebsiteUrl = 'delorainecattery.com';
+
 export function MarketingHome() {
   const navigate = useNavigate();
   const [activeNav, setActiveNav] = useState('');
   const [signupModalOpen, setSignupModalOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<'starter' | 'professional' | 'premium' | null>(null);
   const [websiteUrl, setWebsiteUrl] = useState(() => {
-    if (typeof window === 'undefined') return 'delorainecattery.com';
-    return window.localStorage.getItem(PREVIEW_URL_STORAGE_KEY) || 'delorainecattery.com';
+    if (typeof window === 'undefined') return defaultPreviewWebsiteUrl;
+    const sourceIntent = window.sessionStorage.getItem(PREVIEW_SOURCE_INTENT_STORAGE_KEY);
+    return sourceIntent === 'form-submit'
+      ? window.localStorage.getItem(PREVIEW_URL_STORAGE_KEY) || defaultPreviewWebsiteUrl
+      : defaultPreviewWebsiteUrl;
   });
 
   const scrollToSection = (sectionId: string) => {
@@ -40,10 +48,11 @@ export function MarketingHome() {
 
   const handleGeneratePreview = (event: React.FormEvent) => {
     event.preventDefault();
-    const url = websiteUrl.trim() || 'delorainecattery.com';
+    const url = websiteUrl.trim() || defaultPreviewWebsiteUrl;
     localStorage.setItem(PREVIEW_URL_STORAGE_KEY, url);
     sessionStorage.setItem(PREVIEW_URL_STORAGE_KEY, url);
-    navigate(`/demo/deloraine?source=${encodeURIComponent(url)}`);
+    sessionStorage.setItem(PREVIEW_SOURCE_INTENT_STORAGE_KEY, 'form-submit');
+    navigate('/demo/deloraine');
   };
 
   const handleStartFresh = () => {
