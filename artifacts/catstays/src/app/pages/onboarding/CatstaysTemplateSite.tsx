@@ -1,5 +1,5 @@
-import { type MouseEvent, useState } from 'react';
-import { CalendarCheck, HeartHandshake, ShieldCheck, Sparkles } from 'lucide-react';
+import { type MouseEvent, useRef, useState } from 'react';
+import { CalendarCheck, ChevronLeft, ChevronRight, HeartHandshake, ShieldCheck, Sparkles, X } from 'lucide-react';
 import {
   buildCatstaysTemplateContent,
   normalizePreviewTemplateId,
@@ -51,6 +51,7 @@ function TemplateHeader({
 }) {
   const links = [
     ['Home', '#home'],
+    ['About', '#about'],
     ['Rooms', '#suites'],
     ['Care', '#care'],
     ['Gallery', '#gallery'],
@@ -248,11 +249,7 @@ function ShowcaseTemplate({
           </div>
         </section>
 
-        <section id="gallery" className="mx-auto grid max-w-[1400px] scroll-mt-28 gap-4 px-6 py-6 md:grid-cols-4">
-          {content.gallery.slice(0, 4).map((item) => (
-            <img key={item.image} src={item.image} alt="" className="h-72 w-full object-cover" />
-          ))}
-        </section>
+        <ShowcaseGalleryRail content={content} />
 
         <AboutSplit content={content} />
         <FeatureRow content={content} />
@@ -285,6 +282,45 @@ function FeatureRow({ content }: { content: ReturnType<typeof buildCatstaysTempl
   );
 }
 
+function ShowcaseGalleryRail({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
+  const railRef = useRef<HTMLDivElement | null>(null);
+  const images = content.gallery
+    .filter((item) => item.image !== content.hero.image)
+    .slice(0, 8);
+  const railImages = images.length >= 3 ? images : content.gallery.slice(0, 8);
+
+  const scrollRail = (direction: -1 | 1) => {
+    railRef.current?.scrollBy({ left: direction * 420, behavior: 'smooth' });
+  };
+
+  return (
+    <section id="gallery" className="relative scroll-mt-28 bg-[#f8f6f1] py-8">
+      <div className="mb-5 flex items-center justify-between px-6">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Gallery</p>
+          <h2 className="mt-2 font-serif text-3xl leading-tight text-[#222]">A visual look inside the stay</h2>
+        </div>
+        <div className="hidden gap-2 sm:flex">
+          <button type="button" onClick={() => scrollRail(-1)} className="grid h-10 w-10 place-items-center rounded-full border border-[#222]/15 bg-white text-[#222] shadow-sm">
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <button type="button" onClick={() => scrollRail(1)} className="grid h-10 w-10 place-items-center rounded-full border border-[#222]/15 bg-white text-[#222] shadow-sm">
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
+      <div ref={railRef} className="flex snap-x gap-5 overflow-x-auto px-6 pb-2 [scrollbar-width:thin]">
+        {railImages.map((item, index) => (
+          <figure key={`${item.image}-${index}`} className="min-w-[78vw] snap-start overflow-hidden bg-white shadow-sm sm:min-w-[46vw] lg:min-w-[31vw]">
+            <img src={item.image} alt="" className="h-[320px] w-full object-cover" />
+            <figcaption className="px-5 py-4 text-sm text-[#444]">{item.caption}</figcaption>
+          </figure>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function AboutSplit({ content, imageFirst = false }: { content: ReturnType<typeof buildCatstaysTemplateContent>; imageFirst?: boolean }) {
   return (
     <section id="about" className="mx-auto grid max-w-[1400px] scroll-mt-28 md:grid-cols-2">
@@ -303,6 +339,8 @@ function AboutSplit({ content, imageFirst = false }: { content: ReturnType<typeo
 }
 
 function SuitesGrid({ content, compact = false }: { content: ReturnType<typeof buildCatstaysTemplateContent>; compact?: boolean }) {
+  const [activeSuite, setActiveSuite] = useState<(ReturnType<typeof buildCatstaysTemplateContent>['suites'][number]) | null>(null);
+
   return (
     <section id="suites" className={`mx-auto max-w-[1400px] scroll-mt-28 px-6 text-center ${compact ? 'py-14' : 'py-20'}`}>
       <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Our Suites</p>
@@ -324,12 +362,39 @@ function SuitesGrid({ content, compact = false }: { content: ReturnType<typeof b
                   ))}
                 </ul>
               ) : null}
-              <p className="mt-auto pt-5 text-xs font-bold uppercase tracking-[0.12em]">View Suite</p>
+              <button type="button" onClick={() => setActiveSuite(suite)} className="mx-auto mt-auto rounded-md border border-[#1f241b]/20 bg-[#1f241b] px-5 py-3 text-xs font-bold uppercase tracking-[0.12em] text-white">
+                View Suite
+              </button>
             </div>
             </div>
           </article>
         ))}
       </div>
+      {activeSuite ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 px-4 py-8" role="dialog" aria-modal="true">
+          <div className="relative max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-lg bg-white text-left shadow-2xl">
+            <button type="button" onClick={() => setActiveSuite(null)} className="absolute right-4 top-4 z-10 grid h-10 w-10 place-items-center rounded-full bg-white/90 text-[#222] shadow">
+              <X className="h-5 w-5" />
+            </button>
+            <img src={activeSuite.image} alt="" className="h-72 w-full object-cover" />
+            <div className="p-7 md:p-9">
+              <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Suite Details</p>
+              <h3 className="font-serif text-4xl leading-tight">{activeSuite.title}</h3>
+              {activeSuite.price ? <p className="mt-3 text-base font-bold text-[#8c5b32]">{activeSuite.price}</p> : null}
+              <p className="mt-5 text-base leading-8 text-[#333]">{activeSuite.text}</p>
+              {activeSuite.features.length ? (
+                <div className="mt-7 grid gap-3 sm:grid-cols-2">
+                  {activeSuite.features.map((feature) => (
+                    <div key={feature} className="rounded-md border border-[#222]/10 bg-[#f8f5ef] px-4 py-3 text-sm text-[#333]">
+                      {feature}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -508,7 +573,7 @@ function TemplateFooter({ content, dark = false }: { content: ReturnType<typeof 
         </div>
         <div>
           <h4 className="mb-4 text-xs font-bold uppercase tracking-[0.16em]">Quick Links</h4>
-          <p className="text-sm leading-7">Home<br />Rooms<br />Care<br />Gallery<br />Reviews</p>
+          <p className="text-sm leading-7">Home<br />About<br />Rooms<br />Care<br />Gallery<br />Reviews</p>
         </div>
         <div>
           <h4 className="mb-4 text-xs font-bold uppercase tracking-[0.16em]">Contact</h4>
@@ -539,7 +604,7 @@ function PreviewBookingNotice({ visible, onDismiss }: { visible: boolean; onDism
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="font-semibold">This is a preview version.</p>
-          <p className="mt-1 text-sm text-white/75">Get started to publish your site and take real bookings in your dashboard.</p>
+          <p className="mt-1 text-sm text-white/75">Get started to publish your site, connect the booking agent, and send bookings into your dashboard.</p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <a href="/signup" className="rounded-md bg-[#A85A30] px-4 py-2 text-sm font-semibold text-white">

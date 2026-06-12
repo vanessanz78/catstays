@@ -372,6 +372,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const record = data.previewImportRecord as PreviewImportRecord | null | undefined;
   const normalized = record?.normalizedPreviewData ?? data;
   const businessName = stringFrom(record?.identity.businessName, data.businessName, normalized.businessName, 'Your Cattery');
+  const logoImage = stringFrom(record?.media.logoImage, data.logoImage, normalized.logoImage);
   const heroImage = imageFrom(
     normalized.heroImage,
     data.heroImage,
@@ -386,7 +387,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     data.facilitiesImage,
     data.aboutImage,
     heroImage,
-  ]).filter(Boolean);
+  ]).filter((image) => isUsableGalleryImage(image, logoImage));
   const fallbackImages = ensureImageCount(galleryImages, heroImage);
   const highlights = (record?.content.highlights ?? data.whyChooseUsFeatures ?? []).filter(Boolean);
   const rooms = (record?.rooms?.length ? record.rooms : data.suites ?? data.roomTypes ?? []).filter(Boolean);
@@ -537,6 +538,15 @@ function uniqueStrings(values: unknown[]): string[] {
   return result;
 }
 
+function isUsableGalleryImage(image: string, logoImage?: string): boolean {
+  const normalized = image.split('?')[0].toLowerCase();
+  const logoKey = logoImage?.split('?')[0].toLowerCase();
+  if (!normalized) return false;
+  if (logoKey && normalized === logoKey) return false;
+  const decoded = decodeURIComponent(normalized);
+  return !/logo|favicon|apple-touch-icon|icon|avatar|profile|placeholder|silhouette|black.?cat|catstays|\/cat(?:[-_][a-z0-9]+)?\.png$/i.test(decoded);
+}
+
 function ensureImageCount(images: string[], heroImage: string): string[] {
   const fallback = [
     heroImage,
@@ -582,8 +592,9 @@ function ensureSuiteCount(rooms: any[], images: string[], fallbackPrice?: string
     const price = stringFrom(room.price, fallbackPrice);
     const priceUnit = stringFrom(room.priceUnit);
     const priceLabel = price && priceUnit ? `${price} ${priceUnit}` : price;
+    const roomImage = stringFrom(room.image);
     return {
-      image: imageFrom(room.image, images[index + 1], images[index], images[0]),
+      image: imageFrom(isUsableGalleryImage(roomImage) ? roomImage : '', images[index + 1], images[index], images[0]),
       title,
       text: stringFrom(room.description, priceLabel ? `${fallback.description} ${priceLabel}.` : fallback.description),
       price: priceLabel,
