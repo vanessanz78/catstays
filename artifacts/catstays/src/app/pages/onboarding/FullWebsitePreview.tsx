@@ -363,7 +363,9 @@ export function FullWebsitePreview({
     );
   };
 
-  if (isEmbeddedDemoSurface && deviceType === 'desktop' && previewMode === 'website') {
+  const isOriginalWebsitePreview = previewMode === 'website' && isOriginalTemplate(data.selectedTemplate);
+
+  if (isEmbeddedDemoSurface && deviceType === 'desktop' && previewMode === 'website' && !isOriginalWebsitePreview) {
     return (
       <div
         className="w-full overflow-visible bg-white"
@@ -587,7 +589,7 @@ function SourceWebsitePreview({
 }) {
   const heightStyle = fillHeight
     ? { height: '100%' }
-    : { height: '3200px', minHeight: 'calc(100vh - 170px)' };
+    : { height: '900px', minHeight: 'calc(100vh - 170px)' };
 
   return (
     <div className="w-full bg-white" style={heightStyle}>
@@ -597,7 +599,7 @@ function SourceWebsitePreview({
         className="block h-full min-h-[inherit] w-full border-0 bg-white"
         referrerPolicy="no-referrer-when-downgrade"
         sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
-        scrolling={fillHeight ? 'auto' : 'no'}
+        scrolling="auto"
       />
     </div>
   );
