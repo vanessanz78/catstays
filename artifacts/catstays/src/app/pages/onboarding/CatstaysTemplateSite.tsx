@@ -1,5 +1,24 @@
 import { type MouseEvent, useRef, useState } from 'react';
-import { CalendarCheck, ChevronLeft, ChevronRight, HeartHandshake, ShieldCheck, Sparkles, X } from 'lucide-react';
+import {
+  CalendarCheck,
+  Camera,
+  Car,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  HeartHandshake,
+  Mail,
+  MapPin,
+  MessageSquare,
+  Phone,
+  Plane,
+  Scissors,
+  ShieldCheck,
+  Sparkles,
+  Stethoscope,
+  X,
+  Zap,
+} from 'lucide-react';
 import {
   buildCatstaysTemplateContent,
   normalizePreviewTemplateId,
@@ -14,6 +33,8 @@ interface CatstaysTemplateSiteProps {
 }
 
 const trustIcons = [ShieldCheck, HeartHandshake, Sparkles, CalendarCheck];
+const facilityIcons = [ShieldCheck, Sparkles, Camera, Clock, HeartHandshake, CalendarCheck];
+const serviceIcons = [Scissors, Stethoscope, Zap, Car, Plane, ShieldCheck, HeartHandshake, CalendarCheck];
 const vanessaDemoImage = '/assets/marketing/vanessa-and-cat.png';
 
 export function CatstaysTemplateSite({
@@ -52,10 +73,10 @@ function TemplateHeader({
   const links = [
     ['Home', '#home'],
     ['About', '#about'],
-    ['Rooms', '#suites'],
     ['Care', '#care'],
+    ['Facilities', '#facilities'],
+    ['Suites', '#suites'],
     ['Gallery', '#gallery'],
-    ['Reviews', '#reviews'],
     ['Contact', '#contact'],
   ];
 
@@ -68,7 +89,7 @@ function TemplateHeader({
             {content.business.tagline}
           </p>
         </div>
-        <nav className="hidden items-center gap-7 text-xs font-bold uppercase tracking-[0.08em] lg:flex">
+        <nav className="hidden items-center gap-5 text-xs font-bold uppercase tracking-[0.08em] lg:flex">
           {links.map(([label, href]) => (
             <a key={label} href={href} className="hover:opacity-70">
               {label}
@@ -111,7 +132,7 @@ function FocusTemplate({
               <a href="#suites" className="rounded-md bg-[#1f241b] px-6 py-4 text-xs font-bold uppercase tracking-[0.1em] text-white">
                 Discover Our Suites
               </a>
-              <a href="#about" className="rounded-md border border-[#1f241b]/45 px-6 py-4 text-xs font-bold uppercase tracking-[0.1em] text-[#1f241b]">
+              <a href="#care" className="rounded-md border border-[#1f241b]/45 px-6 py-4 text-xs font-bold uppercase tracking-[0.1em] text-[#1f241b]">
                 Our Care Approach
               </a>
             </div>
@@ -128,9 +149,9 @@ function FocusTemplate({
             {['Check-in', 'Check-out', 'Cats'].map((label, index) => (
               <label key={label} className="block">
                 <span className="mb-2 block text-xs font-bold uppercase tracking-[0.12em]">{label}</span>
-                <span className="flex h-[58px] items-center rounded-md border border-[#222]/15 bg-white px-4 text-sm">
+                <button type="button" onClick={onPreviewBookingAction} className="flex h-[58px] w-full items-center rounded-md border border-[#222]/15 bg-white px-4 text-left text-sm">
                   {index === 2 ? '1 Cat' : 'Select date'}
-                </span>
+                </button>
               </label>
             ))}
             <button type="button" onClick={onPreviewBookingAction} className="flex h-[58px] items-center justify-center rounded-md bg-[#1f241b] px-5 text-center text-xs font-bold uppercase tracking-[0.1em] text-white">
@@ -140,12 +161,16 @@ function FocusTemplate({
         </section>
 
         <FeatureRow content={content} />
+        <FacilitiesDetailSection content={content} />
         <AboutSplit content={content} imageFirst />
+        <OwnerStorySection content={content} />
         <GalleryStrip content={content} />
         <SuitesGrid content={content} />
         <ServicesGrid content={content} />
         <ReviewsSection content={content} />
-        <FaqSection content={content} />
+        <LocationSection content={content} />
+        <VirtualTourSection content={content} />
+        <ContactFormSection content={content} onPreviewBookingAction={onPreviewBookingAction} />
         <TestimonialBanner content={content} imageSrc={vanessaDemoImage} />
       </main>
       <TemplateFooter content={content} dark />
@@ -168,9 +193,10 @@ function EditorialTemplate({
   onDismissPreviewNotice: () => void;
 }) {
   const sections = [
-    { id: 'about', title: content.about.title, text: content.about.text, image: content.gallery[1]?.image || content.about.image, eyebrow: 'Thoughtful spaces' },
-    { title: content.owner.title, text: content.owner.text, image: content.owner.image || content.gallery[2]?.image || content.hero.image, eyebrow: 'The people behind the care' },
-    { title: content.commitment.title, text: content.commitment.text, image: content.gallery[3]?.image || content.gallery[2]?.image || content.hero.image, eyebrow: 'Peace of mind' },
+    { id: 'about', title: content.about.title, text: content.about.text, image: content.about.image, eyebrow: `About ${content.business.name}` },
+    { id: 'care', title: content.whyChoose.title, text: content.whyChoose.text, image: content.gallery[1]?.image || content.hero.image, eyebrow: 'Why choose us' },
+    { id: 'facilities', title: content.facilities.title, text: content.facilities.text, image: content.facilities.image, eyebrow: 'Premium accommodation' },
+    { id: 'owner', title: content.owner.title, text: content.owner.text, image: content.owner.image || content.gallery[2]?.image || content.hero.image, eyebrow: 'The people behind the care' },
   ];
 
   return (
@@ -199,18 +225,20 @@ function EditorialTemplate({
               <div className="my-6 h-px w-14 bg-[#b58b4a]" />
               <p className="max-w-lg text-base leading-7">{section.text}</p>
             </div>
-            <img src={section.image} alt="" className="h-[420px] w-full object-cover md:h-[520px]" />
+            <img src={section.image} alt="" className="h-full min-h-[420px] w-full object-cover md:min-h-[560px]" />
           </section>
         ))}
 
         <FeatureRow content={content} />
+        <FacilitiesDetailSection content={content} />
         <SuitesGrid content={content} compact />
         <ServicesGrid content={content} />
         <ConversionBanner content={content} onPreviewBookingAction={onPreviewBookingAction} />
         <GalleryStrip content={content} />
         <ReviewsSection content={content} />
-        <FaqSection content={content} />
         <LocationSection content={content} />
+        <VirtualTourSection content={content} />
+        <ContactFormSection content={content} onPreviewBookingAction={onPreviewBookingAction} />
       </main>
       <TemplateFooter content={content} />
       <ChatWidget accentColor="#556b3f" businessName={content.business.name} />
@@ -253,11 +281,15 @@ function ShowcaseTemplate({
 
         <AboutSplit content={content} />
         <FeatureRow content={content} />
+        <FacilitiesDetailSection content={content} />
+        <OwnerStorySection content={content} />
         <SuitesGrid content={content} />
         <ServicesGrid content={content} />
         <ReviewsSection content={content} />
-        <FaqSection content={content} />
+        <LocationSection content={content} />
+        <VirtualTourSection content={content} />
         <ConversionBanner content={content} onPreviewBookingAction={onPreviewBookingAction} />
+        <ContactFormSection content={content} onPreviewBookingAction={onPreviewBookingAction} />
       </main>
       <TemplateFooter content={content} />
       <ChatWidget accentColor="#556b3f" businessName={content.business.name} />
@@ -266,18 +298,27 @@ function ShowcaseTemplate({
 }
 
 function FeatureRow({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
+  const features = (content.whyChoose.items.length ? content.whyChoose.items : content.features).slice(0, 4);
+
   return (
-    <section id="care" className="mx-auto grid max-w-[1400px] scroll-mt-28 gap-6 px-6 py-16 text-center md:grid-cols-4">
-      {content.features.slice(0, 4).map((feature, index) => {
-        const Icon = trustIcons[index] || ShieldCheck;
-        return (
-          <div key={feature.title} className="bg-white p-7 shadow-sm">
-            <Icon className="mx-auto mb-5 h-7 w-7 text-[#8c7b63]" />
-            <h3 className="mb-3 text-xl">{feature.title}</h3>
-            <p className="text-sm leading-6 text-[#444]">{feature.text}</p>
-          </div>
-        );
-      })}
+    <section id="care" className="scroll-mt-28 bg-white px-6 py-16 text-center">
+      <div className="mx-auto max-w-[1400px]">
+        <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Care Approach</p>
+        <h2 className="mx-auto max-w-3xl text-3xl leading-tight md:text-5xl">{content.whyChoose.title}</h2>
+        {content.whyChoose.text ? <p className="mx-auto mt-5 max-w-4xl text-base leading-7 text-[#444]">{content.whyChoose.text}</p> : null}
+        <div className="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+          {features.map((feature, index) => {
+            const Icon = trustIcons[index] || ShieldCheck;
+            return (
+              <div key={feature.title} className="bg-[#f8f5ef] p-7 shadow-sm">
+                <Icon className="mx-auto mb-5 h-7 w-7 text-[#8c7b63]" />
+                <h3 className="mb-3 text-xl">{feature.title}</h3>
+                <p className="text-sm leading-6 text-[#444]">{feature.text}</p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </section>
   );
 }
@@ -313,7 +354,6 @@ function ShowcaseGalleryRail({ content }: { content: ReturnType<typeof buildCats
         {railImages.map((item, index) => (
           <figure key={`${item.image}-${index}`} className="min-w-[78vw] snap-start overflow-hidden bg-white shadow-sm sm:min-w-[46vw] lg:min-w-[31vw]">
             <img src={item.image} alt="" className="h-[320px] w-full object-cover" />
-            <figcaption className="px-5 py-4 text-sm text-[#444]">{item.caption}</figcaption>
           </figure>
         ))}
       </div>
@@ -346,7 +386,7 @@ function SuitesGrid({ content, compact = false }: { content: ReturnType<typeof b
       <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Our Suites</p>
       <h2 className="text-3xl leading-tight md:text-5xl">Beautiful suites for every kind of cat</h2>
       <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-[#444]">Spacious, serene and stylish suites designed for your cat's comfort.</p>
-      <div className="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+      <div className="mx-auto mt-10 grid max-w-[1120px] gap-6 md:grid-cols-2 xl:grid-cols-3">
         {content.suites.map((suite) => (
           <article key={suite.title} className="flex overflow-hidden rounded-md border border-[#222]/10 bg-white text-left shadow-sm">
             <div className="flex w-full flex-col">
@@ -422,15 +462,34 @@ function ConversionBanner({
 }
 
 function GalleryStrip({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
+  const railRef = useRef<HTMLDivElement | null>(null);
+  const images = content.gallery.slice(0, 16);
+  if (!images.length) return null;
+
+  const scrollRail = (direction: -1 | 1) => {
+    railRef.current?.scrollBy({ left: direction * 460, behavior: 'smooth' });
+  };
+
   return (
     <section id="gallery" className="mx-auto max-w-[1400px] scroll-mt-28 px-6 py-16">
-      <p className="mb-3 text-center text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Gallery</p>
-      <h2 className="mb-10 text-center text-3xl leading-tight md:text-5xl">A closer look at the stay</h2>
-      <div className="grid gap-5 md:grid-cols-4">
-        {content.gallery.slice(0, 8).map((item) => (
-          <figure key={item.image} className="overflow-hidden bg-white shadow-sm">
-            <img src={item.image} alt="" className="h-64 w-full object-cover" />
-            <figcaption className="px-4 py-3 text-sm text-[#444]">{item.caption}</figcaption>
+      <div className="mb-10 flex flex-col gap-5 text-center sm:flex-row sm:items-end sm:justify-between sm:text-left">
+        <div>
+          <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Gallery</p>
+          <h2 className="text-3xl leading-tight md:text-5xl">A closer look at the stay</h2>
+        </div>
+        <div className="flex justify-center gap-2">
+          <button type="button" onClick={() => scrollRail(-1)} className="grid h-10 w-10 place-items-center rounded-full border border-[#222]/15 bg-white text-[#222] shadow-sm">
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <button type="button" onClick={() => scrollRail(1)} className="grid h-10 w-10 place-items-center rounded-full border border-[#222]/15 bg-white text-[#222] shadow-sm">
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
+      <div ref={railRef} className="flex snap-x gap-5 overflow-x-auto px-1 pb-3 [scrollbar-width:thin]">
+        {images.map((item, index) => (
+          <figure key={`${item.image}-${index}`} className="min-w-[82vw] snap-start overflow-hidden bg-white shadow-sm sm:min-w-[46vw] lg:min-w-[31vw]">
+            <img src={item.image} alt="" className="h-72 w-full object-cover" />
           </figure>
         ))}
       </div>
@@ -439,39 +498,77 @@ function GalleryStrip({ content }: { content: ReturnType<typeof buildCatstaysTem
 }
 
 function ServicesGrid({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
+  const railRef = useRef<HTMLDivElement | null>(null);
   if (!content.services.length) return null;
+
+  const scrollRail = (direction: -1 | 1) => {
+    railRef.current?.scrollBy({ left: direction * 460, behavior: 'smooth' });
+  };
 
   return (
     <section id="services" className="mx-auto max-w-[1400px] scroll-mt-28 px-6 py-16">
-      <p className="mb-3 text-center text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Additional Services</p>
-      <h2 className="mx-auto max-w-3xl text-center text-3xl leading-tight md:text-5xl">Extra care when your cat needs it</h2>
-      <div className="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-        {content.services.map((service) => (
-          <article key={service.title} className="grid overflow-hidden border border-[#222]/10 bg-white shadow-sm sm:grid-cols-[180px_1fr]">
-            <img src={service.image} alt="" className="h-full min-h-[190px] w-full object-cover" />
-            <div className="p-6">
+      <div className="mb-10 flex flex-col gap-5 text-center sm:flex-row sm:items-end sm:justify-between sm:text-left">
+        <div>
+          <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Additional Services</p>
+          <h2 className="max-w-3xl text-3xl leading-tight md:text-5xl">Extra care when your cat needs it</h2>
+        </div>
+        <div className="flex justify-center gap-2">
+          <button type="button" onClick={() => scrollRail(-1)} className="grid h-10 w-10 place-items-center rounded-full border border-[#222]/15 bg-white text-[#222] shadow-sm">
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <button type="button" onClick={() => scrollRail(1)} className="grid h-10 w-10 place-items-center rounded-full border border-[#222]/15 bg-white text-[#222] shadow-sm">
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        </div>
+      </div>
+      <div ref={railRef} className="flex snap-x gap-5 overflow-x-auto px-1 pb-3 [scrollbar-width:thin]">
+        {content.services.map((service, index) => {
+          const Icon = serviceIconFor(service.title, index);
+          return (
+            <article key={service.title} className="flex min-w-[82vw] snap-start flex-col border border-[#222]/10 bg-white p-7 shadow-sm sm:min-w-[420px] lg:min-w-[460px]">
+              <div className="mb-6 grid h-14 w-14 place-items-center rounded-full bg-[#f8f5ef] text-[#8c5b32]">
+                <Icon className="h-6 w-6" />
+              </div>
               <h3 className="font-serif text-2xl leading-tight">{service.title}</h3>
               {service.price ? <p className="mt-2 text-sm font-bold text-[#8c5b32]">{service.price}</p> : null}
               <p className="mt-4 text-sm leading-6 text-[#444]">{service.text}</p>
-            </div>
-          </article>
-        ))}
+            </article>
+          );
+        })}
       </div>
     </section>
   );
 }
 
 function ReviewsSection({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
+  const railRef = useRef<HTMLDivElement | null>(null);
   if (!content.testimonials.length) return null;
+
+  const reviews = content.testimonials.slice(0, 10);
+  const scrollRail = (direction: -1 | 1) => {
+    railRef.current?.scrollBy({ left: direction * 460, behavior: 'smooth' });
+  };
 
   return (
     <section id="reviews" className="scroll-mt-28 bg-white px-6 py-16">
-      <div className="mx-auto max-w-[1200px]">
-        <p className="mb-3 text-center text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Reviews</p>
-        <h2 className="text-center text-3xl leading-tight md:text-5xl">Trusted by cat families</h2>
-        <div className="mt-10 grid gap-6 md:grid-cols-3">
-          {content.testimonials.slice(0, 6).map((testimonial) => (
-            <article key={`${testimonial.author}-${testimonial.quote}`} className="border border-[#222]/10 bg-[#f8f5ef] p-7 shadow-sm">
+      <div className="mx-auto max-w-[1400px]">
+        <div className="mb-10 flex flex-col gap-5 text-center sm:flex-row sm:items-end sm:justify-between sm:text-left">
+          <div>
+            <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Reviews</p>
+            <h2 className="text-3xl leading-tight md:text-5xl">Trusted by cat families</h2>
+          </div>
+          <div className="flex justify-center gap-2">
+            <button type="button" onClick={() => scrollRail(-1)} className="grid h-10 w-10 place-items-center rounded-full border border-[#222]/15 bg-white text-[#222] shadow-sm">
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <button type="button" onClick={() => scrollRail(1)} className="grid h-10 w-10 place-items-center rounded-full border border-[#222]/15 bg-white text-[#222] shadow-sm">
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+        <div ref={railRef} className="flex snap-x gap-5 overflow-x-auto px-1 pb-3 [scrollbar-width:thin]">
+          {reviews.map((testimonial) => (
+            <article key={`${testimonial.author}-${testimonial.quote}`} className="min-w-[82vw] snap-start border border-[#222]/10 bg-[#f8f5ef] p-7 shadow-sm sm:min-w-[420px] lg:min-w-[460px]">
               <p className="text-3xl leading-none text-[#b58b4a]">"</p>
               <blockquote className="mt-3 text-base italic leading-7 text-[#333]">{testimonial.quote}</blockquote>
               <p className="mt-6 text-xs font-bold uppercase tracking-[0.14em]">{testimonial.author}</p>
@@ -484,50 +581,223 @@ function ReviewsSection({ content }: { content: ReturnType<typeof buildCatstaysT
   );
 }
 
-function FaqSection({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
-  if (!content.faqs.length) return null;
+function FacilitiesDetailSection({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
+  if (!content.facilities.items.length) return null;
 
   return (
-    <section id="faq" className="mx-auto max-w-[1000px] scroll-mt-28 px-6 py-16">
-      <p className="mb-3 text-center text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">FAQ</p>
-      <h2 className="text-center text-3xl leading-tight md:text-5xl">Useful things to know</h2>
-      <div className="mt-10 divide-y divide-[#222]/10 border-y border-[#222]/10 bg-white">
-        {content.faqs.map((faq) => (
-          <div key={faq.question} className="px-6 py-6">
-            <h3 className="font-serif text-xl leading-tight">{faq.question}</h3>
-            <p className="mt-3 text-sm leading-7 text-[#444]">{faq.answer}</p>
+    <section id="facilities" className="scroll-mt-28 bg-white px-6 py-16">
+      <div className="mx-auto grid max-w-[1400px] gap-10 md:grid-cols-[0.9fr_1.1fr] md:items-center">
+        <img src={content.facilities.image} alt="" className="h-[460px] w-full rounded-md object-cover shadow-sm" />
+        <div>
+          <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Facilities</p>
+          <h2 className="text-3xl leading-tight md:text-5xl">{content.facilities.title}</h2>
+          <p className="mt-5 text-base leading-7 text-[#444]">{content.facilities.text}</p>
+          <div className="mt-8 grid gap-5 sm:grid-cols-2">
+            {content.facilities.items.map((item, index) => {
+              const Icon = facilityIcons[index % facilityIcons.length] || ShieldCheck;
+              return (
+                <article key={item.title} className="rounded-md border border-[#222]/10 bg-[#f8f5ef] p-5">
+                  <Icon className="mb-4 h-6 w-6 text-[#8c5b32]" />
+                  <h3 className="font-serif text-xl leading-tight">{item.title}</h3>
+                  <p className="mt-3 text-sm leading-6 text-[#444]">{item.text}</p>
+                </article>
+              );
+            })}
           </div>
-        ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function OwnerStorySection({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
+  if (!content.owner.text) return null;
+
+  return (
+    <section id="owner" className="mx-auto grid max-w-[1400px] scroll-mt-28 bg-white md:grid-cols-[0.9fr_1.1fr]">
+      <img src={content.owner.image} alt="" className="h-full min-h-[420px] w-full object-cover" />
+      <div className="flex flex-col justify-center px-8 py-14 md:px-20">
+        <p className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">The people behind the care</p>
+        <h2 className="text-3xl leading-[1.12] md:text-5xl">{content.owner.title}</h2>
+        <div className="my-6 h-px w-14 bg-[#b58b4a]" />
+        <p className="text-base leading-8 text-[#333]">{content.owner.text}</p>
       </div>
     </section>
   );
 }
 
 function LocationSection({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
-  const hasLocation = content.locationDetails.text || content.locationDetails.directions || content.locationDetails.virtualTourUrl;
+  const address = content.footer.address || content.locationDetails.text || content.business.location;
+  const hasLocation = address || content.locationDetails.text || content.locationDetails.directions;
   if (!hasLocation) return null;
 
+  const mapUrl = safeMapUrl(address);
+
   return (
-    <section id="location" className="bg-[#f8f5ef] px-6 py-16">
-      <div className="mx-auto grid max-w-[1200px] gap-8 md:grid-cols-[1.3fr_1fr] md:items-center">
-        <div>
+    <section id="location" className="scroll-mt-28 bg-[#f8f5ef] px-6 py-16">
+      <div className="mx-auto grid max-w-[1400px] gap-8 md:grid-cols-[0.9fr_1.1fr]">
+        <div className="rounded-md border border-[#222]/10 bg-white p-8 shadow-sm">
           <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Location</p>
           <h2 className="text-3xl leading-tight md:text-5xl">{content.locationDetails.heading}</h2>
           {content.locationDetails.text ? <p className="mt-5 text-base leading-7 text-[#333]">{content.locationDetails.text}</p> : null}
-          {content.locationDetails.directions ? <p className="mt-3 text-sm leading-6 text-[#555]">{content.locationDetails.directions}</p> : null}
+          {content.locationDetails.directions ? <p className="mt-5 text-sm leading-7 text-[#555]">{content.locationDetails.directions}</p> : null}
+          <div className="mt-7 space-y-3 text-sm leading-6 text-[#444]">
+            {address ? (
+              <p className="flex gap-3">
+                <MapPin className="mt-1 h-5 w-5 shrink-0 text-[#8c5b32]" />
+                <span>{address}</span>
+              </p>
+            ) : null}
+            {content.footer.phone ? (
+              <p className="flex gap-3">
+                <Phone className="mt-1 h-5 w-5 shrink-0 text-[#8c5b32]" />
+                <span>{content.footer.phone}</span>
+              </p>
+            ) : null}
+            {content.footer.email ? (
+              <p className="flex gap-3">
+                <Mail className="mt-1 h-5 w-5 shrink-0 text-[#8c5b32]" />
+                <span>{content.footer.email}</span>
+              </p>
+            ) : null}
+          </div>
         </div>
-        <div className="border border-[#222]/10 bg-white p-7 shadow-sm">
-          <h3 className="font-serif text-2xl">Contact details</h3>
-          <p className="mt-4 text-sm leading-7 text-[#444]">{content.footer.phone}<br />{content.footer.email}<br />{content.footer.address}</p>
-          {content.locationDetails.virtualTourUrl ? (
-            <a href={content.locationDetails.virtualTourUrl} className="mt-5 inline-block rounded-md bg-[#1f241b] px-5 py-3 text-xs font-bold uppercase tracking-[0.1em] text-white">
-              Virtual Tour
-            </a>
-          ) : null}
+        <div className="overflow-hidden rounded-md border border-[#222]/10 bg-white shadow-sm">
+          {mapUrl ? (
+            <iframe
+              title={`${content.business.name} location map`}
+              src={mapUrl}
+              className="h-[430px] w-full border-0"
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+            />
+          ) : (
+            <div className="grid h-[430px] place-items-center bg-[#0A1128] p-8 text-center text-white">
+              <div>
+                <MapPin className="mx-auto mb-4 h-8 w-8 text-[#F5C08A]" />
+                <p className="font-serif text-3xl">{content.business.location || content.business.name}</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </section>
   );
+}
+
+function VirtualTourSection({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
+  if (!content.locationDetails.virtualTourUrl) return null;
+
+  return (
+    <section id="virtual-tour" className="scroll-mt-28 bg-white px-6 py-16">
+      <div className="mx-auto max-w-[1400px]">
+        <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Virtual Tour</p>
+        <h2 className="mb-8 text-3xl leading-tight md:text-5xl">Take a look around</h2>
+        <div className="overflow-hidden rounded-md border border-[#222]/10 bg-[#f8f5ef] shadow-sm">
+          <iframe
+            title={`${content.business.name} virtual tour`}
+            src={content.locationDetails.virtualTourUrl}
+            className="h-[520px] w-full border-0"
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+            sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
+          />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ContactFormSection({
+  content,
+  onPreviewBookingAction,
+}: {
+  content: ReturnType<typeof buildCatstaysTemplateContent>;
+  onPreviewBookingAction: (event: MouseEvent<HTMLElement>) => void;
+}) {
+  return (
+    <section id="contact" className="scroll-mt-28 bg-[#f8f5ef] px-6 py-16">
+      <div className="mx-auto grid max-w-[1400px] gap-8 md:grid-cols-[0.85fr_1.15fr]">
+        <div className="rounded-md border border-[#222]/10 bg-white p-8 shadow-sm">
+          <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Contact</p>
+          <h2 className="text-3xl leading-tight md:text-5xl">Send us a message</h2>
+          <p className="mt-5 text-base leading-7 text-[#444]">Ask a question, arrange a visit, or start a booking enquiry.</p>
+          <div className="mt-7 space-y-4 text-sm leading-6 text-[#444]">
+            {content.footer.phone ? (
+              <p className="flex gap-3">
+                <Phone className="mt-1 h-5 w-5 shrink-0 text-[#8c5b32]" />
+                <span>{content.footer.phone}</span>
+              </p>
+            ) : null}
+            {content.footer.email ? (
+              <p className="flex gap-3">
+                <Mail className="mt-1 h-5 w-5 shrink-0 text-[#8c5b32]" />
+                <span>{content.footer.email}</span>
+              </p>
+            ) : null}
+            {content.footer.hours ? (
+              <p className="flex gap-3">
+                <Clock className="mt-1 h-5 w-5 shrink-0 text-[#8c5b32]" />
+                <span>{content.footer.hours}</span>
+              </p>
+            ) : null}
+          </div>
+        </div>
+        <form className="rounded-md border border-[#222]/10 bg-white p-8 shadow-sm">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block text-sm font-bold text-[#222]">
+              First name
+              <input className="mt-2 h-12 w-full rounded-md border border-[#222]/15 px-4 font-sans text-sm" placeholder="Your first name" />
+            </label>
+            <label className="block text-sm font-bold text-[#222]">
+              Last name
+              <input className="mt-2 h-12 w-full rounded-md border border-[#222]/15 px-4 font-sans text-sm" placeholder="Your last name" />
+            </label>
+            <label className="block text-sm font-bold text-[#222]">
+              Email
+              <input className="mt-2 h-12 w-full rounded-md border border-[#222]/15 px-4 font-sans text-sm" placeholder="you@example.com" type="email" />
+            </label>
+            <label className="block text-sm font-bold text-[#222]">
+              Phone
+              <input className="mt-2 h-12 w-full rounded-md border border-[#222]/15 px-4 font-sans text-sm" placeholder="Your phone number" />
+            </label>
+            <label className="block text-sm font-bold text-[#222]">
+              Check-in
+              <input className="mt-2 h-12 w-full rounded-md border border-[#222]/15 px-4 font-sans text-sm" type="date" />
+            </label>
+            <label className="block text-sm font-bold text-[#222]">
+              Check-out
+              <input className="mt-2 h-12 w-full rounded-md border border-[#222]/15 px-4 font-sans text-sm" type="date" />
+            </label>
+          </div>
+          <label className="mt-4 block text-sm font-bold text-[#222]">
+            Message
+            <textarea className="mt-2 min-h-32 w-full rounded-md border border-[#222]/15 px-4 py-3 font-sans text-sm" placeholder="Tell us about your cat and the care they need." />
+          </label>
+          <button type="button" onClick={onPreviewBookingAction} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-[#1f241b] px-6 py-4 text-sm font-bold uppercase tracking-[0.1em] text-white">
+            <MessageSquare className="h-4 w-4" />
+            Send enquiry
+          </button>
+        </form>
+      </div>
+    </section>
+  );
+}
+
+function serviceIconFor(title: string, index: number) {
+  const normalized = title.toLowerCase();
+  if (normalized.includes('brush') || normalized.includes('groom')) return Scissors;
+  if (normalized.includes('medicine') || normalized.includes('vet')) return Stethoscope;
+  if (normalized.includes('blanket') || normalized.includes('electric')) return Zap;
+  if (normalized.includes('airport')) return Plane;
+  if (normalized.includes('pickup') || normalized.includes('drop')) return Car;
+  if (normalized.includes('hour') || normalized.includes('time')) return Clock;
+  return serviceIcons[index % serviceIcons.length] || HeartHandshake;
+}
+
+function safeMapUrl(address: string) {
+  if (!address) return '';
+  return `https://www.google.com/maps?q=${encodeURIComponent(address)}&output=embed`;
 }
 
 function TestimonialBanner({ content, light = false, imageSrc }: { content: ReturnType<typeof buildCatstaysTemplateContent>; light?: boolean; imageSrc?: string }) {
@@ -563,8 +833,11 @@ function TestimonialBanner({ content, light = false, imageSrc }: { content: Retu
 }
 
 function TemplateFooter({ content, dark = false }: { content: ReturnType<typeof buildCatstaysTemplateContent>; dark?: boolean }) {
+  const linkClass = `block underline-offset-4 hover:underline ${dark ? 'text-white/75 hover:text-white' : 'text-[#444] hover:text-[#222]'}`;
+  const faqPreview = content.faqs.slice(0, 8);
+
   return (
-    <footer id="contact" className={`scroll-mt-28 px-6 py-14 ${dark ? 'bg-[#0A1128] text-white' : 'bg-white text-[#222]'}`}>
+    <footer id="footer" className={`scroll-mt-28 px-6 py-14 ${dark ? 'bg-[#0A1128] text-white' : 'bg-white text-[#222]'}`}>
       <div className="mx-auto grid max-w-[1400px] gap-10 md:grid-cols-[2fr_1fr_1fr_1fr]">
         <div>
           <h3 className="mb-2 font-serif text-3xl">{content.business.name}</h3>
@@ -573,7 +846,17 @@ function TemplateFooter({ content, dark = false }: { content: ReturnType<typeof 
         </div>
         <div>
           <h4 className="mb-4 text-xs font-bold uppercase tracking-[0.16em]">Quick Links</h4>
-          <p className="text-sm leading-7">Home<br />About<br />Rooms<br />Care<br />Gallery<br />Reviews</p>
+          <nav className="space-y-2 text-sm">
+            <a href="#home" className={linkClass}>Home</a>
+            <a href="#about" className={linkClass}>About</a>
+            <a href="#care" className={linkClass}>Care</a>
+            <a href="#facilities" className={linkClass}>Facilities</a>
+            <a href="#suites" className={linkClass}>Rooms</a>
+            <a href="#services" className={linkClass}>Extra Care</a>
+            <a href="#gallery" className={linkClass}>Gallery</a>
+            <a href="#reviews" className={linkClass}>Reviews</a>
+            <a href="#location" className={linkClass}>Location</a>
+          </nav>
         </div>
         <div>
           <h4 className="mb-4 text-xs font-bold uppercase tracking-[0.16em]">Contact</h4>
@@ -581,12 +864,25 @@ function TemplateFooter({ content, dark = false }: { content: ReturnType<typeof 
           <div className="mt-4 flex flex-wrap gap-3 text-sm">
             {content.footer.facebook ? <a href={content.footer.facebook} className="underline-offset-4 hover:underline">Facebook</a> : null}
             {content.footer.instagram ? <a href={content.footer.instagram} className="underline-offset-4 hover:underline">Instagram</a> : null}
-            {content.locationDetails.virtualTourUrl ? <a href={content.locationDetails.virtualTourUrl} className="underline-offset-4 hover:underline">Virtual Tour</a> : null}
+            {content.locationDetails.virtualTourUrl ? <a href="#virtual-tour" className="underline-offset-4 hover:underline">Virtual Tour</a> : null}
           </div>
         </div>
         <div>
           <h4 className="mb-4 text-xs font-bold uppercase tracking-[0.16em]">Hours</h4>
           <p className="text-sm leading-7">{content.footer.hours}</p>
+          {faqPreview.length ? (
+            <details className={`mt-6 rounded-md border p-4 text-sm ${dark ? 'border-white/15 bg-white/5' : 'border-[#222]/10 bg-[#f8f5ef]'}`}>
+              <summary className="cursor-pointer text-xs font-bold uppercase tracking-[0.16em]">FAQ</summary>
+              <div className="mt-4 space-y-4">
+                {faqPreview.map((faq) => (
+                  <div key={faq.question}>
+                    <p className="font-semibold">{faq.question}</p>
+                    <p className={`mt-1 leading-6 ${dark ? 'text-white/65' : 'text-[#555]'}`}>{faq.answer}</p>
+                  </div>
+                ))}
+              </div>
+            </details>
+          ) : null}
         </div>
       </div>
       <div className={`mt-10 border-t pt-6 text-center text-xs ${dark ? 'border-white/15 text-white/55' : 'border-[#222]/10 text-[#666]'}`}>
