@@ -4,12 +4,18 @@ import { ArrowLeft, Globe, LayoutDashboard, Monitor, Smartphone, Tablet, UserRou
 import { Button } from '../../components/ui/button';
 import { FullWebsitePreview } from '../onboarding/FullWebsitePreview';
 import {
+  buildFallbackScrapeForUrl,
   buildPreviewDataFromScrape,
   defaultDelorainePreviewData,
   DELORAINE_SOURCE_URL,
   fallbackDeloraineScrape,
+  IMPORT_URL_STORAGE_KEY,
+  PREVIEW_DATA_STORAGE_KEY,
+  PREVIEW_URL_STORAGE_KEY,
   rememberCatteryPreview,
+  sourceMatchesRequest,
   type DelorainePreviewData,
+  type ImportedCatteryScrape,
 } from '../../lib/deloraineDemo';
 
 type DemoMode = 'website' | 'dashboard' | 'client';
@@ -82,7 +88,8 @@ export function DeloraineDemoClientPortal() {
 }
 
 function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) {
-  const [previewData, setPreviewData] = useState<DelorainePreviewData>(defaultDelorainePreviewData);
+  const [requestedImportUrl] = useState(() => readRequestedImportUrl());
+  const [previewData, setPreviewData] = useState<DelorainePreviewData>(() => readInitialPreviewData(requestedImportUrl));
   const [previewMode, setPreviewMode] = useState<DemoMode>(initialMode);
   const [hoveredMode, setHoveredMode] = useState<DemoMode | null>(null);
   const [deviceType, setDeviceTypeState] = useState<DeviceMode>(() => readSavedDemoDevice());
@@ -99,34 +106,37 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
   useEffect(() => {
     let cancelled = false;
 
-    async function loadDeloraine() {
+    async function loadImportedWebsite() {
       try {
         const response = await fetch('/api/website/scrape', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: DELORAINE_SOURCE_URL }),
+          body: JSON.stringify({ url: requestedImportUrl }),
         });
         const payload = await response.json();
         if (!response.ok) {
           throw new Error(payload?.error || 'Import failed');
         }
         if (cancelled) return;
-        const importedPreview = buildPreviewDataFromScrape(payload);
+        const importedPreview = buildPreviewDataFromScrape(payload as ImportedCatteryScrape);
         setPreviewData(importedPreview);
-        rememberCatteryPreview(payload, importedPreview);
+        rememberCatteryPreview(payload as ImportedCatteryScrape, importedPreview);
       } catch {
         if (cancelled) return;
-        const fallbackPreview = buildPreviewDataFromScrape(fallbackDeloraineScrape);
+        const fallbackScrape = isDeloraineRequest(requestedImportUrl)
+          ? fallbackDeloraineScrape
+          : buildFallbackScrapeForUrl(requestedImportUrl);
+        const fallbackPreview = buildPreviewDataFromScrape(fallbackScrape);
         setPreviewData(fallbackPreview);
-        rememberCatteryPreview(fallbackDeloraineScrape, fallbackPreview);
+        rememberCatteryPreview(fallbackScrape, fallbackPreview);
       }
     }
 
-    loadDeloraine();
+    loadImportedWebsite();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [requestedImportUrl]);
 
   return (
     <div className="min-h-screen bg-[#f8f4ed] text-[#10251f]">
@@ -247,4 +257,49 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
       </main>
     </div>
   );
+}
+
+function readRequestedImportUrl(): string {
+  if (typeof window === 'undefined') return DELORAINE_SOURCE_URL;
+
+  const sourceParam = new URLSearchParams(window.location.search).get('source');
+  const requestedUrl =
+    sourceParam ||
+    window.localStorage.getItem(PREVIEW_URL_STORAGE_KEY) ||
+    window.sessionStorage.getItem(PREVIEW_URL_STORAGE_KEY) ||
+    window.localStorage.getItem(IMPORT_URL_STORAGE_KEY) ||
+    window.sessionStorage.getItem(IMPORT_URL_STORAGE_KEY) ||
+    DELORAINE_SOURCE_URL;
+
+  window.localStorage.setItem(PREVIEW_URL_STORAGE_KEY, requestedUrl);
+  window.sessionStorage.setItem(PREVIEW_URL_STORAGE_KEY, requestedUrl);
+  return requestedUrl;
+}
+
+function readInitialPreviewData(requestedUrl: string): DelorainePreviewData {
+  const storedPreview = readStoredPreviewData(requestedUrl);
+  if (storedPreview) return storedPreview;
+  if (isDeloraineRequest(requestedUrl)) return defaultDelorainePreviewData;
+  return buildPreviewDataFromScrape(buildFallbackScrapeForUrl(requestedUrl));
+}
+
+function readStoredPreviewData(requestedUrl: string): DelorainePreviewData | null {
+  if (typeof window === 'undefined') return null;
+
+  const raw =
+    window.sessionStorage.getItem(PREVIEW_DATA_STORAGE_KEY) ||
+    window.localStorage.getItem(PREVIEW_DATA_STORAGE_KEY);
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as { scrape?: ImportedCatteryScrape; previewData?: DelorainePreviewData };
+    if (!parsed.previewData || !sourceMatchesRequest(parsed.scrape?.sourceUrl, requestedUrl)) return null;
+    return parsed.previewData;
+  } catch {
+    return null;
+  }
+}
+
+function isDeloraineRequest(requestedUrl: string): boolean {
+  return sourceMatchesRequest(DELORAINE_SOURCE_URL, requestedUrl);
 }
