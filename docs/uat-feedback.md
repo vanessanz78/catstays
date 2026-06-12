@@ -93,3 +93,13 @@ Record UAT findings below using this format:
 - What happened: the onboarding flow still used the older fixed template list and the scraped source data was not stored as a reusable preview record for repainting across templates.
 - Severity: high
 - Resolution: added the StayDirect transfer kit artifact to CatStays, introduced a shared preview import record shaped around business, hero, features, about, gallery, suites, testimonials, booking, and footer content, replaced the template selector with Original, Focus, Editorial, and Showcase, and made publish mark the selected preview template as the live version. Verified with frontend and API type checks.
+
+### 2026-06-12 15:52 NZST - Demo Template Strip And Get Started Handoff
+
+- Page: `/demo/deloraine?source=https%3A%2F%2Fharrishillton.co.nz%2F`
+- Device: desktop preview
+- What you clicked: Harris Hillton website preview, template preview cards, Focus template card, and Get started.
+- What you expected: four preview versions should appear beneath the demo header before the full website render, the selected version should have a visible border/check state, the full render below should switch to that version, and Get started should carry the selected version into setup.
+- What happened: the demo page only had Website/Staff/Client and device controls; template choice was not visible on the demo page before onboarding.
+- Severity: high
+- Resolution: added a compact template preview strip for Original, Focus, Editorial, and Showcase, removed the oversized standalone hero from the demo page, wired card selection into the shared preview record, preserved the source URL across demo mode tabs, and saved the selected preview to onboarding before the Get started route. Verified that Original shows the Harris Hillton iframe, Focus changes the full render to the CatStays template, and Get started navigates to signup.
