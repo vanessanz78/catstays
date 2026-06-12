@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { ExternalLink, Globe, LayoutDashboard, RefreshCw, UserRound } from 'lucide-react';
+import { ArrowLeft, Globe, LayoutDashboard, Monitor, Smartphone, Tablet, UserRound } from 'lucide-react';
 import { Button } from '../../components/ui/button';
-import { Badge } from '../../components/ui/badge';
 import { FullWebsitePreview } from '../onboarding/FullWebsitePreview';
 import {
   buildPreviewDataFromScrape,
@@ -11,17 +10,54 @@ import {
   fallbackDeloraineScrape,
   rememberCatteryPreview,
   type DelorainePreviewData,
-  type ImportedCatteryScrape,
 } from '../../lib/deloraineDemo';
 
-const logoIcon = '/assets/b463d12091f20e48be52186dedd2a0f6707d0b66.png';
-const logoWordmark = '/assets/9900b394e20a5e059447324d58daad1b1bf43ed6.png';
-
 type DemoMode = 'website' | 'dashboard' | 'client';
+type DeviceMode = 'mobile' | 'tablet' | 'desktop';
 
 interface DeloraineDemoPageProps {
   initialMode?: DemoMode;
 }
+
+const modeOptions: Array<{
+  mode: DemoMode;
+  label: string;
+  href: string;
+  icon: typeof Globe;
+  description: string;
+}> = [
+  {
+    mode: 'website',
+    label: 'Website',
+    href: '/demo/deloraine',
+    icon: Globe,
+    description: 'Preview the imported customer-facing website exactly as visitors will browse it.',
+  },
+  {
+    mode: 'dashboard',
+    label: 'Staff demo',
+    href: '/demo/deloraine-dashboard',
+    icon: LayoutDashboard,
+    description: 'Preview the staff workspace for bookings, customers, rooms, payments, and daily operations.',
+  },
+  {
+    mode: 'client',
+    label: 'Client portal',
+    href: '/demo/deloraine-client',
+    icon: UserRound,
+    description: 'Clients can view bookings, manage pet profiles, and receive photo updates.',
+  },
+];
+
+const deviceOptions: Array<{
+  device: DeviceMode;
+  label: string;
+  icon: typeof Smartphone;
+}> = [
+  { device: 'mobile', label: 'Mobile', icon: Smartphone },
+  { device: 'tablet', label: 'Tablet', icon: Tablet },
+  { device: 'desktop', label: 'Desktop', icon: Monitor },
+];
 
 export function DeloraineDemo() {
   return <DeloraineDemoPage initialMode="website" />;
@@ -36,11 +72,16 @@ export function DeloraineDemoClientPortal() {
 }
 
 function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) {
-  const [scrape, setScrape] = useState<ImportedCatteryScrape>(fallbackDeloraineScrape);
   const [previewData, setPreviewData] = useState<DelorainePreviewData>(defaultDelorainePreviewData);
+  const [previewMode, setPreviewMode] = useState<DemoMode>(initialMode);
+  const [hoveredMode, setHoveredMode] = useState<DemoMode | null>(null);
+  const [deviceType, setDeviceType] = useState<DeviceMode>('desktop');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    setPreviewMode(initialMode);
+  }, [initialMode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -60,13 +101,11 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
         }
         if (cancelled) return;
         const importedPreview = buildPreviewDataFromScrape(payload);
-        setScrape(payload);
         setPreviewData(importedPreview);
         rememberCatteryPreview(payload, importedPreview);
       } catch (err) {
         if (cancelled) return;
         const fallbackPreview = buildPreviewDataFromScrape(fallbackDeloraineScrape);
-        setScrape(fallbackDeloraineScrape);
         setPreviewData(fallbackPreview);
         rememberCatteryPreview(fallbackDeloraineScrape, fallbackPreview);
         setError(err instanceof Error ? err.message : 'Import failed');
@@ -79,32 +118,35 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
     return () => {
       cancelled = true;
     };
-  }, [refreshKey]);
+  }, []);
 
-  const importSummary = useMemo(() => {
-    const scripts = scrape.extractedFrom?.scripts ?? 0;
-    const apiServices = scrape.extractedFrom?.apiServices ? 'rooms' : 'website';
-    const imageCount = scrape.images?.length ?? 0;
-    return `${imageCount} images, ${apiServices}, ${scripts} bundle pass${scripts === 1 ? '' : 'es'}`;
-  }, [scrape]);
+  const demoStatus = loading ? 'Building demo preview' : error ? 'Demo fallback loaded' : 'Imported demo preview';
 
   return (
     <div className="min-h-screen bg-[#f8f4ed] text-[#10251f]">
-      <nav className="sticky top-0 z-50 border-b border-[#21483f]/10 bg-white/95 shadow-sm backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-5 py-3 sm:px-8 lg:px-10">
-          <Link to="/" className="flex items-center gap-2 hover:opacity-85">
-            <img src={logoIcon} alt="" className="h-10 w-10" />
-            <img src={logoWordmark} alt="CatStays" className="h-9" />
+      <nav className="sticky top-0 z-50 border-b border-[#C46A3A]/40 bg-[#0A1128] text-white shadow-sm">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-5 py-2.5 sm:px-8 lg:px-10">
+          <Link to="/" className="flex items-center gap-2 text-sm font-semibold text-white hover:text-white/85">
+            <ArrowLeft className="h-4 w-4 text-[#D28A4A]" />
+            Back to CatStays
           </Link>
+          <div className="flex min-w-0 flex-1 items-center justify-center gap-2 text-center text-xs sm:text-sm">
+            <span className="rounded-full border border-[#D28A4A]/50 bg-[#D28A4A]/15 px-2.5 py-1 font-semibold uppercase tracking-[0.12em] text-[#F5C08A]">
+              Demo
+            </span>
+            <span className="truncate text-white/82">
+              {demoStatus}: a rendering of the imported cattery experience
+            </span>
+          </div>
           <div className="flex items-center gap-2">
-            <Link to="/">
-              <Button variant="ghost" className="text-[#21483f] hover:bg-[#21483f]/5">
-                Back to homepage
+            <Link to="/#pricing">
+              <Button variant="ghost" className="text-white hover:bg-white/10 hover:text-white">
+                Pricing
               </Button>
             </Link>
-            <Link to="/#pricing">
+            <Link to="/signup">
               <Button className="bg-[#A85A30] text-white hover:bg-[#8A3F20]">
-                Pricing
+                Get started
               </Button>
             </Link>
           </div>
@@ -112,95 +154,98 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
       </nav>
 
       <section
-        className="relative min-h-[420px] overflow-hidden"
+        className="relative min-h-[390px] overflow-visible"
         style={{
           backgroundImage: `linear-gradient(90deg, rgba(16,37,31,.86), rgba(16,37,31,.42)), url(${previewData.heroImage})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
         }}
       >
-        <div className="mx-auto flex min-h-[420px] max-w-7xl flex-col justify-between px-5 py-6 sm:px-8 lg:px-10">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <Link to="/" className="text-sm font-semibold text-white/90 hover:text-white">
-              CatStays
-            </Link>
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge className="border-white/25 bg-white/15 text-white hover:bg-white/20">
-                {loading ? 'Importing live site' : 'Imported demo'}
-              </Badge>
-              <a href={DELORAINE_SOURCE_URL} target="_blank" rel="noreferrer">
-                <Button size="sm" variant="outline" className="border-white/40 bg-white/10 text-white hover:bg-white hover:text-[#21483f]">
-                  <ExternalLink className="h-4 w-4" />
-                  Source
-                </Button>
-              </a>
-              <Button
-                size="sm"
-                variant="outline"
-                className="border-white/40 bg-white/10 text-white hover:bg-white hover:text-[#21483f]"
-                onClick={() => setRefreshKey((key) => key + 1)}
-                disabled={loading}
-              >
-                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                Refresh
-              </Button>
-            </div>
-          </div>
-
+        <div className="mx-auto flex min-h-[390px] max-w-7xl flex-col justify-end px-5 py-6 sm:px-8 lg:px-10">
           <div className="max-w-3xl pb-6 text-white">
-            <p className="mb-3 text-sm font-semibold uppercase tracking-[0.18em] text-white/75">
-              Live cattery import demo
-            </p>
             <h1 className="font-serif text-4xl font-bold leading-tight sm:text-5xl lg:text-6xl">
               {previewData.businessName}
             </h1>
             <p className="mt-4 max-w-2xl text-lg leading-8 text-white/88">
               {previewData.heroSubheading}
             </p>
-            <div className="mt-7 flex flex-wrap gap-3">
-              <Link to="/demo/deloraine">
-                <Button className="bg-white text-[#21483f] hover:bg-white/90">
-                  <Globe className="h-4 w-4" />
-                  Website
-                </Button>
-              </Link>
-              <Link to="/demo/deloraine-dashboard">
-                <Button className="bg-[#b77a35] text-white hover:bg-[#a96f2f]">
-                  <LayoutDashboard className="h-4 w-4" />
-                  Staff demo
-                </Button>
-              </Link>
-              <Link to="/demo/deloraine-client">
-                <Button className="bg-white/15 text-white hover:bg-white/25">
-                  <UserRound className="h-4 w-4" />
-                  Client portal
-                </Button>
-              </Link>
-            </div>
           </div>
         </div>
       </section>
 
-      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-8 lg:px-10">
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#21483f]/12 bg-white px-4 py-3 shadow-sm">
-          <div>
-            <p className="text-sm font-semibold text-[#21483f]">
-              {scrape.sourceHost || 'delorainecattery.com'} to delorainecattery.catstays.app
-            </p>
-            <p className="text-sm text-[#21483f]/65">{importSummary}</p>
+      <div className="border-b border-[#0A1128]/10 bg-[#0A1128] text-white">
+        <div className="mx-auto flex max-w-7xl flex-col gap-2 px-5 py-2.5 sm:px-8 md:flex-row md:items-center md:justify-between lg:px-10">
+          <div className="flex flex-wrap items-center gap-2">
+            {modeOptions.map(({ mode, label, href, icon: Icon, description }) => {
+              const active = previewMode === mode;
+              return (
+                <Link
+                  key={mode}
+                  to={href}
+                  onClick={() => setPreviewMode(mode)}
+                  onMouseEnter={() => setHoveredMode(mode)}
+                  onMouseLeave={() => setHoveredMode(null)}
+                  onFocus={() => setHoveredMode(mode)}
+                  onBlur={() => setHoveredMode(null)}
+                  className="group relative"
+                  aria-label={`${label}: ${description}`}
+                  title={description}
+                >
+                  <span
+                    className={`inline-flex h-9 items-center gap-2 rounded-full px-3 text-sm font-semibold transition ${
+                      active
+                        ? 'bg-white text-[#0A1128]'
+                        : 'bg-white/8 text-white ring-1 ring-white/20 hover:bg-white/15'
+                    }`}
+                  >
+                    <Icon className={`h-4 w-4 ${active ? 'text-[#C46A3A]' : 'text-[#F5C08A]'}`} />
+                    {label}
+                  </span>
+                  <span
+                    className={`pointer-events-none absolute left-0 top-full z-30 mt-2 w-72 rounded-md border border-[#C46A3A]/30 bg-[#0A1128] p-3 text-left text-xs leading-5 text-white shadow-xl transition ${
+                      hoveredMode === mode
+                        ? 'visible opacity-100'
+                        : 'invisible opacity-0 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100'
+                    }`}
+                  >
+                    {description}
+                  </span>
+                </Link>
+              );
+            })}
           </div>
-          {error ? (
-            <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-800">
-              Fallback loaded
-            </Badge>
-          ) : (
-            <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-800">
-              Live scrape ready
-            </Badge>
-          )}
-        </div>
 
-        <FullWebsitePreview data={previewData} initialMode={initialMode} initialDevice="desktop" />
+          <div className="flex flex-wrap items-center justify-start gap-2 md:justify-end">
+            {deviceOptions.map(({ device, label, icon: Icon }) => {
+              const active = deviceType === device;
+              return (
+                <button
+                  key={device}
+                  type="button"
+                  onClick={() => setDeviceType(device)}
+                  className={`inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-xs font-semibold transition ${
+                    active
+                      ? 'bg-[#C46A3A] text-white'
+                      : 'bg-white/8 text-white ring-1 ring-white/20 hover:bg-white/15'
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <main className="mx-auto max-w-7xl px-4 py-4 sm:px-8 lg:px-10">
+        <FullWebsitePreview
+          data={previewData}
+          controlledMode={previewMode}
+          controlledDevice={deviceType}
+          showControls={false}
+          showInfoCard={false}
+        />
       </main>
     </div>
   );

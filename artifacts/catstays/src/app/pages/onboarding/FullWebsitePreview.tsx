@@ -98,13 +98,35 @@ interface FullWebsitePreviewProps {
   };
   initialMode?: 'website' | 'dashboard' | 'client';
   initialDevice?: 'mobile' | 'tablet' | 'desktop';
+  controlledMode?: 'website' | 'dashboard' | 'client';
+  controlledDevice?: 'mobile' | 'tablet' | 'desktop';
+  showControls?: boolean;
+  showInfoCard?: boolean;
 }
 
-export function FullWebsitePreview({ data, initialMode = 'dashboard', initialDevice = 'mobile' }: FullWebsitePreviewProps) {
-  const [previewMode, setPreviewMode] = useState<'website' | 'dashboard' | 'client'>(initialMode);
-  const [deviceType, setDeviceType] = useState<'mobile' | 'tablet' | 'desktop'>(initialDevice);
+export function FullWebsitePreview({
+  data,
+  initialMode = 'dashboard',
+  initialDevice = 'mobile',
+  controlledMode,
+  controlledDevice,
+  showControls = true,
+  showInfoCard = true,
+}: FullWebsitePreviewProps) {
+  const [internalPreviewMode, setInternalPreviewMode] = useState<'website' | 'dashboard' | 'client'>(initialMode);
+  const [internalDeviceType, setInternalDeviceType] = useState<'mobile' | 'tablet' | 'desktop'>(initialDevice);
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [showDashboard, setShowDashboard] = useState<'staff' | 'client' | null>(null);
+  const previewMode = controlledMode ?? internalPreviewMode;
+  const deviceType = controlledDevice ?? internalDeviceType;
+
+  const setPreviewMode = (mode: 'website' | 'dashboard' | 'client') => {
+    if (!controlledMode) setInternalPreviewMode(mode);
+  };
+
+  const setDeviceType = (device: 'mobile' | 'tablet' | 'desktop') => {
+    if (!controlledDevice) setInternalDeviceType(device);
+  };
 
   const handleBookingSearch = (searchData: any) => {
     setShowBookingModal(true);
@@ -294,13 +316,13 @@ export function FullWebsitePreview({ data, initialMode = 'dashboard', initialDev
   const deviceDimensions = deviceType === 'mobile'
     ? { width: 375, height: 667, scale: 1.0 }
     : deviceType === 'tablet'
-    ? { width: 768, height: 1024, scale: 0.72 }
-    : { width: 1440, height: 900, scale: 0.62 };
+    ? { width: 768, height: 1024, scale: showControls ? 0.72 : 0.76 }
+    : { width: 1440, height: 900, scale: showControls ? 0.62 : 0.82 };
 
   return (
-    <div className="space-y-6">
+    <div className={showControls || showInfoCard ? 'space-y-6' : ''}>
       {/* Preview Mode Toggle */}
-      <div className="flex justify-center gap-3">
+      {showControls && <div className="flex justify-center gap-3">
         <Button
           onClick={() => setPreviewMode('website')}
           variant={previewMode === 'website' ? 'default' : 'outline'}
@@ -337,10 +359,10 @@ export function FullWebsitePreview({ data, initialMode = 'dashboard', initialDev
           <User className="w-4 h-4" />
           Client Dashboard
         </Button>
-      </div>
+      </div>}
 
       {/* Device Type Toggle */}
-      <div className="flex justify-center gap-3">
+      {showControls && <div className="flex justify-center gap-3">
         <Button
           onClick={() => setDeviceType('mobile')}
           variant={deviceType === 'mobile' ? 'default' : 'outline'}
@@ -380,10 +402,10 @@ export function FullWebsitePreview({ data, initialMode = 'dashboard', initialDev
           <Monitor className="w-4 h-4" />
           Desktop
         </Button>
-      </div>
+      </div>}
 
       {/* Informational Text */}
-      <div className="text-center max-w-2xl mx-auto">
+      {showControls && <div className="text-center max-w-2xl mx-auto">
         {previewMode === 'website' ? (
           <p className="text-sm text-[#0A1128]/70">
             This is a fully functional preview of your customer-facing website. Navigate between sections to see how it works!
@@ -397,10 +419,10 @@ export function FullWebsitePreview({ data, initialMode = 'dashboard', initialDev
             This is the customer portal where your clients can view their bookings, manage their pet profiles, and receive photo updates.
           </p>
         )}
-      </div>
+      </div>}
 
       {/* Device Preview Frame - ISOLATED VIEWPORT */}
-      <div className="flex justify-center items-center overflow-hidden px-3 py-8 bg-gradient-to-b from-[#0A1128]/5 to-transparent rounded-3xl">
+      <div className={`flex justify-center items-center overflow-hidden ${showControls || showInfoCard ? 'px-3 py-8 bg-gradient-to-b from-[#0A1128]/5 to-transparent rounded-3xl' : 'px-0 py-0'}`}>
         <div
           className="relative shadow-2xl"
           style={{
@@ -470,7 +492,7 @@ export function FullWebsitePreview({ data, initialMode = 'dashboard', initialDev
       </div>
 
       {/* Preview Info */}
-      <div className="max-w-2xl mx-auto">
+      {showInfoCard && <div className="max-w-2xl mx-auto">
         <Card className="border-[#C46A3A]/20 bg-gradient-to-br from-white to-[#F8F7F5] p-4">
           <div className="flex gap-3">
             <div className="w-10 h-10 rounded-full bg-[#C46A3A]/10 flex items-center justify-center flex-shrink-0">
@@ -491,7 +513,7 @@ export function FullWebsitePreview({ data, initialMode = 'dashboard', initialDev
             </div>
           </div>
         </Card>
-      </div>
+      </div>}
     </div>
   );
 }
