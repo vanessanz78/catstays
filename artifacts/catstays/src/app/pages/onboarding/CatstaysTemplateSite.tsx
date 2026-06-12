@@ -5,6 +5,7 @@ import {
   normalizePreviewTemplateId,
   type PreviewTemplateId,
 } from '../../lib/previewTemplates';
+import { ChatWidget } from '../../components/ChatWidget';
 
 interface CatstaysTemplateSiteProps {
   data: Record<string, any>;
@@ -50,10 +51,10 @@ function TemplateHeader({
 }) {
   const links = [
     ['Home', '#home'],
-    ['Suites', '#suites'],
-    ['About', '#about'],
+    ['Rooms', '#suites'],
     ['Care', '#care'],
     ['Gallery', '#gallery'],
+    ['Reviews', '#reviews'],
     ['Contact', '#contact'],
   ];
 
@@ -141,9 +142,13 @@ function FocusTemplate({
         <AboutSplit content={content} imageFirst />
         <GalleryStrip content={content} />
         <SuitesGrid content={content} />
+        <ServicesGrid content={content} />
+        <ReviewsSection content={content} />
+        <FaqSection content={content} />
         <TestimonialBanner content={content} imageSrc={vanessaDemoImage} />
       </main>
       <TemplateFooter content={content} dark />
+      <ChatWidget accentColor="#A85A30" businessName={content.business.name} />
     </div>
   );
 }
@@ -162,9 +167,9 @@ function EditorialTemplate({
   onDismissPreviewNotice: () => void;
 }) {
   const sections = [
-    { title: content.about.title, text: content.about.text, image: content.about.image, eyebrow: 'Thoughtful spaces' },
-    { title: content.features[0]?.title || 'Personalised care', text: content.features[0]?.text || content.hero.text, image: content.gallery[1]?.image || content.hero.image, eyebrow: 'Expert care' },
-    { title: content.features[1]?.title || 'Peace of mind', text: content.features[1]?.text || content.footer.about, image: content.gallery[2]?.image || content.hero.image, eyebrow: 'Peace of mind' },
+    { id: 'about', title: content.about.title, text: content.about.text, image: content.gallery[1]?.image || content.about.image, eyebrow: 'Thoughtful spaces' },
+    { title: content.owner.title, text: content.owner.text, image: content.owner.image || content.gallery[2]?.image || content.hero.image, eyebrow: 'The people behind the care' },
+    { title: content.commitment.title, text: content.commitment.text, image: content.gallery[3]?.image || content.gallery[2]?.image || content.hero.image, eyebrow: 'Peace of mind' },
   ];
 
   return (
@@ -179,14 +184,14 @@ function EditorialTemplate({
             <h2 className="text-4xl leading-[1.08] md:text-6xl">{content.hero.heading}</h2>
             <div className="my-6 h-px w-14 bg-[#b58b4a]" />
             <p className="max-w-lg text-base leading-7">{content.hero.text}</p>
-            <a href="#about" className="mt-8 w-max rounded-md bg-[#1f241b] px-6 py-4 text-xs font-bold uppercase tracking-[0.1em] text-white">
-              Our Approach
+            <a href="#booking" onClick={onPreviewBookingAction} className="mt-8 w-max rounded-md bg-[#1f241b] px-6 py-4 text-xs font-bold uppercase tracking-[0.1em] text-white">
+              Book Now
             </a>
           </div>
         </section>
 
         {sections.map((section, index) => (
-          <section key={section.title} id={index === 0 ? 'about' : index === 1 ? 'care' : undefined} className="mx-auto grid max-w-[1400px] scroll-mt-28 md:grid-cols-2">
+          <section key={section.title} id={section.id} className="mx-auto grid max-w-[1400px] scroll-mt-28 md:grid-cols-2">
             <div className={`flex flex-col justify-center bg-white px-8 py-14 md:px-20 ${index % 2 === 1 ? 'md:order-2' : ''}`}>
               <p className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">{section.eyebrow}</p>
               <h2 className="text-3xl leading-[1.12] md:text-5xl">{section.title}</h2>
@@ -197,11 +202,17 @@ function EditorialTemplate({
           </section>
         ))}
 
-        <ConversionBanner content={content} />
-        <GalleryStrip content={content} />
+        <FeatureRow content={content} />
         <SuitesGrid content={content} compact />
+        <ServicesGrid content={content} />
+        <ConversionBanner content={content} onPreviewBookingAction={onPreviewBookingAction} />
+        <GalleryStrip content={content} />
+        <ReviewsSection content={content} />
+        <FaqSection content={content} />
+        <LocationSection content={content} />
       </main>
       <TemplateFooter content={content} />
+      <ChatWidget accentColor="#556b3f" businessName={content.business.name} />
     </div>
   );
 }
@@ -246,9 +257,13 @@ function ShowcaseTemplate({
         <AboutSplit content={content} />
         <FeatureRow content={content} />
         <SuitesGrid content={content} />
-        <ConversionBanner content={content} />
+        <ServicesGrid content={content} />
+        <ReviewsSection content={content} />
+        <FaqSection content={content} />
+        <ConversionBanner content={content} onPreviewBookingAction={onPreviewBookingAction} />
       </main>
       <TemplateFooter content={content} />
+      <ChatWidget accentColor="#556b3f" businessName={content.business.name} />
     </div>
   );
 }
@@ -293,14 +308,24 @@ function SuitesGrid({ content, compact = false }: { content: ReturnType<typeof b
       <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Our Suites</p>
       <h2 className="text-3xl leading-tight md:text-5xl">Beautiful suites for every kind of cat</h2>
       <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-[#444]">Spacious, serene and stylish suites designed for your cat's comfort.</p>
-      <div className="mt-10 grid gap-6 md:grid-cols-4">
-        {content.suites.slice(0, 4).map((suite) => (
-          <article key={suite.title} className="overflow-hidden rounded-md border border-[#222]/10 bg-white text-left shadow-sm">
+      <div className="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+        {content.suites.map((suite) => (
+          <article key={suite.title} className="flex overflow-hidden rounded-md border border-[#222]/10 bg-white text-left shadow-sm">
+            <div className="flex w-full flex-col">
             <img src={suite.image} alt="" className="h-56 w-full object-cover" />
-            <div className="p-5 text-center">
+            <div className="flex flex-1 flex-col p-5 text-center">
               <h3 className="mb-3 text-sm font-bold uppercase tracking-[0.08em]">{suite.title}</h3>
+              {suite.price ? <p className="mb-3 text-sm font-bold text-[#8c5b32]">{suite.price}</p> : null}
               <p className="text-sm leading-6 text-[#444]">{suite.text}</p>
-              <p className="mt-5 text-xs font-bold uppercase tracking-[0.12em]">View Suite</p>
+              {suite.features.length ? (
+                <ul className="mt-4 space-y-2 text-left text-xs leading-5 text-[#555]">
+                  {suite.features.slice(0, 4).map((feature) => (
+                    <li key={feature}>- {feature}</li>
+                  ))}
+                </ul>
+              ) : null}
+              <p className="mt-auto pt-5 text-xs font-bold uppercase tracking-[0.12em]">View Suite</p>
+            </div>
             </div>
           </article>
         ))}
@@ -309,7 +334,13 @@ function SuitesGrid({ content, compact = false }: { content: ReturnType<typeof b
   );
 }
 
-function ConversionBanner({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
+function ConversionBanner({
+  content,
+  onPreviewBookingAction,
+}: {
+  content: ReturnType<typeof buildCatstaysTemplateContent>;
+  onPreviewBookingAction?: (event: MouseEvent<HTMLElement>) => void;
+}) {
   return (
     <section id="booking" className="scroll-mt-28 bg-[#24311c] px-6 py-10 text-white">
       <div className="mx-auto flex max-w-[1200px] flex-col gap-6 md:flex-row md:items-center md:justify-between">
@@ -317,7 +348,7 @@ function ConversionBanner({ content }: { content: ReturnType<typeof buildCatstay
           <h2 className="text-3xl leading-tight">Ready to book your cat's holiday?</h2>
           <p className="mt-2 text-sm text-white/80">{content.booking.bannerText}</p>
         </div>
-        <a href="#contact" className="w-max rounded-md border border-white/60 px-7 py-4 text-xs font-bold uppercase tracking-[0.1em] text-white">
+        <a href="#contact" onClick={onPreviewBookingAction} className="w-max rounded-md border border-white/60 px-7 py-4 text-xs font-bold uppercase tracking-[0.1em] text-white">
           {content.booking.primaryCta}
         </a>
       </div>
@@ -331,12 +362,104 @@ function GalleryStrip({ content }: { content: ReturnType<typeof buildCatstaysTem
       <p className="mb-3 text-center text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Gallery</p>
       <h2 className="mb-10 text-center text-3xl leading-tight md:text-5xl">A closer look at the stay</h2>
       <div className="grid gap-5 md:grid-cols-4">
-        {content.gallery.slice(0, 4).map((item) => (
+        {content.gallery.slice(0, 8).map((item) => (
           <figure key={item.image} className="overflow-hidden bg-white shadow-sm">
             <img src={item.image} alt="" className="h-64 w-full object-cover" />
             <figcaption className="px-4 py-3 text-sm text-[#444]">{item.caption}</figcaption>
           </figure>
         ))}
+      </div>
+    </section>
+  );
+}
+
+function ServicesGrid({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
+  if (!content.services.length) return null;
+
+  return (
+    <section id="services" className="mx-auto max-w-[1400px] scroll-mt-28 px-6 py-16">
+      <p className="mb-3 text-center text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Additional Services</p>
+      <h2 className="mx-auto max-w-3xl text-center text-3xl leading-tight md:text-5xl">Extra care when your cat needs it</h2>
+      <div className="mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+        {content.services.map((service) => (
+          <article key={service.title} className="grid overflow-hidden border border-[#222]/10 bg-white shadow-sm sm:grid-cols-[180px_1fr]">
+            <img src={service.image} alt="" className="h-full min-h-[190px] w-full object-cover" />
+            <div className="p-6">
+              <h3 className="font-serif text-2xl leading-tight">{service.title}</h3>
+              {service.price ? <p className="mt-2 text-sm font-bold text-[#8c5b32]">{service.price}</p> : null}
+              <p className="mt-4 text-sm leading-6 text-[#444]">{service.text}</p>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function ReviewsSection({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
+  if (!content.testimonials.length) return null;
+
+  return (
+    <section id="reviews" className="scroll-mt-28 bg-white px-6 py-16">
+      <div className="mx-auto max-w-[1200px]">
+        <p className="mb-3 text-center text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Reviews</p>
+        <h2 className="text-center text-3xl leading-tight md:text-5xl">Trusted by cat families</h2>
+        <div className="mt-10 grid gap-6 md:grid-cols-3">
+          {content.testimonials.slice(0, 6).map((testimonial) => (
+            <article key={`${testimonial.author}-${testimonial.quote}`} className="border border-[#222]/10 bg-[#f8f5ef] p-7 shadow-sm">
+              <p className="text-3xl leading-none text-[#b58b4a]">"</p>
+              <blockquote className="mt-3 text-base italic leading-7 text-[#333]">{testimonial.quote}</blockquote>
+              <p className="mt-6 text-xs font-bold uppercase tracking-[0.14em]">{testimonial.author}</p>
+              {testimonial.location ? <p className="mt-1 text-sm text-[#666]">{testimonial.location}</p> : null}
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function FaqSection({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
+  if (!content.faqs.length) return null;
+
+  return (
+    <section id="faq" className="mx-auto max-w-[1000px] scroll-mt-28 px-6 py-16">
+      <p className="mb-3 text-center text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">FAQ</p>
+      <h2 className="text-center text-3xl leading-tight md:text-5xl">Useful things to know</h2>
+      <div className="mt-10 divide-y divide-[#222]/10 border-y border-[#222]/10 bg-white">
+        {content.faqs.map((faq) => (
+          <div key={faq.question} className="px-6 py-6">
+            <h3 className="font-serif text-xl leading-tight">{faq.question}</h3>
+            <p className="mt-3 text-sm leading-7 text-[#444]">{faq.answer}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function LocationSection({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
+  const hasLocation = content.locationDetails.text || content.locationDetails.directions || content.locationDetails.virtualTourUrl;
+  if (!hasLocation) return null;
+
+  return (
+    <section id="location" className="bg-[#f8f5ef] px-6 py-16">
+      <div className="mx-auto grid max-w-[1200px] gap-8 md:grid-cols-[1.3fr_1fr] md:items-center">
+        <div>
+          <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Location</p>
+          <h2 className="text-3xl leading-tight md:text-5xl">{content.locationDetails.heading}</h2>
+          {content.locationDetails.text ? <p className="mt-5 text-base leading-7 text-[#333]">{content.locationDetails.text}</p> : null}
+          {content.locationDetails.directions ? <p className="mt-3 text-sm leading-6 text-[#555]">{content.locationDetails.directions}</p> : null}
+        </div>
+        <div className="border border-[#222]/10 bg-white p-7 shadow-sm">
+          <h3 className="font-serif text-2xl">Contact details</h3>
+          <p className="mt-4 text-sm leading-7 text-[#444]">{content.footer.phone}<br />{content.footer.email}<br />{content.footer.address}</p>
+          {content.locationDetails.virtualTourUrl ? (
+            <a href={content.locationDetails.virtualTourUrl} className="mt-5 inline-block rounded-md bg-[#1f241b] px-5 py-3 text-xs font-bold uppercase tracking-[0.1em] text-white">
+              Virtual Tour
+            </a>
+          ) : null}
+        </div>
       </div>
     </section>
   );
@@ -385,11 +508,16 @@ function TemplateFooter({ content, dark = false }: { content: ReturnType<typeof 
         </div>
         <div>
           <h4 className="mb-4 text-xs font-bold uppercase tracking-[0.16em]">Quick Links</h4>
-          <p className="text-sm leading-7">Home<br />Suites<br />About<br />Care<br />Gallery</p>
+          <p className="text-sm leading-7">Home<br />Rooms<br />Care<br />Gallery<br />Reviews</p>
         </div>
         <div>
           <h4 className="mb-4 text-xs font-bold uppercase tracking-[0.16em]">Contact</h4>
           <p className="text-sm leading-7">{content.footer.phone}<br />{content.footer.email}<br />{content.footer.address}</p>
+          <div className="mt-4 flex flex-wrap gap-3 text-sm">
+            {content.footer.facebook ? <a href={content.footer.facebook} className="underline-offset-4 hover:underline">Facebook</a> : null}
+            {content.footer.instagram ? <a href={content.footer.instagram} className="underline-offset-4 hover:underline">Instagram</a> : null}
+            {content.locationDetails.virtualTourUrl ? <a href={content.locationDetails.virtualTourUrl} className="underline-offset-4 hover:underline">Virtual Tour</a> : null}
+          </div>
         </div>
         <div>
           <h4 className="mb-4 text-xs font-bold uppercase tracking-[0.16em]">Hours</h4>

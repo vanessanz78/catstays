@@ -38,6 +38,11 @@ export interface ImportedCatteryScrape {
   address?: string;
   city?: string;
   bookingUrl?: string;
+  hours?: string;
+  socialLinks?: {
+    facebook?: string;
+    instagram?: string;
+  };
   highlights?: Array<{ title: string; description: string }>;
   rooms?: Array<{
     name: string;
@@ -56,7 +61,26 @@ export interface ImportedCatteryScrape {
     image?: string;
   }>;
   faqs?: Array<{ question: string; answer: string }>;
+  reviews?: Array<{ name: string; text: string; rating?: number; location?: string }>;
+  owner?: {
+    title?: string;
+    text?: string;
+    image?: string;
+  };
+  commitment?: {
+    title?: string;
+    text?: string;
+    items?: Array<{ title: string; description: string }>;
+  };
+  locationDetails?: {
+    heading?: string;
+    text?: string;
+    directions?: string;
+    virtualTourUrl?: string;
+  };
+  virtualTourUrl?: string;
   websiteSettings?: Record<string, any>;
+  bodyText?: string;
   extractedFrom?: {
     html?: boolean;
     scripts?: number;
@@ -98,6 +122,14 @@ export interface DelorainePreviewData {
   faqData?: any;
   commitmentData?: any;
   contactData?: any;
+  ownerData?: any;
+  locationData?: any;
+  hours?: string;
+  socialLinks?: {
+    facebook?: string;
+    instagram?: string;
+  };
+  virtualTourUrl?: string;
   sectionsOrder?: string[];
   roomTypes?: Array<{
     name: string;
@@ -147,6 +179,10 @@ export const fallbackDeloraineScrape: ImportedCatteryScrape = {
   address: '50 Konini Street, Abbey Caves, Whangarei',
   city: 'Whangarei',
   bookingUrl: 'https://us.revelationpets.com/bookerv2/zombsurql5',
+  hours: 'Open hours by appointment only. Closed Sunday mornings.',
+  socialLinks: {
+    facebook: 'https://www.facebook.com/delorainecattery',
+  },
   highlights: [
     {
       title: '5-Star Facility',
@@ -162,6 +198,16 @@ export const fallbackDeloraineScrape: ImportedCatteryScrape = {
       title: 'On-Site Care',
       description:
         'Friendly animal loving people live on site and welcome both short and long term stays.',
+    },
+    {
+      title: 'Daily Care Routine',
+      description:
+        'Cats are cared for with routine feeding, cleaning, attention, enrichment, and medication support where needed.',
+    },
+    {
+      title: 'Premium Room Accommodation',
+      description:
+        'Private, indoor, and communal room options are available for different cats and family groups.',
     },
   ],
   rooms: [
@@ -226,12 +272,26 @@ export const fallbackDeloraineScrape: ImportedCatteryScrape = {
       description: 'Pickup and drop-off service to Onerahi Airport.',
       image: deloraineAssets[2],
     },
+    {
+      title: 'Flea & Worm Treatment',
+      price: '$100 if required',
+      description:
+        'Treatment can be applied if flea or worm discomfort is detected during a cat\'s stay.',
+      image: deloraineAssets[4],
+    },
+    {
+      title: 'Out of Hours Service',
+      price: '$35 additional fee',
+      description:
+        'Flexible pickup and drop-off outside regular opening hours when mutually agreed upon.',
+      image: deloraineAssets[0],
+    },
   ],
   faqs: [
     {
       question: 'What vaccinations does my cat need?',
       answer:
-        'All cats must have current vaccinations to stay. A current vaccination certificate is required at arrival.',
+        'All cats must be vaccinated for cat flu every year and their vaccination booklet must be provided on arrival unless previously noted. Cats sharing the communal room also need the annual combined vaccination.',
     },
     {
       question: 'What do you feed the cats and how often?',
@@ -239,11 +299,62 @@ export const fallbackDeloraineScrape: ImportedCatteryScrape = {
         'Cats are fed twice daily. Owners bring their cat food so each cat can keep their familiar diet.',
     },
     {
+      question: 'What happens if my cat needs flea or worm treatment?',
+      answer:
+        'Regular flea and worm treatments are recommended. If a cat appears uncomfortable, treatment may be applied and the treatment cost passed on.',
+    },
+    {
+      question: 'Can I drop off or collect outside regular hours?',
+      answer:
+        'Out of hours pickup or drop off may be arranged by agreement and attracts an additional fee.',
+    },
+    {
       question: 'What do I need to bring?',
       answer:
         'Bring your cat in a secure carrier, current vaccination certificate, food, medications, and any comfort items.',
     },
   ],
+  reviews: [
+    {
+      name: 'Regular guest family',
+      text:
+        'A calm, caring place where the cats are looked after with genuine attention and the owners are easy to communicate with.',
+      rating: 5,
+      location: 'Whangarei',
+    },
+  ],
+  owner: {
+    title: 'Your Caring Hosts - Paul & Vanessa',
+    text:
+      'Paul and Vanessa Wilson love animals, so taking on Deloraine Cattery feels like second nature. Paul grew up on a farm and Vanessa has always had cats and dogs as part of the family. They live on site and care for cats as part of their family property.',
+    image: deloraineAssets[7],
+  },
+  commitment: {
+    title: 'Our commitment to safe, settled stays',
+    text:
+      'Deloraine Cattery focuses on secure rooms, daily routines, careful medication support, vaccination standards, and calm care for every guest.',
+    items: [
+      {
+        title: 'Vaccination standards',
+        description: 'Current cat flu vaccination is required, with additional vaccination requirements for communal room stays.',
+      },
+      {
+        title: 'Secure facilities',
+        description: 'Double-door systems, security screens, alarms, raised concrete floors, and insulated heated buildings support a safer stay.',
+      },
+      {
+        title: 'Care notes followed',
+        description: 'Food, medication, routines, and comfort items can be managed so each cat keeps a familiar rhythm.',
+      },
+    ],
+  },
+  locationDetails: {
+    heading: 'Find Deloraine Cattery',
+    text: 'Deloraine Cattery is located at 50 Konini Street, Abbey Caves, Whangarei.',
+    directions: 'The cattery is around five minutes from Onerahi Airport.',
+    virtualTourUrl: 'https://www.delorainecattery.com/#virtual-tour',
+  },
+  virtualTourUrl: 'https://www.delorainecattery.com/#virtual-tour',
   extractedFrom: {
     html: true,
     scripts: 1,
@@ -268,7 +379,7 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
   const rooms = scrape.rooms?.length ? scrape.rooms : fallbackRooms;
   const services = (scrape.services?.length ? scrape.services : fallbackServices)
     .filter((service) => !/professional grooming/i.test(service.title))
-    .slice(0, 6);
+    .slice(0, 12);
   const highlights = scrape.highlights?.length ? scrape.highlights : fallbackHighlights;
   const galleryImages =
     scrape.galleryImages?.length
@@ -283,6 +394,17 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
   const fallbackEmail = isDeloraineSource ? fallbackDeloraineScrape.email || '' : '';
   const fallbackAddress = isDeloraineSource ? fallbackDeloraineScrape.address || '' : '';
   const fallbackFaqs = isDeloraineSource ? fallbackDeloraineScrape.faqs : genericFaqs(businessName);
+  const reviews = scrape.reviews?.length ? scrape.reviews : (settings.testimonialsData?.testimonials ?? fallbackDeloraineScrape.reviews ?? []);
+  const hours = stringValue(settings.hours) || scrape.hours || (isDeloraineSource ? fallbackDeloraineScrape.hours || '' : '');
+  const owner = scrape.owner || settings.ownerData || (isDeloraineSource ? fallbackDeloraineScrape.owner : undefined);
+  const commitment = scrape.commitment || settings.commitmentData || (isDeloraineSource ? fallbackDeloraineScrape.commitment : undefined);
+  const locationDetails = scrape.locationDetails || settings.locationData || (isDeloraineSource ? fallbackDeloraineScrape.locationDetails : undefined);
+  const socialLinks = scrape.socialLinks || settings.socialLinks || (isDeloraineSource ? fallbackDeloraineScrape.socialLinks : undefined);
+  const virtualTourUrl =
+    stringValue(settings.virtualTourUrl) ||
+    scrape.virtualTourUrl ||
+    locationDetails?.virtualTourUrl ||
+    (isDeloraineSource ? fallbackDeloraineScrape.virtualTourUrl || '' : '');
 
   return {
     businessName,
@@ -316,7 +438,7 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
     typography: 'playfair',
     whyChooseUsData: {
       whyChooseUsHeading: `Why choose ${businessName}`,
-      whyChooseUsFeatures: highlights.slice(0, 3).map((highlight, index) => ({
+      whyChooseUsFeatures: highlights.map((highlight, index) => ({
         icon: ['Shield', 'Heart', 'Home'][index] ?? 'Star',
         title: highlight.title,
         description: highlight.description,
@@ -346,7 +468,7 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
     },
     servicesData: {
       servicesHeading: 'Care services',
-      services: services.slice(0, 4).map((service, index) => ({
+      services: services.map((service, index) => ({
         icon: ['Heart', 'Clock', 'Shield', 'Home'][index] ?? 'Star',
         title: service.title,
         description: service.price ? `${service.description} ${service.price}.` : service.description,
@@ -362,22 +484,34 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
     },
     testimonialsData: {
       testimonialsHeading: 'Trusted cat care',
-      testimonials: [
-        {
-          name: 'Regular guest family',
-          text: 'A calm, cat-focused stay with thoughtful daily care.',
-          rating: 5,
-          location: scrape.city || '',
-        },
-      ],
+      testimonials: reviews.length
+        ? reviews
+        : [
+            {
+              name: 'Regular guest family',
+              text: 'A calm, cat-focused stay with thoughtful daily care.',
+              rating: 5,
+              location: scrape.city || '',
+            },
+          ],
     },
     faqData: {
-      faqs: scrape.faqs?.length ? scrape.faqs.slice(0, 5) : fallbackFaqs,
+      faqs: scrape.faqs?.length ? scrape.faqs.slice(0, 10) : fallbackFaqs,
     },
     contactData: {
       contactHeading: 'Contact and booking',
+      hours,
+      socialLinks,
+      virtualTourUrl,
+      locationDetails,
     },
-    sectionsOrder: ['hero', 'why-choose-us', 'about', 'suites', 'services', 'facilities', 'gallery', 'faq', 'contact'],
+    commitmentData: commitment,
+    ownerData: owner,
+    locationData: locationDetails,
+    hours,
+    socialLinks,
+    virtualTourUrl,
+    sectionsOrder: ['hero', 'why-choose-us', 'about', 'owner', 'facilities', 'suites', 'services', 'gallery', 'reviews', 'faq', 'location', 'contact'],
     roomTypes: rooms.map((room) => ({
       name: room.name,
       numberOfRooms: '1',

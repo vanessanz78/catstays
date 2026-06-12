@@ -76,6 +76,12 @@ export interface CatstaysTemplateContent {
     title: string;
     text: string;
   }>;
+  services: Array<{
+    image: string;
+    title: string;
+    text: string;
+    price: string;
+  }>;
   about: {
     title: string;
     text: string;
@@ -89,12 +95,35 @@ export interface CatstaysTemplateContent {
     image: string;
     title: string;
     text: string;
+    price: string;
+    features: string[];
   }>;
   testimonials: Array<{
     quote: string;
     author: string;
     image: string;
+    location: string;
   }>;
+  faqs: Array<{
+    question: string;
+    answer: string;
+  }>;
+  owner: {
+    title: string;
+    text: string;
+    image: string;
+  };
+  commitment: {
+    title: string;
+    text: string;
+    items: Array<{ title: string; description: string }>;
+  };
+  locationDetails: {
+    heading: string;
+    text: string;
+    directions: string;
+    virtualTourUrl: string;
+  };
   booking: {
     text: string;
     bannerText: string;
@@ -106,6 +135,8 @@ export interface CatstaysTemplateContent {
     email: string;
     address: string;
     hours: string;
+    facebook: string;
+    instagram: string;
   };
 }
 
@@ -359,8 +390,27 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const fallbackImages = ensureImageCount(galleryImages, heroImage);
   const highlights = (record?.content.highlights ?? data.whyChooseUsFeatures ?? []).filter(Boolean);
   const rooms = (record?.rooms?.length ? record.rooms : data.suites ?? data.roomTypes ?? []).filter(Boolean);
-  const services = (record?.services?.length ? record.services : data.additionalServices ?? []).filter(Boolean);
-  const testimonials = Array.isArray(data.testimonials) ? data.testimonials : [];
+  const normalizedServices = normalized.servicesData?.services ?? data.servicesData?.services ?? data.additionalServices ?? [];
+  const services = (record?.services?.length ? record.services : normalizedServices).filter(Boolean);
+  const testimonials = (
+    normalized.testimonialsData?.testimonials ??
+    data.testimonialsData?.testimonials ??
+    data.testimonials ??
+    []
+  ).filter(Boolean);
+  const faqs = (normalized.faqData?.faqs ?? data.faqData?.faqs ?? record?.faqs ?? data.faqs ?? []).filter(Boolean);
+  const ownerData = normalized.ownerData ?? data.ownerData ?? {};
+  const commitmentData = normalized.commitmentData ?? data.commitmentData ?? {};
+  const locationData = normalized.locationData ?? normalized.contactData?.locationDetails ?? data.locationData ?? data.contactData?.locationDetails ?? {};
+  const socialLinks = normalized.socialLinks ?? data.socialLinks ?? normalized.contactData?.socialLinks ?? {};
+  const hours = stringFrom(
+    normalized.hours,
+    normalized.contactData?.hours,
+    data.hours,
+    data.contactData?.hours,
+    record?.normalizedPreviewData?.hours,
+    'By appointment',
+  );
   const primaryDescription = stringFrom(
     record?.content.description,
     record?.content.aboutText,
@@ -392,23 +442,49 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
         text: stringFrom(service.description, service.text),
       })),
     ),
+    services: services.map((service: any, index: number) => ({
+      image: imageFrom(service.image, fallbackImages[index + 3], fallbackImages[index], heroImage),
+      title: stringFrom(service.title, service.name, `Care service ${index + 1}`),
+      text: stringFrom(service.description, service.text, 'Additional support available during the stay.'),
+      price: stringFrom(service.price),
+    })),
     about: {
       title: stringFrom(record?.content.aboutHeading, data.aboutHeading, normalized.aboutHeading, `About ${businessName}`),
       text: primaryDescription,
-      image: imageFrom(data.aboutImage, data.facilitiesImage, fallbackImages[1], heroImage),
+      image: imageFrom(data.aboutImage, data.facilitiesImage, ownerData.image, fallbackImages[1], heroImage),
     },
-    gallery: fallbackImages.slice(0, 8).map((image, index) => ({
+    gallery: fallbackImages.slice(0, 12).map((image, index) => ({
       image,
       caption: stringFrom(record?.media.galleryImages?.[index]?.caption, `${businessName} photo ${index + 1}`),
     })),
     suites: ensureSuiteCount(rooms, fallbackImages, data.pricePerNight || normalized.pricePerNight),
-    testimonials: [
-      {
-        quote: stringFrom(testimonials[0]?.text, "I built this because I needed it, and now I wouldn't run my cattery without it."),
-        author: stringFrom(testimonials[0]?.name, 'Vanessa'),
-        image: imageFrom(data.testimonialImage, fallbackImages[3], heroImage),
-      },
-    ],
+    testimonials: ensureTestimonials(testimonials, businessName, fallbackImages, heroImage, data.testimonialImage),
+    faqs: faqs.map((faq: any) => ({
+      question: stringFrom(faq.question),
+      answer: stringFrom(faq.answer),
+    })).filter((faq) => faq.question && faq.answer),
+    owner: {
+      title: stringFrom(ownerData.title, `Meet the people behind ${businessName}`),
+      text: stringFrom(ownerData.text, ownerData.description, primaryDescription),
+      image: imageFrom(ownerData.image, fallbackImages[5], fallbackImages[1], heroImage),
+    },
+    commitment: {
+      title: stringFrom(commitmentData.title, `${businessName} care standards`),
+      text: stringFrom(commitmentData.text, 'Clear routines, secure facilities, and careful daily attention help every cat settle in.'),
+      items: ((commitmentData.items ?? highlights) as any[])
+        .map((item: any) => ({
+          title: stringFrom(item.title, item.name),
+          description: stringFrom(item.description, item.text),
+        }))
+        .filter((item) => item.title && item.description)
+        .slice(0, 6),
+    },
+    locationDetails: {
+      heading: stringFrom(locationData.heading, `Visit ${businessName}`),
+      text: stringFrom(locationData.text, record?.contact.address, normalized.address, data.address),
+      directions: stringFrom(locationData.directions, data.location, normalized.location),
+      virtualTourUrl: stringFrom(locationData.virtualTourUrl, normalized.virtualTourUrl, data.virtualTourUrl, data.contactData?.virtualTourUrl),
+    },
     booking: {
       text: stringFrom(data.bookingText, "Check availability and secure your cat's holiday today."),
       bannerText: stringFrom(data.bookingBannerText, "Check availability and secure your cat's stay today."),
@@ -419,7 +495,9 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       phone: stringFrom(record?.contact.phone, data.phone, normalized.phone),
       email: stringFrom(record?.contact.email, data.email, normalized.email),
       address: stringFrom(record?.contact.address, data.address, normalized.address),
-      hours: stringFrom(data.hours, 'By appointment'),
+      hours,
+      facebook: stringFrom(socialLinks.facebook),
+      instagram: stringFrom(socialLinks.instagram),
     },
   };
 }
@@ -496,17 +574,54 @@ function ensureSuiteCount(rooms: any[], images: string[], fallbackPrice?: string
     { name: 'Executive Suites', description: 'Spacious accommodation with personalised care.' },
     { name: 'Family Suites', description: 'Ideal for multi-cat families staying together.' },
   ];
+  const sourceRooms = rooms.length ? rooms.slice(0, 8) : fallbackSuites;
 
-  return fallbackSuites.map((fallback, index) => {
-    const room = rooms[index] ?? {};
+  return sourceRooms.map((room, index) => {
+    const fallback = fallbackSuites[index % fallbackSuites.length];
     const title = stringFrom(room.name, room.title, fallback.name);
     const price = stringFrom(room.price, fallbackPrice);
+    const priceUnit = stringFrom(room.priceUnit);
+    const priceLabel = price && priceUnit ? `${price} ${priceUnit}` : price;
     return {
       image: imageFrom(room.image, images[index + 1], images[index], images[0]),
       title,
-      text: stringFrom(room.description, price ? `${fallback.description} ${price}.` : fallback.description),
+      text: stringFrom(room.description, priceLabel ? `${fallback.description} ${priceLabel}.` : fallback.description),
+      price: priceLabel,
+      features: Array.isArray(room.amenities)
+        ? room.amenities.map((feature: unknown) => stringFrom(feature)).filter(Boolean).slice(0, 6)
+        : Array.isArray(room.features)
+          ? room.features.map((feature: unknown) => stringFrom(feature)).filter(Boolean).slice(0, 6)
+          : [],
     };
   });
+}
+
+function ensureTestimonials(
+  testimonials: any[],
+  businessName: string,
+  images: string[],
+  heroImage: string,
+  testimonialImage?: unknown,
+) {
+  const mapped = testimonials
+    .map((testimonial: any, index: number) => ({
+      quote: stringFrom(testimonial.text, testimonial.quote),
+      author: stringFrom(testimonial.name, testimonial.author, testimonial.customer, 'Guest family'),
+      image: imageFrom(testimonial.image, index === 0 ? testimonialImage : undefined, images[index + 4], images[index], heroImage),
+      location: stringFrom(testimonial.location),
+    }))
+    .filter((testimonial) => testimonial.quote);
+
+  if (mapped.length) return mapped.slice(0, 6);
+
+  return [
+    {
+      quote: "I built this because I needed it, and now I wouldn't run my cattery without it.",
+      author: 'Vanessa',
+      image: imageFrom(testimonialImage, images[3], heroImage),
+      location: businessName,
+    },
+  ];
 }
 
 function hostFromUrl(rawUrl: string) {

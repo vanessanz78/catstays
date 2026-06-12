@@ -29,6 +29,13 @@ export interface CatteryScrapedService {
   image?: string;
 }
 
+export interface CatteryScrapedReview {
+  name: string;
+  text: string;
+  rating?: number;
+  location?: string;
+}
+
 export interface CatteryWebsiteScrapeResult {
   sourceUrl: string;
   sourceHost: string;
@@ -45,6 +52,7 @@ export interface CatteryWebsiteScrapeResult {
   city: string;
   country: string;
   bookingUrl: string;
+  hours: string;
   socialLinks: {
     facebook?: string;
     instagram?: string;
@@ -53,6 +61,24 @@ export interface CatteryWebsiteScrapeResult {
   rooms: CatteryScrapedRoom[];
   services: CatteryScrapedService[];
   faqs: Array<{ question: string; answer: string }>;
+  reviews: CatteryScrapedReview[];
+  owner: {
+    title: string;
+    text: string;
+    image: string;
+  };
+  commitment: {
+    title: string;
+    text: string;
+    items: Array<{ title: string; description: string }>;
+  };
+  locationDetails: {
+    heading: string;
+    text: string;
+    directions: string;
+    virtualTourUrl: string;
+  };
+  virtualTourUrl: string;
   bodyText: string;
   extractedFrom: {
     html: boolean;
@@ -120,10 +146,13 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
   const city = cityFromAddress(address) || cityFromHost(parsedUrl.hostname);
   const bookingUrl = extractFirstUrl(html + '\n' + scriptBundle, /revelationpets\.com|book/i);
   const socialLinks = extractSocialLinks(html + '\n' + scriptBundle);
+  const hours = extractHours(searchableText);
+  const virtualTourUrl = extractVirtualTourUrl(html + '\n' + scriptBundle, parsedUrl);
   const rooms = buildRooms(apiRooms, scriptBundle, images);
   const services = buildServices(scriptBundle, images);
   const highlights = buildHighlights(scriptBundle, bodyText);
   const faqs = buildFaqs(scriptBundle);
+  const reviews = buildReviews(scriptBundle, bodyText);
   const galleryImages = buildGalleryImages(scriptBundle, images, logoImage);
   const title = cleanText(meta.title || firstText(bundleTexts, /Deloraine Cattery|Cattery/i) || 'Your Cattery');
   const heading = cleanText(meta.heading || title.replace(/\s+-\s+.*$/, '') || 'Your Cattery');
@@ -138,6 +167,9 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
   }
 
   const businessName = heading || title.replace(/\s+-\s+.*$/, '') || 'Your Cattery';
+  const owner = buildOwnerSection(scriptBundle, images, businessName);
+  const commitment = buildCommitmentSection(businessName, highlights, bodyText);
+  const locationDetails = buildLocationDetails(businessName, address, city, virtualTourUrl);
   const websiteSettings = buildWebsiteSettings({
     businessName,
     description,
@@ -150,10 +182,17 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
     address,
     city,
     bookingUrl,
+    hours,
+    socialLinks,
     rooms,
     services,
     highlights,
     faqs,
+    reviews,
+    owner,
+    commitment,
+    locationDetails,
+    virtualTourUrl,
   });
 
   return {
@@ -172,12 +211,18 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
     city,
     country: countryFromAddress(address),
     bookingUrl,
+    hours,
     socialLinks,
     highlights,
     rooms,
     services,
     faqs,
-    bodyText: bodyText.slice(0, 2500),
+    reviews,
+    owner,
+    commitment,
+    locationDetails,
+    virtualTourUrl,
+    bodyText: bodyText.slice(0, 8000),
     extractedFrom: {
       html: true,
       scripts: scriptTexts.length,
@@ -590,7 +635,7 @@ function buildServices(bundle: string, images: string[]): CatteryScrapedService[
     }))
     .filter((service) => !/professional grooming/i.test(service.title));
 
-  if (services.length) return services.slice(0, 8);
+  if (services.length) return services.slice(0, 12);
 
   return [
     {
@@ -611,7 +656,7 @@ function buildHighlights(bundle: string, bodyText: string): Array<{ title: strin
     .map((match) => ({ title: cleanText(match[1]), description: cleanText(match[2]) }))
     .filter((item) => !/Daily Brush|Medicine|Electric|Airport|Flea|Veterinary|Professional Grooming/i.test(item.title));
 
-  if (matches.length) return uniqueByTitle(matches).slice(0, 3);
+  if (matches.length) return uniqueByTitle(matches).slice(0, 8);
 
   const fallback = [
     ['Safe and secure', /safe|secure|security/i],
@@ -639,7 +684,7 @@ function buildFaqs(bundle: string): Array<{ question: string; answer: string }> 
     }))
     .filter((faq) => faq.question && faq.answer);
 
-  return uniqueByQuestion([...templateMatches, ...stringMatches]).slice(0, 6);
+  return uniqueByQuestion([...templateMatches, ...stringMatches]).slice(0, 10);
 }
 
 function buildWebsiteSettings(input: {
@@ -654,10 +699,33 @@ function buildWebsiteSettings(input: {
   address: string;
   city: string;
   bookingUrl: string;
+  hours: string;
+  socialLinks: {
+    facebook?: string;
+    instagram?: string;
+  };
   rooms: CatteryScrapedRoom[];
   services: CatteryScrapedService[];
   highlights: Array<{ title: string; description: string }>;
   faqs: Array<{ question: string; answer: string }>;
+  reviews: CatteryScrapedReview[];
+  owner: {
+    title: string;
+    text: string;
+    image: string;
+  };
+  commitment: {
+    title: string;
+    text: string;
+    items: Array<{ title: string; description: string }>;
+  };
+  locationDetails: {
+    heading: string;
+    text: string;
+    directions: string;
+    virtualTourUrl: string;
+  };
+  virtualTourUrl: string;
 }): Record<string, unknown> {
   const roomCards = input.rooms.map((room, index) => ({
     name: room.name,
@@ -689,6 +757,9 @@ function buildWebsiteSettings(input: {
     phone: input.phone,
     email: input.email,
     address: input.address,
+    hours: input.hours,
+    socialLinks: input.socialLinks,
+    virtualTourUrl: input.virtualTourUrl,
     location: input.city,
     sourceUrl: input.bookingUrl,
     whyChooseUsData: {
@@ -716,7 +787,7 @@ function buildWebsiteSettings(input: {
     },
     servicesData: {
       servicesHeading: 'Care services',
-      services: input.services.slice(0, 4).map((service, index) => ({
+      services: input.services.slice(0, 12).map((service, index) => ({
         icon: ['Heart', 'Camera', 'Clock', 'Shield'][index] ?? 'Star',
         title: service.title,
         description: service.price ? `${service.description} ${service.price}.` : service.description,
@@ -732,8 +803,19 @@ function buildWebsiteSettings(input: {
     faqData: {
       faqs: input.faqs,
     },
+    testimonialsData: {
+      testimonialsHeading: 'Guest reviews',
+      testimonials: input.reviews,
+    },
+    ownerData: input.owner,
+    commitmentData: input.commitment,
+    locationData: input.locationDetails,
     contactData: {
       contactHeading: 'Contact and booking',
+      hours: input.hours,
+      socialLinks: input.socialLinks,
+      virtualTourUrl: input.virtualTourUrl,
+      locationDetails: input.locationDetails,
     },
     roomTypes: input.rooms.map((room) => ({
       name: room.name,
@@ -761,7 +843,7 @@ function extractReadableBundleText(bundle: string): string[] {
 
   return values
     .filter((value) => value && !/[{}<>]/.test(value))
-    .filter((value) => /cat|cattery|boarding|facility|room|service|Deloraine|booking|vaccination|address|email|phone/i.test(value));
+    .filter((value) => /cat|cattery|boarding|facility|room|service|Deloraine|booking|vaccination|address|email|phone|owner|host|Vanessa|Paul|review|virtual|tour|airport|appointment|hours|routine/i.test(value));
 }
 
 function extractAddress(root: ReturnType<typeof parse>, text: string): string {
@@ -796,6 +878,116 @@ function extractSocialLinks(text: string): { facebook?: string; instagram?: stri
   return {
     facebook: urls.find((url) => /facebook/i.test(url)),
     instagram: urls.find((url) => /instagram/i.test(url)),
+  };
+}
+
+function extractHours(text: string): string {
+  const openHours = text.match(/Open Hours[^.]{0,180}(?:Closed Sunday mornings)?/i)?.[0];
+  if (/Open Hours/i.test(openHours ?? '') && /By Appointment Only/i.test(text) && /Closed Sunday mornings/i.test(text)) {
+    return 'Open hours by appointment only. Closed Sunday mornings.';
+  }
+  if (openHours) return cleanText(openHours);
+  if (/By Appointment Only/i.test(text)) return 'By appointment only';
+  return '';
+}
+
+function extractVirtualTourUrl(text: string, baseUrl: URL): string {
+  const explicitUrl = [...text.matchAll(/https?:\/\/[^"'`\s)]+/g)]
+    .map((match) => match[0].replace(/[),.;]+$/g, ''))
+    .find((url) => /virtual|tour|matterport/i.test(url));
+  if (explicitUrl) return explicitUrl;
+  return /virtual-tour|facilities-tour/i.test(text) ? new URL('/#virtual-tour', baseUrl).href : '';
+}
+
+function buildReviews(bundle: string, bodyText: string): CatteryScrapedReview[] {
+  const reviewMatches = [
+    ...bundle.matchAll(/name:"([^"]{2,80})",(?:location:"([^"]{2,80})",)?(?:rating:(\d),)?text:"([^"]{20,500})"/g),
+    ...bundle.matchAll(/author:"([^"]{2,80})",quote:"([^"]{20,500})"/g),
+  ];
+
+  const reviews = reviewMatches
+    .map((match) => {
+      const hasQuoteShape = match.length === 3;
+      return {
+        name: cleanText(match[1]),
+        location: hasQuoteShape ? '' : cleanText(match[2] ?? ''),
+        rating: hasQuoteShape ? undefined : Number(match[3] ?? ''),
+        text: cleanText(hasQuoteShape ? match[2] : match[4]),
+      };
+    })
+    .filter((review) => review.name && review.text && !/Vanessa|Paul/i.test(review.name));
+
+  if (reviews.length) return uniqueByReview(reviews).slice(0, 8);
+  if (/review\/widgetJs|revelationpets\.com\?s=review/i.test(`${bundle} ${bodyText}`)) {
+    return [
+      {
+        name: 'Guest family',
+        text: 'Reviews are connected from the source booking system and can be surfaced in the CatStays preview.',
+        rating: 5,
+      },
+    ];
+  }
+  return [];
+}
+
+function buildOwnerSection(bundle: string, images: string[], businessName: string) {
+  const texts = extractReadableBundleText(bundle);
+  const ownerTitle =
+    firstText(texts, /Your Caring Hosts|About .*Vanessa|About .*Wilson|owner/i) ||
+    `Meet the people behind ${businessName}`;
+  const ownerText = texts
+    .filter((text) => /Paul|Vanessa|owner|host|family|farm|animals/i.test(text))
+    .filter((text) => text !== ownerTitle)
+    .slice(0, 3)
+    .join(' ');
+  return {
+    title: ownerTitle,
+    text: ownerText,
+    image: images.find((image) => /Paul|Vanessa|Wilson|owner/i.test(decodeURIComponent(image))) || '',
+  };
+}
+
+function buildCommitmentSection(
+  businessName: string,
+  highlights: Array<{ title: string; description: string }>,
+  bodyText: string,
+) {
+  const sourceItems = highlights.length
+    ? highlights
+    : [
+        {
+          title: 'Safe and secure',
+          description: 'Imported care standards from the public cattery website.',
+        },
+      ];
+  const vaccinationText = firstSentence(bodyText.match(/All cats must be vaccinated[^.]+(?:\.[^.]+)?/i)?.[0] ?? '');
+  const items = [
+    ...sourceItems,
+    vaccinationText
+      ? {
+          title: 'Vaccination standards',
+          description: vaccinationText,
+        }
+      : null,
+  ].filter(Boolean) as Array<{ title: string; description: string }>;
+
+  return {
+    title: `${businessName} care standards`,
+    text:
+      firstText(
+        extractReadableBundleText(bodyText),
+        /safe|secure|vaccination|facility|care|routine/i,
+      ) || 'Secure facilities, clear routines, and careful daily attention help every cat settle in.',
+    items: uniqueByTitle(items).slice(0, 6),
+  };
+}
+
+function buildLocationDetails(businessName: string, address: string, city: string, virtualTourUrl: string) {
+  return {
+    heading: `Visit ${businessName}`,
+    text: address ? `${businessName} is located at ${address}.` : '',
+    directions: city ? `Located in ${city}.` : '',
+    virtualTourUrl,
   };
 }
 
@@ -896,6 +1088,16 @@ function uniqueByQuestion(items: Array<{ question: string; answer: string }>) {
   const seen = new Set<string>();
   return items.filter((item) => {
     const key = item.question.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function uniqueByReview(items: CatteryScrapedReview[]) {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = `${item.name.toLowerCase()}-${item.text.toLowerCase().slice(0, 80)}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
