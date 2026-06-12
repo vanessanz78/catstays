@@ -13,6 +13,14 @@ Use them in Supabase Dashboard under Authentication > Emails. Paste each HTML fi
 - `trial-reminder.html` - Trial ending reminder reference
 - `billing-reminder.html` - Billing reminder reference
 
+To apply the Supabase Auth templates from Replit Shell instead of copy-pasting:
+
+```bash
+SUPABASE_PROJECT_REF="your-project-ref" SUPABASE_ACCESS_TOKEN="your-access-token" pnpm run apply:supabase-email-templates
+```
+
+The script updates the six Supabase Auth action templates only. Trial and billing reminders are app transactional emails and are not Supabase Auth templates.
+
 Legacy filenames are retained for compatibility:
 
 - `confirm-signup.html` mirrors `confirmation.html`
