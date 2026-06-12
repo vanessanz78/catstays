@@ -1,5 +1,6 @@
 import {
   buildPreviewDataFromScrape,
+  type CatterySiteContentLibrary,
   type DelorainePreviewData,
   type ImportedCatteryScrape,
 } from './deloraineDemo';
@@ -56,6 +57,7 @@ export interface PreviewImportRecord {
   rooms: NonNullable<ImportedCatteryScrape['rooms']>;
   services: NonNullable<ImportedCatteryScrape['services']>;
   faqs: NonNullable<ImportedCatteryScrape['faqs']>;
+  contentLibrary: CatterySiteContentLibrary;
   normalizedPreviewData: DelorainePreviewData;
 }
 
@@ -138,6 +140,7 @@ export interface CatstaysTemplateContent {
     facebook: string;
     instagram: string;
   };
+  contentLibrary: CatterySiteContentLibrary;
 }
 
 export const previewImportTableStorageKey = 'catstays_preview_import_table';
@@ -252,6 +255,7 @@ export function buildPreviewImportRecord(scrape: ImportedCatteryScrape): Preview
     rooms: scrape.rooms ?? [],
     services: scrape.services ?? [],
     faqs: scrape.faqs ?? [],
+    contentLibrary: normalizedPreviewData.siteContentLibrary ?? emptyContentLibrary(sourceUrl, sourceHost, businessName),
     normalizedPreviewData,
   };
 }
@@ -372,6 +376,16 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const record = data.previewImportRecord as PreviewImportRecord | null | undefined;
   const normalized = record?.normalizedPreviewData ?? data;
   const businessName = stringFrom(record?.identity.businessName, data.businessName, normalized.businessName, 'Your Cattery');
+  const contentLibrary =
+    record?.contentLibrary ??
+    normalized.siteContentLibrary ??
+    data.siteContentLibrary ??
+    emptyContentLibrary(stringFrom(record?.source.url, data.sourceUrl, normalized.sourceUrl), stringFrom(record?.source.host, data.sourceHost, normalized.sourceHost), businessName);
+  const libraryRooms = libraryItems(contentLibrary, 'rooms');
+  const libraryServices = libraryItems(contentLibrary, 'services');
+  const libraryReviews = libraryItems(contentLibrary, 'reviews');
+  const libraryFaqs = libraryItems(contentLibrary, 'faqs');
+  const libraryGalleryImages = libraryImages(contentLibrary, 'gallery');
   const logoImage = stringFrom(record?.media.logoImage, data.logoImage, normalized.logoImage);
   const heroImage = imageFrom(
     normalized.heroImage,
@@ -383,6 +397,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const galleryImages = uniqueStrings([
     ...(record?.media.images ?? []),
     ...(record?.media.galleryImages ?? []).map((image) => image.url),
+    ...libraryGalleryImages.map((image) => image.url),
     ...(data.galleryImages ?? []),
     data.facilitiesImage,
     data.aboutImage,
@@ -390,16 +405,17 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   ]).filter((image) => isUsableGalleryImage(image, logoImage));
   const fallbackImages = ensureImageCount(galleryImages, heroImage);
   const highlights = (record?.content.highlights ?? data.whyChooseUsFeatures ?? []).filter(Boolean);
-  const rooms = (record?.rooms?.length ? record.rooms : data.suites ?? data.roomTypes ?? []).filter(Boolean);
+  const rooms = (record?.rooms?.length ? record.rooms : libraryRooms.length ? libraryRoomsToRooms(libraryRooms) : data.suites ?? data.roomTypes ?? []).filter(Boolean);
   const normalizedServices = normalized.servicesData?.services ?? data.servicesData?.services ?? data.additionalServices ?? [];
-  const services = (record?.services?.length ? record.services : normalizedServices).filter(Boolean);
+  const services = (record?.services?.length ? record.services : libraryServices.length ? libraryItemsToServices(libraryServices) : normalizedServices).filter(Boolean);
   const testimonials = (
     normalized.testimonialsData?.testimonials ??
     data.testimonialsData?.testimonials ??
     data.testimonials ??
+    libraryItemsToReviews(libraryReviews) ??
     []
   ).filter(Boolean);
-  const faqs = (normalized.faqData?.faqs ?? data.faqData?.faqs ?? record?.faqs ?? data.faqs ?? []).filter(Boolean);
+  const faqs = (normalized.faqData?.faqs ?? data.faqData?.faqs ?? record?.faqs ?? data.faqs ?? libraryItemsToFaqs(libraryFaqs) ?? []).filter(Boolean);
   const ownerData = normalized.ownerData ?? data.ownerData ?? {};
   const commitmentData = normalized.commitmentData ?? data.commitmentData ?? {};
   const locationData = normalized.locationData ?? normalized.contactData?.locationDetails ?? data.locationData ?? data.contactData?.locationDetails ?? {};
@@ -500,7 +516,63 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       facebook: stringFrom(socialLinks.facebook),
       instagram: stringFrom(socialLinks.instagram),
     },
+    contentLibrary,
   };
+}
+
+function emptyContentLibrary(sourceUrl: string, sourceHost: string, businessName: string): CatterySiteContentLibrary {
+  return {
+    schemaVersion: 1,
+    sourceUrl,
+    sourceHost,
+    businessName,
+    blocks: [],
+  };
+}
+
+function libraryItems(library: CatterySiteContentLibrary, category: string) {
+  return library.blocks.find((block) => block.category === category)?.items ?? [];
+}
+
+function libraryImages(library: CatterySiteContentLibrary, category: string) {
+  return library.blocks.find((block) => block.category === category)?.images ?? [];
+}
+
+function libraryRoomsToRooms(items: ReturnType<typeof libraryItems>) {
+  return items.map((item) => ({
+    name: item.title,
+    description: item.text,
+    price: item.price,
+    amenities: item.features,
+    image: item.image,
+  }));
+}
+
+function libraryItemsToServices(items: ReturnType<typeof libraryItems>) {
+  return items.map((item) => ({
+    title: item.title,
+    description: item.text || '',
+    price: item.price,
+    image: item.image,
+  }));
+}
+
+function libraryItemsToReviews(items: ReturnType<typeof libraryItems>) {
+  if (!items.length) return undefined;
+  return items.map((item) => ({
+    name: item.title,
+    text: item.text,
+    rating: item.rating,
+    location: item.meta,
+  }));
+}
+
+function libraryItemsToFaqs(items: ReturnType<typeof libraryItems>) {
+  if (!items.length) return undefined;
+  return items.map((item) => ({
+    question: item.title,
+    answer: item.answer || item.text,
+  }));
 }
 
 function templateStyle(templateId: PreviewTemplateId) {

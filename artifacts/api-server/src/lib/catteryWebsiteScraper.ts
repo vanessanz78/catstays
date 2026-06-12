@@ -36,6 +36,38 @@ export interface CatteryScrapedReview {
   location?: string;
 }
 
+export interface CatterySiteContentItem {
+  title: string;
+  text?: string;
+  price?: string;
+  meta?: string;
+  image?: string;
+  url?: string;
+  answer?: string;
+  rating?: number;
+  features?: string[];
+}
+
+export interface CatterySiteContentBlock {
+  id: string;
+  category: string;
+  title: string;
+  text?: string;
+  source?: 'scrape' | 'generated';
+  items?: CatterySiteContentItem[];
+  images?: Array<{ url: string; caption?: string }>;
+  links?: Array<{ label: string; url: string }>;
+}
+
+export interface CatterySiteContentLibrary {
+  schemaVersion: 1;
+  sourceUrl: string;
+  sourceHost: string;
+  businessName: string;
+  capturedAt: string;
+  blocks: CatterySiteContentBlock[];
+}
+
 export interface CatteryWebsiteScrapeResult {
   sourceUrl: string;
   sourceHost: string;
@@ -79,6 +111,7 @@ export interface CatteryWebsiteScrapeResult {
     virtualTourUrl: string;
   };
   virtualTourUrl: string;
+  siteContentLibrary: CatterySiteContentLibrary;
   bodyText: string;
   extractedFrom: {
     html: boolean;
@@ -170,6 +203,31 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
   const owner = buildOwnerSection(scriptBundle, images, businessName);
   const commitment = buildCommitmentSection(businessName, highlights, bodyText);
   const locationDetails = buildLocationDetails(businessName, address, city, virtualTourUrl);
+  const sourceHost = parsedUrl.hostname.replace(/^www\./, '');
+  const siteContentLibrary = buildSiteContentLibrary({
+    sourceUrl: parsedUrl.toString(),
+    sourceHost,
+    businessName,
+    description,
+    heroImage,
+    galleryImages,
+    phone,
+    email,
+    address,
+    city,
+    bookingUrl,
+    hours,
+    socialLinks,
+    rooms,
+    services,
+    highlights,
+    faqs,
+    reviews,
+    owner,
+    commitment,
+    locationDetails,
+    virtualTourUrl,
+  });
   const websiteSettings = buildWebsiteSettings({
     businessName,
     description,
@@ -193,11 +251,12 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
     commitment,
     locationDetails,
     virtualTourUrl,
+    siteContentLibrary,
   });
 
   return {
     sourceUrl: parsedUrl.toString(),
-    sourceHost: parsedUrl.hostname.replace(/^www\./, ''),
+    sourceHost,
     title,
     description,
     heading,
@@ -222,6 +281,7 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
     commitment,
     locationDetails,
     virtualTourUrl,
+    siteContentLibrary,
     bodyText: bodyText.slice(0, 8000),
     extractedFrom: {
       html: true,
@@ -239,7 +299,7 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
       city,
       logo_url: logoImage,
       website_settings: websiteSettings,
-      custom_domain: parsedUrl.hostname.replace(/^www\./, ''),
+      custom_domain: sourceHost,
       source_url: parsedUrl.toString(),
     },
     demoRooms: rooms,
@@ -684,7 +744,187 @@ function buildFaqs(bundle: string): Array<{ question: string; answer: string }> 
     }))
     .filter((faq) => faq.question && faq.answer);
 
-  return uniqueByQuestion([...templateMatches, ...stringMatches]).slice(0, 10);
+  return uniqueByQuestion([...templateMatches, ...stringMatches]).slice(0, 20);
+}
+
+function buildSiteContentLibrary(input: {
+  sourceUrl: string;
+  sourceHost: string;
+  businessName: string;
+  description: string;
+  heroImage: string;
+  galleryImages: Array<{ url: string; caption: string }>;
+  phone: string;
+  email: string;
+  address: string;
+  city: string;
+  bookingUrl: string;
+  hours: string;
+  socialLinks: {
+    facebook?: string;
+    instagram?: string;
+  };
+  rooms: CatteryScrapedRoom[];
+  services: CatteryScrapedService[];
+  highlights: Array<{ title: string; description: string }>;
+  faqs: Array<{ question: string; answer: string }>;
+  reviews: CatteryScrapedReview[];
+  owner: {
+    title: string;
+    text: string;
+    image: string;
+  };
+  commitment: {
+    title: string;
+    text: string;
+    items: Array<{ title: string; description: string }>;
+  };
+  locationDetails: {
+    heading: string;
+    text: string;
+    directions: string;
+    virtualTourUrl: string;
+  };
+  virtualTourUrl: string;
+}): CatterySiteContentLibrary {
+  const source: CatterySiteContentBlock['source'] = 'scrape';
+  const blocks: CatterySiteContentBlock[] = [
+    {
+      id: 'hero',
+      category: 'hero',
+      title: input.businessName,
+      text: input.description,
+      source,
+      images: input.heroImage ? [{ url: input.heroImage, caption: input.businessName }] : [],
+      links: input.bookingUrl ? [{ label: 'Book Now', url: input.bookingUrl }] : [],
+    },
+    {
+      id: 'why-choose-us',
+      category: 'why-choose-us',
+      title: `Why choose ${input.businessName}`,
+      text: input.description,
+      source,
+      items: input.highlights.map((highlight) => ({
+        title: highlight.title,
+        text: highlight.description,
+      })),
+    },
+    {
+      id: 'rooms-and-pricing',
+      category: 'rooms',
+      title: 'Rooms and pricing',
+      text: 'Room options and rates extracted from the owner site.',
+      source,
+      items: input.rooms.map((room) => ({
+        title: room.name,
+        text: room.description,
+        price: room.price && room.priceUnit ? `${room.price} ${room.priceUnit}` : room.price,
+        image: room.image,
+        meta: room.capacity ? `Up to ${room.capacity} cats` : undefined,
+        features: room.amenities,
+      })),
+    },
+    {
+      id: 'services',
+      category: 'services',
+      title: 'Services',
+      text: 'Additional care services extracted from the owner site.',
+      source,
+      items: input.services.map((service) => ({
+        title: service.title,
+        text: service.description,
+        price: service.price,
+        image: service.image,
+      })),
+    },
+    {
+      id: 'gallery',
+      category: 'gallery',
+      title: 'Gallery',
+      text: 'Owner-site images available for preview templates.',
+      source,
+      images: input.galleryImages,
+    },
+    {
+      id: 'reviews',
+      category: 'reviews',
+      title: 'Reviews',
+      text: 'Customer reviews extracted from the owner site.',
+      source,
+      items: input.reviews.map((review) => ({
+        title: review.name,
+        text: review.text,
+        rating: review.rating,
+        meta: review.location,
+      })),
+    },
+    {
+      id: 'faqs',
+      category: 'faqs',
+      title: 'Frequently Asked Questions',
+      text: 'Question and answer content extracted from the owner site.',
+      source,
+      items: input.faqs.map((faq) => ({
+        title: faq.question,
+        answer: faq.answer,
+      })),
+    },
+    {
+      id: 'owner-story',
+      category: 'owner-story',
+      title: input.owner.title,
+      text: input.owner.text,
+      source,
+      images: input.owner.image ? [{ url: input.owner.image, caption: input.owner.title }] : [],
+    },
+    {
+      id: 'commitment',
+      category: 'commitment',
+      title: input.commitment.title,
+      text: input.commitment.text,
+      source,
+      items: input.commitment.items.map((item) => ({
+        title: item.title,
+        text: item.description,
+      })),
+    },
+    {
+      id: 'location',
+      category: 'location',
+      title: input.locationDetails.heading,
+      text: input.locationDetails.text,
+      source,
+      items: input.locationDetails.directions ? [{ title: 'Directions', text: input.locationDetails.directions }] : [],
+      links: input.virtualTourUrl ? [{ label: 'Virtual tour', url: input.virtualTourUrl }] : [],
+    },
+    {
+      id: 'contact',
+      category: 'contact',
+      title: 'Contact',
+      text: [input.address, input.phone, input.email, input.hours].filter(Boolean).join(' | '),
+      source,
+      items: [
+        { title: 'Address', text: input.address },
+        { title: 'Phone', text: input.phone },
+        { title: 'Email', text: input.email },
+        { title: 'Hours', text: input.hours },
+      ].filter((item) => item.text),
+      links: [
+        input.bookingUrl ? { label: 'Book online', url: input.bookingUrl } : undefined,
+        input.socialLinks.facebook ? { label: 'Facebook', url: input.socialLinks.facebook } : undefined,
+        input.socialLinks.instagram ? { label: 'Instagram', url: input.socialLinks.instagram } : undefined,
+      ].filter((link): link is { label: string; url: string } => Boolean(link)),
+    },
+  ];
+
+  return {
+    schemaVersion: 1,
+    sourceUrl: input.sourceUrl,
+    sourceHost: input.sourceHost,
+    businessName: input.businessName,
+    capturedAt: new Date().toISOString(),
+    blocks,
+  };
 }
 
 function buildWebsiteSettings(input: {
@@ -726,6 +966,7 @@ function buildWebsiteSettings(input: {
     virtualTourUrl: string;
   };
   virtualTourUrl: string;
+  siteContentLibrary: CatterySiteContentLibrary;
 }): Record<string, unknown> {
   const roomCards = input.rooms.map((room, index) => ({
     name: room.name,
@@ -810,6 +1051,7 @@ function buildWebsiteSettings(input: {
     ownerData: input.owner,
     commitmentData: input.commitment,
     locationData: input.locationDetails,
+    siteContentLibrary: input.siteContentLibrary,
     contactData: {
       contactHeading: 'Contact and booking',
       hours: input.hours,
