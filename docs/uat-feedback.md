@@ -1,6 +1,6 @@
 # CatStays UAT Feedback
 
-Last updated: 2026-06-12 14:10 NZST
+Last updated: 2026-06-12 14:28 NZST
 
 ## Working Agreement
 
@@ -73,3 +73,13 @@ Record UAT findings below using this format:
 - What happened: the home form saved the typed URL, but the demo route always called the scraper with `https://www.delorainecattery.com/`, so every generated preview was effectively hardwired to Deloraine.
 - Severity: high
 - Resolution: fixed in commit `78c784b` by passing the requested URL into the demo route, preserving the imported source across demo tabs, using cached preview data only when it matches the requested source, and preventing generic `Home` headings from replacing the real scraped title. Verified with `https://harrishillton.co.nz/`: the hero and client portal render `Harris Hillton`, use Harris Hillton imagery, and no longer contain Deloraine Cattery text.
+
+### 2026-06-12 14:28 NZST - Exact Website Import And Publish Failure
+
+- Page: `/demo/deloraine?source=https%3A%2F%2Fharrishillton.co.nz%2F`, `/onboarding`
+- Device: desktop and mobile preview frames
+- What you clicked: generated a Harris Hillton preview, switched device views, then attempted to publish during onboarding step 7.
+- What you expected: the imported website preview should preserve the original site's colours, fonts, and layout, and publish should create the cattery without blaming the selected template.
+- What happened: the preview was still transforming scraped content into a CatStays template. Publish failed with a generic cattery provisioning error; local verification showed the frontend preview was running without the publishing API service on port 8080, so the selected template is not the likely cause.
+- Severity: blocker
+- Resolution: updated the website preview to render the original source site directly when an imported source URL exists, preserved that source URL through onboarding/demo state, and improved publish errors so a missing publishing service is reported clearly. Verified with `https://harrishillton.co.nz/`: the Website view iframe source is `https://harrishillton.co.nz/` at both desktop and mobile widths, and type check passes.

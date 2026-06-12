@@ -147,6 +147,24 @@ const templateCards = [
   },
 ];
 
+function publishErrorMessage(status: number, rawPayload: string) {
+  const trimmedPayload = rawPayload.trim();
+  if (status >= 500 && !trimmedPayload) {
+    return 'The publishing service is not available in this preview. Your setup is saved; please try again after the full CatStays preview restarts.';
+  }
+  if (status >= 500) {
+    return 'The publishing service hit a temporary problem. Your setup is saved; please try again in a moment.';
+  }
+  return 'Something went wrong while publishing your cattery.';
+}
+
+function offlinePublishMessage(message: string) {
+  if (/failed to fetch|networkerror|load failed/i.test(message)) {
+    return 'The publishing service is not available in this preview. Your setup is saved; please try again after the full CatStays preview restarts.';
+  }
+  return message;
+}
+
 export function OnboardingWizard() {
   const navigate = useNavigate();
   const { cattery, refreshCattery } = useAuth();
@@ -172,6 +190,8 @@ export function OnboardingWizard() {
     
     // Step 3 - Import Website
     websiteUrl: '',
+    importSourceUrl: '',
+    sourceUrl: '',
     isImporting: false,
     importComplete: false,
     importError: '',
@@ -385,6 +405,8 @@ export function OnboardingWizard() {
         description?: string;
         heading?: string;
         heroImage?: string;
+        sourceUrl?: string;
+        sourceHost?: string;
         phone?: string;
         email?: string;
         error?: string;
@@ -404,6 +426,9 @@ export function OnboardingWizard() {
         isImporting: false,
         importComplete: true,
         importError: '',
+        importSourceUrl: payload.sourceUrl || prev.websiteUrl,
+        sourceUrl: payload.sourceUrl || prev.websiteUrl,
+        sourceHost: payload.sourceHost || '',
         heroHeading: payload.heading || payload.title || ('Welcome to ' + prev.businessName),
         heroSubheading: payload.description || 'Premium cat boarding and care services',
         aboutText: payload.description || 'We are a family-run cattery dedicated to providing the highest standard of care for your beloved cats.',
@@ -438,6 +463,9 @@ export function OnboardingWizard() {
         aboutText: data.aboutText,
         aboutHeading: data.aboutHeading,
         galleryImages: data.galleryImages,
+        importSourceUrl: data.importSourceUrl,
+        sourceUrl: data.sourceUrl,
+        sourceHost: data.sourceHost,
         testimonials: data.testimonials,
         faqs: data.faqs,
         additionalServices: data.additionalServices,
@@ -500,6 +528,9 @@ export function OnboardingWizard() {
         heroSubheading: ws.heroSubheading || prev.heroSubheading,
         aboutText: ws.aboutText || prev.aboutText,
         aboutHeading: ws.aboutHeading || prev.aboutHeading,
+        importSourceUrl: ws.importSourceUrl || ws.sourceUrl || prev.importSourceUrl,
+        sourceUrl: ws.sourceUrl || ws.importSourceUrl || prev.sourceUrl,
+        sourceHost: ws.sourceHost || prev.sourceHost,
       }));
     }
   }, [cattery?.id]);
@@ -852,14 +883,21 @@ export function OnboardingWizard() {
           body: JSON.stringify({ data, plan: selectedPlan }),
         });
 
-        const payload = await response.json().catch(() => ({})) as {
+        const rawPayload = await response.text();
+        let payload: {
           error?: string;
           catteryId?: string;
           slug?: string;
-        };
+        } = {};
+
+        try {
+          payload = rawPayload ? JSON.parse(rawPayload) : {};
+        } catch {
+          payload = {};
+        }
 
         if (!response.ok) {
-          const message = payload.error || 'Something went wrong while publishing your cattery.';
+          const message = payload.error || publishErrorMessage(response.status, rawPayload);
           if (response.status === 409 && message.toLowerCase().includes('account')) {
             setCreateAccountError(message);
             setAccountCreated(false);
@@ -931,7 +969,9 @@ export function OnboardingWizard() {
       // Move to success screen
       setStep(8);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Something went wrong. Please try again.';
+      const message = error instanceof Error
+        ? offlinePublishMessage(error.message)
+        : 'Something went wrong. Please try again.';
       setPaymentError(message);
     } finally {
       setIsProcessingPayment(false);
@@ -1335,7 +1375,15 @@ export function OnboardingWizard() {
                             <ArrowRight className="w-4 h-4 ml-2" />
                           </Button>
                           <button
-                            onClick={() => setData(prev => ({ ...prev, importComplete: false, importError: '', websiteUrl: '' }))}
+                            onClick={() => setData(prev => ({
+                              ...prev,
+                              importComplete: false,
+                              importError: '',
+                              websiteUrl: '',
+                              importSourceUrl: '',
+                              sourceUrl: '',
+                              sourceHost: '',
+                            }))}
                             className="text-sm text-[#0A1128]/60 underline hover:text-[#0A1128]"
                           >
                             Try a different URL

@@ -65,6 +65,8 @@ export interface ImportedCatteryScrape {
 
 export interface DelorainePreviewData {
   businessName: string;
+  sourceUrl?: string;
+  sourceHost?: string;
   location: string;
   subdomain: string;
   primaryColor: string;
@@ -283,6 +285,8 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
 
   return {
     businessName,
+    sourceUrl: scrape.sourceUrl,
+    sourceHost: scrape.sourceHost,
     location: stringValue(settings.location) || scrape.city || '',
     subdomain: slugify(businessName),
     primaryColor: stringValue(settings.primaryColor) || '#21483f',

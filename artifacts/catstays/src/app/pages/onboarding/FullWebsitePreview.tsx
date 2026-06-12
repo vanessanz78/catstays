@@ -63,6 +63,9 @@ interface FullWebsitePreviewProps {
     commitmentData?: any;
     contactData?: any;
     customSectionsData?: any[];
+    sourceUrl?: string;
+    sourceHost?: string;
+    importSourceUrl?: string;
     // Section visibility
     sectionsOrder?: string[];
     // Booking setup data from Step 5
@@ -134,8 +137,19 @@ export function FullWebsitePreview({
     setShowBookingModal(true);
   };
 
-  // Render the customer website using the same template logic as WebsiteBuilder
-  const renderWebsitePreview = () => {
+  // Render the imported customer website exactly when a source URL exists.
+  const renderWebsitePreview = (fillHeight = true) => {
+    const sourcePreviewUrl = importedPreviewUrl(data);
+    if (sourcePreviewUrl) {
+      return (
+        <SourceWebsitePreview
+          sourceUrl={sourcePreviewUrl}
+          title={`${data.businessName || 'Imported cattery'} website preview`}
+          fillHeight={fillHeight}
+        />
+      );
+    }
+
     const template = data.selectedTemplate || 'boutique-luxury';
 
     // Render the template with all the data
@@ -315,7 +329,7 @@ export function FullWebsitePreview({
   };
 
   const renderActivePreview = (fillHeight = true) => {
-    if (previewMode === 'website') return renderWebsitePreview();
+    if (previewMode === 'website') return renderWebsitePreview(fillHeight);
     if (previewMode === 'dashboard') {
       return (
         <div className={`${fillHeight ? 'h-full' : 'min-h-screen'} bg-cream`}>
@@ -534,6 +548,45 @@ export function FullWebsitePreview({
           </div>
         </Card>
       </div>}
+    </div>
+  );
+}
+
+function importedPreviewUrl(data: FullWebsitePreviewProps['data']) {
+  const rawUrl = data.importSourceUrl || data.sourceUrl;
+  if (!rawUrl || typeof rawUrl !== 'string') return '';
+
+  try {
+    const url = new URL(rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return '';
+    return url.toString();
+  } catch {
+    return '';
+  }
+}
+
+function SourceWebsitePreview({
+  sourceUrl,
+  title,
+  fillHeight,
+}: {
+  sourceUrl: string;
+  title: string;
+  fillHeight: boolean;
+}) {
+  const heightStyle = fillHeight
+    ? { height: '100%' }
+    : { minHeight: 'min(1100px, calc(100vh - 170px))' };
+
+  return (
+    <div className="w-full bg-white" style={heightStyle}>
+      <iframe
+        title={title}
+        src={sourceUrl}
+        className="block h-full min-h-[inherit] w-full border-0 bg-white"
+        referrerPolicy="no-referrer-when-downgrade"
+        sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
+      />
     </div>
   );
 }
