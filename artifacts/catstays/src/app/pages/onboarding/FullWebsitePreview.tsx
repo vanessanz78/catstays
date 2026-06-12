@@ -363,7 +363,9 @@ export function FullWebsitePreview({
     );
   };
 
-  if (isEmbeddedDemoSurface && deviceType === 'desktop' && previewMode === 'website') {
+  const isOriginalWebsitePreview = previewMode === 'website' && isOriginalTemplate(data.selectedTemplate);
+
+  if (isEmbeddedDemoSurface && deviceType === 'desktop' && previewMode === 'website' && !isOriginalWebsitePreview) {
     return (
       <div
         className="w-full overflow-visible bg-white"
@@ -380,6 +382,11 @@ export function FullWebsitePreview({
     : deviceType === 'tablet'
     ? { width: 768, height: 1024, scale: showControls ? 0.72 : 0.76 }
     : { width: 1440, height: 900, scale: showControls ? 0.62 : 0.82 };
+  const deviceBorderSize = deviceType === 'mobile' ? 8 : deviceType === 'tablet' ? 12 : 1;
+  const frameWidth = deviceDimensions.width * deviceDimensions.scale + deviceBorderSize * 2;
+  const frameHeight = deviceDimensions.height * deviceDimensions.scale + deviceBorderSize * 2;
+  const frameRadius = deviceType === 'mobile' ? '36px' : deviceType === 'tablet' ? '24px' : '12px';
+  const contentRadius = deviceType === 'mobile' ? '28px' : deviceType === 'tablet' ? '16px' : '8px';
 
   return (
     <div className={showControls || showInfoCard ? 'space-y-6' : ''}>
@@ -488,10 +495,10 @@ export function FullWebsitePreview({
         <div
           className="relative shadow-2xl"
           style={{
-            width: `${deviceDimensions.width * deviceDimensions.scale}px`,
-            height: `${deviceDimensions.height * deviceDimensions.scale}px`,
+            width: `${frameWidth}px`,
+            height: `${frameHeight}px`,
             maxWidth: '100%',
-            borderRadius: deviceType === 'mobile' ? '36px' : deviceType === 'tablet' ? '24px' : '12px',
+            borderRadius: frameRadius,
             backgroundColor: deviceType === 'mobile' ? '#1a1a1a' : deviceType === 'tablet' ? '#2a2a2a' : '#fff',
             border: deviceType === 'mobile' ? '8px solid #1a1a1a' : deviceType === 'tablet' ? '12px solid #2a2a2a' : '1px solid #e5e7eb',
             boxSizing: 'border-box',
@@ -512,25 +519,34 @@ export function FullWebsitePreview({
           <div
             className="absolute inset-0"
             style={{
-              position: 'relative',
+              position: 'absolute',
               height: '100%',
               width: '100%',
               overflow: 'hidden',
               contain: 'layout paint size', // STRICT containment
-              borderRadius: deviceType === 'mobile' ? '28px' : deviceType === 'tablet' ? '16px' : '8px',
+              borderRadius: contentRadius,
             }}
           >
             {/* INTERNAL SCROLL LAYER - Only scrollable area */}
             <div
-              className="h-full w-full"
-              data-preview-mode="true"
               style={{
-                overflow: 'auto',
-                overflowX: 'hidden',
-                position: 'relative',
+                width: `${deviceDimensions.width}px`,
+                height: `${deviceDimensions.height}px`,
+                transform: `scale(${deviceDimensions.scale})`,
+                transformOrigin: 'top left',
               }}
             >
-              {renderActivePreview()}
+              <div
+                className="h-full w-full"
+                data-preview-mode="true"
+                style={{
+                  overflow: 'auto',
+                  overflowX: 'hidden',
+                  position: 'relative',
+                }}
+              >
+                {renderActivePreview()}
+              </div>
             </div>
           </div>
         </div>
@@ -587,7 +603,7 @@ function SourceWebsitePreview({
 }) {
   const heightStyle = fillHeight
     ? { height: '100%' }
-    : { height: '3200px', minHeight: 'calc(100vh - 170px)' };
+    : { height: '900px', minHeight: 'calc(100vh - 170px)' };
 
   return (
     <div className="w-full bg-white" style={heightStyle}>
@@ -597,7 +613,7 @@ function SourceWebsitePreview({
         className="block h-full min-h-[inherit] w-full border-0 bg-white"
         referrerPolicy="no-referrer-when-downgrade"
         sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
-        scrolling={fillHeight ? 'auto' : 'no'}
+        scrolling="auto"
       />
     </div>
   );

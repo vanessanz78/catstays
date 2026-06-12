@@ -78,6 +78,23 @@ export interface CatstaysTemplateContent {
     title: string;
     text: string;
   }>;
+  whyChoose: {
+    title: string;
+    text: string;
+    items: Array<{
+      title: string;
+      text: string;
+    }>;
+  };
+  facilities: {
+    title: string;
+    text: string;
+    image: string;
+    items: Array<{
+      title: string;
+      text: string;
+    }>;
+  };
   services: Array<{
     image: string;
     title: string;
@@ -386,6 +403,10 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const libraryReviews = libraryItems(contentLibrary, 'reviews');
   const libraryFaqs = libraryItems(contentLibrary, 'faqs');
   const libraryGalleryImages = libraryImages(contentLibrary, 'gallery');
+  const whyChooseBlock = libraryBlock(contentLibrary, 'why-choose-us');
+  const facilitiesBlock = libraryBlock(contentLibrary, 'facilities');
+  const dailyCareBlock = libraryBlock(contentLibrary, 'daily-care');
+  const locationBlock = libraryBlock(contentLibrary, 'location');
   const logoImage = stringFrom(record?.media.logoImage, data.logoImage, (normalized as Record<string, any>).logoImage);
   const heroImage = imageFrom(
     normalized.heroImage,
@@ -435,6 +456,37 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     normalized.aboutText,
     'A calm, caring cat boarding experience designed around comfort, routine, and reassurance.',
   );
+  const featureItems = ensureFeatureCount(
+    highlights.map((feature: any) => ({
+      title: stringFrom(feature.title, feature.name),
+      text: stringFrom(feature.description, feature.text),
+    })),
+    services.map((service: any) => ({
+      title: stringFrom(service.title, service.name),
+      text: stringFrom(service.description, service.text),
+    })),
+  );
+  const whyChooseItems = ensureFeatureCount(
+    (whyChooseBlock?.items?.length ? whyChooseBlock.items : featureItems).map((item: any) => ({
+      title: stringFrom(item.title, item.name),
+      text: stringFrom(item.text, item.description),
+    })),
+    featureItems,
+  ).slice(0, 4);
+  const facilityItems = [
+    ...(facilitiesBlock?.items ?? []).map((item: any) => ({
+      title: stringFrom(item.title, item.name),
+      text: stringFrom(item.text, item.description),
+    })),
+    dailyCareBlock
+      ? {
+          title: stringFrom(dailyCareBlock.title, 'Daily Care Routine'),
+          text: stringFrom(dailyCareBlock.text),
+        }
+      : null,
+  ]
+    .filter((item): item is { title: string; text: string } => Boolean(item?.title && item?.text))
+    .slice(0, 6);
 
   return {
     business: {
@@ -449,16 +501,18 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       image: heroImage,
       button: stringFrom(data.ctaText, 'Book Now'),
     },
-    features: ensureFeatureCount(
-      highlights.map((feature: any) => ({
-        title: stringFrom(feature.title, feature.name),
-        text: stringFrom(feature.description, feature.text),
-      })),
-      services.map((service: any) => ({
-        title: stringFrom(service.title, service.name),
-        text: stringFrom(service.description, service.text),
-      })),
-    ),
+    features: featureItems,
+    whyChoose: {
+      title: stringFrom(whyChooseBlock?.title, `Why choose ${businessName}`),
+      text: stringFrom(whyChooseBlock?.text, primaryDescription),
+      items: whyChooseItems,
+    },
+    facilities: {
+      title: stringFrom(facilitiesBlock?.title, 'Our Facilities'),
+      text: stringFrom(facilitiesBlock?.text, 'Comfortable, secure spaces designed around daily cat care, quiet routines, and peace of mind.'),
+      image: imageFrom(facilitiesBlock?.images?.[0]?.url, data.facilitiesImage, fallbackImages[2], heroImage),
+      items: facilityItems.length ? facilityItems : featureItems.slice(0, 4),
+    },
     services: services.map((service: any, index: number) => ({
       image: imageFrom(service.image, fallbackImages[index + 3], fallbackImages[index], heroImage),
       title: stringFrom(service.title, service.name, `Care service ${index + 1}`),
@@ -497,9 +551,9 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
         .slice(0, 6),
     },
     locationDetails: {
-      heading: stringFrom(locationData.heading, `Visit ${businessName}`),
-      text: stringFrom(locationData.text, record?.contact.address, normalized.address, data.address),
-      directions: stringFrom(locationData.directions, data.location, normalized.location),
+      heading: stringFrom(locationData.heading, locationBlock?.title, `Visit ${businessName}`),
+      text: stringFrom(locationData.text, locationBlock?.text, record?.contact.address, normalized.address, data.address),
+      directions: stringFrom(locationData.directions, locationBlock?.items?.[0]?.text, data.location, normalized.location),
       virtualTourUrl: stringFrom(locationData.virtualTourUrl, normalized.virtualTourUrl, data.virtualTourUrl, data.contactData?.virtualTourUrl),
     },
     booking: {
@@ -530,12 +584,16 @@ function emptyContentLibrary(sourceUrl: string, sourceHost: string, businessName
   };
 }
 
+function libraryBlock(library: CatterySiteContentLibrary, category: string) {
+  return library.blocks.find((block) => block.category === category);
+}
+
 function libraryItems(library: CatterySiteContentLibrary, category: string) {
-  return library.blocks.find((block) => block.category === category)?.items ?? [];
+  return libraryBlock(library, category)?.items ?? [];
 }
 
 function libraryImages(library: CatterySiteContentLibrary, category: string) {
-  return library.blocks.find((block) => block.category === category)?.images ?? [];
+  return libraryBlock(library, category)?.images ?? [];
 }
 
 function libraryRoomsToRooms(items: ReturnType<typeof libraryItems>) {
@@ -716,7 +774,7 @@ function ensureTestimonials(
     }))
     .filter((testimonial) => testimonial.quote);
 
-  if (mapped.length) return mapped.slice(0, 6);
+  if (mapped.length) return mapped.slice(0, 10);
 
   return [
     {
