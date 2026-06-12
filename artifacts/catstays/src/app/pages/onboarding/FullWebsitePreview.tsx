@@ -363,10 +363,10 @@ export function FullWebsitePreview({
     );
   };
 
-  if (isEmbeddedDemoSurface && deviceType === 'desktop') {
+  if (isEmbeddedDemoSurface && deviceType === 'desktop' && previewMode === 'website') {
     return (
       <div
-        className="w-full overflow-visible rounded-xl border border-[#0A1128]/10 bg-white shadow-xl"
+        className="w-full overflow-visible bg-white"
         data-preview-mode="true"
       >
         {renderActivePreview(false)}

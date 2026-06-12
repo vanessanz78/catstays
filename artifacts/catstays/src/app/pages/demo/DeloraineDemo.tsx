@@ -9,6 +9,7 @@ import {
   DELORAINE_SOURCE_URL,
   fallbackDeloraineScrape,
   IMPORT_URL_STORAGE_KEY,
+  PREVIEW_SOURCE_INTENT_STORAGE_KEY,
   PREVIEW_DATA_STORAGE_KEY,
   PREVIEW_URL_STORAGE_KEY,
   rememberCatteryPreview,
@@ -113,7 +114,7 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
   };
 
   const selectedTemplate = normalizePreviewTemplateId(previewData.selectedTemplate || 'original');
-  const modeHref = (href: string) => `${href}?source=${encodeURIComponent(requestedImportUrl)}`;
+  const modeHref = (href: string) => href;
 
   const selectTemplate = (template: PreviewTemplateId) => {
     const nextData = dataForTemplate(previewData, template);
@@ -270,7 +271,7 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
         />
       )}
 
-      <main className="mx-auto w-full px-4 py-4 sm:px-6 lg:px-8">
+      <main className={previewMode === 'website' && deviceType === 'desktop' ? 'w-full p-0' : 'mx-auto w-full px-4 py-4 sm:px-6 lg:px-8'}>
         <FullWebsitePreview
           data={previewData}
           controlledMode={previewMode}
@@ -308,10 +309,10 @@ function TemplatePreviewStrip({
             return (
               <div
                 key={template.id}
-                className={`group relative rounded-xl border p-3 text-left transition ${
+                className={`group relative rounded-xl border bg-white/6 p-3 text-left text-white transition ${
                   active
-                    ? 'border-[#F5C08A] bg-white text-[#0A1128] shadow-lg shadow-black/25'
-                    : 'border-white/14 bg-white/6 text-white hover:border-[#F5C08A]/70 hover:bg-white/10'
+                    ? 'border-[#C46A3A] shadow-lg shadow-black/25'
+                    : 'border-white/14 hover:border-[#C46A3A]/70 hover:bg-white/10'
                 }`}
               >
                 <button
@@ -332,7 +333,7 @@ function TemplatePreviewStrip({
                 <div className="pointer-events-none relative z-10 mt-3 flex items-center justify-between gap-3">
                   <div>
                     <h3 className="text-base font-bold">{template.name}</h3>
-                    <p className={`mt-0.5 text-xs leading-5 ${active ? 'text-[#0A1128]/65' : 'text-white/60'}`}>
+                    <p className="mt-0.5 text-xs leading-5 text-white/60">
                       {templateDescription(template.id)}
                     </p>
                   </div>
@@ -403,7 +404,7 @@ function templateLabel(template: PreviewTemplateId) {
 }
 
 function templateDescription(template: PreviewTemplateId) {
-  if (template === 'original') return 'Scraped source';
+  if (template === 'original') return 'Owner site';
   if (template === 'conversion-focus') return 'Booking first';
   if (template === 'editorial-guide') return 'Story led';
   return 'Image led';
@@ -472,13 +473,17 @@ function readRequestedImportUrl(): string {
   if (typeof window === 'undefined') return DELORAINE_SOURCE_URL;
 
   const sourceParam = new URLSearchParams(window.location.search).get('source');
+  const sourceIntent = window.sessionStorage.getItem(PREVIEW_SOURCE_INTENT_STORAGE_KEY);
+  const explicitPreviewSource = sourceIntent === 'form-submit';
   const requestedUrl =
-    sourceParam ||
-    window.localStorage.getItem(PREVIEW_URL_STORAGE_KEY) ||
-    window.sessionStorage.getItem(PREVIEW_URL_STORAGE_KEY) ||
-    window.localStorage.getItem(IMPORT_URL_STORAGE_KEY) ||
-    window.sessionStorage.getItem(IMPORT_URL_STORAGE_KEY) ||
-    DELORAINE_SOURCE_URL;
+    explicitPreviewSource
+      ? window.sessionStorage.getItem(PREVIEW_URL_STORAGE_KEY) ||
+        window.localStorage.getItem(PREVIEW_URL_STORAGE_KEY) ||
+        window.sessionStorage.getItem(IMPORT_URL_STORAGE_KEY) ||
+        window.localStorage.getItem(IMPORT_URL_STORAGE_KEY) ||
+        sourceParam ||
+        DELORAINE_SOURCE_URL
+      : DELORAINE_SOURCE_URL;
 
   window.localStorage.setItem(PREVIEW_URL_STORAGE_KEY, requestedUrl);
   window.sessionStorage.setItem(PREVIEW_URL_STORAGE_KEY, requestedUrl);
