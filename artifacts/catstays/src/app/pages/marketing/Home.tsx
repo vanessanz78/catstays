@@ -86,12 +86,12 @@ export function MarketingHome() {
               >
                 Pricing
               </button>
-              <button
-                onClick={() => scrollToSection('demo')}
+              <Link
+                to="/demo/deloraine"
                 className="text-forest/70 hover:text-forest transition-colors font-medium"
               >
                 Demo Example
-              </button>
+              </Link>
             </div>
 
             {/* CTA Buttons */}
@@ -416,60 +416,6 @@ export function MarketingHome() {
         </div>
       </section>
 
-      {/* Preview Demo Section */}
-      <section id="demo" className="py-20 bg-gradient-to-b from-white to-cream">
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="text-center mb-10">
-            <Badge className="bg-sage/10 text-sage border-sage/20 mb-4">Self-serve setup</Badge>
-            <h2 className="text-4xl md:text-5xl font-serif font-semibold text-forest mb-4">
-              Generate your cattery preview
-            </h2>
-            <p className="text-lg text-forest/65 max-w-2xl mx-auto">
-              Paste your current website, or use Deloraine Cattery as the example. CatStays turns it into a previewable website and dashboard setup.
-            </p>
-          </div>
-
-          <Card className="border-sage/10 shadow-2xl rounded-3xl overflow-hidden bg-white">
-            <div className="p-6 md:p-8">
-              <div className="mb-8 grid gap-5 lg:grid-cols-[1fr_auto] lg:items-end">
-                <div>
-                  <h3 className="font-serif text-3xl font-semibold text-forest">
-                    Start with one link
-                  </h3>
-                  <p className="mt-2 max-w-2xl text-forest/65">
-                    We use the live site as the starting point, then you choose the website style, rooms, colours, booking flow, and dashboard options.
-                  </p>
-                </div>
-                <form
-                  onSubmit={handleGeneratePreview}
-                  className="rounded-2xl border border-sage/15 bg-cream p-3 shadow-inner"
-                >
-                  <div className="flex flex-col gap-3 sm:flex-row">
-                    <label className="sr-only" htmlFor="demo-website-url">Cattery website URL</label>
-                    <input
-                      id="demo-website-url"
-                      type="text"
-                      value={websiteUrl}
-                      onChange={(event) => setWebsiteUrl(event.target.value)}
-                      className="h-14 min-w-[260px] flex-1 rounded-xl border border-sage/10 bg-white px-4 text-base font-semibold text-forest outline-none transition focus:border-[#A85A30] focus:ring-4 focus:ring-[#A85A30]/10"
-                      placeholder="yourcattery.com"
-                    />
-                    <Button type="submit" className="h-14 bg-[#A85A30] hover:bg-[#8A3F20] text-white rounded-xl px-6">
-                      Generate preview
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </Button>
-                  </div>
-                </form>
-              </div>
-
-              <p className="text-sm text-forest/55">
-                Enter your website link and CatStays will open the generated preview on the next page.
-              </p>
-            </div>
-          </Card>
-        </div>
-      </section>
-
       {/* Pricing Section */}
       <section id="pricing" className="py-20 bg-gradient-to-b from-white to-[#F8F7F5]">
         <div className="max-w-7xl mx-auto px-4">
@@ -724,7 +670,7 @@ export function MarketingHome() {
               <ul className="space-y-2 text-white/70">
                 <li><button onClick={() => scrollToSection('features')} className="hover:text-white transition-colors">Features</button></li>
                 <li><button onClick={() => scrollToSection('pricing')} className="hover:text-white transition-colors">Pricing</button></li>
-                <li><button onClick={() => scrollToSection('demo')} className="hover:text-white transition-colors">Preview demo</button></li>
+                <li><Link to="/demo/deloraine" className="hover:text-white transition-colors">Preview demo</Link></li>
               </ul>
             </div>
 
@@ -734,7 +680,7 @@ export function MarketingHome() {
               <ul className="space-y-2 text-white/70">
                 <li><button onClick={() => scrollToSection('how-it-works')} className="hover:text-white transition-colors">Setup flow</button></li>
                 <li><button onClick={() => scrollToSection('pricing')} className="hover:text-white transition-colors">Plans</button></li>
-                <li><button onClick={() => scrollToSection('demo')} className="hover:text-white transition-colors">Preview demo</button></li>
+                <li><Link to="/demo/deloraine" className="hover:text-white transition-colors">Preview demo</Link></li>
               </ul>
             </div>
           </div>
