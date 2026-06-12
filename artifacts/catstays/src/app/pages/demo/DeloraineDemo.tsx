@@ -59,6 +59,16 @@ const deviceOptions: Array<{
   { device: 'desktop', label: 'Desktop', icon: Monitor },
 ];
 
+const demoDeviceStorageKey = 'catstays_demo_device';
+
+function readSavedDemoDevice(): DeviceMode {
+  if (typeof window === 'undefined') return 'desktop';
+  const savedDevice = window.localStorage.getItem(demoDeviceStorageKey);
+  return savedDevice === 'mobile' || savedDevice === 'tablet' || savedDevice === 'desktop'
+    ? savedDevice
+    : 'desktop';
+}
+
 export function DeloraineDemo() {
   return <DeloraineDemoPage initialMode="website" />;
 }
@@ -75,20 +85,21 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
   const [previewData, setPreviewData] = useState<DelorainePreviewData>(defaultDelorainePreviewData);
   const [previewMode, setPreviewMode] = useState<DemoMode>(initialMode);
   const [hoveredMode, setHoveredMode] = useState<DemoMode | null>(null);
-  const [deviceType, setDeviceType] = useState<DeviceMode>('desktop');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [deviceType, setDeviceTypeState] = useState<DeviceMode>(() => readSavedDemoDevice());
 
   useEffect(() => {
     setPreviewMode(initialMode);
   }, [initialMode]);
 
+  const setDeviceType = (device: DeviceMode) => {
+    setDeviceTypeState(device);
+    window.localStorage.setItem(demoDeviceStorageKey, device);
+  };
+
   useEffect(() => {
     let cancelled = false;
 
     async function loadDeloraine() {
-      setLoading(true);
-      setError('');
       try {
         const response = await fetch('/api/website/scrape', {
           method: 'POST',
@@ -103,14 +114,11 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
         const importedPreview = buildPreviewDataFromScrape(payload);
         setPreviewData(importedPreview);
         rememberCatteryPreview(payload, importedPreview);
-      } catch (err) {
+      } catch {
         if (cancelled) return;
         const fallbackPreview = buildPreviewDataFromScrape(fallbackDeloraineScrape);
         setPreviewData(fallbackPreview);
         rememberCatteryPreview(fallbackDeloraineScrape, fallbackPreview);
-        setError(err instanceof Error ? err.message : 'Import failed');
-      } finally {
-        if (!cancelled) setLoading(false);
       }
     }
 
@@ -120,30 +128,20 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
     };
   }, []);
 
-  const demoStatus = loading ? 'Building demo preview' : error ? 'Demo fallback loaded' : 'Imported demo preview';
-
   return (
     <div className="min-h-screen bg-[#f8f4ed] text-[#10251f]">
       <nav className="sticky top-0 z-50 border-b border-[#C46A3A]/40 bg-[#0A1128] text-white shadow-sm">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-5 py-2.5 sm:px-8 lg:px-10">
+        <div className="relative mx-auto flex max-w-7xl items-center justify-between gap-3 px-5 py-2.5 sm:px-8 lg:px-10">
           <Link to="/" className="flex items-center gap-2 text-sm font-semibold text-white hover:text-white/85">
             <ArrowLeft className="h-4 w-4 text-[#D28A4A]" />
             Back to CatStays
           </Link>
-          <div className="flex min-w-0 flex-1 items-center justify-center gap-2 text-center text-xs sm:text-sm">
+          <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
             <span className="rounded-full border border-[#D28A4A]/50 bg-[#D28A4A]/15 px-2.5 py-1 font-semibold uppercase tracking-[0.12em] text-[#F5C08A]">
               Demo
             </span>
-            <span className="truncate text-white/82">
-              {demoStatus}: a rendering of the imported cattery experience
-            </span>
           </div>
           <div className="flex items-center gap-2">
-            <Link to="/#pricing">
-              <Button variant="ghost" className="text-white hover:bg-white/10 hover:text-white">
-                Pricing
-              </Button>
-            </Link>
             <Link to="/signup">
               <Button className="bg-[#A85A30] text-white hover:bg-[#8A3F20]">
                 Get started
@@ -238,7 +236,7 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
         </div>
       </div>
 
-      <main className="mx-auto max-w-7xl px-4 py-4 sm:px-8 lg:px-10">
+      <main className="mx-auto w-full px-4 py-4 sm:px-6 lg:px-8">
         <FullWebsitePreview
           data={previewData}
           controlledMode={previewMode}

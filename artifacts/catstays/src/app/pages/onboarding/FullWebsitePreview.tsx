@@ -128,6 +128,8 @@ export function FullWebsitePreview({
     if (!controlledDevice) setInternalDeviceType(device);
   };
 
+  const isEmbeddedDemoSurface = !showControls && !showInfoCard;
+
   const handleBookingSearch = (searchData: any) => {
     setShowBookingModal(true);
   };
@@ -312,6 +314,40 @@ export function FullWebsitePreview({
     );
   };
 
+  const renderActivePreview = (fillHeight = true) => {
+    if (previewMode === 'website') return renderWebsitePreview();
+    if (previewMode === 'dashboard') {
+      return (
+        <div className={`${fillHeight ? 'h-full' : 'min-h-screen'} bg-cream`}>
+          <DashboardPreviewMock businessName={data.businessName} />
+        </div>
+      );
+    }
+    return (
+      <div className={`${fillHeight ? 'h-full' : 'min-h-screen'} bg-cream`}>
+        <CustomerDashboard
+          primaryColor={data.primaryColor}
+          accentColor={data.accentColor}
+          businessName={data.businessName}
+          businessAddress={data.address}
+          businessPhone={data.phone}
+          businessEmail={data.email}
+        />
+      </div>
+    );
+  };
+
+  if (isEmbeddedDemoSurface && deviceType === 'desktop') {
+    return (
+      <div
+        className="w-full overflow-visible rounded-xl border border-[#0A1128]/10 bg-white shadow-xl"
+        data-preview-mode="true"
+      >
+        {renderActivePreview(false)}
+      </div>
+    );
+  }
+
   // Device frame dimensions
   const deviceDimensions = deviceType === 'mobile'
     ? { width: 375, height: 667, scale: 1.0 }
@@ -468,24 +504,7 @@ export function FullWebsitePreview({
                 position: 'relative',
               }}
             >
-              {previewMode === 'website' ? (
-                renderWebsitePreview()
-              ) : previewMode === 'dashboard' ? (
-                <div className="h-full bg-cream">
-                  <DashboardPreviewMock businessName={data.businessName} />
-                </div>
-              ) : (
-                <div className="h-full bg-cream">
-                  <CustomerDashboard 
-                    primaryColor={data.primaryColor}
-                    accentColor={data.accentColor}
-                    businessName={data.businessName}
-                    businessAddress={data.address}
-                    businessPhone={data.phone}
-                    businessEmail={data.email}
-                  />
-                </div>
-              )}
+              {renderActivePreview()}
             </div>
           </div>
         </div>
