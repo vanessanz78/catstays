@@ -268,11 +268,11 @@ export function applyPreviewTemplate(
   const normalizedTemplate = normalizePreviewTemplateId(templateId);
   if (record) return dataFromPreviewRecord(record, normalizedTemplate, currentData);
 
-  return {
+  return withOnboardingCollections({
     ...currentData,
     ...templateStyle(normalizedTemplate),
     selectedTemplate: normalizedTemplate === 'original' ? 'conversion-focus' : normalizedTemplate,
-  };
+  }, currentData);
 }
 
 export function dataFromPreviewRecord(
@@ -288,7 +288,7 @@ export function dataFromPreviewRecord(
     selectedTemplate,
   };
 
-  return {
+  return withOnboardingCollections({
     ...currentData,
     ...normalized,
     ...templateStyle(selectedTemplate),
@@ -306,7 +306,7 @@ export function dataFromPreviewRecord(
     phone: record.contact.phone || currentData.phone,
     email: record.contact.email || currentData.email,
     address: record.contact.address || currentData.address,
-  };
+  }, currentData);
 }
 
 export function savePreviewImportRecord(record: PreviewImportRecord) {
@@ -323,11 +323,11 @@ export function markPreviewSelectionLive(currentData: Record<string, any>): Reco
   const selectedTemplate = normalizePreviewTemplateId(currentData.selectedTemplate || 'conversion-focus');
 
   if (!record) {
-    return {
+    return withOnboardingCollections({
       ...currentData,
       liveTemplate: selectedTemplate,
       previewRecordStatus: 'live',
-    };
+    }, currentData);
   }
 
   const liveRecord: PreviewImportRecord = {
@@ -337,13 +337,13 @@ export function markPreviewSelectionLive(currentData: Record<string, any>): Reco
   };
   savePreviewImportRecord(liveRecord);
 
-  return {
+  return withOnboardingCollections({
     ...currentData,
     previewImportRecord: liveRecord,
     previewImportRecordId: liveRecord.id,
     previewRecordStatus: 'live',
     liveTemplate: selectedTemplate,
-  };
+  }, currentData);
 }
 
 export function readPreviewImportTable(): Record<string, PreviewImportRecord> {
@@ -578,6 +578,27 @@ function libraryItemsToFaqs(items: ReturnType<typeof libraryItems>) {
 function templateStyle(templateId: PreviewTemplateId) {
   if (templateId === 'original') return {};
   return templateConfig[templateId];
+}
+
+function withOnboardingCollections(data: Record<string, any>, fallback: Record<string, any> = {}) {
+  const arrayFrom = (key: string) => {
+    if (Array.isArray(data[key])) return data[key];
+    if (Array.isArray(fallback[key])) return fallback[key];
+    return [];
+  };
+
+  return {
+    ...data,
+    roomTypes: arrayFrom('roomTypes'),
+    pricingRates: arrayFrom('pricingRates'),
+    additionalServices: arrayFrom('additionalServices'),
+    discounts: arrayFrom('discounts'),
+    blockOutDates: arrayFrom('blockOutDates'),
+    galleryImages: arrayFrom('galleryImages'),
+    testimonials: arrayFrom('testimonials'),
+    faqs: arrayFrom('faqs'),
+    customSections: arrayFrom('customSections'),
+  };
 }
 
 function stringFrom(...values: unknown[]): string {
