@@ -97,6 +97,7 @@ export function MarketingHome() {
               </button>
               <Link
                 to="/demo/deloraine"
+                onClick={() => window.setTimeout(() => window.scrollTo({ top: 0, left: 0, behavior: 'auto' }), 0)}
                 className="text-forest/70 hover:text-forest transition-colors font-medium"
               >
                 Demo Example
@@ -348,7 +349,7 @@ export function MarketingHome() {
                 items: [
                   'Paste your current cattery website link',
                   'Or answer a few guided setup questions',
-                  'AI drafts your website copy and room setup',
+                  'Guided help shapes your website copy and room setup',
                   'Real photos are used wherever possible',
                 ],
               },
@@ -604,7 +605,7 @@ export function MarketingHome() {
               No contracts. No surprises. Just a better way to run your cattery.
             </p>
             <p className="text-sm text-[#0A1128]/60">
-              Switch in minutes with AI-powered data import
+              Switch in minutes with guided data import
             </p>
           </div>
         </div>
