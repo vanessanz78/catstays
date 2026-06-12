@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { ArrowLeft, CheckCircle, Globe, LayoutDashboard, Monitor, Smartphone, Tablet, UserRound } from 'lucide-react';
 import { Button } from '../../components/ui/button';
+import { CatstaysTemplateSite } from '../onboarding/CatstaysTemplateSite';
 import { FullWebsitePreview } from '../onboarding/FullWebsitePreview';
 import {
   buildFallbackScrapeForUrl,
@@ -305,18 +306,22 @@ function TemplatePreviewStrip({
           {previewTemplateCards.map((template) => {
             const active = selectedTemplate === template.id;
             return (
-              <button
+              <div
                 key={template.id}
-                type="button"
-                onClick={() => onSelectTemplate(template.id)}
-                aria-pressed={active}
-                className={`group rounded-xl border p-3 text-left transition ${
+                className={`group relative rounded-xl border p-3 text-left transition ${
                   active
                     ? 'border-[#F5C08A] bg-white text-[#0A1128] shadow-lg shadow-black/25'
                     : 'border-white/14 bg-white/6 text-white hover:border-[#F5C08A]/70 hover:bg-white/10'
                 }`}
               >
-                <div className="relative overflow-hidden rounded-lg border border-current/15 bg-white">
+                <button
+                  type="button"
+                  onClick={() => onSelectTemplate(template.id)}
+                  aria-pressed={active}
+                  aria-label={`${data.businessName} ${template.name} ${templateDescription(template.id)}`}
+                  className="absolute inset-0 z-20 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-[#F5C08A] focus-visible:ring-offset-2 focus-visible:ring-offset-[#111923]"
+                />
+                <div className="pointer-events-none relative z-10 overflow-hidden rounded-lg border border-current/15 bg-white">
                   <TemplateSnapshot template={template.id} data={data} />
                   {active && (
                     <span className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#C46A3A] text-white shadow">
@@ -324,7 +329,7 @@ function TemplatePreviewStrip({
                     </span>
                   )}
                 </div>
-                <div className="mt-3 flex items-center justify-between gap-3">
+                <div className="pointer-events-none relative z-10 mt-3 flex items-center justify-between gap-3">
                   <div>
                     <h3 className="text-base font-bold">{template.name}</h3>
                     <p className={`mt-0.5 text-xs leading-5 ${active ? 'text-[#0A1128]/65' : 'text-white/60'}`}>
@@ -337,7 +342,7 @@ function TemplatePreviewStrip({
                     }`}
                   />
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>
@@ -353,87 +358,44 @@ function TemplateSnapshot({
   template: PreviewTemplateId;
   data: DelorainePreviewData;
 }) {
-  const heroImage = data.heroImage || data.galleryData?.galleryImages?.[0]?.url || '';
-  const name = data.businessName || 'Your Cattery';
-  const heading = data.heroHeading || name;
+  const miniatureScale = 0.22;
+  const miniatureStyle = {
+    width: `${100 / miniatureScale}%`,
+    height: `${100 / miniatureScale}%`,
+    transform: `scale(${miniatureScale})`,
+    transformOrigin: 'top left',
+  };
 
-  if (template === 'editorial-guide') {
+  if (template === 'original') {
+    const sourceUrl = sourceUrlForSnapshot(data);
     return (
-      <div className="grid h-36 grid-cols-2 bg-[#f8f5ef] text-[#222]">
-        <div className="flex flex-col justify-center p-4">
-          <span className="mb-2 h-1.5 w-14 rounded bg-[#b58b4a]/60" />
-          <p className="line-clamp-4 font-serif text-xl leading-[1.05]">{heading}</p>
-        </div>
-        <img src={heroImage} alt="" className="h-full w-full object-cover" />
-        <img src={data.galleryData?.galleryImages?.[1]?.url || heroImage} alt="" className="h-full w-full object-cover" />
-        <div className="flex flex-col justify-center p-4">
-          <span className="mb-2 h-1.5 w-10 rounded bg-[#b58b4a]/60" />
-          <span className="mb-1 h-2 rounded bg-[#222]/70" />
-          <span className="h-2 w-2/3 rounded bg-[#222]/25" />
-        </div>
-      </div>
-    );
-  }
-
-  if (template === 'modern-showcase') {
-    return (
-      <div className="relative h-36 overflow-hidden bg-[#1f241b]">
-        <img src={heroImage} alt="" className="h-full w-full object-cover" />
-        <div className="absolute inset-0 bg-black/45" />
-        <div className="absolute left-4 top-3 h-2 w-20 rounded bg-white/80" />
-        <div className="absolute bottom-5 left-4 right-12">
-          <p className="line-clamp-3 font-serif text-2xl font-bold leading-[1.02] text-white">{heading}</p>
-        </div>
-        <div className="absolute bottom-3 left-4 flex gap-1">
-          {[0, 1, 2].map((index) => (
-            <span key={index} className="h-2 w-9 rounded bg-white/75" />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (template === 'conversion-focus') {
-    return (
-      <div className="h-36 bg-[#f8f5ef] text-[#222]">
-        <div className="grid h-[108px] grid-cols-[1fr_1.25fr]">
-          <div className="flex flex-col justify-center p-4">
-            <p className="line-clamp-3 font-serif text-xl leading-[1.05]">{heading}</p>
-            <span className="mt-3 h-3 w-20 rounded bg-[#1f241b]" />
-          </div>
-          <img src={heroImage} alt="" className="h-full w-full object-cover" />
-        </div>
-        <div className="mx-3 -mt-3 grid grid-cols-4 gap-1 rounded-md border border-[#222]/10 bg-white p-2 shadow">
-          {[0, 1, 2, 3].map((index) => (
-            <span key={index} className={`h-5 rounded ${index === 3 ? 'bg-[#1f241b]' : 'bg-[#efe7dd]'}`} />
-          ))}
-        </div>
+      <div className="relative h-36 overflow-hidden bg-white">
+        <iframe
+          src={sourceUrl}
+          title={`${data.businessName || 'Original website'} thumbnail`}
+          loading="lazy"
+          className="absolute left-0 top-0 border-0 bg-white"
+          style={miniatureStyle}
+        />
       </div>
     );
   }
 
   return (
-    <div className="h-36 bg-[#f8f5ef] text-white">
-      <div className="flex h-6 items-center gap-1 bg-white px-3">
-        <span className="h-2 w-2 rounded-full bg-[#C46A3A]" />
-        <span className="h-2 w-2 rounded-full bg-[#F5C08A]" />
-        <span className="h-2 w-2 rounded-full bg-[#8BA28B]" />
-        <span className="ml-auto h-2 w-12 rounded bg-[#0A1128]/15" />
-      </div>
-      <div className="relative h-[114px] overflow-hidden">
-        <img src={heroImage} alt="" className="h-full w-full object-cover" />
-        <div className="absolute inset-0 bg-black/45" />
-        <div className="absolute inset-x-4 bottom-5">
-          <p className="line-clamp-2 font-serif text-2xl font-bold leading-tight">{name}</p>
-        </div>
-        <div className="absolute bottom-2 left-4 right-4 grid grid-cols-3 gap-2">
-          {[0, 1, 2].map((index) => (
-            <span key={index} className="h-5 rounded bg-white/85" />
-          ))}
-        </div>
+    <div className="relative h-36 overflow-hidden bg-white">
+      <div className="absolute left-0 top-0" style={miniatureStyle}>
+        <CatstaysTemplateSite data={data} templateId={template} embedded />
       </div>
     </div>
   );
+}
+
+function sourceUrlForSnapshot(data: DelorainePreviewData) {
+  const record = (data as any).previewImportRecord as PreviewImportRecord | undefined;
+  const sourceUrl = record?.source?.url || (data as any).importSourceUrl || (data as any).sourceUrl || DELORAINE_SOURCE_URL;
+  const trimmedUrl = String(sourceUrl).trim();
+  if (!trimmedUrl) return DELORAINE_SOURCE_URL;
+  return /^https?:\/\//i.test(trimmedUrl) ? trimmedUrl : `https://${trimmedUrl}`;
 }
 
 function templateLabel(template: PreviewTemplateId) {
