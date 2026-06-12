@@ -386,7 +386,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const libraryReviews = libraryItems(contentLibrary, 'reviews');
   const libraryFaqs = libraryItems(contentLibrary, 'faqs');
   const libraryGalleryImages = libraryImages(contentLibrary, 'gallery');
-  const logoImage = stringFrom(record?.media.logoImage, data.logoImage, normalized.logoImage);
+  const logoImage = stringFrom(record?.media.logoImage, data.logoImage, (normalized as Record<string, any>).logoImage);
   const heroImage = imageFrom(
     normalized.heroImage,
     data.heroImage,
