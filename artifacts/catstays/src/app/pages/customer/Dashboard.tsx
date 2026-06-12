@@ -11,6 +11,8 @@ import { CustomerPetsView } from './CustomerPetsView';
 import { ImageWithFallback } from '../../components/figma/ImageWithFallback';
 import { BookingFlowModal } from '../../components/BookingFlowModal';
 
+type PreviewDevice = 'mobile' | 'tablet' | 'desktop';
+
 interface CustomerDashboardProps {
   onBackToWebsite?: () => void;
   primaryColor?: string;
@@ -21,6 +23,7 @@ interface CustomerDashboardProps {
   businessPhone?: string;
   businessEmail?: string;
   businessLogo?: string;
+  previewDevice?: PreviewDevice;
 }
 
 export function CustomerDashboard({ 
@@ -32,10 +35,12 @@ export function CustomerDashboard({
   businessAddress,
   businessPhone,
   businessEmail,
-  businessLogo
+  businessLogo,
+  previewDevice
 }: CustomerDashboardProps = {}) {
   const navigate = useNavigate(); // FIXED: Hook must be called at top level
   const [currentView, setCurrentView] = useState<'home' | 'bookings' | 'profile' | 'pets' | 'updates'>('home');
+  const isPreviewMobile = previewDevice === 'mobile';
 
   // Cat Updates state
   const [showPostcard, setShowPostcard] = useState(false);
@@ -236,6 +241,27 @@ export function CustomerDashboard({
     { title: 'Grooming Service', price: '$25', description: 'Professional grooming including brushing and nail trimming' }
   ];
 
+  const dashboardCards = [
+    {
+      view: 'bookings',
+      icon: Calendar,
+      title: 'My Bookings',
+      description: 'View and manage stays'
+    },
+    {
+      view: 'pets',
+      icon: PawPrint,
+      title: 'My Pets',
+      description: 'Manage pet profiles'
+    },
+    {
+      view: 'profile',
+      icon: User,
+      title: 'My Profile',
+      description: 'Update your details'
+    }
+  ] as const;
+
   // Default booking data (user can change in the modal)
   const getTomorrowDate = () => {
     const tomorrow = new Date();
@@ -337,42 +363,36 @@ export function CustomerDashboard({
             <p style={{ color: `${primaryColor}90` }}>Manage your bookings and view cat updates</p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-4 mb-8">
-            <Card 
-              className="hover:shadow-lg transition cursor-pointer border" 
-              style={{ borderColor: `${primaryColor}20` }}
-              onClick={() => setCurrentView('bookings')}
-            >
-              <CardHeader>
-                <Calendar className="w-8 h-8 mb-2" style={{ color: accentColor }} />
-                <CardTitle style={{ color: primaryColor }}>My Bookings</CardTitle>
-                <CardDescription>View and manage stays</CardDescription>
-              </CardHeader>
-            </Card>
-
-            <Card 
-              className="hover:shadow-lg transition cursor-pointer border" 
-              style={{ borderColor: `${primaryColor}20` }}
-              onClick={() => setCurrentView('pets')}
-            >
-              <CardHeader>
-                <PawPrint className="w-8 h-8 mb-2" style={{ color: accentColor }} />
-                <CardTitle style={{ color: primaryColor }}>My Pets</CardTitle>
-                <CardDescription>Manage pet profiles</CardDescription>
-              </CardHeader>
-            </Card>
-
-            <Card 
-              className="hover:shadow-lg transition cursor-pointer border" 
-              style={{ borderColor: `${primaryColor}20` }}
-              onClick={() => setCurrentView('profile')}
-            >
-              <CardHeader>
-                <User className="w-8 h-8 mb-2" style={{ color: accentColor }} />
-                <CardTitle style={{ color: primaryColor }}>My Profile</CardTitle>
-                <CardDescription>Update your details</CardDescription>
-              </CardHeader>
-            </Card>
+          <div className={`${isPreviewMobile ? 'grid grid-cols-1 gap-3' : 'grid md:grid-cols-3 gap-4'} mb-8`}>
+            {dashboardCards.map((card) => {
+              const Icon = card.icon;
+              return (
+                <Card
+                  key={card.view}
+                  className="hover:shadow-lg transition cursor-pointer border min-w-0"
+                  style={{ borderColor: `${primaryColor}20` }}
+                  onClick={() => setCurrentView(card.view)}
+                >
+                  <CardHeader className={isPreviewMobile ? 'flex flex-row items-center gap-3 px-4 py-4' : undefined}>
+                    <Icon
+                      className={isPreviewMobile ? 'w-7 h-7 flex-shrink-0' : 'w-8 h-8 mb-2'}
+                      style={{ color: accentColor }}
+                    />
+                    <div className="min-w-0">
+                      <CardTitle
+                        className={isPreviewMobile ? 'text-lg leading-tight whitespace-normal' : undefined}
+                        style={{ color: primaryColor }}
+                      >
+                        {card.title}
+                      </CardTitle>
+                      <CardDescription className={isPreviewMobile ? 'text-sm leading-snug' : undefined}>
+                        {card.description}
+                      </CardDescription>
+                    </div>
+                  </CardHeader>
+                </Card>
+              );
+            })}
           </div>
 
           {/* Quick Actions */}
@@ -380,10 +400,11 @@ export function CustomerDashboard({
             <CardHeader>
               <CardTitle style={{ color: primaryColor }}>Quick Actions</CardTitle>
             </CardHeader>
-            <CardContent className="flex flex-wrap gap-3">
+            <CardContent className={isPreviewMobile ? 'flex flex-col gap-3 px-4 pb-4' : 'flex flex-wrap gap-3'}>
               <Button 
                 style={{ backgroundColor: accentColor, color: 'white' }}
                 onClick={() => setShowBookingModal(true)}
+                className={isPreviewMobile ? 'w-full justify-start' : undefined}
               >
                 <Plus className="w-4 h-4 mr-2" />
                 Create New Booking
@@ -392,6 +413,7 @@ export function CustomerDashboard({
                 variant="outline" 
                 style={{ borderColor: accentColor, color: accentColor }}
                 onClick={() => setCurrentView('updates')}
+                className={isPreviewMobile ? 'w-full justify-start' : undefined}
               >
                 <Camera className="w-4 h-4 mr-2" />
                 View Cat Updates
@@ -406,20 +428,20 @@ export function CustomerDashboard({
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="flex items-start gap-4 p-3 rounded-lg" style={{ backgroundColor: `${accentColor}10` }}>
+                <div className={`${isPreviewMobile ? 'flex flex-col gap-3' : 'flex items-start gap-4'} p-3 rounded-lg`} style={{ backgroundColor: `${accentColor}10` }}>
                   <Camera className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: accentColor }} />
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <p className="font-medium" style={{ color: primaryColor }}>New photo from Whiskers!</p>
                     <p className="text-sm" style={{ color: `${primaryColor}70` }}>Morning playtime - Today at 9:30 AM</p>
                   </div>
-                  <Badge style={{ backgroundColor: `${accentColor}20`, color: accentColor, borderColor: accentColor }}>
+                  <Badge className="w-fit" style={{ backgroundColor: `${accentColor}20`, color: accentColor, borderColor: accentColor }}>
                     <Heart className="w-3 h-3 mr-1" />
                     New
                   </Badge>
                 </div>
-                <div className="flex items-start gap-4 p-3 rounded-lg" style={{ backgroundColor: `${primaryColor}05` }}>
+                <div className={`${isPreviewMobile ? 'flex flex-col gap-3' : 'flex items-start gap-4'} p-3 rounded-lg`} style={{ backgroundColor: `${primaryColor}05` }}>
                   <Calendar className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: accentColor }} />
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <p className="font-medium" style={{ color: primaryColor }}>Upcoming booking reminder</p>
                     <p className="text-sm" style={{ color: `${primaryColor}70` }}>Whiskers' stay starts in 5 days</p>
                   </div>
@@ -441,7 +463,8 @@ export function CustomerDashboard({
           businessPhone={businessPhone}
           businessEmail={businessEmail}
           businessLogo={businessLogo}
-          externalBookings={bookings}
+          externalBookings={bookings.length > 0 ? bookings : undefined}
+          previewDevice={previewDevice}
         />
       )}
 
@@ -450,6 +473,7 @@ export function CustomerDashboard({
           onBack={() => setCurrentView('home')}
           primaryColor={primaryColor}
           accentColor={accentColor}
+          previewDevice={previewDevice}
         />
       )}
 
@@ -460,6 +484,7 @@ export function CustomerDashboard({
           accentColor={accentColor}
           externalPets={userPets}
           onPetsUpdate={setUserPets}
+          previewDevice={previewDevice}
         />
       )}
 
@@ -498,17 +523,17 @@ export function CustomerDashboard({
                       opacity: index === 0 ? 1 : 0.75
                     }}
                   >
-                    <div className="flex items-start gap-4">
-                      <div className="w-24 h-24 rounded-lg overflow-hidden flex-shrink-0 shadow-md">
+                    <div className={isPreviewMobile ? 'space-y-3' : 'flex items-start gap-4'}>
+                      <div className={isPreviewMobile ? 'w-full aspect-[4/3] rounded-lg overflow-hidden shadow-md' : 'w-24 h-24 rounded-lg overflow-hidden flex-shrink-0 shadow-md'}>
                         <ImageWithFallback
                           src={update.photo}
                           alt={update.title}
                           className="w-full h-full object-cover"
                         />
                       </div>
-                      <div className="flex-1">
-                        <div className="flex items-start justify-between mb-2">
-                          <div>
+                      <div className="flex-1 min-w-0">
+                        <div className={`${isPreviewMobile ? 'flex flex-wrap items-start justify-between gap-2' : 'flex items-start justify-between'} mb-2`}>
+                          <div className="min-w-0">
                             <p className="font-semibold" style={{ color: primaryColor }}>{update.title}</p>
                             <p className="text-sm" style={{ color: `${primaryColor}70` }}>{update.time}</p>
                           </div>

@@ -332,6 +332,7 @@ export function FullWebsitePreview({
           businessAddress={data.address}
           businessPhone={data.phone}
           businessEmail={data.email}
+          previewDevice={deviceType}
         />
       </div>
     );

@@ -5,22 +5,28 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { ArrowLeft, Save, Eye, EyeOff, User, Mail, Phone, MapPin, Lock } from 'lucide-react';
 
+type PreviewDevice = 'mobile' | 'tablet' | 'desktop';
+
 interface CustomerProfileViewProps {
   onBack: () => void;
   primaryColor?: string;
   accentColor?: string;
+  previewDevice?: PreviewDevice;
 }
 
 export function CustomerProfileView({ 
   onBack,
   primaryColor = '#0A1128', 
-  accentColor = '#C46A3A' 
+  accentColor = '#C46A3A',
+  previewDevice
 }: CustomerProfileViewProps) {
   const [activeSection, setActiveSection] = useState<'personal' | 'contact' | 'security'>('personal');
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const isPreviewMobile = previewDevice === 'mobile';
+  const twoColumnGridClass = isPreviewMobile ? 'grid gap-4' : 'grid md:grid-cols-2 gap-4';
 
   // Personal Information
   const [firstName, setFirstName] = useState('Sarah');
@@ -75,7 +81,7 @@ export function CustomerProfileView({
   };
 
   return (
-    <main className="container mx-auto px-4 py-8 max-w-4xl">
+    <main className={isPreviewMobile ? 'container mx-auto px-4 py-6 max-w-4xl' : 'container mx-auto px-4 py-8 max-w-4xl'}>
       <Button 
         variant="ghost" 
         onClick={onBack} 
@@ -86,9 +92,9 @@ export function CustomerProfileView({
         Back to Dashboard
       </Button>
 
-      <div className="grid md:grid-cols-4 gap-6">
+      <div className={isPreviewMobile ? 'grid gap-4' : 'grid md:grid-cols-4 gap-6'}>
         {/* Sidebar Navigation */}
-        <div className="md:col-span-1">
+        <div className={isPreviewMobile ? undefined : 'md:col-span-1'}>
           <Card className="border" style={{ borderColor: `${primaryColor}20` }}>
             <CardContent className="p-4">
               <nav className="space-y-2">
@@ -131,7 +137,7 @@ export function CustomerProfileView({
         </div>
 
         {/* Main Content */}
-        <div className="md:col-span-3 space-y-6">
+        <div className={isPreviewMobile ? 'space-y-4' : 'md:col-span-3 space-y-6'}>
           {/* Personal Information */}
           {activeSection === 'personal' && (
             <Card className="border" style={{ borderColor: `${primaryColor}20` }}>
@@ -140,7 +146,7 @@ export function CustomerProfileView({
                 <CardDescription>Update your basic account details</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid md:grid-cols-2 gap-4">
+                <div className={twoColumnGridClass}>
                   <div className="space-y-2">
                     <Label style={{ color: primaryColor }}>First Name</Label>
                     <Input
@@ -213,7 +219,7 @@ export function CustomerProfileView({
                       placeholder="123 Main Street"
                     />
                   </div>
-                  <div className="grid md:grid-cols-2 gap-4">
+                  <div className={twoColumnGridClass}>
                     <div className="space-y-2">
                       <Label style={{ color: primaryColor }}>City</Label>
                       <Input
@@ -231,7 +237,7 @@ export function CustomerProfileView({
                       />
                     </div>
                   </div>
-                  <div className="grid md:grid-cols-2 gap-4">
+                  <div className={twoColumnGridClass}>
                     <div className="space-y-2">
                       <Label style={{ color: primaryColor }}>ZIP/Postal Code</Label>
                       <Input
