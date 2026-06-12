@@ -1,3 +1,188 @@
+type EmailAction = {
+  label: string;
+  href: string;
+};
+
+type DetailRow = {
+  label: string;
+  value?: string | number | null;
+};
+
+type DetailCard = {
+  title?: string;
+  rows?: DetailRow[];
+  html?: string;
+  tone?: 'plain' | 'cream' | 'success' | 'warning';
+};
+
+type BrandedEmailOptions = {
+  title: string;
+  preheader: string;
+  eyebrow?: string;
+  intro?: string;
+  badge?: string;
+  catteryName?: string;
+  cards?: DetailCard[];
+  bodyHtml?: string;
+  action?: EmailAction;
+  secondaryAction?: EmailAction;
+  footerNote?: string;
+};
+
+const APP_URL = (process.env['CATSTAYS_APP_URL'] || process.env['PUBLIC_APP_URL'] || 'https://catstays.app').replace(/\/$/, '');
+const LOGO_URL = process.env['CATSTAYS_EMAIL_LOGO_URL'] || `${APP_URL}/icons/icon-192.png`;
+
+const colors = {
+  navy: '#0A1128',
+  terracotta: '#C46A3A',
+  cream: '#F8F7F5',
+  warm: '#F1E6DC',
+  sage: '#4F6F5A',
+  ink: '#172033',
+  muted: '#687386',
+  line: '#E8DFD7',
+  white: '#FFFFFF',
+};
+
+function escapeHtml(value: unknown) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function textToHtml(value?: string | null) {
+  return escapeHtml(value).replace(/\r?\n/g, '<br />');
+}
+
+function firstName(name?: string) {
+  const clean = (name || '').trim();
+  return clean ? clean.split(/\s+/)[0] : 'there';
+}
+
+function plural(count: number, singular: string, fallbackPlural?: string) {
+  return `${count} ${count === 1 ? singular : fallbackPlural || `${singular}s`}`;
+}
+
+function catNamesText(catNames?: string[]) {
+  const names = Array.isArray(catNames) ? catNames.filter(Boolean) : [];
+  return names.length > 0 ? names.join(', ') : 'your cat';
+}
+
+function cardBackground(tone: DetailCard['tone']) {
+  if (tone === 'success') return '#EEF6F0';
+  if (tone === 'warning') return '#FFF6E9';
+  if (tone === 'plain') return colors.white;
+  return colors.cream;
+}
+
+function renderRows(rows: DetailRow[] = []) {
+  return rows
+    .filter((row) => row.value !== undefined && row.value !== null && row.value !== '')
+    .map((row) => `
+      <tr>
+        <td style="padding:10px 0;border-bottom:1px solid ${colors.line};font:14px Arial,sans-serif;color:${colors.muted};">${escapeHtml(row.label)}</td>
+        <td align="right" style="padding:10px 0;border-bottom:1px solid ${colors.line};font:600 14px Arial,sans-serif;color:${colors.ink};">${escapeHtml(row.value)}</td>
+      </tr>
+    `)
+    .join('');
+}
+
+function renderCard(card: DetailCard) {
+  const rows = renderRows(card.rows);
+  return `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0;border:1px solid ${colors.line};border-radius:14px;background:${cardBackground(card.tone)};">
+      <tr>
+        <td style="padding:22px;">
+          ${card.title ? `<h3 style="margin:0 0 12px;font:700 15px Arial,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:${colors.navy};">${escapeHtml(card.title)}</h3>` : ''}
+          ${rows ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>` : ''}
+          ${card.html || ''}
+        </td>
+      </tr>
+    </table>
+  `;
+}
+
+function renderAction(action?: EmailAction, secondary = false) {
+  if (!action) return '';
+  const background = secondary ? colors.white : colors.terracotta;
+  const border = secondary ? colors.line : colors.terracotta;
+  const textColor = secondary ? colors.navy : colors.white;
+
+  return `
+    <a href="${escapeHtml(action.href)}" style="display:inline-block;margin:8px 6px 0;padding:14px 22px;border:1px solid ${border};border-radius:999px;background:${background};color:${textColor};font:700 14px Arial,sans-serif;text-decoration:none;">
+      ${escapeHtml(action.label)}
+    </a>
+  `;
+}
+
+export function catstaysEmailLayout(options: BrandedEmailOptions) {
+  const cards = (options.cards || []).map(renderCard).join('');
+  const footerNote = options.footerNote || 'You are receiving this because you use CatStays or contacted a cattery powered by CatStays.';
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="x-apple-disable-message-reformatting" />
+  <title>${escapeHtml(options.title)}</title>
+</head>
+<body style="margin:0;padding:0;background:${colors.cream};">
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${escapeHtml(options.preheader)}</div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${colors.cream};">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;background:${colors.white};border-radius:20px;overflow:hidden;border:1px solid ${colors.line};box-shadow:0 18px 42px rgba(10,17,40,.08);">
+          <tr>
+            <td style="padding:28px 32px;background:${colors.navy};">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="vertical-align:middle;">
+                    <img src="${escapeHtml(LOGO_URL)}" width="48" height="48" alt="CatStays" style="display:inline-block;width:48px;height:48px;border-radius:12px;vertical-align:middle;margin-right:12px;" />
+                    <span style="display:inline-block;vertical-align:middle;font:700 24px Georgia,serif;color:${colors.white};">CatStays</span>
+                  </td>
+                  <td align="right" style="vertical-align:middle;font:700 11px Arial,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#F1C29C;">
+                    ${escapeHtml(options.eyebrow || 'Cattery care')}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:34px 36px 20px;background:${colors.white};">
+              ${options.badge ? `<div style="display:inline-block;margin-bottom:16px;padding:7px 12px;border-radius:999px;background:${colors.warm};color:${colors.terracotta};font:700 12px Arial,sans-serif;">${escapeHtml(options.badge)}</div>` : ''}
+              <h1 style="margin:0;font:700 34px/1.12 Georgia,serif;color:${colors.navy};">${escapeHtml(options.title)}</h1>
+              ${options.catteryName ? `<p style="margin:10px 0 0;font:700 15px Arial,sans-serif;color:${colors.sage};">${escapeHtml(options.catteryName)}</p>` : ''}
+              ${options.intro ? `<p style="margin:18px 0 0;font:16px/1.65 Arial,sans-serif;color:${colors.muted};">${textToHtml(options.intro)}</p>` : ''}
+              ${options.action || options.secondaryAction ? `<div style="margin-top:22px;">${renderAction(options.action)}${renderAction(options.secondaryAction, true)}</div>` : ''}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 36px 26px;background:${colors.white};">
+              ${cards}
+              ${options.bodyHtml || ''}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px 36px;background:${colors.navy};">
+              <p style="margin:0 0 8px;font:700 14px Arial,sans-serif;color:${colors.white};">CatStays</p>
+              <p style="margin:0;font:12px/1.6 Arial,sans-serif;color:#B8C0D6;">${escapeHtml(footerNote)}</p>
+              <p style="margin:14px 0 0;font:12px Arial,sans-serif;color:#B8C0D6;">
+                <a href="${escapeHtml(APP_URL)}" style="color:#F1C29C;text-decoration:none;">${escapeHtml(APP_URL.replace(/^https?:\/\//, ''))}</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
 export function bookingConfirmationHtml(opts: {
   customerName: string;
   catteryName: string;
@@ -13,88 +198,37 @@ export function bookingConfirmationHtml(opts: {
   deposit?: string;
   bookingRef: string;
 }) {
-  const showReceipt = opts.totalAmount || opts.subtotal;
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Booking Confirmation</title>
-  <style>
-    body { font-family: Georgia, serif; background: #F6F4EF; margin: 0; padding: 0; }
-    .wrapper { max-width: 600px; margin: 32px auto; background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
-    .header { background: #2d3e2f; padding: 32px; text-align: center; }
-    .header h1 { color: #F6F4EF; font-size: 24px; margin: 0 0 4px; }
-    .header p { color: #7DAF7B; margin: 0; font-size: 14px; }
-    .body { padding: 32px; }
-    .body h2 { color: #2d3e2f; font-size: 20px; margin-bottom: 8px; }
-    .body p { color: #5c6b5e; line-height: 1.6; }
-    .badge { display: inline-block; background: #7DAF7B; color: #fff; border-radius: 20px; padding: 4px 14px; font-size: 12px; margin-bottom: 16px; }
-    .card { background: #F6F4EF; border-radius: 12px; padding: 20px 24px; margin: 20px 0; }
-    .card-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e8e4dd; font-size: 14px; }
-    .card-row:last-child { border-bottom: none; }
-    .card-label { color: #6b7a6d; }
-    .card-value { color: #2d3e2f; font-weight: 500; }
-    .receipt { background: #f0f4f0; border-radius: 12px; padding: 20px 24px; margin: 20px 0; border: 1px solid #d0ddd0; }
-    .receipt h3 { color: #2d3e2f; font-size: 15px; margin: 0 0 12px; text-transform: uppercase; letter-spacing: 0.05em; }
-    .receipt-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; color: #5c6b5e; }
-    .receipt-total { display: flex; justify-content: space-between; padding: 10px 0 0; border-top: 2px solid #2d3e2f; font-size: 16px; font-weight: bold; color: #2d3e2f; margin-top: 8px; }
-    .deposit-note { background: #fff8e8; border: 1px solid #f0d080; border-radius: 8px; padding: 12px 16px; margin-top: 12px; font-size: 13px; color: #7a6010; }
-    .footer { background: #F6F4EF; padding: 20px 32px; text-align: center; }
-    .footer p { color: #9aaa9c; font-size: 12px; margin: 0; }
-  </style>
-</head>
-<body>
-  <div class="wrapper">
-    <div class="header">
-      <h1>${opts.catteryName}</h1>
-      <p>Booking Confirmation</p>
-    </div>
-    <div class="body">
-      <span class="badge">Confirmed</span>
-      <h2>You're all booked, ${opts.customerName.split(' ')[0]}!</h2>
-      <p>We're looking forward to welcoming ${opts.catName ? opts.catName : 'your cat'} to ${opts.catteryName}.</p>
+  const receiptRows: DetailRow[] = [
+    { label: 'Subtotal', value: opts.subtotal },
+    { label: 'GST', value: opts.gst },
+    { label: 'Total', value: opts.totalAmount },
+    { label: 'Deposit required', value: opts.deposit },
+  ];
 
-      <div class="card">
-        <div class="card-row">
-          <span class="card-label">Booking reference</span>
-          <span class="card-value">#${opts.bookingRef}</span>
-        </div>
-        <div class="card-row">
-          <span class="card-label">Room</span>
-          <span class="card-value">${opts.roomName}</span>
-        </div>
-        <div class="card-row">
-          <span class="card-label">Check-in</span>
-          <span class="card-value">${opts.checkIn}</span>
-        </div>
-        <div class="card-row">
-          <span class="card-label">Check-out</span>
-          <span class="card-value">${opts.checkOut}</span>
-        </div>
-        ${opts.nights ? `<div class="card-row"><span class="card-label">Duration</span><span class="card-value">${opts.nights} nights</span></div>` : ''}
-      </div>
-
-      ${showReceipt ? `
-      <div class="receipt">
-        <h3>Invoice / Receipt</h3>
-        ${opts.pricePerNight && opts.nights ? `<div class="receipt-row"><span>${opts.roomName} × ${opts.nights} nights @ ${opts.pricePerNight}/night</span><span>${opts.subtotal}</span></div>` : ''}
-        ${opts.subtotal && opts.gst ? `<div class="receipt-row"><span>GST (15%)</span><span>${opts.gst}</span></div>` : ''}
-        <div class="receipt-total"><span>Total</span><span>${opts.totalAmount}</span></div>
-        ${opts.deposit ? `<div class="deposit-note">Deposit required: <strong>${opts.deposit}</strong> — balance due at check-out</div>` : ''}
-      </div>
-      ` : ''}
-
-      <p>If you need to make any changes or have questions, please contact ${opts.catteryName} directly. We look forward to meeting your cat!</p>
-    </div>
-    <div class="footer">
-      <p>Powered by CatStays &mdash; Professional Cattery Management</p>
-    </div>
-  </div>
-</body>
-</html>
-`;
+  return catstaysEmailLayout({
+    title: `You are all booked, ${firstName(opts.customerName)}`,
+    preheader: `Booking ${opts.bookingRef} has been confirmed at ${opts.catteryName}.`,
+    eyebrow: 'Booking confirmed',
+    badge: 'Confirmed',
+    catteryName: opts.catteryName,
+    intro: `We are looking forward to welcoming ${opts.catName || 'your cat'} for their stay.`,
+    cards: [
+      {
+        title: 'Booking details',
+        rows: [
+          { label: 'Booking reference', value: `#${opts.bookingRef}` },
+          { label: 'Room', value: opts.roomName },
+          { label: 'Cat', value: opts.catName },
+          { label: 'Check-in', value: opts.checkIn },
+          { label: 'Check-out', value: opts.checkOut },
+          { label: 'Duration', value: opts.nights ? plural(opts.nights, 'night') : undefined },
+          { label: 'Price per night', value: opts.pricePerNight },
+        ],
+      },
+      ...(receiptRows.some((row) => row.value) ? [{ title: 'Receipt', rows: receiptRows, tone: 'success' as const }] : []),
+    ],
+    footerNote: `Questions about this booking? Contact ${opts.catteryName} directly.`,
+  });
 }
 
 export function contactEnquiryHtml(opts: {
@@ -104,53 +238,31 @@ export function contactEnquiryHtml(opts: {
   catteryName: string;
   phone?: string;
 }) {
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>New Enquiry — ${opts.catteryName}</title>
-  <style>
-    body { font-family: Georgia, serif; background: #F6F4EF; margin: 0; padding: 0; }
-    .wrapper { max-width: 600px; margin: 32px auto; background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
-    .header { background: #C46A3A; padding: 24px 32px; }
-    .header h1 { color: #fff; font-size: 20px; margin: 0; }
-    .body { padding: 32px; }
-    .body p { color: #5c6b5e; line-height: 1.6; }
-    .card { background: #F6F4EF; border-radius: 12px; padding: 16px 20px; margin: 12px 0; }
-    .label { color: #6b7a6d; font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
-    .value { color: #2d3e2f; font-size: 15px; }
-    .message-box { background: #F6F4EF; border-left: 4px solid #C46A3A; padding: 16px 20px; margin: 20px 0; border-radius: 0 8px 8px 0; color: #2d3e2f; line-height: 1.7; }
-    .footer { background: #F6F4EF; padding: 20px 32px; text-align: center; }
-    .footer p { color: #9aaa9c; font-size: 12px; margin: 0; }
-  </style>
-</head>
-<body>
-  <div class="wrapper">
-    <div class="header">
-      <h1>New enquiry for ${opts.catteryName}</h1>
-    </div>
-    <div class="body">
-      <div class="card">
-        <div class="label">Name</div>
-        <div class="value">${opts.customerName}</div>
-      </div>
-      <div class="card">
-        <div class="label">Email</div>
-        <div class="value"><a href="mailto:${opts.customerEmail}" style="color:#C46A3A">${opts.customerEmail}</a></div>
-      </div>
-      ${opts.phone ? `<div class="card"><div class="label">Phone</div><div class="value">${opts.phone}</div></div>` : ''}
-      <div class="label" style="margin-top: 20px;">Message</div>
-      <div class="message-box">${opts.message.replace(/\n/g, '<br>')}</div>
-      <p>Reply directly to this email to respond to ${opts.customerName.split(' ')[0]}.</p>
-    </div>
-    <div class="footer">
-      <p>Powered by CatStays &mdash; Professional Cattery Management</p>
-    </div>
-  </div>
-</body>
-</html>
-`;
+  return catstaysEmailLayout({
+    title: 'New website enquiry',
+    preheader: `${opts.customerName} sent an enquiry to ${opts.catteryName}.`,
+    eyebrow: 'New enquiry',
+    badge: 'Action needed',
+    catteryName: opts.catteryName,
+    intro: `${opts.customerName} has sent a message from your CatStays website.`,
+    cards: [
+      {
+        title: 'Customer details',
+        rows: [
+          { label: 'Name', value: opts.customerName },
+          { label: 'Email', value: opts.customerEmail },
+          { label: 'Phone', value: opts.phone },
+        ],
+      },
+      {
+        title: 'Message',
+        html: `<p style="margin:0;font:15px/1.7 Arial,sans-serif;color:${colors.ink};">${textToHtml(opts.message)}</p>`,
+        tone: 'cream',
+      },
+    ],
+    action: { label: 'Reply by email', href: `mailto:${opts.customerEmail}` },
+    footerNote: 'Reply directly to the customer to continue the conversation.',
+  });
 }
 
 export function bookingRequestOwnerHtml(opts: {
@@ -166,82 +278,42 @@ export function bookingRequestOwnerHtml(opts: {
   estimatedTotal: string;
   specialRequirements?: string;
 }) {
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>New Booking Request — ${opts.catteryName}</title>
-  <style>
-    body { font-family: Georgia, serif; background: #F6F4EF; margin: 0; padding: 0; }
-    .wrapper { max-width: 600px; margin: 32px auto; background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
-    .header { background: #2d3e2f; padding: 24px 32px; }
-    .header h1 { color: #F6F4EF; font-size: 20px; margin: 0 0 4px; }
-    .header p { color: #7DAF7B; margin: 0; font-size: 13px; }
-    .body { padding: 32px; }
-    .section-title { font-size: 13px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7a6d; margin: 24px 0 8px; }
-    .card { background: #F6F4EF; border-radius: 12px; padding: 16px 20px; margin-bottom: 12px; }
-    .card-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #e8e4dd; font-size: 14px; }
-    .card-row:last-child { border-bottom: none; }
-    .card-label { color: #6b7a6d; }
-    .card-value { color: #2d3e2f; font-weight: 500; }
-    .highlight { background: #e8f4e8; border: 1px solid #7DAF7B; border-radius: 12px; padding: 16px 20px; margin: 16px 0; }
-    .highlight p { margin: 0; color: #2d3e2f; font-size: 15px; }
-    .note { background: #fff8e8; border: 1px solid #f0d080; border-radius: 8px; padding: 12px 16px; margin-top: 16px; font-size: 13px; color: #7a6010; }
-    .cta { text-align: center; margin: 24px 0; }
-    .btn { background: #2d3e2f; color: #fff; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-size: 15px; display: inline-block; }
-    .footer { background: #F6F4EF; padding: 20px 32px; text-align: center; }
-    .footer p { color: #9aaa9c; font-size: 12px; margin: 0; }
-  </style>
-</head>
-<body>
-  <div class="wrapper">
-    <div class="header">
-      <h1>New Booking Request</h1>
-      <p>A customer has requested a stay at ${opts.catteryName}</p>
-    </div>
-    <div class="body">
-      <div class="highlight">
-        <p><strong>${opts.customerName}</strong> wants to book <strong>${opts.nights} night${opts.nights !== 1 ? 's' : ''}</strong> for <strong>${opts.catNames.join(', ') || 'their cat(s)'}</strong> — estimated total <strong>${opts.estimatedTotal}</strong></p>
-      </div>
-
-      <div class="section-title">Stay Details</div>
-      <div class="card">
-        <div class="card-row"><span class="card-label">Check-in</span><span class="card-value">${opts.checkIn}</span></div>
-        <div class="card-row"><span class="card-label">Check-out</span><span class="card-value">${opts.checkOut}</span></div>
-        <div class="card-row"><span class="card-label">Duration</span><span class="card-value">${opts.nights} nights</span></div>
-        <div class="card-row"><span class="card-label">Room</span><span class="card-value">${opts.roomName}</span></div>
-        <div class="card-row"><span class="card-label">Estimated Total</span><span class="card-value">${opts.estimatedTotal}</span></div>
-      </div>
-
-      <div class="section-title">Customer Details</div>
-      <div class="card">
-        <div class="card-row"><span class="card-label">Name</span><span class="card-value">${opts.customerName}</span></div>
-        <div class="card-row"><span class="card-label">Email</span><span class="card-value"><a href="mailto:${opts.customerEmail}" style="color:#C46A3A">${opts.customerEmail}</a></span></div>
-        <div class="card-row"><span class="card-label">Phone</span><span class="card-value">${opts.phone}</span></div>
-      </div>
-
-      <div class="section-title">Cats</div>
-      <div class="card">
-        ${opts.catNames.map((name, i) => `<div class="card-row"><span class="card-label">Cat ${i + 1}</span><span class="card-value">${name || 'Unnamed'}</span></div>`).join('')}
-      </div>
-
-      ${opts.specialRequirements ? `
-      <div class="section-title">Special Requirements</div>
-      <div class="card"><p style="margin:0;color:#2d3e2f;font-size:14px;line-height:1.6">${opts.specialRequirements.replace(/\n/g, '<br>')}</p></div>
-      ` : ''}
-
-      <div class="note">
-        Reply directly to this email or call the customer to confirm. Once confirmed, create the official booking in your CatStays admin dashboard.
-      </div>
-    </div>
-    <div class="footer">
-      <p>Powered by CatStays &mdash; Professional Cattery Management</p>
-    </div>
-  </div>
-</body>
-</html>
-`;
+  return catstaysEmailLayout({
+    title: 'New booking request',
+    preheader: `${opts.customerName} requested ${plural(opts.nights, 'night')} at ${opts.catteryName}.`,
+    eyebrow: 'Booking request',
+    badge: 'Review request',
+    catteryName: opts.catteryName,
+    intro: `${opts.customerName} wants to book ${catNamesText(opts.catNames)} for ${plural(opts.nights, 'night')}.`,
+    cards: [
+      {
+        title: 'Stay details',
+        rows: [
+          { label: 'Cats', value: catNamesText(opts.catNames) },
+          { label: 'Check-in', value: opts.checkIn },
+          { label: 'Check-out', value: opts.checkOut },
+          { label: 'Duration', value: plural(opts.nights, 'night') },
+          { label: 'Room', value: opts.roomName },
+          { label: 'Estimated total', value: opts.estimatedTotal },
+        ],
+      },
+      {
+        title: 'Customer details',
+        rows: [
+          { label: 'Name', value: opts.customerName },
+          { label: 'Email', value: opts.customerEmail },
+          { label: 'Phone', value: opts.phone },
+        ],
+      },
+      ...(opts.specialRequirements ? [{
+        title: 'Special requirements',
+        html: `<p style="margin:0;font:15px/1.7 Arial,sans-serif;color:${colors.ink};">${textToHtml(opts.specialRequirements)}</p>`,
+        tone: 'warning' as const,
+      }] : []),
+    ],
+    action: { label: 'Reply to customer', href: `mailto:${opts.customerEmail}` },
+    footerNote: 'Confirm availability in your CatStays dashboard, then send the customer their final booking confirmation.',
+  });
 }
 
 export function bookingRequestCustomerHtml(opts: {
@@ -256,79 +328,178 @@ export function bookingRequestCustomerHtml(opts: {
   roomName: string;
   estimatedTotal: string;
 }) {
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>Booking Request Received — ${opts.catteryName}</title>
-  <style>
-    body { font-family: Georgia, serif; background: #F6F4EF; margin: 0; padding: 0; }
-    .wrapper { max-width: 600px; margin: 32px auto; background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
-    .header { background: #2d3e2f; padding: 32px; text-align: center; }
-    .header h1 { color: #F6F4EF; font-size: 24px; margin: 0 0 4px; }
-    .header p { color: #7DAF7B; margin: 0; font-size: 14px; }
-    .body { padding: 32px; }
-    .body h2 { color: #2d3e2f; font-size: 20px; margin-bottom: 8px; }
-    .body p { color: #5c6b5e; line-height: 1.6; }
-    .badge { display: inline-block; background: #C46A3A; color: #fff; border-radius: 20px; padding: 4px 14px; font-size: 12px; margin-bottom: 16px; }
-    .card { background: #F6F4EF; border-radius: 12px; padding: 20px 24px; margin: 20px 0; }
-    .card-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e8e4dd; font-size: 14px; }
-    .card-row:last-child { border-bottom: none; }
-    .card-label { color: #6b7a6d; }
-    .card-value { color: #2d3e2f; font-weight: 500; }
-    .next-steps { background: #e8f4e8; border-radius: 12px; padding: 20px 24px; margin: 20px 0; }
-    .next-steps h3 { color: #2d3e2f; margin: 0 0 12px; font-size: 16px; }
-    .next-steps li { color: #2d3e2f; font-size: 14px; margin-bottom: 8px; }
-    .contact-box { border: 1px solid #e8e4dd; border-radius: 12px; padding: 16px 20px; margin-top: 20px; text-align: center; }
-    .contact-box p { margin: 4px 0; font-size: 14px; color: #5c6b5e; }
-    .footer { background: #F6F4EF; padding: 20px 32px; text-align: center; }
-    .footer p { color: #9aaa9c; font-size: 12px; margin: 0; }
-  </style>
-</head>
-<body>
-  <div class="wrapper">
-    <div class="header">
-      <h1>${opts.catteryName}</h1>
-      <p>Booking Request Received</p>
-    </div>
-    <div class="body">
-      <span class="badge">Request Received</span>
-      <h2>Thanks, ${opts.customerName.split(' ')[0]}!</h2>
-      <p>We've received your booking request and will be in touch within 24 hours to confirm your cat's stay.</p>
+  return catstaysEmailLayout({
+    title: `Thanks, ${firstName(opts.customerName)}`,
+    preheader: `${opts.catteryName} received your booking request.`,
+    eyebrow: 'Request received',
+    badge: 'Pending confirmation',
+    catteryName: opts.catteryName,
+    intro: `Your booking request has been received. ${opts.catteryName} will review availability and contact you to confirm your cat's stay.`,
+    cards: [
+      {
+        title: 'Requested stay',
+        rows: [
+          { label: 'Cats', value: catNamesText(opts.catNames) },
+          { label: 'Check-in', value: opts.checkIn },
+          { label: 'Check-out', value: opts.checkOut },
+          { label: 'Duration', value: plural(opts.nights, 'night') },
+          { label: 'Room', value: opts.roomName },
+          { label: 'Estimated total', value: opts.estimatedTotal },
+        ],
+      },
+      {
+        title: 'Need help?',
+        rows: [
+          { label: 'Email', value: opts.catteryEmail },
+          { label: 'Phone', value: opts.catteryPhone },
+        ],
+      },
+    ],
+    footerNote: `${opts.catteryName} will be in touch to confirm availability and next steps.`,
+  });
+}
 
-      <div class="card">
-        <div class="card-row"><span class="card-label">Cats</span><span class="card-value">${opts.catNames.join(', ') || 'Your cat(s)'}</span></div>
-        <div class="card-row"><span class="card-label">Check-in</span><span class="card-value">${opts.checkIn}</span></div>
-        <div class="card-row"><span class="card-label">Check-out</span><span class="card-value">${opts.checkOut}</span></div>
-        <div class="card-row"><span class="card-label">Duration</span><span class="card-value">${opts.nights} nights</span></div>
-        <div class="card-row"><span class="card-label">Room</span><span class="card-value">${opts.roomName}</span></div>
-        <div class="card-row"><span class="card-label">Estimated total</span><span class="card-value">${opts.estimatedTotal}</span></div>
-      </div>
+export function testEmailHtml() {
+  return catstaysEmailLayout({
+    title: 'Email integration confirmed',
+    preheader: 'CatStays email sending is working correctly.',
+    eyebrow: 'System test',
+    badge: 'Connected',
+    intro: 'Your CatStays Resend integration is working. Booking confirmations, enquiries, and subscription emails can now use the branded email system.',
+    cards: [
+      {
+        title: 'Sending identity',
+        rows: [
+          { label: 'Product', value: 'CatStays' },
+          { label: 'From address', value: 'bookings@catstays.app' },
+        ],
+      },
+    ],
+  });
+}
 
-      <div class="next-steps">
-        <h3>What happens next?</h3>
-        <ol>
-          <li>We'll review your request and check availability</li>
-          <li>We'll contact you within 24 hours to confirm</li>
-          <li>You'll receive a deposit payment link to secure the booking</li>
-          <li>We'll send you a final confirmation with all details</li>
-        </ol>
-      </div>
+export function ownerWelcomeHtml(opts: {
+  ownerName: string;
+  catteryName: string;
+  dashboardUrl?: string;
+}) {
+  return catstaysEmailLayout({
+    title: `Welcome to CatStays, ${firstName(opts.ownerName)}`,
+    preheader: `${opts.catteryName} is ready in CatStays.`,
+    eyebrow: 'Welcome',
+    badge: 'Account created',
+    catteryName: opts.catteryName,
+    intro: 'Your CatStays workspace is ready. You can now review your website, manage rooms, and start preparing your booking flow.',
+    action: opts.dashboardUrl ? { label: 'Open dashboard', href: opts.dashboardUrl } : undefined,
+  });
+}
 
-      ${opts.catteryEmail || opts.catteryPhone ? `
-      <div class="contact-box">
-        <p><strong>Questions?</strong> Contact us directly:</p>
-        ${opts.catteryEmail ? `<p><a href="mailto:${opts.catteryEmail}" style="color:#C46A3A">${opts.catteryEmail}</a></p>` : ''}
-        ${opts.catteryPhone ? `<p>${opts.catteryPhone}</p>` : ''}
-      </div>
-      ` : ''}
-    </div>
-    <div class="footer">
-      <p>Powered by CatStays &mdash; Professional Cattery Management</p>
-    </div>
-  </div>
-</body>
-</html>
-`;
+export function trialStartedHtml(opts: {
+  ownerName: string;
+  catteryName: string;
+  planName: string;
+  trialEndsAt?: string;
+  dashboardUrl?: string;
+}) {
+  return catstaysEmailLayout({
+    title: 'Your CatStays trial is live',
+    preheader: `Your ${opts.planName} trial has started for ${opts.catteryName}.`,
+    eyebrow: 'Trial started',
+    badge: '14-day trial',
+    catteryName: opts.catteryName,
+    intro: `Hi ${firstName(opts.ownerName)}, your CatStays trial is active with full access to set up your cattery website and dashboard.`,
+    cards: [
+      {
+        title: 'Trial details',
+        rows: [
+          { label: 'Plan after trial', value: opts.planName },
+          { label: 'Trial ends', value: opts.trialEndsAt },
+        ],
+      },
+    ],
+    action: opts.dashboardUrl ? { label: 'Continue setup', href: opts.dashboardUrl } : undefined,
+  });
+}
+
+export function trialEndingReminderHtml(opts: {
+  ownerName: string;
+  catteryName: string;
+  trialEndsAt: string;
+  billingUrl?: string;
+}) {
+  return catstaysEmailLayout({
+    title: 'Your trial ends soon',
+    preheader: `${opts.catteryName}'s CatStays trial ends on ${opts.trialEndsAt}.`,
+    eyebrow: 'Trial reminder',
+    badge: 'Action needed',
+    catteryName: opts.catteryName,
+    intro: `Hi ${firstName(opts.ownerName)}, your CatStays trial ends on ${opts.trialEndsAt}. Add or confirm billing to keep your website and dashboard running without interruption.`,
+    action: opts.billingUrl ? { label: 'Review billing', href: opts.billingUrl } : undefined,
+  });
+}
+
+export function subscriptionStartedHtml(opts: {
+  ownerName: string;
+  catteryName: string;
+  planName: string;
+  billingUrl?: string;
+}) {
+  return catstaysEmailLayout({
+    title: 'Your subscription is active',
+    preheader: `${opts.catteryName} is subscribed to ${opts.planName}.`,
+    eyebrow: 'Subscription',
+    badge: 'Active',
+    catteryName: opts.catteryName,
+    intro: `Thanks ${firstName(opts.ownerName)}. Your CatStays ${opts.planName} subscription is active, so your website and dashboard can keep running smoothly.`,
+    action: opts.billingUrl ? { label: 'Manage billing', href: opts.billingUrl } : undefined,
+  });
+}
+
+export function subscriptionPaymentFailedHtml(opts: {
+  ownerName: string;
+  catteryName: string;
+  billingUrl?: string;
+}) {
+  return catstaysEmailLayout({
+    title: 'Payment needs attention',
+    preheader: `We could not process the latest CatStays payment for ${opts.catteryName}.`,
+    eyebrow: 'Billing',
+    badge: 'Payment issue',
+    catteryName: opts.catteryName,
+    intro: `Hi ${firstName(opts.ownerName)}, we could not process your latest CatStays payment. Please update your billing details to avoid any interruption to your website or dashboard.`,
+    action: opts.billingUrl ? { label: 'Update billing', href: opts.billingUrl } : undefined,
+  });
+}
+
+export function subscriptionCancelledHtml(opts: {
+  ownerName: string;
+  catteryName: string;
+  billingUrl?: string;
+}) {
+  return catstaysEmailLayout({
+    title: 'Your subscription has been cancelled',
+    preheader: `${opts.catteryName}'s CatStays subscription has been cancelled.`,
+    eyebrow: 'Subscription',
+    badge: 'Cancelled',
+    catteryName: opts.catteryName,
+    intro: `Hi ${firstName(opts.ownerName)}, your CatStays subscription has been cancelled. You can restart it from billing if you want to keep your website and dashboard active.`,
+    action: opts.billingUrl ? { label: 'Open billing', href: opts.billingUrl } : undefined,
+  });
+}
+
+export function customerPhotoUpdateHtml(opts: {
+  customerName: string;
+  catteryName: string;
+  catName?: string;
+  portalUrl?: string;
+}) {
+  return catstaysEmailLayout({
+    title: `New update for ${opts.catName || 'your cat'}`,
+    preheader: `${opts.catteryName} shared a new photo update.`,
+    eyebrow: 'Cat update',
+    badge: 'New photo',
+    catteryName: opts.catteryName,
+    intro: `Hi ${firstName(opts.customerName)}, ${opts.catteryName} has shared a new update from your cat's stay.`,
+    action: opts.portalUrl ? { label: 'View update', href: opts.portalUrl } : undefined,
+  });
 }

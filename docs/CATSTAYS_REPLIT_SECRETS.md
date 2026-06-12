@@ -72,8 +72,10 @@ Install and restart:
 pnpm install
 ```
 
-If `SUPABASE_ACCESS_TOKEN` is set and you want to apply the hosted Auth email templates:
+Supabase Auth email templates are versioned in:
 
-```bash
-pnpm --filter @workspace/scripts catstays:email-templates
+```text
+supabase/auth-email-templates/
 ```
+
+Paste them into Supabase Dashboard under Authentication > Emails, using `docs/email-templates.md` as the checklist.

@@ -1,34 +1,35 @@
-# CatStays Email Templates
+# CatStays Supabase Auth Email Templates
 
-Supabase Auth email templates are hosted Auth settings, not SQL migrations.
+These templates keep Supabase Auth emails visually consistent with CatStays app emails.
 
-Use these files as the versioned source for the CatStays-branded templates:
+Use them in Supabase Dashboard under Authentication > Emails. Paste each HTML file into the matching email template:
 
-- `confirm-signup.html` - Supabase Auth confirmation email.
-- `magic-link.html` - Supabase Auth magic link email.
-- `reset-password.html` - Supabase Auth password recovery email.
-- `trial-reminder.html` - App transactional email for trial ending reminders.
-- `billing-reminder.html` - App transactional email for billing reminders.
+- `confirmation.html` - Confirm signup
+- `recovery.html` - Reset password
+- `magic-link.html` - Magic link
+- `invite.html` - Invite user
+- `email-change.html` - Confirm email change
+- `reauthentication.html` - Reauthentication code
+- `trial-reminder.html` - Trial ending reminder reference
+- `billing-reminder.html` - Billing reminder reference
 
-For Supabase Auth templates, either run the scripted setup:
+Legacy filenames are retained for compatibility:
 
-```bash
-SUPABASE_ACCESS_TOKEN="your-personal-access-token" pnpm --filter @workspace/scripts catstays:email-templates
-```
+- `confirm-signup.html` mirrors `confirmation.html`
+- `reset-password.html` mirrors `recovery.html`
 
-By default, the script updates the CatStays project `iwyoezwqorddkmqnjbif`.
-To target another project, set `SUPABASE_PROJECT_REF`.
+The templates use Supabase Auth variables such as `{{ .ConfirmationURL }}`, `{{ .Token }}`, `{{ .Email }}`, and `{{ .SiteURL }}`.
 
-Or paste the HTML manually into:
+Logo source:
 
-Authentication > Emails > Templates
+`{{ .SiteURL }}/icons/icon-192.png`
 
-The Auth templates use Supabase variables such as `{{ .ConfirmationURL }}`, `{{ .Email }}`, and `{{ .SiteURL }}`.
+Recommended production values:
 
-Before turning on live sending:
+- Site URL: `https://catstays.app`
+- Sender name: `CatStays`
+- Sender email: the verified CatStays transactional sender
 
-1. Set the Site URL to the production CatStays domain.
-2. Add `https://catstays.app/confirm-email` to the allowed redirect URLs.
-3. Add Replit preview URLs used for testing to the allowed redirect URLs.
-4. Configure custom SMTP for the final branded sender domain.
-5. Send a test signup and confirm that the link returns to `/confirm-email`.
+App transactional emails are generated from:
+
+`artifacts/api-server/src/lib/emailTemplates.ts`
