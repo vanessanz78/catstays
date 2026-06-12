@@ -1,6 +1,6 @@
 # CatStays UAT Feedback
 
-Last updated: 2026-06-12 13:17 NZST
+Last updated: 2026-06-12 13:50 NZST
 
 ## Working Agreement
 
@@ -53,3 +53,13 @@ Record UAT findings below using this format:
 - What happened: the home page showed a large browser preview, the testimonial was still the old card-style image, demo header included extra Pricing/import copy, and desktop preview was constrained in its own scroll frame.
 - Severity: medium
 - Resolution: fixed in commit `ddc6888` by removing the home page mockup preview, adding the Vanessa banner image, adding favicon/apple/install icons and manifest metadata, simplifying the demo header, making desktop preview full-width with page scroll, and saving the selected device mode across demo route changes.
+
+### 2026-06-12 13:50 NZST - Client Portal Mobile Preview Card Wrapping
+
+- Page: `/demo/deloraine-client`
+- Device: mobile preview frame
+- What you clicked: client portal, mobile device control, dashboard shortcut cards, pets, profile, and bookings views
+- What you expected: words should not escape or be squeezed into unreadable columns inside the simulated mobile device. Where needed, controls and cards should stack vertically or use legible sizing.
+- What happened: the dashboard shortcut cards for My Bookings, My Pets, and My Profile were still using desktop column logic inside the phone frame, which made labels wrap awkwardly.
+- Severity: high
+- Resolution: fixed in commit `1700b0d` by passing the selected preview device into the customer portal screens, stacking mobile shortcut cards and key nested layouts, widening mobile action buttons, and restoring demo pets/bookings data so UAT views show realistic content. Verified with type check and browser layout measurements showing no overflow on dashboard cards, pets, profile fields, or booking rows.
