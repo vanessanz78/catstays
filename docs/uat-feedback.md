@@ -83,3 +83,13 @@ Record UAT findings below using this format:
 - What happened: the preview was still transforming scraped content into a CatStays template. Publish failed with a generic cattery provisioning error; local verification showed the frontend preview was running without the publishing API service on port 8080, so the selected template is not the likely cause.
 - Severity: blocker
 - Resolution: updated the website preview to render the original source site directly when an imported source URL exists, preserved that source URL through onboarding/demo state, and improved publish errors so a missing publishing service is reported clearly. Verified with `https://harrishillton.co.nz/`: the Website view iframe source is `https://harrishillton.co.nz/` at both desktop and mobile widths, and type check passes.
+
+### 2026-06-12 15:16 NZST - StayDirect Template Kit And Shared Preview Content
+
+- Page: `/onboarding`, `/demo/deloraine?source=https%3A%2F%2Fharrishillton.co.nz%2F`
+- Device: desktop preview, template selector, website preview renderer
+- What you clicked: imported a source website, reviewed the original scraped preview, and switched between the available template options.
+- What you expected: the scraped website should stay available as `Original`, while Focus, Editorial, and Showcase should all use the same categorized scrape data so customers can switch designs without losing content.
+- What happened: the onboarding flow still used the older fixed template list and the scraped source data was not stored as a reusable preview record for repainting across templates.
+- Severity: high
+- Resolution: added the StayDirect transfer kit artifact to CatStays, introduced a shared preview import record shaped around business, hero, features, about, gallery, suites, testimonials, booking, and footer content, replaced the template selector with Original, Focus, Editorial, and Showcase, and made publish mark the selected preview template as the live version. Verified with frontend and API type checks.

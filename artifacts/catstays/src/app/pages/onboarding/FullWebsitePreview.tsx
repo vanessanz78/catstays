@@ -9,6 +9,8 @@ import { BookingBar } from '../../components/BookingBar';
 import { BookingFlowModal } from '../../components/BookingFlowModal';
 import { ChatWidget } from '../../components/ChatWidget';
 import { WebsiteHeader } from '../../components/WebsiteHeader';
+import { CatstaysTemplateSite } from './CatstaysTemplateSite';
+import { isOriginalTemplate } from '../../lib/previewTemplates';
 import {
   WhyChooseUsSection,
   FacilitiesSection,
@@ -140,7 +142,7 @@ export function FullWebsitePreview({
   // Render the imported customer website exactly when a source URL exists.
   const renderWebsitePreview = (fillHeight = true) => {
     const sourcePreviewUrl = importedPreviewUrl(data);
-    if (sourcePreviewUrl) {
+    if (sourcePreviewUrl && isOriginalTemplate(data.selectedTemplate)) {
       return (
         <SourceWebsitePreview
           sourceUrl={sourcePreviewUrl}
@@ -150,7 +152,16 @@ export function FullWebsitePreview({
       );
     }
 
-    const template = data.selectedTemplate || 'boutique-luxury';
+    const template = data.selectedTemplate || 'conversion-focus';
+
+    if (
+      template === 'conversion-focus' ||
+      template === 'editorial-guide' ||
+      template === 'modern-showcase' ||
+      template === 'original'
+    ) {
+      return <CatstaysTemplateSite data={data} templateId={template} embedded />;
+    }
 
     // Render the template with all the data
     return (

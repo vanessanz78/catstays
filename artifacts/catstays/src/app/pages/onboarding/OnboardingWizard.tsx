@@ -56,6 +56,16 @@ import { DataImportFlow } from './DataImportFlow';
 import { BookingRulesForm } from './BookingRulesForm';
 import { DashboardPreviewStep } from './DashboardPreviewStep';
 import { FullWebsitePreview } from './FullWebsitePreview';
+import {
+  applyPreviewTemplate,
+  buildPreviewImportRecord,
+  dataFromPreviewRecord,
+  markPreviewSelectionLive,
+  savePreviewImportRecord,
+  templateOptionsForData,
+  type PreviewTemplateId,
+  type ImportedCatteryScrape,
+} from '../../lib/previewTemplates';
 
 const logoIcon = '/assets/b463d12091f20e48be52186dedd2a0f6707d0b66.png';
 
@@ -108,45 +118,6 @@ const planDetails: Record<PlanTier, {
   },
 };
 
-const templateCards = [
-  {
-    id: 'boutique-luxury',
-    name: 'Boutique Luxury',
-    description: 'Editorial hero, refined rooms, calm premium feel',
-    image: 'https://images.unsplash.com/photo-1518791841217-8f162f1e1131?w=900&h=600&fit=crop',
-  },
-  {
-    id: 'clean-modern',
-    name: 'Clean Modern',
-    description: 'Spacious sections, clear booking paths, minimal UI',
-    image: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=900&h=600&fit=crop',
-  },
-  {
-    id: 'playful-family',
-    name: 'Warm Family',
-    description: 'Friendly photography, reassuring copy, easy booking',
-    image: 'https://images.unsplash.com/photo-1543852786-1cf6624b9987?w=900&h=600&fit=crop',
-  },
-  {
-    id: 'image-focused',
-    name: 'Image Led',
-    description: 'Full-bleed gallery sections for beautiful facilities',
-    image: 'https://images.unsplash.com/photo-1573865526739-10c1de0e0ef2?w=900&h=600&fit=crop',
-  },
-  {
-    id: 'split-layout',
-    name: 'Split Story',
-    description: 'Strong storytelling beside real cattery images',
-    image: 'https://images.unsplash.com/photo-1495360010541-f48722b34f7d?w=900&h=600&fit=crop',
-  },
-  {
-    id: 'classic-service',
-    name: 'Classic Service',
-    description: 'Structured service layout for established catteries',
-    image: 'https://images.unsplash.com/photo-1574144611937-0df059b5ef3e?w=900&h=600&fit=crop',
-  },
-];
-
 function publishErrorMessage(status: number, rawPayload: string) {
   const trimmedPayload = rawPayload.trim();
   if (status >= 500 && !trimmedPayload) {
@@ -192,6 +163,10 @@ export function OnboardingWizard() {
     websiteUrl: '',
     importSourceUrl: '',
     sourceUrl: '',
+    sourceHost: '',
+    previewImportRecord: null,
+    previewImportRecordId: '',
+    previewRecordStatus: 'draft',
     isImporting: false,
     importComplete: false,
     importError: '',
@@ -400,17 +375,7 @@ export function OnboardingWizard() {
         body: JSON.stringify({ url: data.websiteUrl }),
       });
 
-      const payload = await res.json() as {
-        title?: string;
-        description?: string;
-        heading?: string;
-        heroImage?: string;
-        sourceUrl?: string;
-        sourceHost?: string;
-        phone?: string;
-        email?: string;
-        error?: string;
-      };
+      const payload = await res.json() as ImportedCatteryScrape & { error?: string };
 
       if (!res.ok || payload.error) {
         setData(prev => ({
@@ -421,19 +386,14 @@ export function OnboardingWizard() {
         return;
       }
 
+      const previewRecord = buildPreviewImportRecord(payload);
+      savePreviewImportRecord(previewRecord);
+
       setData(prev => ({
-        ...prev,
+        ...dataFromPreviewRecord(previewRecord, 'original', prev),
         isImporting: false,
         importComplete: true,
         importError: '',
-        importSourceUrl: payload.sourceUrl || prev.websiteUrl,
-        sourceUrl: payload.sourceUrl || prev.websiteUrl,
-        sourceHost: payload.sourceHost || '',
-        heroHeading: payload.heading || payload.title || ('Welcome to ' + prev.businessName),
-        heroSubheading: payload.description || 'Premium cat boarding and care services',
-        aboutText: payload.description || 'We are a family-run cattery dedicated to providing the highest standard of care for your beloved cats.',
-        heroImage: payload.heroImage || prev.heroImage,
-        phone: payload.phone || prev.phone,
       }));
     } catch {
       setData(prev => ({
@@ -466,6 +426,10 @@ export function OnboardingWizard() {
         importSourceUrl: data.importSourceUrl,
         sourceUrl: data.sourceUrl,
         sourceHost: data.sourceHost,
+        previewImportRecord: data.previewImportRecord,
+        previewImportRecordId: data.previewImportRecordId,
+        previewRecordStatus: data.previewRecordStatus,
+        liveTemplate: data.selectedTemplate,
         testimonials: data.testimonials,
         faqs: data.faqs,
         additionalServices: data.additionalServices,
@@ -486,6 +450,7 @@ export function OnboardingWizard() {
         taxType: data.taxType,
         discounts: data.discounts,
         blockOutDates: data.blockOutDates,
+        selectedTemplate: data.selectedTemplate,
       };
 
       await supabase
@@ -531,6 +496,11 @@ export function OnboardingWizard() {
         importSourceUrl: ws.importSourceUrl || ws.sourceUrl || prev.importSourceUrl,
         sourceUrl: ws.sourceUrl || ws.importSourceUrl || prev.sourceUrl,
         sourceHost: ws.sourceHost || prev.sourceHost,
+        previewImportRecord: ws.previewImportRecord || prev.previewImportRecord,
+        previewImportRecordId: ws.previewImportRecordId || prev.previewImportRecordId,
+        previewRecordStatus: ws.previewRecordStatus || prev.previewRecordStatus,
+        liveTemplate: ws.liveTemplate || prev.liveTemplate,
+        selectedTemplate: ws.selectedTemplate || ws.liveTemplate || prev.selectedTemplate,
       }));
     }
   }, [cattery?.id]);
@@ -809,56 +779,12 @@ export function OnboardingWizard() {
     }
   };
 
-  const handleTemplateSelect = (template: string) => {
-    const templateConfig = {
-      'boutique-luxury': {
-        primaryColor: '#0A1128',
-        accentColor: '#C46A3A',
-        backgroundColor: '#F8F7F5',
-        typography: 'playfair'
-      },
-      'clean-modern': {
-        primaryColor: '#18233F',
-        accentColor: '#B86A3F',
-        backgroundColor: '#FFFFFF',
-        typography: 'inter'
-      },
-      'playful-family': {
-        primaryColor: '#0A1128',
-        accentColor: '#D98C6A',
-        backgroundColor: '#FAF7F2',
-        typography: 'nunito'
-      },
-      'image-focused': {
-        primaryColor: '#1D2A3F',
-        accentColor: '#8A6F4D',
-        backgroundColor: '#F8F7F5',
-        typography: 'inter'
-      },
-      'split-layout': {
-        primaryColor: '#243044',
-        accentColor: '#C46A3A',
-        backgroundColor: '#F6F2EA',
-        typography: 'poppins'
-      },
-      'classic-service': {
-        primaryColor: '#0A1128',
-        accentColor: '#9B7653',
-        backgroundColor: '#F8F7F5',
-        typography: 'inter'
-      }
-    };
-
-    const config = templateConfig[template as keyof typeof templateConfig];
-    if (config) {
-      setData({ 
-        ...data, 
-        selectedTemplate: template,
-        ...config
-      });
-    }
+  const handleTemplateSelect = (template: PreviewTemplateId) => {
+    const nextData = applyPreviewTemplate(data, template);
+    setData(nextData);
     setShowTemplateSelection(false);
-    handleNext();
+    localStorage.setItem('catstays_onboarding', JSON.stringify({ step, data: nextData, accountCreated }));
+    setStep(Math.min(step + 1, totalSteps));
   };
 
   const handlePublish = async () => {
@@ -867,20 +793,22 @@ export function OnboardingWizard() {
 
     try {
       let activeCatteryId = cattery?.id ?? null;
+      const liveData = markPreviewSelectionLive(data);
+      setData(liveData);
 
       if (!activeCatteryId) {
-        if (!data.name || !data.email || !data.password || data.password.length < 8) {
+        if (!liveData.name || !liveData.email || !liveData.password || liveData.password.length < 8) {
           setCreateAccountError('Please complete your account details before publishing.');
           setStep(1);
           return;
         }
 
-        localStorage.setItem('catstays_onboarding', JSON.stringify({ step, data, accountCreated: true }));
+        localStorage.setItem('catstays_onboarding', JSON.stringify({ step, data: liveData, accountCreated: true }));
 
         const response = await fetch('/api/cattery/provision', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ data, plan: selectedPlan }),
+          body: JSON.stringify({ data: liveData, plan: selectedPlan }),
         });
 
         const rawPayload = await response.text();
@@ -913,13 +841,13 @@ export function OnboardingWizard() {
         }
 
         localStorage.setItem('catstays_account', JSON.stringify({
-          name: data.name,
-          email: data.email,
-          businessName: data.businessName,
+          name: liveData.name,
+          email: liveData.email,
+          businessName: liveData.businessName,
           createdAt: new Date().toISOString(),
           emailConfirmed: false,
           catteryId: activeCatteryId,
-          slug: payload.slug || data.subdomain,
+          slug: payload.slug || liveData.subdomain,
           status: 'confirmation_sent',
         }));
         await refreshCattery();
@@ -1383,6 +1311,10 @@ export function OnboardingWizard() {
                               importSourceUrl: '',
                               sourceUrl: '',
                               sourceHost: '',
+                              previewImportRecord: null,
+                              previewImportRecordId: '',
+                              previewRecordStatus: 'draft',
+                              selectedTemplate: null,
                             }))}
                             className="text-sm text-[#0A1128]/60 underline hover:text-[#0A1128]"
                           >
@@ -1451,12 +1383,14 @@ export function OnboardingWizard() {
               
               <CardContent className="p-8">
                 {/* Template Grid */}
-                <div className="grid md:grid-cols-3 gap-6 mb-8">
-                  {templateCards.map((template) => (
+                <div className="grid md:grid-cols-4 gap-5 mb-8">
+                  {templateOptionsForData(data).map((template) => (
                     <button
                       key={template.id}
                       onClick={() => handleTemplateSelect(template.id)}
-                      className="group relative bg-white rounded-2xl border-2 border-sage/20 hover:border-[#C46A3A] hover:shadow-xl transition-all duration-300 overflow-hidden text-left"
+                      className={`group relative bg-white rounded-2xl border-2 hover:border-[#C46A3A] hover:shadow-xl transition-all duration-300 overflow-hidden text-left ${
+                        data.selectedTemplate === template.id ? 'border-[#C46A3A] shadow-xl' : 'border-sage/20'
+                      }`}
                     >
                       <div className="aspect-[4/3] bg-[#F8F7F5] p-4">
                         <div className="h-full rounded-xl overflow-hidden border border-[#0A1128]/10 shadow-sm bg-white">
@@ -1482,7 +1416,12 @@ export function OnboardingWizard() {
                         </div>
                       </div>
                       <div className="p-4 bg-white min-h-[116px]">
-                        <h3 className="font-semibold text-forest mb-1">{template.name}</h3>
+                        <div className="mb-1 flex items-center justify-between gap-2">
+                          <h3 className="font-semibold text-forest">{template.name}</h3>
+                          {template.sourceOnly && (
+                            <Badge className="bg-[#0A1128] text-white hover:bg-[#0A1128]">Scraped</Badge>
+                          )}
+                        </div>
                         <p className="text-sm text-forest/70 leading-snug">{template.description}</p>
                       </div>
                       <div className="absolute inset-0 bg-[#C46A3A]/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>

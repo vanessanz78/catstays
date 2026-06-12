@@ -307,7 +307,7 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
     address: stringValue(settings.address) || scrape.address || fallbackAddress,
     pricePerNight: pricePerNight(rooms),
     pricePerCat: pricePerNight(rooms),
-    selectedTemplate: 'boutique-luxury',
+    selectedTemplate: scrape.sourceUrl ? 'original' : 'conversion-focus',
     heroImage: stringValue(settings.heroImage) || images[0],
     ctaText: 'Book a stay',
     headingFont: 'playfair',
