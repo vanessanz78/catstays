@@ -1,6 +1,6 @@
 # CatStays UAT Feedback
 
-Last updated: 2026-06-12 12:23 NZST
+Last updated: 2026-06-12 12:43 NZST
 
 ## Working Agreement
 
@@ -34,4 +34,12 @@ Record UAT findings below using this format:
 
 ## Findings
 
-_No UAT findings recorded yet._
+### 2026-06-12 12:43 NZST - Deloraine Demo Preview Chrome
+
+- Page: `/demo/deloraine`, `/demo/deloraine-dashboard`, `/demo/deloraine-client`
+- Device: desktop preview, plus mobile and tablet frame checks
+- What you clicked: customer website, staff demo, client portal, mobile, tablet, desktop preview controls
+- What you expected: the demo page should not expose source/import details to customers, should not repeat the same mode controls below the hero, and should devote the lower page area to the actual product render.
+- What happened: the source URL/status card, Source button, Refresh button, repeated lower mode controls, explanatory lower paragraph, and bottom active-state card were taking space and showing internal information.
+- Severity: medium
+- Resolution: fixed in commit `c844a57` by moving demo status and CTA into a thin navy banner, keeping mode/device controls in a compact navy strip, adding hover descriptions for mode tabs, and rendering only the actual device/product preview below.
