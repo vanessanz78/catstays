@@ -1,6 +1,6 @@
 # CatStays UAT Feedback
 
-Last updated: 2026-06-12 13:50 NZST
+Last updated: 2026-06-12 14:10 NZST
 
 ## Working Agreement
 
@@ -63,3 +63,13 @@ Record UAT findings below using this format:
 - What happened: the dashboard shortcut cards for My Bookings, My Pets, and My Profile were still using desktop column logic inside the phone frame, which made labels wrap awkwardly.
 - Severity: high
 - Resolution: fixed in commit `1700b0d` by passing the selected preview device into the customer portal screens, stacking mobile shortcut cards and key nested layouts, widening mobile action buttons, and restoring demo pets/bookings data so UAT views show realistic content. Verified with type check and browser layout measurements showing no overflow on dashboard cards, pets, profile fields, or booking rows.
+
+### 2026-06-12 14:10 NZST - Website Scraper Source URL Hardwired To Deloraine
+
+- Page: `/`, `/demo/deloraine`, `/demo/deloraine-client`
+- Device: desktop preview
+- What you clicked: entered `https://harrishillton.co.nz/` into the home page website URL form, generated a preview, then opened the client portal tab.
+- What you expected: the generated preview should scrape and render the entered website instead of Deloraine Cattery.
+- What happened: the home form saved the typed URL, but the demo route always called the scraper with `https://www.delorainecattery.com/`, so every generated preview was effectively hardwired to Deloraine.
+- Severity: high
+- Resolution: fixed in commit `78c784b` by passing the requested URL into the demo route, preserving the imported source across demo tabs, using cached preview data only when it matches the requested source, and preventing generic `Home` headings from replacing the real scraped title. Verified with `https://harrishillton.co.nz/`: the hero and client portal render `Harris Hillton`, use Harris Hillton imagery, and no longer contain Deloraine Cattery text.
