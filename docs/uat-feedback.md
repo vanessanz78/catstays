@@ -1,6 +1,6 @@
 # CatStays UAT Feedback
 
-Last updated: 2026-06-12 12:43 NZST
+Last updated: 2026-06-12 13:17 NZST
 
 ## Working Agreement
 
@@ -43,3 +43,13 @@ Record UAT findings below using this format:
 - What happened: the source URL/status card, Source button, Refresh button, repeated lower mode controls, explanatory lower paragraph, and bottom active-state card were taking space and showing internal information.
 - Severity: medium
 - Resolution: fixed in commit `c844a57` by moving demo status and CTA into a thin navy banner, keeping mode/device controls in a compact navy strip, adding hover descriptions for mode tabs, and rendering only the actual device/product preview below.
+
+### 2026-06-12 13:17 NZST - Home Page Preview, Banner, Icons, And Demo Device State
+
+- Page: `/`, `/demo/deloraine`, `/demo/deloraine-dashboard`, `/demo/deloraine-client`
+- Device: desktop preview, plus tablet persistence check
+- What you clicked: home page URL form, demo tabs, tablet device control, staff demo, client portal
+- What you expected: the home page should not show the embedded preview mockup after the URL form; the Vanessa testimonial should use the supplied full banner image; CatStays logo should be used for favicon/install icons; the demo header should only say Demo in the middle; desktop preview should use full width and page scroll; the chosen device should persist between demo tabs.
+- What happened: the home page showed a large browser preview, the testimonial was still the old card-style image, demo header included extra Pricing/import copy, and desktop preview was constrained in its own scroll frame.
+- Severity: medium
+- Resolution: fixed in commit `ddc6888` by removing the home page mockup preview, adding the Vanessa banner image, adding favicon/apple/install icons and manifest metadata, simplifying the demo header, making desktop preview full-width with page scroll, and saving the selected device mode across demo route changes.
