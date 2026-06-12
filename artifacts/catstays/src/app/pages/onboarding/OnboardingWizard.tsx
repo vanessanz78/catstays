@@ -344,7 +344,7 @@ export function OnboardingWizard() {
       return;
     }
 
-    if (data.password.length < 8) {
+    if ((data.password || '').length < 8) {
       setCreateAccountError('Password must be at least 8 characters.');
       return;
     }
@@ -797,7 +797,7 @@ export function OnboardingWizard() {
       setData(liveData);
 
       if (!activeCatteryId) {
-        if (!liveData.name || !liveData.email || !liveData.password || liveData.password.length < 8) {
+        if (!liveData.name || !liveData.email || !liveData.password || (liveData.password || '').length < 8) {
           setCreateAccountError('Please complete your account details before publishing.');
           setStep(1);
           return;
@@ -859,9 +859,11 @@ export function OnboardingWizard() {
       // Create rooms from the roomTypes defined in booking setup.
       // New unconfirmed users are provisioned server-side because RLS prevents
       // browser writes until the confirmation link is clicked.
-      if (cattery?.id && data.roomTypes.length > 0) {
-        const defaultRate = parseFloat(data.pricingRates[0]?.price || '30');
-        const roomInserts = data.roomTypes.map((rt: any) => ({
+      const liveRoomTypes = Array.isArray(liveData.roomTypes) ? liveData.roomTypes : [];
+      const livePricingRates = Array.isArray(liveData.pricingRates) ? liveData.pricingRates : [];
+      if (cattery?.id && liveRoomTypes.length > 0) {
+        const defaultRate = parseFloat(livePricingRates[0]?.price || '30');
+        const roomInserts = liveRoomTypes.map((rt: any) => ({
           cattery_id: activeCatteryId,
           name: rt.name,
           type: 'standard',
@@ -954,7 +956,7 @@ export function OnboardingWizard() {
         </div>
       )}
 
-      <div className="max-w-6xl mx-auto py-4">
+      <div className={`${step === 3 ? 'w-full max-w-[calc(100vw-2rem)] 2xl:max-w-[1900px]' : 'max-w-6xl'} mx-auto py-4`}>
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
@@ -1115,7 +1117,7 @@ export function OnboardingWizard() {
 
                     <Button 
                       onClick={handleCreateAccount}
-                      disabled={!data.name || !data.email || !data.password || data.password.length < 8 || isSaving}
+                      disabled={!data.name || !data.email || !data.password || (data.password || '').length < 8 || isSaving}
                       size="lg"
                       className="w-full bg-sage hover:bg-sage-dark text-white rounded-xl py-6 text-lg shadow-lg mt-4"
                     >
@@ -1452,9 +1454,9 @@ export function OnboardingWizard() {
 
         {/* Step 3: Website Builder (Previously Step 4) */}
         {step === 3 && (
-          <div className="max-w-6xl mx-auto">
+          <div className="w-full max-w-none mx-auto">
             <Card className="border-sage/20 shadow-2xl rounded-3xl overflow-hidden">
-              <CardHeader className="bg-gradient-to-br from-white to-cream p-8">
+              <CardHeader className="bg-gradient-to-br from-white to-cream p-6 sm:p-8">
                 <CardTitle className="text-3xl font-serif text-forest mb-2">
                   Design your website
                 </CardTitle>
@@ -1463,7 +1465,7 @@ export function OnboardingWizard() {
                 </CardDescription>
               </CardHeader>
               
-              <CardContent className="p-8">
+              <CardContent className="p-4 sm:p-5 lg:p-6">
                 <WebsiteBuilder
                   data={data}
                   setData={setData}

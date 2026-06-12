@@ -587,7 +587,7 @@ function SourceWebsitePreview({
 }) {
   const heightStyle = fillHeight
     ? { height: '100%' }
-    : { minHeight: 'min(1100px, calc(100vh - 170px))' };
+    : { height: '3200px', minHeight: 'calc(100vh - 170px)' };
 
   return (
     <div className="w-full bg-white" style={heightStyle}>
@@ -597,6 +597,7 @@ function SourceWebsitePreview({
         className="block h-full min-h-[inherit] w-full border-0 bg-white"
         referrerPolicy="no-referrer-when-downgrade"
         sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
+        scrolling={fillHeight ? 'auto' : 'no'}
       />
     </div>
   );

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useLocation } from 'react-router';
 import { ArrowLeft, CheckCircle, Globe, LayoutDashboard, Monitor, Smartphone, Tablet, UserRound } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { CatstaysTemplateSite } from '../onboarding/CatstaysTemplateSite';
@@ -98,6 +98,7 @@ export function DeloraineDemoClientPortal() {
 }
 
 function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) {
+  const location = useLocation();
   const [requestedImportUrl] = useState(() => readRequestedImportUrl());
   const [previewData, setPreviewData] = useState<DelorainePreviewData>(() => readInitialPreviewData(requestedImportUrl));
   const [previewMode, setPreviewMode] = useState<DemoMode>(initialMode);
@@ -107,6 +108,13 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
   useEffect(() => {
     setPreviewMode(initialMode);
   }, [initialMode]);
+
+  useEffect(() => {
+    if (location.hash) return;
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    });
+  }, [location.pathname, location.search, location.hash]);
 
   const setDeviceType = (device: DeviceMode) => {
     setDeviceTypeState(device);

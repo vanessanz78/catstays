@@ -863,9 +863,9 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
   );
 
   return (
-    <div className={`grid gap-6 transition-all duration-300 items-start ${isPanelCollapsed ? 'grid-cols-[60px_1fr]' : 'lg:grid-cols-[500px_1fr]'}`}>
+    <div className={`grid w-full gap-4 lg:gap-6 transition-all duration-300 items-start ${isPanelCollapsed ? 'grid-cols-[52px_minmax(0,1fr)]' : 'lg:grid-cols-[minmax(360px,460px)_minmax(0,1fr)] 2xl:grid-cols-[minmax(380px,500px)_minmax(0,1fr)]'}`}>
       {/* LEFT PANEL: Editing Tools */}
-      <div className="space-y-4 relative">
+      <div className="space-y-4 relative min-w-0">
         {/* Collapse Button */}
         <Button
           variant="outline"
@@ -892,7 +892,7 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
             )}
 
             <div 
-              className="rounded-2xl shadow-xl border-2 max-h-[90vh] flex flex-col" 
+              className="rounded-2xl shadow-xl border-2 max-h-[90vh] flex flex-col min-w-0"
               style={{ backgroundColor: 'white', borderColor: `${data.primaryColor}30` }}
             >
               {/* Fixed Header */}
@@ -1357,7 +1357,7 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
       </div>
 
       {/* RIGHT PANEL: Live Preview */}
-      <div className="rounded-2xl overflow-hidden shadow-2xl border-2 max-h-[90vh] flex flex-col" style={{ borderColor: `${data.primaryColor}30` }}>
+      <div className="rounded-2xl overflow-hidden shadow-2xl border-2 max-h-[90vh] flex flex-col min-w-0 w-full" style={{ borderColor: `${data.primaryColor}30` }}>
         <div className="bg-white border-b px-4 py-3 flex items-center gap-2 flex-shrink-0">
           <div className="flex gap-1.5">
             <div className="w-3 h-3 rounded-full bg-red-400"></div>

@@ -23,6 +23,60 @@ const genericCatAssets = [
   'https://images.unsplash.com/photo-1725419876939-f8f9987cf0d2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=600',
 ];
 
+export type CatterySiteContentCategory =
+  | 'hero'
+  | 'navigation'
+  | 'why-choose-us'
+  | 'facilities'
+  | 'daily-care'
+  | 'rooms'
+  | 'pricing'
+  | 'services'
+  | 'gallery'
+  | 'reviews'
+  | 'faqs'
+  | 'owner-story'
+  | 'commitment'
+  | 'location'
+  | 'contact'
+  | 'social'
+  | 'booking'
+  | 'footer';
+
+export interface CatterySiteContentItem {
+  title: string;
+  text?: string;
+  price?: string;
+  meta?: string;
+  image?: string;
+  url?: string;
+  answer?: string;
+  rating?: number;
+  date?: string;
+  features?: string[];
+  details?: string[];
+}
+
+export interface CatterySiteContentBlock {
+  id: string;
+  category: CatterySiteContentCategory;
+  title: string;
+  text?: string;
+  source?: 'scrape' | 'fallback' | 'generated';
+  items?: CatterySiteContentItem[];
+  images?: Array<{ url: string; caption?: string }>;
+  links?: Array<{ label: string; url: string }>;
+}
+
+export interface CatterySiteContentLibrary {
+  schemaVersion: 1;
+  sourceUrl?: string;
+  sourceHost?: string;
+  businessName?: string;
+  capturedAt?: string;
+  blocks: CatterySiteContentBlock[];
+}
+
 export interface ImportedCatteryScrape {
   sourceUrl?: string;
   sourceHost?: string;
@@ -38,6 +92,11 @@ export interface ImportedCatteryScrape {
   address?: string;
   city?: string;
   bookingUrl?: string;
+  hours?: string;
+  socialLinks?: {
+    facebook?: string;
+    instagram?: string;
+  };
   highlights?: Array<{ title: string; description: string }>;
   rooms?: Array<{
     name: string;
@@ -56,7 +115,27 @@ export interface ImportedCatteryScrape {
     image?: string;
   }>;
   faqs?: Array<{ question: string; answer: string }>;
+  reviews?: Array<{ name: string; text: string; rating?: number; location?: string }>;
+  owner?: {
+    title?: string;
+    text?: string;
+    image?: string;
+  };
+  commitment?: {
+    title?: string;
+    text?: string;
+    items?: Array<{ title: string; description: string }>;
+  };
+  locationDetails?: {
+    heading?: string;
+    text?: string;
+    directions?: string;
+    virtualTourUrl?: string;
+  };
+  virtualTourUrl?: string;
+  siteContentLibrary?: CatterySiteContentLibrary;
   websiteSettings?: Record<string, any>;
+  bodyText?: string;
   extractedFrom?: {
     html?: boolean;
     scripts?: number;
@@ -98,6 +177,15 @@ export interface DelorainePreviewData {
   faqData?: any;
   commitmentData?: any;
   contactData?: any;
+  ownerData?: any;
+  locationData?: any;
+  hours?: string;
+  socialLinks?: {
+    facebook?: string;
+    instagram?: string;
+  };
+  virtualTourUrl?: string;
+  siteContentLibrary?: CatterySiteContentLibrary;
   sectionsOrder?: string[];
   roomTypes?: Array<{
     name: string;
@@ -147,6 +235,10 @@ export const fallbackDeloraineScrape: ImportedCatteryScrape = {
   address: '50 Konini Street, Abbey Caves, Whangarei',
   city: 'Whangarei',
   bookingUrl: 'https://us.revelationpets.com/bookerv2/zombsurql5',
+  hours: 'Open hours by appointment only. Closed Sunday mornings.',
+  socialLinks: {
+    facebook: 'https://www.facebook.com/delorainecattery',
+  },
   highlights: [
     {
       title: '5-Star Facility',
@@ -163,17 +255,27 @@ export const fallbackDeloraineScrape: ImportedCatteryScrape = {
       description:
         'Friendly animal loving people live on site and welcome both short and long term stays.',
     },
+    {
+      title: 'Daily Care Routine',
+      description:
+        'Cats are cared for with routine feeding, cleaning, attention, enrichment, and medication support where needed.',
+    },
+    {
+      title: 'Premium Room Accommodation',
+      description:
+        'Private, indoor, and communal room options are available for different cats and family groups.',
+    },
   ],
   rooms: [
     {
       name: 'Private Rooms',
       description:
         'Private rooms with indoor living area and 24-hour access to a fully secure private verandah.',
-      price: '$20',
+      price: '$20 (1 cat), $36 (2 cats), $54 (3 cats)',
       priceUnit: 'per day',
       price_per_night: 20,
       capacity: 3,
-      amenities: ['Secure verandah', 'Climbing frames', 'Daily room cleaning', 'Twice daily feeding'],
+      amenities: ['Indoor living area', '24-hour secure verandah', 'Climbing frames and chairs', 'Bird watching opportunities', 'Daily room cleaning', 'Twice daily feeding'],
       image: deloraineAssets[1],
     },
     {
@@ -184,7 +286,7 @@ export const fallbackDeloraineScrape: ImportedCatteryScrape = {
       priceUnit: 'per day',
       price_per_night: 20,
       capacity: 2,
-      amenities: ['Window views', 'Secure environment', 'Daily cleaning'],
+      amenities: ['Indoor accommodation', 'Window views', 'Secure environment', 'Optional communal room access', 'Daily cleaning', 'Medicine administration available'],
       image: deloraineAssets[3],
     },
     {
@@ -195,7 +297,7 @@ export const fallbackDeloraineScrape: ImportedCatteryScrape = {
       priceUnit: 'per day',
       price_per_night: 20,
       capacity: 6,
-      amenities: ['Communal play area', 'Secure outdoor access', 'Daily care'],
+      amenities: ['Shared indoor and outdoor areas', 'Social interaction with other cats', 'Secure observation period', 'Neutral territory environment', 'Move to private room if needed'],
       image: deloraineAssets[2],
     },
   ],
@@ -215,9 +317,16 @@ export const fallbackDeloraineScrape: ImportedCatteryScrape = {
       image: deloraineAssets[5],
     },
     {
+      title: 'Electric Blanket Setup',
+      price: '$10 surcharge',
+      description:
+        'Special comfort for mature cats with electrical appliances. Equipment must be tested and tagged for safety.',
+      image: deloraineAssets[6],
+    },
+    {
       title: 'Pickup & Drop-off Service',
       price: '$35 one way / $50 round trip',
-      description: 'Convenient transportation service within a 10km radius.',
+      description: 'Convenient transportation service within a 10km radius, with free service available for senior citizens over 65 without transport.',
       image: deloraineAssets[0],
     },
     {
@@ -226,12 +335,75 @@ export const fallbackDeloraineScrape: ImportedCatteryScrape = {
       description: 'Pickup and drop-off service to Onerahi Airport.',
       image: deloraineAssets[2],
     },
+    {
+      title: 'Flea & Worm Treatment',
+      price: '$100 per treatment',
+      description:
+        'Treatment can be applied if flea or worm discomfort is detected during a cat\'s stay.',
+      image: deloraineAssets[4],
+    },
+    {
+      title: 'Out of Hours Service',
+      price: '$35 additional fee',
+      description:
+        'Flexible pickup and drop-off outside regular opening hours when mutually agreed upon.',
+      image: deloraineAssets[0],
+    },
+    {
+      title: 'Veterinary Transport',
+      price: '$35 surcharge',
+      description:
+        'Professional transport to and from your veterinary clinic if medical attention is required during the stay.',
+      image: deloraineAssets[2],
+    },
+    {
+      title: 'Professional Grooming',
+      price: 'Contact for pricing',
+      description:
+        'Specialist medical-grade matting removal through Fancy Felines Cat Grooming without sedation.',
+      image: deloraineAssets[3],
+    },
   ],
   faqs: [
     {
+      question: 'Is there a discount for long term boarding?',
+      answer:
+        'Long term stays can be discussed when booking so Deloraine Cattery can confirm availability, care needs, and any applicable pricing.',
+    },
+    {
+      question: 'Do you still offer an NDHB discount?',
+      answer:
+        'Discount eligibility can be discussed directly with Deloraine Cattery when making a booking enquiry.',
+    },
+    {
+      question: 'Do you offer discounts if I have more than one cat?',
+      answer:
+        'Yes. Multi-cat pricing is available for cats from the same family, including two-cat and three-cat room rates where applicable.',
+    },
+    {
+      question: 'Do you offer a delivery service?',
+      answer:
+        'Pickup and drop-off services are available within a 10km radius, with airport and veterinary transport options by arrangement.',
+    },
+    {
+      question: 'Can I visit my cat while they are in the cattery?',
+      answer:
+        'Visits can be arranged by appointment so the team can keep routines calm and secure for all cats.',
+    },
+    {
+      question: 'Our cats have never stayed in a cattery, will they be alright?',
+      answer:
+        'Cats are settled carefully with secure spaces, familiar food, daily routines, and observation so staff can adjust care if needed.',
+    },
+    {
+      question: 'My cat is on a special diet or medication, is this a problem?',
+      answer:
+        'Special diets and medication instructions can be followed. Owners should bring food, medication, and clear written instructions.',
+    },
+    {
       question: 'What vaccinations does my cat need?',
       answer:
-        'All cats must have current vaccinations to stay. A current vaccination certificate is required at arrival.',
+        'All cats must be vaccinated for cat flu every year and their vaccination booklet must be provided on arrival unless previously noted. Cats sharing the communal room also need the annual combined vaccination.',
     },
     {
       question: 'What do you feed the cats and how often?',
@@ -239,11 +411,463 @@ export const fallbackDeloraineScrape: ImportedCatteryScrape = {
         'Cats are fed twice daily. Owners bring their cat food so each cat can keep their familiar diet.',
     },
     {
+      question: 'What happens if my cat needs flea or worm treatment?',
+      answer:
+        'Regular flea and worm treatments are recommended. If a cat appears uncomfortable, treatment may be applied and the treatment cost passed on.',
+    },
+    {
+      question: 'Can I drop off or collect outside regular hours?',
+      answer:
+        'Out of hours pickup or drop off may be arranged by agreement and attracts an additional fee.',
+    },
+    {
       question: 'What do I need to bring?',
       answer:
         'Bring your cat in a secure carrier, current vaccination certificate, food, medications, and any comfort items.',
     },
+    {
+      question: 'What are your Peak Periods?',
+      answer:
+        'Peak periods usually include school holidays, public holidays, and Christmas. Early booking is recommended.',
+    },
   ],
+  reviews: [
+    {
+      name: 'Guest family',
+      text:
+        'I had a great experience. :) Our cat has never stayed away before and was content and relaxed after his return from Deloraine. Drop off was easy and pick up was even easier. The online portal is awesome.',
+      rating: 5,
+      location: '04 May 2026',
+    },
+    {
+      name: 'Guest family',
+      text:
+        'Our two oriental kittens stayed for two weeks - both seemed quite happy when we picked them up and dropped them off. Even learnt to use the cat door!! Pick up and drop off was seamless. We will definitely be using Deloraine again. Thanks so much.',
+      rating: 5,
+      location: '30 Apr 2026',
+    },
+    {
+      name: 'Guest family',
+      text: 'Lovely place, our cat is very happy here. Would recommend.',
+      rating: 5,
+      location: '14 Apr 2026',
+    },
+  ],
+  owner: {
+    title: 'Your Caring Hosts - Paul & Vanessa',
+    text:
+      'Paul and Vanessa Wilson love animals, so taking on Deloraine Cattery feels like second nature. Paul grew up on a farm and Vanessa has always had cats and dogs as part of the family. They live on site and care for cats as part of their family property.',
+    image: deloraineAssets[7],
+  },
+  commitment: {
+    title: 'Our commitment to safe, settled stays',
+    text:
+      'Deloraine Cattery focuses on secure rooms, daily routines, careful medication support, vaccination standards, and calm care for every guest.',
+    items: [
+      {
+        title: 'Vaccination standards',
+        description: 'Current cat flu vaccination is required, with additional vaccination requirements for communal room stays.',
+      },
+      {
+        title: 'Secure facilities',
+        description: 'Double-door systems, security screens, alarms, raised concrete floors, and insulated heated buildings support a safer stay.',
+      },
+      {
+        title: 'Care notes followed',
+        description: 'Food, medication, routines, and comfort items can be managed so each cat keeps a familiar rhythm.',
+      },
+    ],
+  },
+  locationDetails: {
+    heading: 'Find Deloraine Cattery',
+    text: 'Deloraine Cattery is located at 50 Konini Street, Abbey Caves, Whangarei.',
+    directions: 'The cattery is around five minutes from Onerahi Airport.',
+    virtualTourUrl: 'https://www.delorainecattery.com/#virtual-tour',
+  },
+  virtualTourUrl: 'https://www.delorainecattery.com/#virtual-tour',
+  siteContentLibrary: {
+    schemaVersion: 1,
+    sourceUrl: DELORAINE_SOURCE_URL,
+    sourceHost: 'delorainecattery.com',
+    businessName: 'Deloraine Cattery',
+    capturedAt: '2026-06-12',
+    blocks: [
+      {
+        id: 'hero',
+        category: 'hero',
+        title: 'Deloraine Cattery',
+        text: 'Your cats home away from home. Professional cat boarding facility providing exceptional care for your feline friends.',
+        source: 'scrape',
+        images: [{ url: deloraineAssets[0], caption: 'Deloraine Cattery building at dusk' }],
+        links: [
+          { label: 'View Our Services', url: '#services' },
+          { label: 'Book Now', url: '#booking' },
+        ],
+      },
+      {
+        id: 'why-choose-deloraine',
+        category: 'why-choose-us',
+        title: 'Choose Deloraine Cattery',
+        text:
+          'Deloraine Cattery is a purpose built cat boarding facility designed with cats in mind. Care and thought went into the planning and construction, from security features to comfort amenities, ensuring cats are safe and secure in a peaceful rural setting.',
+        source: 'scrape',
+        items: [
+          {
+            title: '5-Star Facility',
+            text: 'Purpose built cat boarding facility designed with cats in mind, offering fine accommodation and care at affordable prices.',
+          },
+          {
+            title: 'Safe & Secure',
+            text: 'Double door systems, amplimesh security screens, alarms, raised concrete floors, and a fully insulated heated building.',
+          },
+          {
+            title: 'On-Site Care',
+            text: 'Friendly animal loving people live on site, welcoming both short and long term stays in a peaceful rural setting.',
+          },
+        ],
+      },
+      {
+        id: 'facilities',
+        category: 'facilities',
+        title: 'Our Facilities',
+        text:
+          "State-of-the-art boarding facilities designed with your cat's comfort, safety, and well-being in mind. Every detail has been carefully planned to create a stress-free environment.",
+        source: 'scrape',
+        images: [{ url: deloraineAssets[4], caption: 'Cats relaxing in Deloraine Cattery accommodation' }],
+        items: [
+          {
+            title: 'Premium Accommodations',
+            text: 'Private, indoor, and communal spaces designed for comfort, hygiene, and calm daily routines.',
+          },
+          {
+            title: 'Security Features',
+            text: 'Double door systems on all exits and entry points, amplimesh security screens on all doors, windows, and outdoor areas.',
+          },
+          {
+            title: 'Climate Controlled',
+            text: 'Fully insulated building heated during winter months for comfort, with raised concrete floors for hygiene.',
+          },
+          {
+            title: 'Alarm Systems',
+            text: "Comprehensive alarms in and around the facility to ensure each cat's safety and security at all times.",
+          },
+        ],
+      },
+      {
+        id: 'daily-care-routine',
+        category: 'daily-care',
+        title: 'Daily Care Routine',
+        text: 'Deloraine Cattery follows a daily routine so each cat has clean rooms, familiar food, and careful supervision.',
+        source: 'scrape',
+        items: [
+          { title: 'Room cleaning', text: 'Rooms are cleaned each morning, with surfaces wiped and all areas swept and mopped.' },
+          { title: 'Food and litter', text: 'Litter trays and food dishes are changed daily.' },
+          { title: 'Secure social walks', text: 'Secure hallway walks support gentle social interaction.' },
+          { title: 'Twice daily feeding', text: 'Cats are fed twice daily using food supplied by their owner.' },
+          { title: 'Medication support', text: 'Medicine administration is available at an additional charge.' },
+        ],
+      },
+      {
+        id: 'rooms-and-pricing',
+        category: 'rooms',
+        title: 'Our Rooms',
+        text: 'Choose from a range of boarding options designed to provide comfort, safety, and care for your feline friend.',
+        source: 'scrape',
+        items: [
+          {
+            title: 'Private Rooms',
+            text:
+              'Private rooms with indoor living area and 24-hour access to a fully secure private verandah, suitable for up to three cats from the same family.',
+            price: '$20.00 (1 cat), $36 (2 cats), $54 (3 cats) per day. GST additional if applicable.',
+            image: deloraineAssets[1],
+            features: [
+              'Indoor living area',
+              '24-hour access to secure verandah',
+              'Climbing frames and chairs',
+              'Bird watching opportunities',
+              'Daily room cleaning',
+              'Twice daily feeding',
+            ],
+          },
+          {
+            title: 'Indoor Rooms',
+            text:
+              'Indoor only rooms suitable for up to two cats from the same family, with window views and option for communal room access.',
+            price: '$20.00 (1 cat), $36 (2 cats) per day. GST additional if applicable.',
+            image: deloraineAssets[3],
+            features: [
+              'Indoor accommodation',
+              'Window views',
+              'Secure environment',
+              'Optional communal room access',
+              'Daily cleaning',
+              'Medicine administration available',
+            ],
+          },
+          {
+            title: 'Communal Room',
+            text:
+              'Large communal room for multiple cats to share indoor and outdoor areas together on neutral territory.',
+            price: '$20.00 (1 cat), $36 (2 cats) per day. GST additional if applicable.',
+            image: deloraineAssets[2],
+            features: [
+              'Shared indoor and outdoor areas',
+              'Social interaction with other cats',
+              'Secure observation period',
+              'Neutral territory environment',
+              'Move to private room if needed',
+            ],
+          },
+        ],
+      },
+      {
+        id: 'additional-services',
+        category: 'services',
+        title: 'Additional Services',
+        text: 'Additional services help each cat receive specialized care during their stay.',
+        source: 'scrape',
+        items: [
+          {
+            title: 'Daily Brush Service',
+            text:
+              'Professional daily brushing service, especially recommended for long-haired cats prone to matting. Done in the evenings when cats are more relaxed.',
+            price: '$2 per day',
+            features: ['Professional grooming', 'Prevents matting', 'Evening service', 'Reduces stress'],
+          },
+          {
+            title: 'Medicine Administration',
+            text:
+              'Medication administration by Vanessa, who trained as a pharmacy technician. Support includes injections, oral medications, tablets, and topical treatments.',
+            price: '$2 per day',
+            features: ['Insulin injections', 'Oral medications', 'Topical treatments', 'Professional care'],
+          },
+          {
+            title: 'Electric Blanket Setup',
+            text: 'Special comfort for mature cats with electrical appliances. Equipment must be tested and tagged for safety.',
+            price: '$10 surcharge',
+            features: ['Comfort for senior cats', 'Safety tested equipment', 'Temperature control', 'Extra warmth'],
+          },
+          {
+            title: 'Pickup & Drop-off Service',
+            text:
+              'Transportation service within a 10km radius. Free service is available for senior citizens over 65 without transport.',
+            price: '$35 one way / $50 round trip',
+            features: ['10km radius coverage', 'Your cage or ours', 'Senior citizen discount', 'Convenient scheduling'],
+          },
+          {
+            title: 'Airport Service',
+            text: 'Specialized pickup and drop-off service to Onerahi Airport for owners relocating or travelling.',
+            price: '$50 per trip',
+            features: ['Onerahi Airport service', 'Flight schedule coordination', 'Advance booking required', 'Travel convenience'],
+          },
+          {
+            title: 'Flea & Worm Treatment',
+            text: "Professional treatment for flea or worm issues if detected during your cat's stay. Applied only when necessary for comfort.",
+            price: '$100 per treatment',
+            features: ['Professional treatment', 'Health monitoring', 'Comfort focused', 'Veterinary grade products'],
+          },
+          {
+            title: 'Out of Hours Service',
+            text: 'Flexible pickup and drop-off outside regular opening hours when mutually agreed upon.',
+            price: '$35 surcharge',
+            features: ['Flexible timing', 'By appointment', 'Convenience fee', 'Mutual agreement required'],
+          },
+          {
+            title: 'Veterinary Transport',
+            text: 'Professional transport to and from your veterinary clinic if medical attention is required during the stay.',
+            price: '$35 surcharge',
+            features: ['Emergency transport', 'Professional care', 'Clinic coordination', 'Health priority'],
+          },
+          {
+            title: 'Professional Grooming',
+            text:
+              'Partnership with Fancy Felines Cat Grooming for specialized medical-grade matting removal without sedation.',
+            price: 'Contact for pricing',
+            features: ['Medical grade grooming', 'No sedation required', 'Specialist partnership', 'Professional care'],
+          },
+        ],
+      },
+      {
+        id: 'gallery',
+        category: 'gallery',
+        title: 'Happy Cats at Deloraine',
+        text: 'A gallery of the facilities and cats who love staying at Deloraine Cattery.',
+        source: 'scrape',
+        images: [
+          { url: deloraineAssets[4], caption: 'Happy kittens at Deloraine' },
+          { url: deloraineAssets[5], caption: 'Wally relaxing' },
+          { url: deloraineAssets[6], caption: 'Lola at playtime' },
+          { url: deloraineAssets[2], caption: 'Communal room with outdoor views' },
+          { url: deloraineAssets[1], caption: 'Private boarding room' },
+          { url: deloraineAssets[3], caption: 'Indoor room accommodation' },
+        ],
+      },
+      {
+        id: 'reviews',
+        category: 'reviews',
+        title: 'What Our Clients Say',
+        text: 'Families share feedback about their cats staying at Deloraine Cattery.',
+        source: 'scrape',
+        items: [
+          {
+            title: 'Guest review',
+            text:
+              'I had a great experience. :) Our cat has never stayed away before and was content and relaxed after his return from Deloraine. Drop off was easy and pick up was even easier. The online portal is awesome.',
+            rating: 5,
+            date: '04 May 2026',
+          },
+          {
+            title: 'Guest review',
+            text:
+              'Our two oriental kittens stayed for two weeks - both seemed quite happy when we picked them up and dropped them off. Even learnt to use the cat door!! Pick up and drop off was seamless. We will definitely be using Deloraine again. Thanks so much.',
+            rating: 5,
+            date: '30 Apr 2026',
+          },
+          {
+            title: 'Guest review',
+            text: 'Lovely place, our cat is very happy here. Would recommend.',
+            rating: 5,
+            date: '14 Apr 2026',
+          },
+        ],
+      },
+      {
+        id: 'faqs',
+        category: 'faqs',
+        title: 'Frequently Asked Questions',
+        text: "Common questions about Deloraine Cattery's cat boarding services, policies, and what to expect.",
+        source: 'scrape',
+        items: [
+          {
+            title: 'Is there a discount for long term boarding?',
+            answer: 'Long term stays can be discussed when booking so the cattery can confirm availability, care needs, and any applicable pricing.',
+          },
+          {
+            title: 'Do you still offer an NDHB discount?',
+            answer: 'Discount eligibility can be discussed directly with Deloraine Cattery when making a booking enquiry.',
+          },
+          {
+            title: 'Do you offer discounts if I have more than one cat?',
+            answer: 'Yes. Multi-cat pricing is available for cats from the same family, including two-cat and three-cat room rates where applicable.',
+          },
+          {
+            title: 'Do you offer a delivery service?',
+            answer: 'Pickup and drop-off services are available within a 10km radius, with airport and veterinary transport options by arrangement.',
+          },
+          {
+            title: 'Can I visit my cat while they are in the cattery?',
+            answer: 'Visits can be arranged by appointment so the team can keep routines calm and secure for all cats.',
+          },
+          {
+            title: 'Our cats have never stayed in a cattery, will they be alright?',
+            answer: 'Cats are settled carefully with secure spaces, familiar food, daily routines, and observation so staff can adjust care if needed.',
+          },
+          {
+            title: 'My cat is on a special diet or medication, is this a problem?',
+            answer: 'Special diets and medication instructions can be followed. Owners should bring food, medication, and clear written instructions.',
+          },
+          {
+            title: 'What vaccinations does my cat need?',
+            answer: 'Cats must be current with cat flu vaccination, and the vaccination booklet should be supplied on arrival unless already provided.',
+          },
+          {
+            title: 'What happens if my cat gets sick?',
+            answer: 'The team will contact the owner and arrange veterinary support or transport if medical attention is required during the stay.',
+          },
+          {
+            title: 'What do you feed the cats and how often?',
+            answer: 'Cats are fed twice daily using food supplied by their owner to keep their diet familiar.',
+          },
+          {
+            title: "What do I need to bring for my cat's stay?",
+            answer: 'Bring a secure carrier, vaccination booklet, food, medication, and any comfort items that help your cat settle.',
+          },
+          {
+            title: 'What are your Peak Periods?',
+            answer: 'Peak periods usually include school holidays, public holidays, and Christmas. Early booking is recommended.',
+          },
+        ],
+      },
+      {
+        id: 'owner-story',
+        category: 'owner-story',
+        title: 'About Paul and Vanessa Wilson',
+        text:
+          'Paul and Vanessa Wilson love animals, so taking on Deloraine Cattery feels like second nature. Paul grew up on a farm and Vanessa has always had cats and dogs as part of the family. They have three daughters, Isabella, Mia, and Kaia, and one son Harlo, who share their love of animals. Their tabby cat Blaise and Raffy the Maltese are part of the family too. Paul and Vanessa derive their income from Deloraine Cattery and Deloraine Cottage, and caring for animals is part of their family life.',
+        source: 'scrape',
+        images: [{ url: deloraineAssets[7], caption: 'Paul and Vanessa Wilson' }],
+      },
+      {
+        id: 'commitment',
+        category: 'commitment',
+        title: 'Our Commitment',
+        text: 'Every cat receives individual attention, safe routines, and family care throughout their stay.',
+        source: 'scrape',
+        items: [
+          {
+            title: 'Compassionate Care',
+            text: 'Every cat receives individual attention and love from a family who understand feline needs.',
+          },
+          {
+            title: 'Safety & Security',
+            text: 'High standards of safety, cleanliness, and security support complete peace of mind.',
+          },
+          {
+            title: 'Family Commitment',
+            text: 'Every cat is treated like family, with updates to keep owners connected during their stay.',
+          },
+        ],
+      },
+      {
+        id: 'location',
+        category: 'location',
+        title: 'Our Location',
+        text: '50 Konini Street, Abbey Caves, Whangarei. Deloraine Cattery sits on 2.5 acres of peaceful park-like grounds, five minutes from Onerahi Airport and five minutes from Whangarei CBD.',
+        source: 'scrape',
+        items: [
+          { title: 'From Whangarei City', text: 'Head along Riverside Drive towards Onerahi.' },
+          { title: 'Second left', text: 'Take the second street on the left past the BP Petrol Station.' },
+          { title: 'Big Fish bus stop', text: 'Turn left onto Mackesy Road at the Big Fish bus stop.' },
+          { title: 'Konini Street', text: 'Keep going on Mackesy Road until it becomes Konini Street.' },
+          { title: 'Arrival', text: 'Deloraine Cattery is number 50 Konini Street, approximately 1.3km from Riverside Drive.' },
+        ],
+        links: [{ label: 'Virtual Tour', url: 'https://www.delorainecattery.com/#virtual-tour' }],
+      },
+      {
+        id: 'contact',
+        category: 'contact',
+        title: 'Contact Us',
+        text: 'Get in touch for bookings, enquiries, or to schedule a facility tour.',
+        source: 'scrape',
+        items: [
+          { title: 'Location', text: '50 Konini St, Abbey Caves, Whangarei. 2.5 acres of peaceful park-like grounds.' },
+          { title: 'Phone/Text', text: '021 463 616' },
+          { title: 'Email', text: 'enquiry@delorainecattery.com' },
+          { title: 'Open Hours', text: 'Mon-Sat: 9:00am - 10:30am. Mon-Sun: 4:30pm - 6:00pm. Closed Sunday mornings.' },
+        ],
+        links: [
+          { label: 'Facebook', url: 'https://www.facebook.com/delorainecattery' },
+          { label: 'Book online', url: 'https://us.revelationpets.com/bookerv2/zombsurql5' },
+        ],
+      },
+      {
+        id: 'booking',
+        category: 'booking',
+        title: 'Ready to Book?',
+        text: "Contact Deloraine Cattery to reserve your cat's stay or schedule a facility tour.",
+        source: 'scrape',
+        links: [{ label: "Book Your Cat's Stay Now", url: 'https://us.revelationpets.com/bookerv2/zombsurql5' }],
+      },
+      {
+        id: 'footer',
+        category: 'footer',
+        title: 'Deloraine Cattery',
+        text:
+          'Providing exceptional boarding and care services for cats with over 20 years of experience in feline hospitality and comfort.',
+        source: 'scrape',
+      },
+    ],
+  },
   extractedFrom: {
     html: true,
     scripts: 1,
@@ -266,9 +890,7 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
   const fallbackServices = isDeloraineSource ? fallbackDeloraineScrape.services ?? [] : genericServices(images);
   const fallbackHighlights = isDeloraineSource ? fallbackDeloraineScrape.highlights ?? [] : genericHighlights();
   const rooms = scrape.rooms?.length ? scrape.rooms : fallbackRooms;
-  const services = (scrape.services?.length ? scrape.services : fallbackServices)
-    .filter((service) => !/professional grooming/i.test(service.title))
-    .slice(0, 6);
+  const services = (scrape.services?.length ? scrape.services : fallbackServices).slice(0, 12);
   const highlights = scrape.highlights?.length ? scrape.highlights : fallbackHighlights;
   const galleryImages =
     scrape.galleryImages?.length
@@ -283,6 +905,36 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
   const fallbackEmail = isDeloraineSource ? fallbackDeloraineScrape.email || '' : '';
   const fallbackAddress = isDeloraineSource ? fallbackDeloraineScrape.address || '' : '';
   const fallbackFaqs = isDeloraineSource ? fallbackDeloraineScrape.faqs : genericFaqs(businessName);
+  const reviews = scrape.reviews?.length ? scrape.reviews : (settings.testimonialsData?.testimonials ?? fallbackDeloraineScrape.reviews ?? []);
+  const hours = stringValue(settings.hours) || scrape.hours || (isDeloraineSource ? fallbackDeloraineScrape.hours || '' : '');
+  const owner = scrape.owner || settings.ownerData || (isDeloraineSource ? fallbackDeloraineScrape.owner : undefined);
+  const commitment = scrape.commitment || settings.commitmentData || (isDeloraineSource ? fallbackDeloraineScrape.commitment : undefined);
+  const locationDetails = scrape.locationDetails || settings.locationData || (isDeloraineSource ? fallbackDeloraineScrape.locationDetails : undefined);
+  const socialLinks = scrape.socialLinks || settings.socialLinks || (isDeloraineSource ? fallbackDeloraineScrape.socialLinks : undefined);
+  const virtualTourUrl =
+    stringValue(settings.virtualTourUrl) ||
+    scrape.virtualTourUrl ||
+    locationDetails?.virtualTourUrl ||
+    (isDeloraineSource ? fallbackDeloraineScrape.virtualTourUrl || '' : '');
+  const siteContentLibrary =
+    scrape.siteContentLibrary ||
+    siteContentLibraryFromSettings(settings.siteContentLibrary) ||
+    buildSiteContentLibrary({
+      scrape,
+      businessName,
+      rooms,
+      services,
+      highlights,
+      galleryImages,
+      reviews,
+      faqs: scrape.faqs?.length ? scrape.faqs : fallbackFaqs,
+      hours,
+      owner,
+      commitment,
+      locationDetails,
+      socialLinks,
+      virtualTourUrl,
+    });
 
   return {
     businessName,
@@ -316,7 +968,7 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
     typography: 'playfair',
     whyChooseUsData: {
       whyChooseUsHeading: `Why choose ${businessName}`,
-      whyChooseUsFeatures: highlights.slice(0, 3).map((highlight, index) => ({
+      whyChooseUsFeatures: highlights.map((highlight, index) => ({
         icon: ['Shield', 'Heart', 'Home'][index] ?? 'Star',
         title: highlight.title,
         description: highlight.description,
@@ -346,7 +998,7 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
     },
     servicesData: {
       servicesHeading: 'Care services',
-      services: services.slice(0, 4).map((service, index) => ({
+      services: services.map((service, index) => ({
         icon: ['Heart', 'Clock', 'Shield', 'Home'][index] ?? 'Star',
         title: service.title,
         description: service.price ? `${service.description} ${service.price}.` : service.description,
@@ -355,29 +1007,42 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
     },
     galleryData: {
       galleryHeading: `Happy cats at ${businessName}`,
-      galleryImages: galleryImages.slice(0, 9).map((image) => ({
+      galleryImages: galleryImages.slice(0, 24).map((image) => ({
         url: image.url,
         caption: image.caption || `${businessName} photo`,
       })),
     },
     testimonialsData: {
       testimonialsHeading: 'Trusted cat care',
-      testimonials: [
-        {
-          name: 'Regular guest family',
-          text: 'A calm, cat-focused stay with thoughtful daily care.',
-          rating: 5,
-          location: scrape.city || '',
-        },
-      ],
+      testimonials: reviews.length
+        ? reviews
+        : [
+            {
+              name: 'Regular guest family',
+              text: 'A calm, cat-focused stay with thoughtful daily care.',
+              rating: 5,
+              location: scrape.city || '',
+            },
+          ],
     },
     faqData: {
-      faqs: scrape.faqs?.length ? scrape.faqs.slice(0, 5) : fallbackFaqs,
+      faqs: scrape.faqs?.length ? scrape.faqs.slice(0, 20) : fallbackFaqs,
     },
     contactData: {
       contactHeading: 'Contact and booking',
+      hours,
+      socialLinks,
+      virtualTourUrl,
+      locationDetails,
     },
-    sectionsOrder: ['hero', 'why-choose-us', 'about', 'suites', 'services', 'facilities', 'gallery', 'faq', 'contact'],
+    commitmentData: commitment,
+    ownerData: owner,
+    locationData: locationDetails,
+    hours,
+    socialLinks,
+    virtualTourUrl,
+    siteContentLibrary,
+    sectionsOrder: ['hero', 'why-choose-us', 'about', 'owner', 'facilities', 'suites', 'services', 'gallery', 'reviews', 'faq', 'location', 'contact'],
     roomTypes: rooms.map((room) => ({
       name: room.name,
       numberOfRooms: '1',
@@ -427,6 +1092,183 @@ export function buildFallbackScrapeForUrl(rawUrl: string): ImportedCatteryScrape
       scripts: 0,
       apiServices: false,
     },
+  };
+}
+
+function siteContentLibraryFromSettings(value: unknown): CatterySiteContentLibrary | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const candidate = value as Partial<CatterySiteContentLibrary>;
+  if (candidate.schemaVersion !== 1 || !Array.isArray(candidate.blocks)) return undefined;
+  return candidate as CatterySiteContentLibrary;
+}
+
+function buildSiteContentLibrary(input: {
+  scrape: ImportedCatteryScrape;
+  businessName: string;
+  rooms: NonNullable<ImportedCatteryScrape['rooms']>;
+  services: NonNullable<ImportedCatteryScrape['services']>;
+  highlights: NonNullable<ImportedCatteryScrape['highlights']>;
+  galleryImages: NonNullable<ImportedCatteryScrape['galleryImages']>;
+  reviews: NonNullable<ImportedCatteryScrape['reviews']>;
+  faqs: NonNullable<ImportedCatteryScrape['faqs']>;
+  hours: string;
+  owner?: ImportedCatteryScrape['owner'];
+  commitment?: ImportedCatteryScrape['commitment'];
+  locationDetails?: ImportedCatteryScrape['locationDetails'];
+  socialLinks?: ImportedCatteryScrape['socialLinks'];
+  virtualTourUrl?: string;
+}): CatterySiteContentLibrary {
+  const { scrape, businessName } = input;
+  const blocks: CatterySiteContentBlock[] = [
+    {
+      id: 'hero',
+      category: 'hero',
+      title: scrape.heading || businessName,
+      text: scrape.description || `${businessName} has been imported into CatStays.`,
+      source: scrape.extractedFrom?.html ? 'scrape' : 'generated',
+      images: input.galleryImages[0] ? [input.galleryImages[0]] : scrape.heroImage ? [{ url: scrape.heroImage, caption: businessName }] : [],
+      links: scrape.bookingUrl ? [{ label: 'Book Now', url: scrape.bookingUrl }] : [],
+    },
+    {
+      id: 'why-choose-us',
+      category: 'why-choose-us',
+      title: `Why choose ${businessName}`,
+      text: scrape.description,
+      source: scrape.extractedFrom?.html ? 'scrape' : 'generated',
+      items: input.highlights.map((highlight) => ({
+        title: highlight.title,
+        text: highlight.description,
+      })),
+    },
+    {
+      id: 'rooms',
+      category: 'rooms',
+      title: 'Rooms and pricing',
+      text: 'Accommodation options extracted from the owner site.',
+      source: scrape.extractedFrom?.html ? 'scrape' : 'generated',
+      items: input.rooms.map((room) => ({
+        title: room.name,
+        text: room.description,
+        price: room.price && room.priceUnit ? `${room.price} ${room.priceUnit}` : room.price,
+        image: room.image,
+        features: room.amenities,
+        meta: room.capacity ? `Up to ${room.capacity} cats` : undefined,
+      })),
+    },
+    {
+      id: 'services',
+      category: 'services',
+      title: 'Services',
+      text: 'Additional services and care options extracted from the owner site.',
+      source: scrape.extractedFrom?.html ? 'scrape' : 'generated',
+      items: input.services.map((service) => ({
+        title: service.title,
+        text: service.description,
+        price: service.price,
+        image: service.image,
+      })),
+    },
+    {
+      id: 'gallery',
+      category: 'gallery',
+      title: 'Gallery',
+      text: 'Images extracted from the owner site.',
+      source: scrape.extractedFrom?.html ? 'scrape' : 'generated',
+      images: input.galleryImages,
+    },
+    {
+      id: 'reviews',
+      category: 'reviews',
+      title: 'Reviews',
+      text: 'Client reviews extracted from the owner site.',
+      source: scrape.extractedFrom?.html ? 'scrape' : 'generated',
+      items: input.reviews.map((review) => ({
+        title: review.name,
+        text: review.text,
+        rating: review.rating,
+        meta: review.location,
+      })),
+    },
+    {
+      id: 'faqs',
+      category: 'faqs',
+      title: 'Frequently Asked Questions',
+      text: 'Questions and answers extracted from the owner site.',
+      source: scrape.extractedFrom?.html ? 'scrape' : 'generated',
+      items: input.faqs.map((faq) => ({
+        title: faq.question,
+        answer: faq.answer,
+      })),
+    },
+    {
+      id: 'contact',
+      category: 'contact',
+      title: 'Contact',
+      text: [scrape.address, scrape.phone, scrape.email, input.hours].filter(Boolean).join(' | '),
+      source: scrape.extractedFrom?.html ? 'scrape' : 'generated',
+      items: [
+        { title: 'Address', text: scrape.address },
+        { title: 'Phone', text: scrape.phone },
+        { title: 'Email', text: scrape.email },
+        { title: 'Hours', text: input.hours },
+      ].filter((item) => item.text),
+      links: [
+        input.socialLinks?.facebook ? { label: 'Facebook', url: input.socialLinks.facebook } : undefined,
+        input.socialLinks?.instagram ? { label: 'Instagram', url: input.socialLinks.instagram } : undefined,
+        scrape.bookingUrl ? { label: 'Book online', url: scrape.bookingUrl } : undefined,
+        input.virtualTourUrl ? { label: 'Virtual tour', url: input.virtualTourUrl } : undefined,
+      ].filter((link): link is { label: string; url: string } => Boolean(link)),
+    },
+  ];
+
+  if (input.owner?.text) {
+    blocks.push({
+      id: 'owner-story',
+      category: 'owner-story',
+      title: input.owner.title || `About ${businessName}`,
+      text: input.owner.text,
+      source: scrape.extractedFrom?.html ? 'scrape' : 'generated',
+      images: input.owner.image ? [{ url: input.owner.image, caption: input.owner.title || businessName }] : [],
+    });
+  }
+
+  if (input.commitment?.items?.length || input.commitment?.text) {
+    blocks.push({
+      id: 'commitment',
+      category: 'commitment',
+      title: input.commitment.title || `${businessName} care standards`,
+      text: input.commitment.text,
+      source: scrape.extractedFrom?.html ? 'scrape' : 'generated',
+      items: input.commitment.items?.map((item) => ({
+        title: item.title,
+        text: item.description,
+      })),
+    });
+  }
+
+  if (input.locationDetails?.text || input.locationDetails?.directions) {
+    blocks.push({
+      id: 'location',
+      category: 'location',
+      title: input.locationDetails.heading || `Find ${businessName}`,
+      text: input.locationDetails.text,
+      source: scrape.extractedFrom?.html ? 'scrape' : 'generated',
+      items: input.locationDetails.directions
+        ? [{ title: 'Directions', text: input.locationDetails.directions }]
+        : [],
+      links: input.locationDetails.virtualTourUrl
+        ? [{ label: 'Virtual tour', url: input.locationDetails.virtualTourUrl }]
+        : [],
+    });
+  }
+
+  return {
+    schemaVersion: 1,
+    sourceUrl: scrape.sourceUrl,
+    sourceHost: scrape.sourceHost,
+    businessName,
+    capturedAt: new Date().toISOString(),
+    blocks,
   };
 }
 

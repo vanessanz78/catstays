@@ -10,6 +10,12 @@ interface BookingRulesFormProps {
 }
 
 export function BookingRulesForm({ data, setData }: BookingRulesFormProps) {
+  const roomTypes = Array.isArray(data.roomTypes) ? data.roomTypes : [];
+  const pricingRates = Array.isArray(data.pricingRates) ? data.pricingRates : [];
+  const additionalServices = Array.isArray(data.additionalServices) ? data.additionalServices : [];
+  const discounts = Array.isArray(data.discounts) ? data.discounts : [];
+  const blockOutDates = Array.isArray(data.blockOutDates) ? data.blockOutDates : [];
+
   // Helper functions for dynamic lists
   const addRoomType = () => {
     setData({
@@ -299,7 +305,7 @@ export function BookingRulesForm({ data, setData }: BookingRulesFormProps) {
         </div>
 
         <div className="space-y-4">
-          {(data.roomTypes || []).map((room: any, index: number) => (
+          {roomTypes.map((room: any, index: number) => (
             <div key={index} className="bg-white rounded-xl p-4 border border-sage/10">
               <div className="grid md:grid-cols-4 gap-3 mb-3">
                 <div className="md:col-span-2">
@@ -344,7 +350,7 @@ export function BookingRulesForm({ data, setData }: BookingRulesFormProps) {
                   <span className="text-xs text-forest/70">Must be from same family</span>
                 </label>
                 
-                {data.roomTypes.length > 1 && (
+                {roomTypes.length > 1 && (
                   <Button
                     type="button"
                     onClick={() => removeRoomType(index)}
@@ -405,7 +411,7 @@ export function BookingRulesForm({ data, setData }: BookingRulesFormProps) {
         </div>
 
         <div className="space-y-3">
-          {(data.pricingRates || []).map((rate: any, index: number) => (
+          {pricingRates.map((rate: any, index: number) => (
             <div key={index} className="bg-white rounded-xl p-4 border border-sage/10">
               <div className="grid md:grid-cols-5 gap-3 mb-3">
                 <div>
@@ -456,7 +462,7 @@ export function BookingRulesForm({ data, setData }: BookingRulesFormProps) {
                   </div>
                 </div>
                 <div className="flex items-end">
-                  {data.pricingRates.length > 1 && (
+                  {pricingRates.length > 1 && (
                     <Button
                       type="button"
                       onClick={() => removePricingRate(index)}
@@ -501,11 +507,11 @@ export function BookingRulesForm({ data, setData }: BookingRulesFormProps) {
           </Button>
         </div>
         
-        {(data.additionalServices || []).length === 0 ? (
+        {additionalServices.length === 0 ? (
           <p className="text-sm text-forest/60 italic">No services configured. Click "Add Service" to create one.</p>
         ) : (
           <div className="space-y-2">
-            {(data.additionalServices || []).map((service: any, index: number) => (
+            {additionalServices.map((service: any, index: number) => (
               <div key={index} className="bg-white rounded-xl p-3 border border-sage/10">
                 <div className="grid md:grid-cols-2 gap-2 mb-2">
                   <div>
@@ -670,11 +676,11 @@ export function BookingRulesForm({ data, setData }: BookingRulesFormProps) {
           </Button>
         </div>
 
-        {data.discounts.length === 0 ? (
+        {discounts.length === 0 ? (
           <p className="text-sm text-forest/60 italic">No discounts configured. Click "Add Discount" to create one.</p>
         ) : (
           <div className="space-y-3">
-            {(data.discounts || []).map((discount: any, index: number) => (
+            {discounts.map((discount: any, index: number) => (
               <div key={index} className="bg-white rounded-xl p-4 border border-sage/10">
                 <div className="grid md:grid-cols-4 gap-3">
                   <div className="md:col-span-2">
@@ -746,11 +752,11 @@ export function BookingRulesForm({ data, setData }: BookingRulesFormProps) {
           </Button>
         </div>
 
-        {data.blockOutDates.length === 0 ? (
+        {blockOutDates.length === 0 ? (
           <p className="text-sm text-forest/60 italic">No block out dates configured. Click "Add Block Out" to create one.</p>
         ) : (
           <div className="space-y-3">
-            {(data.blockOutDates || []).map((blockOut: any, index: number) => (
+            {blockOutDates.map((blockOut: any, index: number) => (
               <div key={index} className="bg-white rounded-xl p-4 border border-sage/10">
                 <div className="grid md:grid-cols-4 gap-3">
                   <div>
