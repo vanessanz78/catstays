@@ -5,6 +5,7 @@ import {
   contactEnquiryHtml,
   bookingRequestOwnerHtml,
   bookingRequestCustomerHtml,
+  testEmailHtml,
 } from '../lib/emailTemplates';
 import { createClient } from '@supabase/supabase-js';
 
@@ -175,15 +176,8 @@ router.post('/email/test', async (req, res) => {
     const { data, error } = await resend.emails.send({
       from: FROM_ADDRESS,
       to,
-      subject: 'CatStays — Email is working!',
-      html: `
-        <div style="font-family:Georgia,serif;max-width:480px;margin:32px auto;padding:32px;background:#fff;border-radius:16px;box-shadow:0 2px 12px rgba(0,0,0,0.08)">
-          <h2 style="color:#2d3e2f;margin-top:0">Email integration confirmed ✓</h2>
-          <p style="color:#5c6b5e">Your CatStays Resend integration is working correctly. Booking confirmations and enquiry emails will be delivered from <strong>bookings@catstays.app</strong>.</p>
-          <hr style="border:none;border-top:1px solid #e8e4dd;margin:24px 0"/>
-          <p style="color:#9aaa9c;font-size:12px;margin:0">Powered by CatStays &amp; Resend</p>
-        </div>
-      `,
+      subject: 'CatStays - Email is working',
+      html: testEmailHtml(),
     });
     if (error) { res.status(500).json({ error: error.message }); return; }
     res.json({ success: true, id: data?.id });
