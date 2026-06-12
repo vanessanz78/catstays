@@ -55,22 +55,6 @@ import {
   CheckCircle
 } from 'lucide-react';
 
-// Icon mapping helper
-const getIconComponent = (iconName: string) => {
-  const icons: Record<string, any> = {
-    Shield,
-    Heart,
-    Award,
-    Star,
-    Clock,
-    Camera,
-    Home,
-    Users,
-    CheckCircle,
-    Sparkles
-  };
-  return icons[iconName] || Shield;
-};
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '../../components/ui/accordion';
 import { CleanModernTemplate } from './WebsiteTemplates';
@@ -81,6 +65,8 @@ import { ChatWidget } from '../../components/ChatWidget';
 import { WebsiteEditorPanelEnhanced } from '../../components/WebsiteEditorPanelEnhanced';
 import { DesignColorsPanel } from '../../components/DesignColorsPanel';
 import { WebsiteHeader } from '../../components/WebsiteHeader';
+import { CatstaysTemplateSite } from './CatstaysTemplateSite';
+import { normalizePreviewTemplateId } from '../../lib/previewTemplates';
 import { AdminDashboard } from '../admin/Dashboard';
 import { CustomerDashboard } from '../customer/Dashboard';
 import {
@@ -101,6 +87,36 @@ import {
   getSubheadingFontClass as getSubheadingFont,
   getBodyFontClass as getBodyFont
 } from '../../components/WebsiteSections';
+
+// Icon mapping helper
+const getIconComponent = (iconName: string) => {
+  const icons: Record<string, any> = {
+    Shield,
+    Heart,
+    Award,
+    Star,
+    Clock,
+    Camera,
+    Home,
+    Users,
+    CheckCircle,
+    Sparkles
+  };
+  return icons[iconName] || Shield;
+};
+
+function importedPreviewUrl(data: Record<string, any>) {
+  const rawUrl = data.importSourceUrl || data.sourceUrl;
+  if (!rawUrl || typeof rawUrl !== 'string') return '';
+
+  try {
+    const url = new URL(rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return '';
+    return url.toString();
+  } catch {
+    return '';
+  }
+}
 
 interface WebsiteBuilderProps {
   data: any;
@@ -225,24 +241,24 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
 
   // Render different preview layouts based on template
   const renderPreviewLayout = () => {
-    const template = data.selectedTemplate || 'boutique-luxury';
+    const template = normalizePreviewTemplateId(data.selectedTemplate || 'conversion-focus');
+    const sourcePreviewUrl = importedPreviewUrl(data);
 
-    switch (template) {
-      case 'boutique-luxury':
-        return renderBoutiqueLuxuryPreview();
-      case 'clean-modern':
-        return renderCleanModernPreview();
-      case 'playful-family':
-        return renderPlayfulFamilyPreview();
-      case 'image-focused':
-        return renderImageFocusedPreview();
-      case 'split-layout':
-        return renderSplitLayoutPreview();
-      case 'classic-service':
-        return renderClassicServicePreview();
-      default:
-        return renderBoutiqueLuxuryPreview();
+    if (template === 'original' && sourcePreviewUrl) {
+      return (
+        <div className="min-h-[720px] w-full bg-white">
+          <iframe
+            title={`${data.businessName || 'Imported cattery'} original website preview`}
+            src={sourcePreviewUrl}
+            className="block min-h-[720px] w-full border-0 bg-white"
+            referrerPolicy="no-referrer-when-downgrade"
+            sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
+          />
+        </div>
+      );
     }
+
+    return <CatstaysTemplateSite data={data} templateId={template} embedded />;
   };
 
   // TEMPLATE 1: Boutique Luxury - Large hero, elegant serif headings, minimal layout, ALL 14 SECTIONS

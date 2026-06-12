@@ -9,6 +9,8 @@ import { Textarea } from '../../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
 import { ArrowLeft, Plus, Edit, Heart, PawPrint, AlertCircle, Trash2 } from 'lucide-react';
 
+type PreviewDevice = 'mobile' | 'tablet' | 'desktop';
+
 interface Pet {
   id: string;
   name: string;
@@ -37,6 +39,7 @@ interface CustomerPetsViewProps {
   accentColor?: string;
   externalPets?: Pet[];
   onPetsUpdate?: (pets: Pet[]) => void;
+  previewDevice?: PreviewDevice;
 }
 
 export function CustomerPetsView({ 
@@ -44,13 +47,17 @@ export function CustomerPetsView({
   primaryColor = '#0A1128', 
   accentColor = '#C46A3A',
   externalPets,
-  onPetsUpdate
+  onPetsUpdate,
+  previewDevice
 }: CustomerPetsViewProps) {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeceasedDialog, setShowDeceasedDialog] = useState(false);
   const [editingPet, setEditingPet] = useState<Pet | null>(null);
   const [petToMarkDeceased, setPetToMarkDeceased] = useState<Pet | null>(null);
+  const isPreviewMobile = previewDevice === 'mobile';
+  const twoColumnGridClass = isPreviewMobile ? 'grid gap-4' : 'grid md:grid-cols-2 gap-4';
+  const threeColumnGridClass = isPreviewMobile ? 'grid gap-4' : 'grid md:grid-cols-3 gap-4';
 
   // Mock pets data (or use external pets from parent)
   const [pets, setPets] = useState<Pet[]>(externalPets || [
@@ -114,7 +121,7 @@ export function CustomerPetsView({
     status: 'active'
   });
 
-  const activePets = pets.filter(p => p.status === 'active');
+  const activePets = pets.filter(p => p.status !== 'deceased');
   const deceasedPets = pets.filter(p => p.status === 'deceased');
 
   const handleAddPet = () => {
@@ -181,7 +188,7 @@ export function CustomerPetsView({
 
   const PetForm = ({ pet, setPet }: { pet: Partial<Pet>, setPet: (pet: Partial<Pet>) => void }) => (
     <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className={twoColumnGridClass}>
         <div className="space-y-2">
           <Label style={{ color: primaryColor }}>Pet Name *</Label>
           <Input
@@ -200,7 +207,7 @@ export function CustomerPetsView({
         </div>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-4">
+      <div className={threeColumnGridClass}>
         <div className="space-y-2">
           <Label style={{ color: primaryColor }}>Age *</Label>
           <Input
@@ -313,12 +320,13 @@ export function CustomerPetsView({
   );
 
   return (
-    <main className="container mx-auto px-4 py-8 max-w-5xl">
-      <div className="flex items-center justify-between mb-6">
+    <main className={isPreviewMobile ? 'container mx-auto px-4 py-6 max-w-5xl' : 'container mx-auto px-4 py-8 max-w-5xl'}>
+      <div className={isPreviewMobile ? 'flex flex-col gap-3 mb-6' : 'flex items-center justify-between mb-6'}>
         <Button 
           variant="ghost" 
           onClick={onBack}
           style={{ color: accentColor }}
+          className={isPreviewMobile ? 'w-full justify-start' : undefined}
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Dashboard
@@ -326,6 +334,7 @@ export function CustomerPetsView({
         <Button 
           style={{ backgroundColor: accentColor, color: 'white' }}
           onClick={() => setShowAddDialog(true)}
+          className={isPreviewMobile ? 'w-full justify-start' : undefined}
         >
           <Plus className="w-4 h-4 mr-2" />
           Add New Pet
@@ -337,7 +346,7 @@ export function CustomerPetsView({
         <h2 className="text-xl font-bold mb-4" style={{ color: primaryColor }}>
           My Pets ({activePets.length})
         </h2>
-        <div className="grid md:grid-cols-2 gap-4">
+        <div className={twoColumnGridClass}>
           {activePets.map(pet => (
             <Card key={pet.id} className="border" style={{ borderColor: `${primaryColor}20` }}>
               <CardHeader>
@@ -349,7 +358,7 @@ export function CustomerPetsView({
                     >
                       <PawPrint className="w-6 h-6" style={{ color: accentColor }} />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <CardTitle style={{ color: primaryColor }}>{pet.name}</CardTitle>
                       <CardDescription>
                         {pet.breed} • {pet.age} years • {pet.gender === 'male' ? '♂' : '♀'}
@@ -359,7 +368,7 @@ export function CustomerPetsView({
                 </div>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className={isPreviewMobile ? 'grid gap-2 text-sm' : 'grid grid-cols-2 gap-2 text-sm'}>
                   <div>
                     <p style={{ color: `${primaryColor}70` }}>Color:</p>
                     <p style={{ color: primaryColor }}>{pet.color}</p>
@@ -411,11 +420,11 @@ export function CustomerPetsView({
                   </div>
                 )}
 
-                <div className="flex gap-2 pt-2">
+                <div className={isPreviewMobile ? 'flex flex-col gap-2 pt-2' : 'flex gap-2 pt-2'}>
                   <Button 
                     size="sm" 
                     variant="outline"
-                    className="flex-1"
+                    className={isPreviewMobile ? 'w-full justify-start' : 'flex-1'}
                     style={{ borderColor: accentColor, color: accentColor }}
                     onClick={() => handleEditPet(pet)}
                   >
@@ -425,6 +434,7 @@ export function CustomerPetsView({
                   <Button 
                     size="sm" 
                     variant="outline"
+                    className={isPreviewMobile ? 'w-full justify-start' : undefined}
                     style={{ borderColor: `${primaryColor}30`, color: `${primaryColor}70` }}
                     onClick={() => handleMarkDeceased(pet)}
                   >
@@ -445,7 +455,7 @@ export function CustomerPetsView({
             <Heart className="w-5 h-5 inline mr-2" />
             Remembered Pets ({deceasedPets.length})
           </h2>
-          <div className="grid md:grid-cols-2 gap-4">
+          <div className={twoColumnGridClass}>
             {deceasedPets.map(pet => (
               <Card key={pet.id} className="border opacity-75" style={{ borderColor: `${primaryColor}20` }}>
                 <CardHeader>

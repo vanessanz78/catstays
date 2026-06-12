@@ -13,6 +13,8 @@ import { BookingStatement } from '../../components/BookingStatement';
 import { PaymentCart } from '../../components/PaymentCart';
 import { ImageWithFallback } from '../../components/figma/ImageWithFallback';
 
+type PreviewDevice = 'mobile' | 'tablet' | 'desktop';
+
 interface Service {
   id: string;
   name: string;
@@ -46,6 +48,7 @@ interface CustomerBookingsViewProps {
   businessEmail?: string;
   businessLogo?: string;
   externalBookings?: Booking[];
+  previewDevice?: PreviewDevice;
 }
 
 export function CustomerBookingsView({ 
@@ -58,7 +61,8 @@ export function CustomerBookingsView({
   businessPhone = '(555) 123-4567',
   businessEmail = 'hello@catstays.app',
   businessLogo,
-  externalBookings
+  externalBookings,
+  previewDevice
 }: CustomerBookingsViewProps) {
   const [selectedTab, setSelectedTab] = useState<'upcoming' | 'history'>('upcoming');
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
@@ -88,6 +92,7 @@ export function CustomerBookingsView({
   // Postcard state
   const [showPostcard, setShowPostcard] = useState(false);
   const [selectedUpdate, setSelectedUpdate] = useState<any>(null);
+  const isPreviewMobile = previewDevice === 'mobile';
 
   // Mock cat updates
   const catUpdates = [
@@ -432,12 +437,13 @@ export function CustomerBookingsView({
   const selectedBookingsForPaymentData = upcomingBookings.filter(b => selectedBookingsForPayment.has(b.id));
 
   return (
-    <main className="container mx-auto px-4 py-8 max-w-5xl">
-      <div className="flex items-center justify-between mb-6">
+    <main className={isPreviewMobile ? 'container mx-auto px-4 py-6 max-w-5xl' : 'container mx-auto px-4 py-8 max-w-5xl'}>
+      <div className={isPreviewMobile ? 'flex flex-col gap-3 mb-6' : 'flex items-center justify-between mb-6'}>
         <Button 
           variant="ghost" 
           onClick={onBack}
           style={{ color: accentColor }}
+          className={isPreviewMobile ? 'w-full justify-start' : undefined}
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Dashboard
@@ -445,6 +451,7 @@ export function CustomerBookingsView({
         <Button 
           style={{ backgroundColor: accentColor, color: 'white' }}
           onClick={onCreateBooking}
+          className={isPreviewMobile ? 'w-full justify-start' : undefined}
         >
           <Plus className="w-4 h-4 mr-2" />
           New Booking
@@ -454,9 +461,9 @@ export function CustomerBookingsView({
       {/* Quick Reference Stats */}
       <Card className="mb-6 border" style={{ borderColor: `${primaryColor}20` }}>
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
+          <div className={isPreviewMobile ? 'flex flex-col gap-3' : 'flex items-center justify-between'}>
             <CardTitle style={{ color: primaryColor }}>Quick Stats</CardTitle>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button
                 size="sm"
                 variant={statsPeriod === '6months' ? 'default' : 'outline'}
@@ -488,7 +495,7 @@ export function CustomerBookingsView({
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className={isPreviewMobile ? 'grid gap-3' : 'grid grid-cols-2 md:grid-cols-4 gap-4'}>
             {/* Total Bookings */}
             <div className="p-4 rounded-lg" style={{ backgroundColor: `${accentColor}08` }}>
               <div className="flex items-center gap-2 mb-2">
@@ -553,10 +560,10 @@ export function CustomerBookingsView({
       </Card>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-6 border-b" style={{ borderColor: `${primaryColor}20` }}>
+      <div className={isPreviewMobile ? 'flex flex-col gap-2 mb-6 border-b pb-2' : 'flex gap-2 mb-6 border-b'} style={{ borderColor: `${primaryColor}20` }}>
         <button
           onClick={() => setSelectedTab('upcoming')}
-          className="px-4 py-2 font-medium border-b-2 transition"
+          className={`${isPreviewMobile ? 'w-full text-left rounded-lg border' : ''} px-4 py-2 font-medium border-b-2 transition`}
           style={{
             borderColor: selectedTab === 'upcoming' ? accentColor : 'transparent',
             color: selectedTab === 'upcoming' ? accentColor : `${primaryColor}80`
@@ -567,7 +574,7 @@ export function CustomerBookingsView({
         </button>
         <button
           onClick={() => setSelectedTab('history')}
-          className="px-4 py-2 font-medium border-b-2 transition"
+          className={`${isPreviewMobile ? 'w-full text-left rounded-lg border' : ''} px-4 py-2 font-medium border-b-2 transition`}
           style={{
             borderColor: selectedTab === 'history' ? accentColor : 'transparent',
             color: selectedTab === 'history' ? accentColor : `${primaryColor}80`
@@ -582,7 +589,7 @@ export function CustomerBookingsView({
       {selectedBookingsForPayment.size > 0 && selectedTab === 'upcoming' && (
         <div className="sticky top-4 z-20 mb-6">
           <div 
-            className="p-4 rounded-xl shadow-lg border-2 flex items-center justify-between"
+            className={`${isPreviewMobile ? 'flex flex-col gap-3' : 'flex items-center justify-between'} p-4 rounded-xl shadow-lg border-2`}
             style={{ 
               backgroundColor: 'white',
               borderColor: accentColor
@@ -608,7 +615,7 @@ export function CustomerBookingsView({
               size="lg"
               onClick={handleOpenPaymentCart}
               style={{ backgroundColor: accentColor, color: 'white' }}
-              className="gap-2"
+              className={isPreviewMobile ? 'w-full justify-start gap-2' : 'gap-2'}
             >
               <ShoppingCart className="w-5 h-5" />
               Proceed to Payment
@@ -622,10 +629,10 @@ export function CustomerBookingsView({
         {(selectedTab === 'upcoming' ? upcomingBookings : historyBookings).map(booking => (
           <Card key={booking.id} className="border" style={{ borderColor: `${primaryColor}20` }}>
             <CardContent className="p-0 overflow-hidden">
-              <div className="flex flex-col md:flex-row md:items-center gap-0">
+              <div className={isPreviewMobile ? 'flex flex-col gap-0' : 'flex flex-col md:flex-row md:items-center gap-0'}>
                 {/* Checkbox (if applicable) */}
                 {(booking.status === 'upcoming' || booking.status === 'confirmed') && booking.amountPaid < booking.total && (
-                  <div className="flex items-center justify-center p-4 md:pl-5 md:pr-4">
+                  <div className={isPreviewMobile ? 'flex items-center justify-start p-4 pb-0' : 'flex items-center justify-center p-4 md:pl-5 md:pr-4'}>
                     <Checkbox
                       checked={selectedBookingsForPayment.has(booking.id)}
                       onCheckedChange={() => handleToggleBookingSelection(booking.id)}
@@ -637,12 +644,12 @@ export function CustomerBookingsView({
                 )}
 
                 {/* Main content - horizontal layout */}
-                <div className="flex-1 px-5 py-4">
-                  <div className="flex flex-col lg:flex-row lg:items-center gap-4">
+                <div className={isPreviewMobile ? 'flex-1 px-4 py-4' : 'flex-1 px-5 py-4'}>
+                  <div className={isPreviewMobile ? 'flex flex-col gap-4' : 'flex flex-col lg:flex-row lg:items-center gap-4'}>
                     {/* Left: Pet name, dates, room */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-xl font-semibold" style={{ color: primaryColor }}>
+                      <div className="flex flex-wrap items-center gap-3 mb-2">
+                        <h3 className={isPreviewMobile ? 'text-lg font-semibold' : 'text-xl font-semibold'} style={{ color: primaryColor }}>
                           {booking.petName}
                         </h3>
                         {getStatusBadge(booking.status)}
@@ -736,8 +743,8 @@ export function CustomerBookingsView({
                     </div>
 
                     {/* Center: Pricing */}
-                    <div className="flex items-center gap-4 lg:border-l lg:pl-5" style={{ borderColor: `${primaryColor}10` }}>
-                      <div className="text-right">
+                    <div className={isPreviewMobile ? 'flex items-start justify-between gap-3 border-t pt-3' : 'flex items-center gap-4 lg:border-l lg:pl-5'} style={{ borderColor: `${primaryColor}10` }}>
+                      <div className={isPreviewMobile ? 'text-left' : 'text-right'}>
                         <p className="text-xs font-medium uppercase tracking-wide mb-0.5" style={{ color: `${primaryColor}50` }}>
                           Total
                         </p>
@@ -749,7 +756,7 @@ export function CustomerBookingsView({
                       {/* Payment status */}
                       <div className="min-w-[100px]">
                         {booking.amountPaid > 0 && booking.amountPaid < booking.total && (
-                          <div className="text-right">
+                          <div className={isPreviewMobile ? 'text-left' : 'text-right'}>
                             <Badge 
                               className="font-semibold text-xs mb-1"
                               style={{ backgroundColor: `${accentColor}15`, color: accentColor, borderColor: accentColor }}
@@ -781,7 +788,7 @@ export function CustomerBookingsView({
                     </div>
 
                     {/* Right: Actions */}
-                    <div className="flex items-center gap-2 lg:border-l lg:pl-5" style={{ borderColor: `${primaryColor}10` }}>
+                    <div className={isPreviewMobile ? 'flex flex-wrap gap-2 border-t pt-3' : 'flex items-center gap-2 lg:border-l lg:pl-5'} style={{ borderColor: `${primaryColor}10` }}>
                       {(booking.status === 'upcoming' || booking.status === 'confirmed') && (
                         <>
                           <Button 

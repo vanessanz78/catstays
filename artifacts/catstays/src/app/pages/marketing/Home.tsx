@@ -9,9 +9,10 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { ImageWithFallback } from '../../components/figma/ImageWithFallback';
+import { PREVIEW_URL_STORAGE_KEY } from '../../lib/deloraineDemo';
 const logoIcon = '/assets/b463d12091f20e48be52186dedd2a0f6707d0b66.png';
 const logoWordmark = '/assets/9900b394e20a5e059447324d58daad1b1bf43ed6.png';
-const testimonialImage = '/assets/cf532b4a50a4305e3c8b2c2c4a7aaf8ff83e9a7e.png';
+const testimonialImage = '/assets/marketing/vanessa-with-cat.png';
 const heroImage = '/assets/marketing/premium-cattery-sleeping-cat-hero.png';
 const catUpdateImage = 'https://images.unsplash.com/photo-1709398668435-bc1222eb405e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxoYXBweSUyMGNhdCUyMHBvcnRyYWl0JTIwY2xvc2UlMjB1cHxlbnwxfHx8fDE3NzM2NTQzODJ8MA&ixlib=rb-4.1.0&q=80&w=1080';
 const deloraineWebsitePreview = '/assets/marketing/deloraine-website-preview.png';
@@ -24,7 +25,10 @@ export function MarketingHome() {
   const [activeNav, setActiveNav] = useState('');
   const [signupModalOpen, setSignupModalOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<'starter' | 'professional' | 'premium' | null>(null);
-  const [websiteUrl, setWebsiteUrl] = useState('delorainecattery.com');
+  const [websiteUrl, setWebsiteUrl] = useState(() => {
+    if (typeof window === 'undefined') return 'delorainecattery.com';
+    return window.localStorage.getItem(PREVIEW_URL_STORAGE_KEY) || 'delorainecattery.com';
+  });
 
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
@@ -37,8 +41,9 @@ export function MarketingHome() {
   const handleGeneratePreview = (event: React.FormEvent) => {
     event.preventDefault();
     const url = websiteUrl.trim() || 'delorainecattery.com';
-    localStorage.setItem('catstays_preview_url', url);
-    navigate('/demo/deloraine');
+    localStorage.setItem(PREVIEW_URL_STORAGE_KEY, url);
+    sessionStorage.setItem(PREVIEW_URL_STORAGE_KEY, url);
+    navigate(`/demo/deloraine?source=${encodeURIComponent(url)}`);
   };
 
   const handleStartFresh = () => {
@@ -306,11 +311,13 @@ export function MarketingHome() {
       </section>
 
       {/* Testimonial Section */}
-      <section className="py-20 bg-[#F8F7F5]">
-        <div className="max-w-4xl mx-auto px-4">
-          <div className="flex justify-center mb-12">
-            <img src={testimonialImage} alt="Testimonial" className="max-w-full h-auto rounded-2xl" />
-          </div>
+      <section className="bg-[#F8F7F5]">
+        <div className="mx-auto max-w-[1983px]">
+          <img
+            src={testimonialImage}
+            alt="Vanessa from Deloraine Cattery with a cat, sharing why she built CatStays"
+            className="block h-auto w-full"
+          />
         </div>
       </section>
 
@@ -455,28 +462,8 @@ export function MarketingHome() {
                 </form>
               </div>
 
-              <div className="rounded-2xl overflow-hidden shadow-xl border border-sage/10 bg-white">
-                <div className="flex items-center gap-2 border-b border-sage/10 bg-white px-4 py-3">
-                  <span className="h-2.5 w-2.5 rounded-full bg-[#E36D5B]" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-[#F3B85C]" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-[#75B983]" />
-                  <div className="ml-3 flex-1 rounded-full bg-cream px-3 py-1 text-center text-xs font-medium text-forest/55">
-                    {websiteUrl || 'delorainecattery.com'}
-                  </div>
-                </div>
-                <div className="h-[520px] overflow-y-auto overflow-x-hidden bg-[#F8F7F5] p-4 sm:p-6">
-                  <div className="mx-auto w-full max-w-[820px] overflow-hidden rounded-xl bg-white shadow-sm">
-                    <ImageWithFallback
-                      src={deloraineWebsitePreview}
-                      alt="Deloraine Cattery website preview"
-                      className="w-full h-auto"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <p className="mt-6 text-center text-sm text-forest/55">
-                Use your own website link, or keep the Deloraine Cattery example to see the demo flow.
+              <p className="text-sm text-forest/55">
+                Enter your website link and CatStays will open the generated preview on the next page.
               </p>
             </div>
           </Card>

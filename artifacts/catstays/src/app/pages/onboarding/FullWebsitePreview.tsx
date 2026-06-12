@@ -9,6 +9,8 @@ import { BookingBar } from '../../components/BookingBar';
 import { BookingFlowModal } from '../../components/BookingFlowModal';
 import { ChatWidget } from '../../components/ChatWidget';
 import { WebsiteHeader } from '../../components/WebsiteHeader';
+import { CatstaysTemplateSite } from './CatstaysTemplateSite';
+import { isOriginalTemplate } from '../../lib/previewTemplates';
 import {
   WhyChooseUsSection,
   FacilitiesSection,
@@ -63,6 +65,9 @@ interface FullWebsitePreviewProps {
     commitmentData?: any;
     contactData?: any;
     customSectionsData?: any[];
+    sourceUrl?: string;
+    sourceHost?: string;
+    importSourceUrl?: string;
     // Section visibility
     sectionsOrder?: string[];
     // Booking setup data from Step 5
@@ -98,21 +103,65 @@ interface FullWebsitePreviewProps {
   };
   initialMode?: 'website' | 'dashboard' | 'client';
   initialDevice?: 'mobile' | 'tablet' | 'desktop';
+  controlledMode?: 'website' | 'dashboard' | 'client';
+  controlledDevice?: 'mobile' | 'tablet' | 'desktop';
+  showControls?: boolean;
+  showInfoCard?: boolean;
 }
 
-export function FullWebsitePreview({ data, initialMode = 'dashboard', initialDevice = 'mobile' }: FullWebsitePreviewProps) {
-  const [previewMode, setPreviewMode] = useState<'website' | 'dashboard' | 'client'>(initialMode);
-  const [deviceType, setDeviceType] = useState<'mobile' | 'tablet' | 'desktop'>(initialDevice);
+export function FullWebsitePreview({
+  data,
+  initialMode = 'dashboard',
+  initialDevice = 'mobile',
+  controlledMode,
+  controlledDevice,
+  showControls = true,
+  showInfoCard = true,
+}: FullWebsitePreviewProps) {
+  const [internalPreviewMode, setInternalPreviewMode] = useState<'website' | 'dashboard' | 'client'>(initialMode);
+  const [internalDeviceType, setInternalDeviceType] = useState<'mobile' | 'tablet' | 'desktop'>(initialDevice);
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [showDashboard, setShowDashboard] = useState<'staff' | 'client' | null>(null);
+  const previewMode = controlledMode ?? internalPreviewMode;
+  const deviceType = controlledDevice ?? internalDeviceType;
+
+  const setPreviewMode = (mode: 'website' | 'dashboard' | 'client') => {
+    if (!controlledMode) setInternalPreviewMode(mode);
+  };
+
+  const setDeviceType = (device: 'mobile' | 'tablet' | 'desktop') => {
+    if (!controlledDevice) setInternalDeviceType(device);
+  };
+
+  const isEmbeddedDemoSurface = !showControls && !showInfoCard;
 
   const handleBookingSearch = (searchData: any) => {
     setShowBookingModal(true);
   };
 
-  // Render the customer website using the same template logic as WebsiteBuilder
-  const renderWebsitePreview = () => {
-    const template = data.selectedTemplate || 'boutique-luxury';
+  // Render the imported customer website exactly when a source URL exists.
+  const renderWebsitePreview = (fillHeight = true) => {
+    const sourcePreviewUrl = importedPreviewUrl(data);
+    if (sourcePreviewUrl && isOriginalTemplate(data.selectedTemplate)) {
+      return (
+        <SourceWebsitePreview
+          sourceUrl={sourcePreviewUrl}
+          title={`${data.businessName || 'Imported cattery'} website preview`}
+          fillHeight={fillHeight}
+        />
+      );
+    }
+
+    const template = data.selectedTemplate || 'conversion-focus';
+
+    if (
+      template === 'conversion-focus' ||
+      template === 'editorial-guide' ||
+      template === 'modern-showcase' ||
+      template === 'original'
+    ) {
+      return <CatstaysTemplateSite data={data} templateId={template} embedded />;
+    }
 
     // Render the template with all the data
     return (
@@ -290,17 +339,52 @@ export function FullWebsitePreview({ data, initialMode = 'dashboard', initialDev
     );
   };
 
+  const renderActivePreview = (fillHeight = true) => {
+    if (previewMode === 'website') return renderWebsitePreview(fillHeight);
+    if (previewMode === 'dashboard') {
+      return (
+        <div className={`${fillHeight ? 'h-full' : 'min-h-screen'} bg-cream`}>
+          <DashboardPreviewMock businessName={data.businessName} />
+        </div>
+      );
+    }
+    return (
+      <div className={`${fillHeight ? 'h-full' : 'min-h-screen'} bg-cream`}>
+        <CustomerDashboard
+          primaryColor={data.primaryColor}
+          accentColor={data.accentColor}
+          businessName={data.businessName}
+          businessAddress={data.address}
+          businessPhone={data.phone}
+          businessEmail={data.email}
+          previewDevice={deviceType}
+        />
+      </div>
+    );
+  };
+
+  if (isEmbeddedDemoSurface && deviceType === 'desktop') {
+    return (
+      <div
+        className="w-full overflow-visible rounded-xl border border-[#0A1128]/10 bg-white shadow-xl"
+        data-preview-mode="true"
+      >
+        {renderActivePreview(false)}
+      </div>
+    );
+  }
+
   // Device frame dimensions
   const deviceDimensions = deviceType === 'mobile'
     ? { width: 375, height: 667, scale: 1.0 }
     : deviceType === 'tablet'
-    ? { width: 768, height: 1024, scale: 0.72 }
-    : { width: 1440, height: 900, scale: 0.62 };
+    ? { width: 768, height: 1024, scale: showControls ? 0.72 : 0.76 }
+    : { width: 1440, height: 900, scale: showControls ? 0.62 : 0.82 };
 
   return (
-    <div className="space-y-6">
+    <div className={showControls || showInfoCard ? 'space-y-6' : ''}>
       {/* Preview Mode Toggle */}
-      <div className="flex justify-center gap-3">
+      {showControls && <div className="flex justify-center gap-3">
         <Button
           onClick={() => setPreviewMode('website')}
           variant={previewMode === 'website' ? 'default' : 'outline'}
@@ -337,10 +421,10 @@ export function FullWebsitePreview({ data, initialMode = 'dashboard', initialDev
           <User className="w-4 h-4" />
           Client Dashboard
         </Button>
-      </div>
+      </div>}
 
       {/* Device Type Toggle */}
-      <div className="flex justify-center gap-3">
+      {showControls && <div className="flex justify-center gap-3">
         <Button
           onClick={() => setDeviceType('mobile')}
           variant={deviceType === 'mobile' ? 'default' : 'outline'}
@@ -380,10 +464,10 @@ export function FullWebsitePreview({ data, initialMode = 'dashboard', initialDev
           <Monitor className="w-4 h-4" />
           Desktop
         </Button>
-      </div>
+      </div>}
 
       {/* Informational Text */}
-      <div className="text-center max-w-2xl mx-auto">
+      {showControls && <div className="text-center max-w-2xl mx-auto">
         {previewMode === 'website' ? (
           <p className="text-sm text-[#0A1128]/70">
             This is a fully functional preview of your customer-facing website. Navigate between sections to see how it works!
@@ -397,10 +481,10 @@ export function FullWebsitePreview({ data, initialMode = 'dashboard', initialDev
             This is the customer portal where your clients can view their bookings, manage their pet profiles, and receive photo updates.
           </p>
         )}
-      </div>
+      </div>}
 
       {/* Device Preview Frame - ISOLATED VIEWPORT */}
-      <div className="flex justify-center items-center overflow-hidden px-3 py-8 bg-gradient-to-b from-[#0A1128]/5 to-transparent rounded-3xl">
+      <div className={`flex justify-center items-center overflow-hidden ${showControls || showInfoCard ? 'px-3 py-8 bg-gradient-to-b from-[#0A1128]/5 to-transparent rounded-3xl' : 'px-0 py-0'}`}>
         <div
           className="relative shadow-2xl"
           style={{
@@ -446,31 +530,14 @@ export function FullWebsitePreview({ data, initialMode = 'dashboard', initialDev
                 position: 'relative',
               }}
             >
-              {previewMode === 'website' ? (
-                renderWebsitePreview()
-              ) : previewMode === 'dashboard' ? (
-                <div className="h-full bg-cream">
-                  <DashboardPreviewMock businessName={data.businessName} />
-                </div>
-              ) : (
-                <div className="h-full bg-cream">
-                  <CustomerDashboard 
-                    primaryColor={data.primaryColor}
-                    accentColor={data.accentColor}
-                    businessName={data.businessName}
-                    businessAddress={data.address}
-                    businessPhone={data.phone}
-                    businessEmail={data.email}
-                  />
-                </div>
-              )}
+              {renderActivePreview()}
             </div>
           </div>
         </div>
       </div>
 
       {/* Preview Info */}
-      <div className="max-w-2xl mx-auto">
+      {showInfoCard && <div className="max-w-2xl mx-auto">
         <Card className="border-[#C46A3A]/20 bg-gradient-to-br from-white to-[#F8F7F5] p-4">
           <div className="flex gap-3">
             <div className="w-10 h-10 rounded-full bg-[#C46A3A]/10 flex items-center justify-center flex-shrink-0">
@@ -491,7 +558,46 @@ export function FullWebsitePreview({ data, initialMode = 'dashboard', initialDev
             </div>
           </div>
         </Card>
-      </div>
+      </div>}
+    </div>
+  );
+}
+
+function importedPreviewUrl(data: FullWebsitePreviewProps['data']) {
+  const rawUrl = data.importSourceUrl || data.sourceUrl;
+  if (!rawUrl || typeof rawUrl !== 'string') return '';
+
+  try {
+    const url = new URL(rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return '';
+    return url.toString();
+  } catch {
+    return '';
+  }
+}
+
+function SourceWebsitePreview({
+  sourceUrl,
+  title,
+  fillHeight,
+}: {
+  sourceUrl: string;
+  title: string;
+  fillHeight: boolean;
+}) {
+  const heightStyle = fillHeight
+    ? { height: '100%' }
+    : { minHeight: 'min(1100px, calc(100vh - 170px))' };
+
+  return (
+    <div className="w-full bg-white" style={heightStyle}>
+      <iframe
+        title={title}
+        src={sourceUrl}
+        className="block h-full min-h-[inherit] w-full border-0 bg-white"
+        referrerPolicy="no-referrer-when-downgrade"
+        sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
+      />
     </div>
   );
 }
