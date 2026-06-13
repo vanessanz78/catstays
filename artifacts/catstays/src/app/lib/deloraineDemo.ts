@@ -951,8 +951,8 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
     sourceHost: scrape.sourceHost,
     location: stringValue(settings.location) || scrape.city || '',
     subdomain: slugify(businessName),
-    primaryColor: stringValue(settings.primaryColor) || '#21483f',
-    accentColor: stringValue(settings.accentColor) || '#b77a35',
+    primaryColor: stringValue(settings.primaryColor) || '#0A1128',
+    accentColor: stringValue(settings.accentColor) || '#C46A3A',
     backgroundColor: stringValue(settings.backgroundColor) || '#f8f4ed',
     heroHeading: meaningfulHeading(stringValue(settings.heroHeading)) || businessName,
     heroSubheading:

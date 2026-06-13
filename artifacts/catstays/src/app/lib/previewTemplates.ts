@@ -193,24 +193,24 @@ export const previewTemplateCards: PreviewTemplateOption[] = [
 
 const templateConfig: Record<Exclude<PreviewTemplateId, 'original'>, Partial<DelorainePreviewData>> = {
   'conversion-focus': {
-    primaryColor: '#1f241b',
-    accentColor: '#2f3b22',
+    primaryColor: '#0A1128',
+    accentColor: '#C46A3A',
     backgroundColor: '#F8F7F5',
     typography: 'playfair',
     headingFont: 'playfair',
     subheadingFont: 'inter',
   },
   'editorial-guide': {
-    primaryColor: '#222222',
-    accentColor: '#556b3f',
+    primaryColor: '#0A1128',
+    accentColor: '#C46A3A',
     backgroundColor: '#F8F5EF',
     typography: 'playfair',
     headingFont: 'playfair',
     subheadingFont: 'inter',
   },
   'modern-showcase': {
-    primaryColor: '#222222',
-    accentColor: '#556b3f',
+    primaryColor: '#0A1128',
+    accentColor: '#C46A3A',
     backgroundColor: '#F8F6F1',
     typography: 'playfair',
     headingFont: 'playfair',

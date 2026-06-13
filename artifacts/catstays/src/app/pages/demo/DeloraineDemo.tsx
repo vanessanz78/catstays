@@ -74,16 +74,7 @@ const deviceOptions: Array<{
   { device: 'desktop', label: 'Desktop', icon: Monitor },
 ];
 
-const demoDeviceStorageKey = 'catstays_demo_device';
 const demoTemplateStorageKey = 'catstays_demo_template';
-
-function readSavedDemoDevice(): DeviceMode {
-  if (typeof window === 'undefined') return 'desktop';
-  const savedDevice = window.localStorage.getItem(demoDeviceStorageKey);
-  return savedDevice === 'mobile' || savedDevice === 'tablet' || savedDevice === 'desktop'
-    ? savedDevice
-    : 'desktop';
-}
 
 export function DeloraineDemo() {
   return <DeloraineDemoPage initialMode="website" />;
@@ -103,7 +94,7 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
   const [previewData, setPreviewData] = useState<DelorainePreviewData>(() => readInitialPreviewData(requestedImportUrl));
   const [previewMode, setPreviewMode] = useState<DemoMode>(initialMode);
   const [hoveredMode, setHoveredMode] = useState<DemoMode | null>(null);
-  const [deviceType, setDeviceTypeState] = useState<DeviceMode>(() => readSavedDemoDevice());
+  const [deviceType, setDeviceTypeState] = useState<DeviceMode>('desktop');
 
   useEffect(() => {
     setPreviewMode(initialMode);
@@ -118,7 +109,6 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
 
   const setDeviceType = (device: DeviceMode) => {
     setDeviceTypeState(device);
-    window.localStorage.setItem(demoDeviceStorageKey, device);
   };
 
   const selectedTemplate = normalizePreviewTemplateId(previewData.selectedTemplate || 'original');
@@ -185,7 +175,7 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
 
   return (
     <div className="min-h-screen bg-[#f8f4ed] text-[#10251f]">
-      <nav className="sticky top-0 z-50 border-b border-[#C46A3A]/40 bg-[#0A1128] text-white shadow-sm">
+      <nav data-catstays-demo-header className="sticky top-0 z-50 border-b border-[#C46A3A]/40 bg-[#0A1128] text-white shadow-sm">
         <div className="relative mx-auto flex max-w-7xl items-center justify-between gap-3 px-5 py-2.5 sm:px-8 lg:px-10">
           <Link to="/" className="flex items-center gap-2 text-sm font-semibold text-white hover:text-white/85">
             <ArrowLeft className="h-4 w-4 text-[#D28A4A]" />

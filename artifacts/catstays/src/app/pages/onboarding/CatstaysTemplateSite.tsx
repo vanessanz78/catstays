@@ -6,7 +6,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
-  ExternalLink,
   Facebook,
   HeartHandshake,
   Instagram,
@@ -109,7 +108,7 @@ function TemplateHeader({
   ];
 
   return (
-    <header className={dark ? 'bg-[#1f241b] text-white' : 'bg-white text-[#222] border-b border-[#222]/10'}>
+    <header className={dark ? 'bg-[#0A1128] text-white' : 'bg-white text-[#222] border-b border-[#222]/10'}>
       <div className="catstays-header-inner mx-auto flex max-w-[1400px] items-center justify-between gap-6 px-6 py-5">
         <div className="min-w-0">
           <h1 className="font-serif text-2xl leading-tight sm:text-3xl">{content.business.name}</h1>
@@ -124,7 +123,7 @@ function TemplateHeader({
             </a>
           ))}
         </nav>
-        <a href="#booking" onClick={onPreviewAnchorClick} className={`catstays-mobile-full shrink-0 rounded-md px-5 py-3 text-center text-xs font-bold uppercase tracking-[0.1em] ${dark ? 'bg-white text-[#1f241b]' : 'bg-[#1f241b] text-white'}`}>
+        <a href="#booking" onClick={onPreviewAnchorClick} className={`catstays-mobile-full shrink-0 rounded-md px-5 py-3 text-center text-xs font-bold uppercase tracking-[0.1em] ${dark ? 'bg-white text-[#0A1128]' : 'bg-[#0A1128] text-white'}`}>
           Book Now
         </a>
       </div>
@@ -166,10 +165,10 @@ function FocusTemplate({
             <div className="my-6 h-px w-14 bg-[#b58b4a]" />
             <p className="max-w-lg text-base leading-7 text-[#333]">{content.hero.text}</p>
             <div className="mt-8 flex flex-wrap gap-4">
-              <a href="#suites" onClick={onPreviewAnchorClick} className="rounded-md bg-[#1f241b] px-6 py-4 text-xs font-bold uppercase tracking-[0.1em] text-white">
+              <a href="#suites" onClick={onPreviewAnchorClick} className="rounded-md bg-[#0A1128] px-6 py-4 text-xs font-bold uppercase tracking-[0.1em] text-white">
                 Discover Our Suites
               </a>
-              <a href="#care" onClick={onPreviewAnchorClick} className="rounded-md border border-[#1f241b]/45 px-6 py-4 text-xs font-bold uppercase tracking-[0.1em] text-[#1f241b]">
+              <a href="#care" onClick={onPreviewAnchorClick} className="rounded-md border border-[#0A1128]/45 px-6 py-4 text-xs font-bold uppercase tracking-[0.1em] text-[#0A1128]">
                 Our Care Approach
               </a>
             </div>
@@ -177,7 +176,7 @@ function FocusTemplate({
           <img src={content.hero.image} alt="" className="catstays-template-section-image h-[420px] w-full object-cover md:h-[620px]" />
         </section>
 
-        <section id="booking" className="relative z-10 mx-auto max-w-[1400px] scroll-mt-28 px-6 md:-mt-16">
+        <section id="booking" className="relative z-10 mx-auto w-full max-w-[1400px] scroll-mt-28 px-6 md:-mt-16">
           <div className="catstays-booking-strip grid gap-5 rounded-md border border-[#222]/15 bg-white/95 p-6 shadow-xl md:grid-cols-[1.4fr_1fr_1fr_0.85fr_1fr] md:items-end md:p-8">
             <div>
               <h3 className="text-3xl leading-tight">Book your cat's stay</h3>
@@ -201,7 +200,7 @@ function FocusTemplate({
                 <option value="4">4+ cats</option>
               </select>
             </label>
-            <button type="button" onClick={onPreviewBookingAction} className="flex h-[58px] items-center justify-center rounded-md bg-[#1f241b] px-5 text-center text-xs font-bold uppercase tracking-[0.1em] text-white">
+            <button type="button" onClick={onPreviewBookingAction} className="flex h-[58px] items-center justify-center rounded-md bg-[#0A1128] px-5 text-center text-xs font-bold uppercase tracking-[0.1em] text-white">
               {content.booking.primaryCta}
             </button>
           </div>
@@ -251,7 +250,6 @@ function EditorialTemplate({
     { id: 'about', title: content.about.title, text: content.about.text, image: content.about.image, eyebrow: `About ${content.business.name}` },
     { id: 'care', title: content.whyChoose.title, text: content.whyChoose.text, image: content.gallery[1]?.image || content.hero.image, eyebrow: 'Why choose us' },
     { id: 'facilities', title: content.facilities.title, text: content.facilities.text, image: content.facilities.image, eyebrow: 'Premium accommodation' },
-    { id: 'owner', title: content.owner.title, text: content.owner.text, image: content.owner.image || content.gallery[2]?.image || content.hero.image, eyebrow: 'The people behind the care' },
   ];
 
   return (
@@ -267,11 +265,13 @@ function EditorialTemplate({
             <h2 className="text-4xl leading-[1.08] md:text-6xl">{content.hero.heading}</h2>
             <div className="my-6 h-px w-14 bg-[#b58b4a]" />
             <p className="max-w-lg text-base leading-7">{content.hero.text}</p>
-            <a href="#booking" onClick={onPreviewAnchorClick} className="catstays-mobile-full mt-8 w-max rounded-md bg-[#1f241b] px-6 py-4 text-center text-xs font-bold uppercase tracking-[0.1em] text-white">
+            <a href="#booking" onClick={onPreviewAnchorClick} className="catstays-mobile-full mt-8 w-max rounded-md bg-[#0A1128] px-6 py-4 text-center text-xs font-bold uppercase tracking-[0.1em] text-white">
               Book Now
             </a>
           </div>
         </section>
+
+        <ConversionBanner content={content} onPreviewBookingAction={onPreviewBookingAction} onPreviewBookingInteraction={onPreviewBookingInteraction} />
 
         {sections.map((section, index) => (
           <section key={section.title} id={section.id} className="catstays-stack mx-auto grid max-w-[1400px] scroll-mt-28 md:grid-cols-2">
@@ -289,15 +289,15 @@ function EditorialTemplate({
         <FacilitiesDetailSection content={content} />
         <SuitesGrid content={content} compact />
         <ServicesGrid content={content} />
-        <ConversionBanner content={content} onPreviewBookingAction={onPreviewBookingAction} onPreviewBookingInteraction={onPreviewBookingInteraction} />
         <GalleryStrip content={content} />
         <ReviewsSection content={content} />
+        <OwnerStorySection content={content} />
         <LocationSection content={content} />
         <VirtualTourSection content={content} />
         <ContactFormSection content={content} onPreviewContactAction={onPreviewContactAction} />
       </main>
       <TemplateFooter content={content} onPreviewAnchorClick={onPreviewAnchorClick} />
-      <ChatWidget accentColor="#556b3f" businessName={content.business.name} knowledge={content} />
+      <ChatWidget accentColor="#C46A3A" businessName={content.business.name} knowledge={content} />
     </div>
   );
 }
@@ -336,28 +336,28 @@ function ShowcaseTemplate({
             <p className="mb-5 text-xs font-bold uppercase tracking-[0.24em] text-white/75">{content.hero.eyebrow}</p>
             <h2 className="max-w-4xl text-5xl leading-[1.02] md:text-7xl">{content.hero.heading}</h2>
             <p className="mt-6 max-w-2xl text-lg leading-8 text-white/90">{content.hero.text}</p>
-            <a href="#booking" onClick={onPreviewAnchorClick} className="catstays-mobile-full mt-8 w-max rounded-md bg-white px-7 py-4 text-center text-xs font-bold uppercase tracking-[0.1em] text-[#1f241b]">
+            <a href="#booking" onClick={onPreviewAnchorClick} className="catstays-mobile-full mt-8 w-max rounded-md bg-white px-7 py-4 text-center text-xs font-bold uppercase tracking-[0.1em] text-[#0A1128]">
               {content.hero.button}
             </a>
           </div>
         </section>
 
+        <ConversionBanner content={content} onPreviewBookingAction={onPreviewBookingAction} onPreviewBookingInteraction={onPreviewBookingInteraction} />
         <ShowcaseGalleryRail content={content} />
 
         <AboutSplit content={content} onPreviewAnchorClick={onPreviewAnchorClick} />
         <FeatureRow content={content} />
         <FacilitiesDetailSection content={content} />
-        <OwnerStorySection content={content} />
         <SuitesGrid content={content} />
         <ServicesGrid content={content} />
         <ReviewsSection content={content} />
+        <OwnerStorySection content={content} />
         <LocationSection content={content} />
         <VirtualTourSection content={content} />
-        <ConversionBanner content={content} onPreviewBookingAction={onPreviewBookingAction} onPreviewBookingInteraction={onPreviewBookingInteraction} />
         <ContactFormSection content={content} onPreviewContactAction={onPreviewContactAction} />
       </main>
       <TemplateFooter content={content} onPreviewAnchorClick={onPreviewAnchorClick} />
-      <ChatWidget accentColor="#556b3f" businessName={content.business.name} knowledge={content} />
+      <ChatWidget accentColor="#C46A3A" businessName={content.business.name} knowledge={content} />
     </div>
   );
 }
@@ -443,7 +443,7 @@ function AboutSplit({
         <h2 className="text-3xl leading-[1.12] md:text-5xl">{content.about.title}</h2>
         <div className="my-6 h-px w-14 bg-[#b58b4a]" />
         <p className="text-base leading-7 text-[#333]">{content.about.text}</p>
-        <a href="#contact" onClick={onPreviewAnchorClick} className="catstays-mobile-full mt-8 w-max rounded-md bg-[#1f241b] px-6 py-4 text-center text-xs font-bold uppercase tracking-[0.1em] text-white">
+        <a href="#contact" onClick={onPreviewAnchorClick} className="catstays-mobile-full mt-8 w-max rounded-md bg-[#0A1128] px-6 py-4 text-center text-xs font-bold uppercase tracking-[0.1em] text-white">
           More About Us
         </a>
       </div>
@@ -475,7 +475,7 @@ function SuitesGrid({ content, compact = false }: { content: ReturnType<typeof b
                   ))}
                 </ul>
               ) : null}
-              <button type="button" onClick={() => setActiveSuite(suite)} className="mx-auto mt-auto rounded-md border border-[#1f241b]/20 bg-[#1f241b] px-5 py-3 text-xs font-bold uppercase tracking-[0.12em] text-white">
+              <button type="button" onClick={() => setActiveSuite(suite)} className="mx-auto mt-auto rounded-md border border-[#0A1128]/20 bg-[#0A1128] px-5 py-3 text-xs font-bold uppercase tracking-[0.12em] text-white">
                 View Suite
               </button>
             </div>
@@ -522,8 +522,8 @@ function ConversionBanner({
   onPreviewBookingInteraction?: () => void;
 }) {
   return (
-    <section id="booking" className="scroll-mt-28 bg-[#24311c] px-6 py-12 text-white">
-      <div className="catstays-booking-strip mx-auto grid max-w-[1400px] gap-5 md:grid-cols-[1.35fr_1fr_1fr_0.85fr_1fr] md:items-end">
+    <section id="booking" className="scroll-mt-28 bg-[#0A1128] px-6 py-12 text-white">
+      <div className="catstays-booking-strip mx-auto grid w-full max-w-[1400px] gap-5 md:grid-cols-[1.35fr_1fr_1fr_0.85fr_1fr] md:items-end">
         <div>
           <h2 className="text-3xl leading-tight">Book your cat's stay</h2>
           <p className="mt-2 text-sm text-white/80">{content.booking.bannerText}</p>
@@ -707,8 +707,8 @@ function OwnerStorySection({ content }: { content: ReturnType<typeof buildCatsta
   if (!content.owner.text) return null;
 
   return (
-    <section id="owner" className="catstays-stack mx-auto grid max-w-[1400px] scroll-mt-28 bg-white md:grid-cols-[0.9fr_1.1fr]">
-      <img src={content.owner.image} alt="" className="catstays-owner-image h-[420px] w-full object-cover object-[50%_35%] md:h-[520px]" />
+    <section id="owner" className="catstays-stack mx-auto grid max-w-[1400px] scroll-mt-28 gap-8 bg-white px-6 py-10 md:grid-cols-[0.9fr_1.1fr] md:items-stretch md:px-0 md:py-0">
+      <img src={content.owner.image} alt="" className="catstays-owner-image h-[420px] w-full rounded-md object-cover object-[50%_62%] md:h-full md:min-h-[620px]" />
       <div className="flex flex-col justify-center px-8 py-14 md:px-20">
         <p className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">The people behind the care</p>
         <h2 className="text-3xl leading-[1.12] md:text-5xl">{content.owner.title}</h2>
@@ -871,7 +871,7 @@ function ContactFormSection({
             Message
             <textarea className="mt-2 min-h-32 w-full rounded-md border border-[#222]/15 px-4 py-3 font-sans text-sm" placeholder="Tell us about your cat and the care they need." />
           </label>
-          <button type="button" onClick={onPreviewContactAction} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-[#1f241b] px-6 py-4 text-sm font-bold uppercase tracking-[0.1em] text-white">
+          <button type="button" onClick={onPreviewContactAction} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-[#0A1128] px-6 py-4 text-sm font-bold uppercase tracking-[0.1em] text-white">
             <MessageSquare className="h-4 w-4" />
             Send enquiry
           </button>
@@ -905,14 +905,24 @@ function scrollInsidePreview(link: HTMLElement, href: string) {
 
   if (!target) return false;
 
-  if (scrollRoot) {
+  const offset = previewStickyOffset();
+
+  if (scrollRoot && scrollRoot.scrollHeight > scrollRoot.clientHeight + 8) {
     const targetTop = target.getBoundingClientRect().top - scrollRoot.getBoundingClientRect().top + scrollRoot.scrollTop;
-    scrollRoot.scrollTo({ top: Math.max(targetTop - 12, 0), behavior: 'smooth' });
+    scrollRoot.scrollTo({ top: Math.max(targetTop - offset, 0), behavior: 'smooth' });
     return true;
   }
 
-  target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  window.scrollTo({
+    top: Math.max(window.scrollY + target.getBoundingClientRect().top - offset, 0),
+    behavior: 'smooth',
+  });
   return true;
+}
+
+function previewStickyOffset() {
+  const header = document.querySelector('[data-catstays-demo-header]') as HTMLElement | null;
+  return (header?.getBoundingClientRect().height || 80) + 16;
 }
 
 function embeddableVirtualTourUrl(rawUrl: string, sourceHost?: string) {
@@ -941,6 +951,20 @@ function CatstaysPreviewDeviceStyles() {
         scroll-behavior: smooth;
       }
 
+      [data-catstays-template-root] .catstays-template-section-image,
+      [data-catstays-template-root] .catstays-owner-image,
+      [data-catstays-template-root] figure,
+      [data-catstays-template-root] article,
+      [data-catstays-template-root] .catstays-card-grid > div {
+        border-radius: 0.375rem;
+        overflow: hidden;
+      }
+
+      [data-catstays-preview-device="mobile"].catstays-template,
+      [data-catstays-preview-device="tablet"].catstays-template {
+        overflow-wrap: anywhere;
+      }
+
       [data-catstays-preview-device="mobile"] .catstays-preview-nav,
       [data-catstays-preview-device="tablet"] .catstays-preview-nav {
         display: none !important;
@@ -955,12 +979,20 @@ function CatstaysPreviewDeviceStyles() {
         width: 100% !important;
       }
 
+      [data-catstays-preview-device="tablet"] .catstays-mobile-full {
+        max-width: 100% !important;
+      }
+
       [data-catstays-preview-device="mobile"] .catstays-stack,
       [data-catstays-preview-device="mobile"] .catstays-booking-strip,
       [data-catstays-preview-device="mobile"] .catstays-card-grid,
       [data-catstays-preview-device="mobile"] .catstays-form-grid,
       [data-catstays-preview-device="mobile"] .catstays-footer-grid,
       [data-catstays-preview-device="mobile"] .catstays-founder-grid {
+        grid-template-columns: minmax(0, 1fr) !important;
+      }
+
+      [data-catstays-preview-device="tablet"] .catstays-stack {
         grid-template-columns: minmax(0, 1fr) !important;
       }
 
@@ -978,18 +1010,34 @@ function CatstaysPreviewDeviceStyles() {
         min-height: 0 !important;
       }
 
-      [data-catstays-preview-device="mobile"] .catstays-owner-image {
-        height: 340px !important;
+      [data-catstays-preview-device="tablet"] .catstays-template-section-image {
+        height: 420px !important;
         min-height: 0 !important;
       }
 
-      [data-catstays-preview-device="tablet"] .catstays-owner-image {
-        height: 460px !important;
+      [data-catstays-preview-device="mobile"] .catstays-owner-image {
+        height: 340px !important;
         min-height: 0 !important;
+        object-position: 50% 62% !important;
+      }
+
+      [data-catstays-preview-device="tablet"] .catstays-owner-image {
+        height: 520px !important;
+        min-height: 0 !important;
+        object-position: 50% 62% !important;
       }
 
       [data-catstays-preview-device="mobile"] .catstays-booking-strip {
         padding: 1rem !important;
+      }
+
+      [data-catstays-preview-device="mobile"] h2 {
+        font-size: clamp(2rem, 11vw, 3rem) !important;
+        line-height: 1.08 !important;
+      }
+
+      [data-catstays-preview-device="tablet"] h2 {
+        font-size: clamp(2.6rem, 7vw, 4.2rem) !important;
       }
     `}</style>
   );
@@ -1016,7 +1064,7 @@ function TestimonialBanner({ content, light = false, imageSrc }: { content: Retu
   }
 
   return (
-    <section className={`grid items-center gap-8 px-8 py-12 md:grid-cols-[1fr_2fr_1fr] ${light ? 'bg-white' : 'bg-[#24311c] text-white'}`}>
+    <section className={`grid items-center gap-8 px-8 py-12 md:grid-cols-[1fr_2fr_1fr] ${light ? 'bg-white' : 'bg-[#0A1128] text-white'}`}>
       <div className="text-7xl leading-none">"</div>
       <blockquote className="text-center text-2xl italic leading-relaxed">{testimonial.quote}</blockquote>
       <div className="text-sm">
@@ -1050,7 +1098,7 @@ function TemplateFooter({
         </div>
         <div>
           <h4 className="mb-4 text-xs font-bold uppercase tracking-[0.16em]">Quick Links</h4>
-          <nav className="space-y-2 text-sm">
+          <nav className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
             <a href="#home" onClick={onPreviewAnchorClick} className={linkClass}>Home</a>
             <a href="#about" onClick={onPreviewAnchorClick} className={linkClass}>About</a>
             <a href="#care" onClick={onPreviewAnchorClick} className={linkClass}>Care</a>
@@ -1061,7 +1109,6 @@ function TemplateFooter({
             <a href="#reviews" onClick={onPreviewAnchorClick} className={linkClass}>Reviews</a>
             <a href="#location" onClick={onPreviewAnchorClick} className={linkClass}>Location</a>
             {virtualTourUrl ? <a href="#virtual-tour" onClick={onPreviewAnchorClick} className={linkClass}>Virtual Tour</a> : null}
-            <a href="/login" className={linkClass}>Host Login</a>
           </nav>
         </div>
         <div>
@@ -1076,11 +1123,6 @@ function TemplateFooter({
             {content.footer.instagram ? (
               <a href={content.footer.instagram} target="_blank" rel="noreferrer" className={socialLinkClass} aria-label="Instagram">
                 <Instagram className="h-4 w-4" />
-              </a>
-            ) : null}
-            {virtualTourUrl ? (
-              <a href="#virtual-tour" onClick={onPreviewAnchorClick} className={socialLinkClass} aria-label="Virtual tour">
-                <ExternalLink className="h-4 w-4" />
               </a>
             ) : null}
           </div>

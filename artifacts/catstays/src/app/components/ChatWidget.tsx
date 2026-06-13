@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { MessageCircle, X, Send } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -48,6 +48,7 @@ interface ChatKnowledge {
 }
 
 type ChatMessage = { sender: 'bot' | 'user'; text: string };
+type AnswerResult = { text: string; ownerFollowUp?: boolean };
 
 export function ChatWidget({ accentColor = '#C46A3A', businessName = 'CatStays', knowledge }: ChatWidgetProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -55,20 +56,49 @@ export function ChatWidget({ accentColor = '#C46A3A', businessName = 'CatStays',
     { sender: 'bot', text: `Hi! Welcome to ${businessName}. How can we help you today?` }
   ]);
   const [inputValue, setInputValue] = useState('');
+  const [awaitingOwnerEmail, setAwaitingOwnerEmail] = useState(false);
+  const [pendingOwnerQuestion, setPendingOwnerQuestion] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [isOpen, messages]);
 
   const handleSend = () => {
-    if (!inputValue.trim()) return;
+    const messageText = inputValue.trim();
+    if (!messageText) return;
 
-    // Add user message
-    const userMessage: ChatMessage = { sender: 'user', text: inputValue };
+    const userMessage: ChatMessage = { sender: 'user', text: messageText };
     const newMessages: ChatMessage[] = [...messages, userMessage];
     setMessages(newMessages);
     setInputValue('');
 
-    const response = answerFromKnowledge(inputValue, knowledge, businessName);
+    let response: AnswerResult;
+    if (awaitingOwnerEmail) {
+      if (isLikelyEmail(messageText)) {
+        const topic = pendingOwnerQuestion ? ` about "${pendingOwnerQuestion}"` : '';
+        response = {
+          text: `Thanks. I'll send this chat thread${topic} to the owner so they can reply to ${messageText}. Please allow up to 24 hours for a response.`,
+        };
+        setAwaitingOwnerEmail(false);
+        setPendingOwnerQuestion('');
+      } else {
+        response = {
+          text: `Please enter your email address and I'll send this chat thread to the owner. They can reply with the right details within 24 hours.`,
+        };
+      }
+    } else {
+      response = answerFromKnowledge(messageText, knowledge, businessName);
+      if (response.ownerFollowUp) {
+        setAwaitingOwnerEmail(true);
+        setPendingOwnerQuestion(messageText);
+      }
+    }
+
     setTimeout(() => {
-      setMessages([...newMessages, { sender: 'bot', text: response }]);
-    }, 1000);
+      setMessages([...newMessages, { sender: 'bot', text: response.text }]);
+    }, 450);
   };
 
   return (
@@ -125,6 +155,7 @@ export function ChatWidget({ accentColor = '#C46A3A', businessName = 'CatStays',
                 </div>
               </div>
             ))}
+            <div ref={messagesEndRef} />
           </div>
 
           {/* Input */}
@@ -153,7 +184,7 @@ export function ChatWidget({ accentColor = '#C46A3A', businessName = 'CatStays',
   );
 }
 
-function answerFromKnowledge(question: string, knowledge: ChatKnowledge | undefined, businessName: string) {
+function answerFromKnowledge(question: string, knowledge: ChatKnowledge | undefined, businessName: string): AnswerResult {
   const normalized = question.toLowerCase();
   const footer = knowledge?.footer;
   const suites = knowledge?.suites ?? [];
@@ -161,23 +192,22 @@ function answerFromKnowledge(question: string, knowledge: ChatKnowledge | undefi
   const faqs = knowledge?.faqs ?? [];
   const location = knowledge?.locationDetails;
 
-  const matchedFaq = findMatchingFaq(question, faqs);
-  if (matchedFaq) return matchedFaq;
-
   if (matches(normalized, ['hour', 'open', 'close', 'appointment', 'drop off', 'pickup', 'pick up', 'collect'])) {
     const hours = footer?.hours || 'hours are arranged by appointment';
     const contact = footer?.phone ? ` You can call or text ${footer.phone} to arrange a time.` : '';
-    return `${businessName} is open by arrangement: ${hours}.${contact}`;
+    return { text: `${businessName} is open by arrangement: ${hours}.${contact}` };
   }
 
   if (matches(normalized, ['price', 'rate', 'cost', 'charge', 'fee', 'suite', 'room', 'boarding'])) {
     const pricedSuites = suites.filter((suite) => suite.title || suite.price || suite.text).slice(0, 4);
     if (pricedSuites.length) {
-      return pricedSuites
+      return {
+        text: pricedSuites
         .map((suite) => `${suite.title || 'Room'}${suite.price ? `: ${suite.price}` : ''}${suite.text ? ` - ${suite.text}` : ''}`)
-        .join('\n');
+        .join('\n'),
+      };
     }
-    return knowledge?.booking?.text || `The team at ${businessName} can confirm availability and pricing for your cat's stay.`;
+    return { text: knowledge?.booking?.text || `The team at ${businessName} can confirm availability and pricing for your cat's stay.` };
   }
 
   if (matches(normalized, ['service', 'groom', 'brush', 'medication', 'medicine', 'injection', 'vet', 'airport', 'transport'])) {
@@ -187,28 +217,35 @@ function answerFromKnowledge(question: string, knowledge: ChatKnowledge | undefi
     });
     const selected = (relevant.length ? relevant : services).slice(0, 4);
     if (selected.length) {
-      return selected
+      return {
+        text: selected
         .map((service) => `${service.title || 'Service'}${service.price ? ` (${service.price})` : ''}: ${service.text || 'Available during your cat stay.'}`)
-        .join('\n');
+        .join('\n'),
+      };
     }
   }
 
   if (matches(normalized, ['where', 'address', 'location', 'directions', 'map'])) {
     const address = footer?.address || location?.text || knowledge?.business?.location;
     const directions = location?.directions ? ` ${location.directions}` : '';
-    return address ? `${businessName} is at ${address}.${directions}` : `${businessName} can share location details when you enquire.`;
+    return { text: address ? `${businessName} is at ${address}.${directions}` : `${businessName} can share location details when you enquire.` };
   }
 
   if (matches(normalized, ['contact', 'phone', 'email', 'call', 'text', 'message', 'enquiry', 'inquiry'])) {
     const details = [footer?.phone ? `phone/text ${footer.phone}` : '', footer?.email ? `email ${footer.email}` : ''].filter(Boolean).join(' or ');
-    return details ? `You can contact ${businessName} by ${details}.` : `Send an enquiry and the ${businessName} team will follow up.`;
+    return { text: details ? `You can contact ${businessName} by ${details}.` : `Send an enquiry and the ${businessName} team will follow up.` };
   }
 
   if (matches(normalized, ['book', 'booking', 'availability', 'reserve', 'stay'])) {
-    return knowledge?.booking?.text
+    return {
+      text: knowledge?.booking?.text
       ? `${knowledge.booking.text} In this preview, booking requests show how the live flow will connect to the CatStays dashboard.`
-      : `Use the booking form to request dates for your cat's stay. In preview mode, it shows how live bookings will work.`;
+      : `Use the booking form to request dates for your cat's stay. In preview mode, it shows how live bookings will work.`,
+    };
   }
+
+  const matchedFaq = findMatchingFaq(question, faqs);
+  if (matchedFaq) return { text: matchedFaq };
 
   const quickFacts = [
     footer?.hours ? `Hours: ${footer.hours}` : '',
@@ -218,10 +255,16 @@ function answerFromKnowledge(question: string, knowledge: ChatKnowledge | undefi
   ].filter(Boolean);
 
   if (quickFacts.length) {
-    return `I can help with ${businessName} details. ${quickFacts.join(' ')}`;
+    return {
+      text: `I don't have that exact answer in the imported site content yet. Enter your email and I'll send this chat thread to the owner so they can reply. Please allow up to 24 hours.\n\nQuick details I do have: ${quickFacts.join(' ')}`,
+      ownerFollowUp: true,
+    };
   }
 
-  return `Thanks for your message. The ${businessName} team can help with bookings, care needs, room options, and contact details.`;
+  return {
+    text: `I don't have that answer in the imported site content yet. Enter your email and I'll send this chat thread to the owner so they can reply. Please allow up to 24 hours.`,
+    ownerFollowUp: true,
+  };
 }
 
 function matches(text: string, words: string[]) {
@@ -232,14 +275,25 @@ function findMatchingFaq(question: string, faqs: NonNullable<ChatKnowledge['faqs
   const tokens = question
     .toLowerCase()
     .split(/\W+/)
-    .filter((token) => token.length > 3 && !['what', 'when', 'where', 'which', 'your', 'with', 'from', 'that', 'this', 'have'].includes(token));
+    .filter((token) => token.length > 3 && !['what', 'when', 'where', 'which', 'your', 'with', 'from', 'that', 'this', 'have', 'does', 'much', 'many'].includes(token));
 
   if (!tokens.length) return '';
 
-  const match = faqs.find((faq) => {
+  let bestMatch = '';
+  let bestScore = 0;
+
+  faqs.forEach((faq) => {
     const haystack = `${faq.question || ''} ${faq.answer || ''}`.toLowerCase();
-    return tokens.some((token) => haystack.includes(token));
+    const score = tokens.reduce((total, token) => total + (haystack.includes(token) ? 1 : 0), 0);
+    if (score > bestScore) {
+      bestScore = score;
+      bestMatch = faq.answer || '';
+    }
   });
 
-  return match?.answer || '';
+  return bestScore >= Math.min(2, tokens.length) ? bestMatch : '';
+}
+
+function isLikelyEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
