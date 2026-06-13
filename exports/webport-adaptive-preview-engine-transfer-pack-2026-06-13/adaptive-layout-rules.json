@@ -1,0 +1,97 @@
+{
+  "version": "1.0.0",
+  "principles": [
+    "Never lose source content.",
+    "Never render blank placeholder slots.",
+    "Templates guide style, not item counts.",
+    "Sparse content should be centred and balanced.",
+    "Excess content should become accessible through adaptive overflow patterns."
+  ],
+  "featureCards": {
+    "1": { "treatment": "centered-card", "columns": 1 },
+    "2": { "treatment": "two-column-grid", "columns": 2 },
+    "3": { "treatment": "three-column-grid", "columns": 3 },
+    "4": { "treatment": "two-by-two-grid", "columns": 2 },
+    "5": { "treatment": "five-column-grid", "columns": 5 },
+    "6+": { "treatment": "responsive-grid", "columns": "auto-fit-minmax", "minCardWidth": 220 }
+  },
+  "roomsOrOffers": {
+    "0": { "treatment": "hide-section" },
+    "1": { "treatment": "feature-card-or-detail-panel", "columns": 1 },
+    "2": { "treatment": "two-column-grid", "columns": 2 },
+    "3": { "treatment": "three-column-grid", "columns": 3 },
+    "4+": { "treatment": "responsive-grid-with-additional-rows", "columns": "auto-fit-minmax", "minCardWidth": 280 },
+    "detailBehaviour": "modal-or-drawer",
+    "rule": "All rooms/offers must remain accessible."
+  },
+  "services": {
+    "0": { "treatment": "hide-section" },
+    "1": { "treatment": "centered-card" },
+    "2": { "treatment": "two-column-grid" },
+    "3": { "treatment": "three-column-grid" },
+    "4": { "treatment": "two-by-two-grid" },
+    "5+": { "treatment": "carousel-or-responsive-grid", "preferred": "carousel-on-mobile" }
+  },
+  "testimonials": {
+    "0": { "treatment": "hide-section" },
+    "1": { "treatment": "single-quote-banner" },
+    "2": { "treatment": "two-card-row" },
+    "3": { "treatment": "three-card-row" },
+    "4+": { "treatment": "carousel", "slidesPerPage": { "mobile": 1, "tablet": 2, "desktop": 3 } },
+    "rule": "Never discard reviews. Additional reviews become carousel slides."
+  },
+  "galleryImages": {
+    "0": { "treatment": "hide-section" },
+    "1": { "treatment": "single-feature-image" },
+    "2": { "treatment": "two-image-row" },
+    "3": { "treatment": "balanced-grid" },
+    "4-6": { "treatment": "balanced-gallery-grid" },
+    "7-12": { "treatment": "carousel-or-masonry-preview" },
+    "13-30": { "treatment": "carousel-with-thumbnails" },
+    "31+": { "treatment": "paged-gallery-with-thumbnails" },
+    "rules": [
+      "Do not display giant walls of images.",
+      "Do not show file-name captions by default.",
+      "Avoid reusing the same image in multiple prominent sections when alternatives exist.",
+      "If an image is already used as hero, prefer different images for gallery cards."
+    ]
+  },
+  "faqs": {
+    "0": { "treatment": "hide-section" },
+    "1-5": { "treatment": "accordion" },
+    "6-12": { "treatment": "categorized-accordion" },
+    "13+": { "treatment": "footer-link-plus-chatbot-knowledge", "optionalPage": "faq" },
+    "rule": "FAQs must remain accessible even if not fully visible on the main page."
+  },
+  "location": {
+    "requiredWhenSourceExists": true,
+    "treatments": ["map-card", "directions-list", "landmark-gallery", "footer-summary"],
+    "rule": "If directions or map data exist, render a location section or make it available through a contact/location drawer."
+  },
+  "virtualTour": {
+    "requiredWhenSourceExists": true,
+    "treatments": ["full-width-embed", "modal-embed", "gallery-section-embed"],
+    "rule": "Virtual tour embeds should not be reduced to a footer link only."
+  },
+  "contact": {
+    "requiredWhenSourceExists": true,
+    "treatments": ["contact-form-section", "footer-contact", "sticky-chat-or-enquiry"],
+    "previewMode": "Submitting should show a preview-only message unless the site is live."
+  },
+  "navigation": {
+    "rule": "Only show nav items for sections that exist.",
+    "requiredBehaviour": "Every nav item must anchor to the rendered section in the current preview document.",
+    "missingSectionBehaviour": "Hide nav item or map it to the closest valid section."
+  },
+  "devicePreview": {
+    "desktop": { "width": "100%", "maxWidth": "laptop-or-page-width", "renderMode": "desktop-css" },
+    "tablet": { "width": 768, "renderMode": "tablet-css" },
+    "mobile": { "width": 390, "renderMode": "mobile-css" },
+    "rule": "Do not shrink a desktop layout into a phone frame. Render the site at the target viewport width."
+  },
+  "bookingAndForms": {
+    "previewMode": "Show a preview message instead of submitting.",
+    "liveMode": "Submit into the customer dashboard, booking system, CRM, or configured integration.",
+    "rule": "CTA buttons must either anchor, open a modal, or submit to a known live destination."
+  }
+}
