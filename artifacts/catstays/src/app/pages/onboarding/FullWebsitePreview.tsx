@@ -160,7 +160,7 @@ export function FullWebsitePreview({
       template === 'modern-showcase' ||
       template === 'original'
     ) {
-      return <CatstaysTemplateSite data={data} templateId={template} embedded />;
+      return <CatstaysTemplateSite data={data} templateId={template} embedded previewDevice={deviceType} />;
     }
 
     // Render the template with all the data

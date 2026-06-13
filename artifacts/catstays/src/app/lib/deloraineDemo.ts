@@ -15,6 +15,9 @@ const deloraineAssets = [
   'https://www.delorainecattery.com/assets/Paul%20and%20Vanessa-Dst6H-6-.jpg',
 ];
 
+const deloraineVirtualTourEmbedUrl =
+  'https://www.google.com/maps/embed?pb=!4v1585042151806!6m8!1m7!1sCAoSLEFGMVFpcE4yclY4ZXBnVTVJTlc4VkVoTEN2dmx5Wk45b201czhtZ3ZUbFpr!2m2!1d-35.72669200000001!2d174.355986!3f20.68!4f-14.75!5f0.4000000000000002';
+
 const genericCatAssets = [
   'https://images.unsplash.com/photo-1770255860384-3359fd44b467?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1200',
   'https://images.unsplash.com/photo-1636340629239-008219592d08?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1200',
@@ -235,9 +238,10 @@ export const fallbackDeloraineScrape: ImportedCatteryScrape = {
   address: '50 Konini Street, Abbey Caves, Whangarei',
   city: 'Whangarei',
   bookingUrl: 'https://us.revelationpets.com/bookerv2/zombsurql5',
-  hours: 'Open hours by appointment only. Closed Sunday mornings.',
+  hours: 'By appointment only. Mon-Sat: 9:00am - 10:30am. Mon-Sun: 4:30pm - 6:00pm. Closed Sunday mornings.',
   socialLinks: {
     facebook: 'https://www.facebook.com/delorainecattery',
+    instagram: 'https://www.instagram.com/delorainecattery/',
   },
   highlights: [
     {
@@ -482,9 +486,9 @@ export const fallbackDeloraineScrape: ImportedCatteryScrape = {
     heading: 'Find Deloraine Cattery',
     text: 'Deloraine Cattery is located at 50 Konini Street, Abbey Caves, Whangarei.',
     directions: 'The cattery is around five minutes from Onerahi Airport.',
-    virtualTourUrl: 'https://www.delorainecattery.com/#virtual-tour',
+    virtualTourUrl: deloraineVirtualTourEmbedUrl,
   },
-  virtualTourUrl: 'https://www.delorainecattery.com/#virtual-tour',
+  virtualTourUrl: deloraineVirtualTourEmbedUrl,
   siteContentLibrary: {
     schemaVersion: 1,
     sourceUrl: DELORAINE_SOURCE_URL,
@@ -831,7 +835,7 @@ export const fallbackDeloraineScrape: ImportedCatteryScrape = {
           { title: 'Konini Street', text: 'Keep going on Mackesy Road until it becomes Konini Street.' },
           { title: 'Arrival', text: 'Deloraine Cattery is number 50 Konini Street, approximately 1.3km from Riverside Drive.' },
         ],
-        links: [{ label: 'Virtual Tour', url: 'https://www.delorainecattery.com/#virtual-tour' }],
+        links: [{ label: 'Virtual Tour', url: deloraineVirtualTourEmbedUrl }],
       },
       {
         id: 'contact',
@@ -843,10 +847,11 @@ export const fallbackDeloraineScrape: ImportedCatteryScrape = {
           { title: 'Location', text: '50 Konini St, Abbey Caves, Whangarei. 2.5 acres of peaceful park-like grounds.' },
           { title: 'Phone/Text', text: '021 463 616' },
           { title: 'Email', text: 'enquiry@delorainecattery.com' },
-          { title: 'Open Hours', text: 'Mon-Sat: 9:00am - 10:30am. Mon-Sun: 4:30pm - 6:00pm. Closed Sunday mornings.' },
+          { title: 'Open Hours', text: 'By appointment only. Mon-Sat: 9:00am - 10:30am. Mon-Sun: 4:30pm - 6:00pm. Closed Sunday mornings.' },
         ],
         links: [
           { label: 'Facebook', url: 'https://www.facebook.com/delorainecattery' },
+          { label: 'Instagram', url: 'https://www.instagram.com/delorainecattery/' },
           { label: 'Book online', url: 'https://us.revelationpets.com/bookerv2/zombsurql5' },
         ],
       },
@@ -912,9 +917,13 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
   const locationDetails = scrape.locationDetails || settings.locationData || (isDeloraineSource ? fallbackDeloraineScrape.locationDetails : undefined);
   const socialLinks = scrape.socialLinks || settings.socialLinks || (isDeloraineSource ? fallbackDeloraineScrape.socialLinks : undefined);
   const virtualTourUrl =
-    stringValue(settings.virtualTourUrl) ||
-    scrape.virtualTourUrl ||
-    locationDetails?.virtualTourUrl ||
+    embeddableVirtualTourUrl(
+      stringValue(settings.virtualTourUrl) ||
+        scrape.virtualTourUrl ||
+        locationDetails?.virtualTourUrl ||
+        '',
+      scrape.sourceHost,
+    ) ||
     (isDeloraineSource ? fallbackDeloraineScrape.virtualTourUrl || '' : '');
   const siteContentLibrary =
     scrape.siteContentLibrary ||
@@ -1042,7 +1051,7 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
     socialLinks,
     virtualTourUrl,
     siteContentLibrary,
-    sectionsOrder: ['hero', 'why-choose-us', 'about', 'owner', 'facilities', 'suites', 'services', 'gallery', 'reviews', 'faq', 'location', 'contact'],
+    sectionsOrder: ['hero', 'about', 'why-choose-us', 'facilities', 'suites', 'services', 'gallery', 'reviews', 'location', 'contact'],
     roomTypes: rooms.map((room) => ({
       name: room.name,
       numberOfRooms: '1',
@@ -1334,6 +1343,25 @@ function businessNameFromHost(host: string): string {
 function isDeloraineScrape(scrape: ImportedCatteryScrape): boolean {
   const source = `${scrape.sourceHost || ''} ${scrape.sourceUrl || ''}`.toLowerCase();
   return source.includes('delorainecattery.com');
+}
+
+function embeddableVirtualTourUrl(rawUrl: string, sourceHost?: string): string {
+  if (!rawUrl) return '';
+  try {
+    const url = new URL(rawUrl);
+    const hostname = url.hostname.replace(/^www\./, '').toLowerCase();
+    const source = (sourceHost || '').replace(/^www\./, '').toLowerCase();
+    if (source && hostname === source && url.hash) return '';
+    if (/google\.[^/]+\/maps\/embed|my\.matterport\.com|kuula\.co|cloudpano\.com|realsee\.ai|eyespy360\.com/i.test(url.href)) {
+      return url.href;
+    }
+    if (/virtual|tour|360|streetview|matterport/i.test(url.href) && hostname !== source) {
+      return url.href;
+    }
+  } catch {
+    return '';
+  }
+  return '';
 }
 
 function normaliseSourceUrl(rawUrl: string): URL {

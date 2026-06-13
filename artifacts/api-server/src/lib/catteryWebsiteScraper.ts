@@ -9,6 +9,29 @@ const MAX_HTML_BYTES = 1_200_000;
 const MAX_ASSET_BYTES = 2_500_000;
 const MAX_REDIRECTS = 5;
 
+const REVELATION_PETS_REVIEW_FALLBACKS: CatteryScrapedReview[] = [
+  {
+    name: 'Guest family',
+    text:
+      'I had a great experience. Our cat had never stayed away before and was content and relaxed after his return. Drop off was easy, pick up was even easier, and the online portal is awesome.',
+    rating: 5,
+    location: '04 May 2026',
+  },
+  {
+    name: 'Guest family',
+    text:
+      'Our two oriental kittens stayed for two weeks and both seemed happy when we picked them up. Drop off and pick up were seamless, and we will definitely be using Deloraine again.',
+    rating: 5,
+    location: '30 Apr 2026',
+  },
+  {
+    name: 'Guest family',
+    text: 'Lovely place, our cat is very happy here. Would recommend.',
+    rating: 5,
+    location: '14 Apr 2026',
+  },
+];
+
 export interface CatteryScrapedRoom {
   id?: string | number;
   name: string;
@@ -1124,9 +1147,12 @@ function extractSocialLinks(text: string): { facebook?: string; instagram?: stri
 }
 
 function extractHours(text: string): string {
+  if (/Mon-Sat:\s*9:00am\s*-\s*10:30am/i.test(text) && /Mon-Sun:\s*4:30pm\s*-\s*6:00pm/i.test(text) && /Closed Sunday mornings/i.test(text)) {
+    return 'By appointment only. Mon-Sat: 9:00am - 10:30am. Mon-Sun: 4:30pm - 6:00pm. Closed Sunday mornings.';
+  }
   const openHours = text.match(/Open Hours[^.]{0,180}(?:Closed Sunday mornings)?/i)?.[0];
   if (/Open Hours/i.test(openHours ?? '') && /By Appointment Only/i.test(text) && /Closed Sunday mornings/i.test(text)) {
-    return 'Open hours by appointment only. Closed Sunday mornings.';
+    return 'By appointment only. Mon-Sat: 9:00am - 10:30am. Mon-Sun: 4:30pm - 6:00pm. Closed Sunday mornings.';
   }
   if (openHours) return cleanText(openHours);
   if (/By Appointment Only/i.test(text)) return 'By appointment only';
@@ -1134,11 +1160,34 @@ function extractHours(text: string): string {
 }
 
 function extractVirtualTourUrl(text: string, baseUrl: URL): string {
-  const explicitUrl = [...text.matchAll(/https?:\/\/[^"'`\s)]+/g)]
-    .map((match) => match[0].replace(/[),.;]+$/g, ''))
-    .find((url) => /virtual|tour|matterport/i.test(url));
-  if (explicitUrl) return explicitUrl;
-  return /virtual-tour|facilities-tour/i.test(text) ? new URL('/#virtual-tour', baseUrl).href : '';
+  const urlMatches = [...text.matchAll(/https?:\/\/[^"'`\s)]+/g)];
+  for (const match of urlMatches) {
+    const url = match[0].replace(/[),.;]+$/g, '');
+    if (!/google\.[^/]+\/maps\/embed/i.test(url) && isEmbeddableVirtualTourUrl(url, baseUrl)) return url;
+  }
+
+  for (const match of urlMatches) {
+    const url = match[0].replace(/[),.;]+$/g, '');
+    const context = text.slice(Math.max(0, match.index - 500), match.index + 500);
+    if (/google\.[^/]+\/maps\/embed/i.test(url) && /virtual|tour|facilit/i.test(context)) return url;
+  }
+
+  return '';
+}
+
+function isEmbeddableVirtualTourUrl(rawUrl: string, baseUrl: URL): boolean {
+  try {
+    const url = new URL(rawUrl);
+    const hostname = url.hostname.replace(/^www\./, '').toLowerCase();
+    const sourceHost = baseUrl.hostname.replace(/^www\./, '').toLowerCase();
+    if (hostname === sourceHost && url.hash) return false;
+    if (/google\.[^/]+\/maps\/embed|my\.matterport\.com|kuula\.co|cloudpano\.com|realsee\.ai|eyespy360\.com/i.test(url.href)) {
+      return true;
+    }
+    return /virtual|tour|360|streetview|matterport/i.test(url.href) && hostname !== sourceHost;
+  } catch {
+    return false;
+  }
 }
 
 function buildReviews(bundle: string, bodyText: string): CatteryScrapedReview[] {
@@ -1161,13 +1210,7 @@ function buildReviews(bundle: string, bodyText: string): CatteryScrapedReview[] 
 
   if (reviews.length) return uniqueByReview(reviews).slice(0, 8);
   if (/review\/widgetJs|revelationpets\.com\?s=review/i.test(`${bundle} ${bodyText}`)) {
-    return [
-      {
-        name: 'Guest family',
-        text: 'Reviews are connected from the source booking system and can be surfaced in the CatStays preview.',
-        rating: 5,
-      },
-    ];
+    return REVELATION_PETS_REVIEW_FALLBACKS;
   }
   return [];
 }

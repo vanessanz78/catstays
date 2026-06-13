@@ -1,5 +1,6 @@
 import {
   buildPreviewDataFromScrape,
+  fallbackDeloraineScrape,
   type CatterySiteContentLibrary,
   type DelorainePreviewData,
   type ImportedCatteryScrape,
@@ -429,13 +430,17 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const rooms = (record?.rooms?.length ? record.rooms : libraryRooms.length ? libraryRoomsToRooms(libraryRooms) : data.suites ?? data.roomTypes ?? []).filter(Boolean);
   const normalizedServices = normalized.servicesData?.services ?? data.servicesData?.services ?? data.additionalServices ?? [];
   const services = (record?.services?.length ? record.services : libraryServices.length ? libraryItemsToServices(libraryServices) : normalizedServices).filter(Boolean);
-  const testimonials = (
+  const testimonials = ensureReviewFallback(
+    (
     normalized.testimonialsData?.testimonials ??
     data.testimonialsData?.testimonials ??
     data.testimonials ??
     libraryItemsToReviews(libraryReviews) ??
     []
-  ).filter(Boolean);
+    ).filter(Boolean),
+    businessName,
+    stringFrom(record?.source.host, normalized.sourceHost, data.sourceHost),
+  );
   const faqs = (normalized.faqData?.faqs ?? data.faqData?.faqs ?? record?.faqs ?? data.faqs ?? libraryItemsToFaqs(libraryFaqs) ?? []).filter(Boolean);
   const ownerData = normalized.ownerData ?? data.ownerData ?? {};
   const commitmentData = normalized.commitmentData ?? data.commitmentData ?? {};
@@ -487,6 +492,19 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   ]
     .filter((item): item is { title: string; text: string } => Boolean(item?.title && item?.text))
     .slice(0, 6);
+  const ownerImage = imageFrom(ownerData.image, fallbackImages[5], fallbackImages[1], heroImage);
+  const facilityImage = imageFrom(facilitiesBlock?.images?.[0]?.url, data.facilitiesImage, fallbackImages[2], heroImage);
+  const aboutImage = imageFrom(
+    data.aboutImage,
+    data.facilitiesImage,
+    facilitiesBlock?.images?.[0]?.url,
+    fallbackImages.find((image) => image !== ownerImage && image !== heroImage),
+    heroImage,
+  );
+  const virtualTourUrl = embeddableVirtualTourUrl(
+    stringFrom(locationData.virtualTourUrl, normalized.virtualTourUrl, data.virtualTourUrl, data.contactData?.virtualTourUrl),
+    contentLibrary.sourceHost,
+  );
 
   return {
     business: {
@@ -510,7 +528,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     facilities: {
       title: stringFrom(facilitiesBlock?.title, 'Our Facilities'),
       text: stringFrom(facilitiesBlock?.text, 'Comfortable, secure spaces designed around daily cat care, quiet routines, and peace of mind.'),
-      image: imageFrom(facilitiesBlock?.images?.[0]?.url, data.facilitiesImage, fallbackImages[2], heroImage),
+      image: facilityImage,
       items: facilityItems.length ? facilityItems : featureItems.slice(0, 4),
     },
     services: services.map((service: any, index: number) => ({
@@ -522,7 +540,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     about: {
       title: stringFrom(record?.content.aboutHeading, data.aboutHeading, normalized.aboutHeading, `About ${businessName}`),
       text: primaryDescription,
-      image: imageFrom(data.aboutImage, data.facilitiesImage, ownerData.image, fallbackImages[1], heroImage),
+      image: aboutImage,
     },
     gallery: fallbackImages.slice(0, 12).map((image, index) => ({
       image,
@@ -537,7 +555,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     owner: {
       title: stringFrom(ownerData.title, `Meet the people behind ${businessName}`),
       text: stringFrom(ownerData.text, ownerData.description, primaryDescription),
-      image: imageFrom(ownerData.image, fallbackImages[5], fallbackImages[1], heroImage),
+      image: ownerImage,
     },
     commitment: {
       title: stringFrom(commitmentData.title, `${businessName} care standards`),
@@ -554,7 +572,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       heading: stringFrom(locationData.heading, locationBlock?.title, `Visit ${businessName}`),
       text: stringFrom(locationData.text, locationBlock?.text, record?.contact.address, normalized.address, data.address),
       directions: stringFrom(locationData.directions, locationBlock?.items?.[0]?.text, data.location, normalized.location),
-      virtualTourUrl: stringFrom(locationData.virtualTourUrl, normalized.virtualTourUrl, data.virtualTourUrl, data.contactData?.virtualTourUrl),
+      virtualTourUrl,
     },
     booking: {
       text: stringFrom(data.bookingText, "Check availability and secure your cat's holiday today."),
@@ -625,6 +643,22 @@ function libraryItemsToReviews(items: ReturnType<typeof libraryItems>) {
   }));
 }
 
+function ensureReviewFallback(testimonials: any[], businessName: string, sourceHost?: string) {
+  const isDeloraine = /deloraine/i.test(`${businessName} ${sourceHost || ''}`);
+  if (!isDeloraine || testimonials.length >= 2) return testimonials;
+
+  const fallbackReviews = fallbackDeloraineScrape.reviews ?? [];
+  const seen = new Set<string>();
+  return [...testimonials, ...fallbackReviews]
+    .filter((review) => {
+      const key = stringFrom(review.text, review.quote).toLowerCase();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 10);
+}
+
 function libraryItemsToFaqs(items: ReturnType<typeof libraryItems>) {
   if (!items.length) return undefined;
   return items.map((item) => ({
@@ -675,6 +709,25 @@ function imageFrom(...values: unknown[]): string {
     if (/^https?:\/\//i.test(image) || /^data:image\//i.test(image)) return image;
   }
   return 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=1200&h=900&fit=crop';
+}
+
+function embeddableVirtualTourUrl(rawUrl: string, sourceHost?: string): string {
+  if (!rawUrl) return '';
+  try {
+    const url = new URL(rawUrl);
+    const hostname = url.hostname.replace(/^www\./, '').toLowerCase();
+    const source = (sourceHost || '').replace(/^www\./, '').toLowerCase();
+    if (source && hostname === source && url.hash) return '';
+    if (/google\.[^/]+\/maps\/embed|my\.matterport\.com|kuula\.co|cloudpano\.com|realsee\.ai|eyespy360\.com/i.test(url.href)) {
+      return url.href;
+    }
+    if (/virtual|tour|360|streetview|matterport/i.test(url.href) && hostname !== source) {
+      return url.href;
+    }
+  } catch {
+    return '';
+  }
+  return '';
 }
 
 function uniqueStrings(values: unknown[]): string[] {
