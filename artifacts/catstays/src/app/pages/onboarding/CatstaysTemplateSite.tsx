@@ -42,7 +42,6 @@ type PreviewNoticeKind = 'booking' | 'contact';
 const trustIcons = [ShieldCheck, HeartHandshake, Sparkles, CalendarCheck];
 const facilityIcons = [ShieldCheck, Sparkles, Camera, Clock, HeartHandshake, CalendarCheck];
 const serviceIcons = [Scissors, Stethoscope, Zap, Car, Plane, ShieldCheck, HeartHandshake, CalendarCheck];
-const vanessaDemoImage = '/assets/marketing/vanessa-and-cat.png';
 
 export function CatstaysTemplateSite({
   data,
@@ -217,7 +216,6 @@ function FocusTemplate({
         <LocationSection content={content} />
         <VirtualTourSection content={content} />
         <ContactFormSection content={content} onPreviewContactAction={onPreviewContactAction} />
-        <TestimonialBanner content={content} imageSrc={vanessaDemoImage} />
       </main>
       <TemplateFooter content={content} dark onPreviewAnchorClick={onPreviewAnchorClick} />
       <ChatWidget accentColor="#A85A30" businessName={content.business.name} knowledge={content} />
@@ -708,7 +706,7 @@ function OwnerStorySection({ content }: { content: ReturnType<typeof buildCatsta
 
   return (
     <section id="owner" className="catstays-stack mx-auto grid max-w-[1400px] scroll-mt-28 gap-8 bg-white px-6 py-10 md:grid-cols-[0.9fr_1.1fr] md:items-stretch md:px-0 md:py-0">
-      <img src={content.owner.image} alt="" className="catstays-owner-image h-[420px] w-full rounded-md object-cover object-[50%_62%] md:h-full md:min-h-[620px]" />
+      <img src={content.owner.image} alt="" className="catstays-owner-image h-[420px] w-full rounded-md object-cover object-[50%_60%] md:h-[520px] md:max-h-[560px]" />
       <div className="flex flex-col justify-center px-8 py-14 md:px-20">
         <p className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">The people behind the care</p>
         <h2 className="text-3xl leading-[1.12] md:text-5xl">{content.owner.title}</h2>
@@ -1018,13 +1016,13 @@ function CatstaysPreviewDeviceStyles() {
       [data-catstays-preview-device="mobile"] .catstays-owner-image {
         height: 340px !important;
         min-height: 0 !important;
-        object-position: 50% 62% !important;
+        object-position: 50% 60% !important;
       }
 
       [data-catstays-preview-device="tablet"] .catstays-owner-image {
         height: 520px !important;
         min-height: 0 !important;
-        object-position: 50% 62% !important;
+        object-position: 50% 60% !important;
       }
 
       [data-catstays-preview-device="mobile"] .catstays-booking-strip {
@@ -1040,38 +1038,6 @@ function CatstaysPreviewDeviceStyles() {
         font-size: clamp(2.6rem, 7vw, 4.2rem) !important;
       }
     `}</style>
-  );
-}
-
-function TestimonialBanner({ content, light = false, imageSrc }: { content: ReturnType<typeof buildCatstaysTemplateContent>; light?: boolean; imageSrc?: string }) {
-  const testimonial = content.testimonials[0];
-  if (imageSrc) {
-    return (
-      <section className="bg-[#0A1128] px-6 py-14 text-white">
-        <div className="catstays-founder-grid mx-auto grid max-w-[1200px] overflow-hidden bg-white/6 md:grid-cols-[320px_1fr]">
-          <img src={imageSrc} alt="Vanessa with a cat" className="h-full min-h-[320px] w-full object-cover" />
-          <div className="flex flex-col justify-center px-8 py-10 md:px-12">
-            <p className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-[#F5C08A]">From the founder</p>
-            <blockquote className="text-3xl italic leading-snug md:text-4xl">{testimonial.quote}</blockquote>
-            <div className="mt-8 text-sm">
-              <p className="font-bold uppercase tracking-[0.14em]">{testimonial.author}</p>
-              <p className="mt-1 text-white/70">{content.business.name}</p>
-            </div>
-          </div>
-        </div>
-      </section>
-    );
-  }
-
-  return (
-    <section className={`grid items-center gap-8 px-8 py-12 md:grid-cols-[1fr_2fr_1fr] ${light ? 'bg-white' : 'bg-[#0A1128] text-white'}`}>
-      <div className="text-7xl leading-none">"</div>
-      <blockquote className="text-center text-2xl italic leading-relaxed">{testimonial.quote}</blockquote>
-      <div className="text-sm">
-        <p className="font-bold uppercase tracking-[0.12em]">{testimonial.author}</p>
-        <p className={light ? 'text-[#444]' : 'text-white/70'}>{content.business.name}</p>
-      </div>
-    </section>
   );
 }
 
@@ -1152,7 +1118,7 @@ function PreviewBookingNotice({ kind, onDismiss }: { kind: PreviewNoticeKind | n
       : 'Get started to publish your site, connect the booking agent, and send bookings into your dashboard.';
 
   return (
-    <div className="fixed bottom-5 left-1/2 z-50 w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 rounded-lg border border-[#F5C08A]/40 bg-[#0A1128] p-4 text-white shadow-2xl">
+    <div className="fixed left-1/2 top-20 z-50 max-h-[calc(100vh-6rem)] w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 overflow-y-auto rounded-lg border border-[#F5C08A]/40 bg-[#0A1128] p-4 text-white shadow-2xl">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="font-semibold">This is a preview version.</p>

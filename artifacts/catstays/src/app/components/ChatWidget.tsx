@@ -40,6 +40,22 @@ interface ChatKnowledge {
     question?: string;
     answer?: string;
   }>;
+  contentLibrary?: {
+    blocks?: Array<{
+      category?: string;
+      title?: string;
+      text?: string;
+      items?: Array<{
+        title?: string;
+        text?: string;
+        description?: string;
+        answer?: string;
+        price?: string;
+        features?: string[];
+        details?: string[];
+      }>;
+    }>;
+  };
   locationDetails?: {
     text?: string;
     directions?: string;
@@ -244,6 +260,9 @@ function answerFromKnowledge(question: string, knowledge: ChatKnowledge | undefi
     };
   }
 
+  const indexedAnswer = answerFromIndexedContent(question, knowledge, businessName);
+  if (indexedAnswer) return { text: indexedAnswer };
+
   const matchedFaq = findMatchingFaq(question, faqs);
   if (matchedFaq) return { text: matchedFaq };
 
@@ -271,11 +290,93 @@ function matches(text: string, words: string[]) {
   return words.some((word) => text.includes(word));
 }
 
-function findMatchingFaq(question: string, faqs: NonNullable<ChatKnowledge['faqs']>) {
-  const tokens = question
+function answerFromIndexedContent(question: string, knowledge: ChatKnowledge | undefined, businessName: string) {
+  const tokens = meaningfulTokens(question);
+  if (!tokens.length || !knowledge) return '';
+
+  const entries = buildIndexedEntries(knowledge);
+  let bestEntries = entries
+    .map((entry) => ({ ...entry, score: scoreEntry(entry, tokens) }))
+    .filter((entry) => entry.score >= (tokens.length <= 2 ? 1 : 2))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3);
+
+  if (!bestEntries.length) return '';
+
+  const seen = new Set<string>();
+  bestEntries = bestEntries.filter((entry) => {
+    const key = `${entry.title}|${entry.text}`.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+
+  const answer = bestEntries
+    .map((entry) => {
+      const text = shorten(entry.text, 260);
+      return entry.title ? `${entry.title}: ${text}` : text;
+    })
+    .join('\n\n');
+
+  return `Here's what I found from ${businessName}'s site:\n\n${answer}`;
+}
+
+function buildIndexedEntries(knowledge: ChatKnowledge) {
+  const entries: Array<{ title: string; text: string; category: string }> = [];
+  const addEntry = (category: string, title?: string, text?: string) => {
+    const cleanTitle = compactText(title || '');
+    const cleanText = compactText(text || '');
+    if (!cleanText && !cleanTitle) return;
+    entries.push({ category, title: cleanTitle, text: cleanText || cleanTitle });
+  };
+
+  addEntry('business', knowledge.business?.name, knowledge.business?.location);
+  addEntry('hours', 'Hours', knowledge.footer?.hours);
+  addEntry('contact', 'Contact', [knowledge.footer?.phone, knowledge.footer?.email, knowledge.footer?.address].filter(Boolean).join(' '));
+  addEntry('booking', 'Booking', knowledge.booking?.text);
+  addEntry('location', 'Location', [knowledge.locationDetails?.text, knowledge.locationDetails?.directions].filter(Boolean).join(' '));
+
+  knowledge.suites?.forEach((suite) => {
+    addEntry('rooms', suite.title, [suite.price, suite.text, ...(suite.features ?? [])].filter(Boolean).join(' '));
+  });
+
+  knowledge.services?.forEach((service) => {
+    addEntry('services', service.title, [service.price, service.text].filter(Boolean).join(' '));
+  });
+
+  knowledge.contentLibrary?.blocks?.forEach((block) => {
+    if (block.category === 'faqs') return;
+    addEntry(block.category || 'site', block.title, block.text);
+    block.items?.forEach((item) => {
+      addEntry(
+        block.category || 'site',
+        item.title,
+        [item.price, item.text, item.description, item.answer, ...(item.features ?? []), ...(item.details ?? [])].filter(Boolean).join(' '),
+      );
+    });
+  });
+
+  return entries;
+}
+
+function scoreEntry(entry: { title: string; text: string; category: string }, tokens: string[]) {
+  const title = entry.title.toLowerCase();
+  const haystack = `${entry.category} ${entry.title} ${entry.text}`.toLowerCase();
+  return tokens.reduce((score, token) => {
+    if (!haystack.includes(token)) return score;
+    return score + (title.includes(token) ? 3 : 1);
+  }, 0);
+}
+
+function meaningfulTokens(text: string) {
+  return text
     .toLowerCase()
     .split(/\W+/)
-    .filter((token) => token.length > 3 && !['what', 'when', 'where', 'which', 'your', 'with', 'from', 'that', 'this', 'have', 'does', 'much', 'many'].includes(token));
+    .filter((token) => token.length > 3 && !stopWords.has(token));
+}
+
+function findMatchingFaq(question: string, faqs: NonNullable<ChatKnowledge['faqs']>) {
+  const tokens = meaningfulTokens(question);
 
   if (!tokens.length) return '';
 
@@ -297,3 +398,36 @@ function findMatchingFaq(question: string, faqs: NonNullable<ChatKnowledge['faqs
 function isLikelyEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }
+
+function compactText(value: string) {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
+function shorten(value: string, maxLength: number) {
+  const clean = compactText(value);
+  if (clean.length <= maxLength) return clean;
+  const clipped = clean.slice(0, maxLength);
+  return `${clipped.slice(0, clipped.lastIndexOf(' ') || maxLength).trim()}...`;
+}
+
+const stopWords = new Set([
+  'about',
+  'after',
+  'also',
+  'because',
+  'does',
+  'from',
+  'have',
+  'many',
+  'much',
+  'that',
+  'their',
+  'there',
+  'this',
+  'what',
+  'when',
+  'where',
+  'which',
+  'with',
+  'your',
+]);
