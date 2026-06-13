@@ -1,0 +1,56 @@
+{
+  "name": "WebPort Adaptive Preview Engine Transfer Pack",
+  "createdAt": "2026-06-13",
+  "sourceProject": "CatStays",
+  "version": "1.0.0",
+  "purpose": "Portable architecture notes, schemas, rules, and tests for a scrape-to-preview-to-live website engine.",
+  "files": [
+    {
+      "path": "README.md",
+      "type": "markdown",
+      "description": "Overview and usage guide."
+    },
+    {
+      "path": "content-coverage-audit.md",
+      "type": "markdown",
+      "description": "Audit structure for ensuring scraped content has a rendering destination."
+    },
+    {
+      "path": "canonical-content-schema.json",
+      "type": "json-schema",
+      "description": "Canonical content object for WebPort scrape outputs and preview rendering."
+    },
+    {
+      "path": "scraped-content-to-template-mapping-rules.md",
+      "type": "markdown",
+      "description": "Rules for mapping scraped content to canonical content and adaptive template slots."
+    },
+    {
+      "path": "adaptive-layout-rules.json",
+      "type": "json",
+      "description": "Reusable adaptive layout rules for grids, carousels, image galleries, and responsive previews."
+    },
+    {
+      "path": "preview-to-live-publishing-model.md",
+      "type": "markdown",
+      "description": "State model for preview sessions and live website publishing."
+    },
+    {
+      "path": "content-drop-prevention-tests.json",
+      "type": "json",
+      "description": "Unit, integration, and end-to-end test cases for preventing content loss."
+    },
+    {
+      "path": "lessons-learned.md",
+      "type": "markdown",
+      "description": "Lessons from CatStays and boarding/accommodation preview work."
+    }
+  ],
+  "excluded": [
+    "large screenshots",
+    "raw scraped sites",
+    "customer-specific private content",
+    "node_modules",
+    "build output"
+  ]
+}

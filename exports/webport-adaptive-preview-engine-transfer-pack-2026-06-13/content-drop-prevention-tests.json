@@ -1,0 +1,185 @@
+{
+  "version": "1.0.0",
+  "testSuites": [
+    {
+      "name": "content-coverage-audit",
+      "type": "unit",
+      "tests": [
+        {
+          "name": "reports-covered-when-source-and-prepared-counts-match",
+          "given": {
+            "category": "rooms",
+            "sourceCount": 3,
+            "preparedCount": 3
+          },
+          "expect": {
+            "status": "covered"
+          }
+        },
+        {
+          "name": "reports-partial-when-template-caps-gallery",
+          "given": {
+            "category": "gallery",
+            "sourceCount": 23,
+            "preparedCount": 12
+          },
+          "expect": {
+            "status": "partial",
+            "recommendationIncludes": "route"
+          }
+        },
+        {
+          "name": "reports-missing-when-source-location-has-no-render-destination",
+          "given": {
+            "category": "location",
+            "sourceCount": 1,
+            "preparedCount": 0
+          },
+          "expect": {
+            "status": "missing"
+          }
+        }
+      ]
+    },
+    {
+      "name": "canonical-content-normalization",
+      "type": "unit",
+      "tests": [
+        {
+          "name": "preserves-all-rooms",
+          "given": "scrape contains 7 room or offer records",
+          "expect": "canonical.sections.rooms.length === 7"
+        },
+        {
+          "name": "preserves-all-services",
+          "given": "scrape contains 9 service records",
+          "expect": "canonical.sections.services.length === 9"
+        },
+        {
+          "name": "preserves-all-faqs",
+          "given": "scrape contains 18 FAQs",
+          "expect": "canonical.sections.faqs.length === 18"
+        },
+        {
+          "name": "dedupes-images-without-discarding-unique-images",
+          "given": "scrape contains duplicate image URLs and 14 unique image URLs",
+          "expect": "canonical.assets.images has 14 unique URLs"
+        },
+        {
+          "name": "keeps-source-evidence-for-each-item",
+          "given": "scraped text is mapped to a room, service, FAQ, and testimonial",
+          "expect": "each mapped item has sourceEvidenceId or equivalent trace"
+        }
+      ]
+    },
+    {
+      "name": "adaptive-rendering",
+      "type": "component",
+      "tests": [
+        {
+          "name": "centres-single-feature-card",
+          "given": "1 feature card",
+          "expect": "feature grid renders one centred card and no empty placeholders"
+        },
+        {
+          "name": "uses-three-columns-for-three-feature-cards",
+          "given": "3 feature cards",
+          "expect": "feature grid renders three balanced cards"
+        },
+        {
+          "name": "uses-carousel-for-many-testimonials",
+          "given": "11 testimonials",
+          "expect": "all 11 testimonials are accessible through carousel slides"
+        },
+        {
+          "name": "uses-carousel-with-thumbnails-for-large-gallery",
+          "given": "23 gallery images",
+          "expect": "no giant image wall; all 23 images accessible"
+        },
+        {
+          "name": "extends-room-grid-with-additional-rows",
+          "given": "8 rooms",
+          "expect": "all 8 rooms render or are accessible through room detail controls"
+        },
+        {
+          "name": "hides-nav-items-without-sections",
+          "given": "template nav includes FAQ but canonical content has no FAQs",
+          "expect": "FAQ nav item is hidden or disabled"
+        },
+        {
+          "name": "anchors-all-visible-nav-items",
+          "given": "template nav has About, Gallery, Contact",
+          "expect": "each nav item scrolls to an element in the preview document"
+        }
+      ]
+    },
+    {
+      "name": "preview-to-live",
+      "type": "integration",
+      "tests": [
+        {
+          "name": "template-switch-preserves-canonical-content",
+          "given": "user switches from original to focus to editorial",
+          "expect": "canonical content counts remain unchanged"
+        },
+        {
+          "name": "selected-template-becomes-live-template",
+          "given": "user selects editorial and clicks publish",
+          "expect": "liveSite.liveTemplateId === 'editorial'"
+        },
+        {
+          "name": "live-site-uses-selected-snapshot",
+          "given": "published site is opened from dashboard",
+          "expect": "rendered site uses liveSnapshotId and not mutable preview draft"
+        },
+        {
+          "name": "preview-form-does-not-submit-live-booking",
+          "given": "user submits booking form in preview mode",
+          "expect": "preview-only message is shown and no live booking is created"
+        }
+      ]
+    },
+    {
+      "name": "responsive-device-preview",
+      "type": "end-to-end",
+      "tests": [
+        {
+          "name": "mobile-preview-renders-mobile-css",
+          "given": "device mode mobile",
+          "expect": "site renders at mobile viewport width, not a shrunken desktop"
+        },
+        {
+          "name": "tablet-preview-renders-tablet-css",
+          "given": "device mode tablet",
+          "expect": "site renders at tablet viewport width"
+        },
+        {
+          "name": "device-selection-persists-across-template-switch",
+          "given": "user selects tablet then switches templates",
+          "expect": "new template remains in tablet preview"
+        }
+      ]
+    },
+    {
+      "name": "ai-studio-safety",
+      "type": "integration",
+      "tests": [
+        {
+          "name": "global-tone-rewrite-preserves-counts",
+          "given": "AI prompt: Make this more premium",
+          "expect": "room, service, image, testimonial, FAQ, contact, and pricing counts remain unchanged"
+        },
+        {
+          "name": "seo-rewrite-preserves-source-evidence",
+          "given": "AI prompt: Rewrite everything for SEO",
+          "expect": "source evidence IDs remain attached to canonical content items"
+        },
+        {
+          "name": "image-replacement-keeps-section-destinations",
+          "given": "AI prompt: Replace all images with brighter images",
+          "expect": "each section that previously had an image still has an image or image suggestion"
+        }
+      ]
+    }
+  ]
+}
