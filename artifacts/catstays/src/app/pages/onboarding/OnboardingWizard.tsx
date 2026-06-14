@@ -56,11 +56,13 @@ import { DataImportFlow } from './DataImportFlow';
 import { BookingRulesForm } from './BookingRulesForm';
 import { DashboardPreviewStep } from './DashboardPreviewStep';
 import { FullWebsitePreview } from './FullWebsitePreview';
+import { CatstaysTemplateSite } from './CatstaysTemplateSite';
 import {
   applyPreviewTemplate,
   buildPreviewImportRecord,
   dataFromPreviewRecord,
   markPreviewSelectionLive,
+  normalizePreviewTemplateId,
   savePreviewImportRecord,
   templateOptionsForData,
   type PreviewTemplateId,
@@ -68,6 +70,51 @@ import {
 } from '../../lib/previewTemplates';
 
 const logoIcon = '/assets/b463d12091f20e48be52186dedd2a0f6707d0b66.png';
+
+function sourceUrlForTemplateSnapshot(data: Record<string, any>) {
+  const sourceUrl = data.previewImportRecord?.source?.url || data.importSourceUrl || data.sourceUrl;
+  const trimmedUrl = String(sourceUrl || '').trim();
+  if (!trimmedUrl) return 'https://www.delorainecattery.com/';
+  return /^https?:\/\//i.test(trimmedUrl) ? trimmedUrl : `https://${trimmedUrl}`;
+}
+
+function OnboardingTemplateSnapshot({
+  template,
+  data,
+}: {
+  template: PreviewTemplateId;
+  data: Record<string, any>;
+}) {
+  const miniatureScale = 0.22;
+  const miniatureStyle = {
+    width: `${100 / miniatureScale}%`,
+    height: `${100 / miniatureScale}%`,
+    transform: `scale(${miniatureScale})`,
+    transformOrigin: 'top left',
+  } as const;
+
+  if (template === 'original') {
+    return (
+      <div className="relative h-full overflow-hidden bg-white">
+        <iframe
+          src={sourceUrlForTemplateSnapshot(data)}
+          title={`${data.businessName || 'Original website'} thumbnail`}
+          loading="lazy"
+          className="absolute left-0 top-0 border-0 bg-white"
+          style={miniatureStyle}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative h-full overflow-hidden bg-white">
+      <div className="absolute left-0 top-0" style={miniatureStyle}>
+        <CatstaysTemplateSite data={data} templateId={normalizePreviewTemplateId(template)} embedded />
+      </div>
+    </div>
+  );
+}
 
 type PlanTier = 'starter' | 'professional' | 'premium';
 
@@ -1465,25 +1512,7 @@ export function OnboardingWizard() {
                     >
                       <div className="aspect-[4/3] bg-[#F8F7F5] p-4">
                         <div className="h-full rounded-xl overflow-hidden border border-[#0A1128]/10 shadow-sm bg-white">
-                          <div className="h-6 bg-white border-b border-[#0A1128]/10 flex items-center gap-1.5 px-3">
-                            <span className="w-2 h-2 rounded-full bg-[#C46A3A]"></span>
-                            <span className="w-2 h-2 rounded-full bg-[#D8C7B6]"></span>
-                            <span className="w-2 h-2 rounded-full bg-[#0A1128]"></span>
-                          </div>
-                          <div className="relative h-[58%]">
-                            <img src={template.image} alt="" className="w-full h-full object-cover" />
-                            <div className="absolute inset-0 bg-[#0A1128]/45"></div>
-                            <div className="absolute inset-x-4 bottom-4 text-white">
-                              <div className="h-2 w-16 bg-white/80 rounded-full mb-3"></div>
-                              <div className="h-4 w-36 max-w-full bg-white rounded-sm"></div>
-                              <div className="h-2 w-24 bg-white/70 rounded-full mt-3"></div>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-3 gap-2 p-3">
-                            <span className="h-8 rounded-lg bg-[#F8F7F5] border border-[#C46A3A]/10"></span>
-                            <span className="h-8 rounded-lg bg-[#F8F7F5] border border-[#C46A3A]/10"></span>
-                            <span className="h-8 rounded-lg bg-[#F8F7F5] border border-[#C46A3A]/10"></span>
-                          </div>
+                          <OnboardingTemplateSnapshot template={template.id} data={data} />
                         </div>
                       </div>
                       <div className="p-4 bg-white min-h-[116px]">

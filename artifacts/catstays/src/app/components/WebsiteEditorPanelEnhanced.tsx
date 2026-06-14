@@ -21,6 +21,22 @@ interface WebsiteEditorPanelEnhancedProps {
 
 export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRegenerating }: WebsiteEditorPanelEnhancedProps) {
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
+  const sectionTitles = {
+    hero: 'Home / Hero',
+    care: data.whyChooseUsHeading || 'Care Approach',
+    about: data.aboutHeading || 'About',
+    facilities: data.facilitiesHeading || 'Facilities',
+    suites: data.suitesHeading || 'Suites / Rooms',
+    services: data.additionalServicesHeading || 'Extra Care / Services',
+    gallery: data.galleryHeading || 'Gallery',
+    reviews: data.testimonialsHeading || 'Reviews',
+    faq: data.faqHeading || 'Chatbot FAQ Knowledge',
+    owner: data.ownerData?.title || 'The People Behind The Care',
+    contact: data.contactHeading || 'Contact / Location',
+    custom: 'Embedded / Custom Sections',
+    social: 'Social Media',
+    footer: 'Footer Links',
+  };
 
   const handleAIClick = (field: string) => {
     if (onAIRegenerate) {
@@ -77,7 +93,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       {/* HERO SECTION */}
       <AccordionItem value="hero" className="order-1 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
-          <span className="font-semibold">1. Home / Hero</span>
+          <span className="font-semibold">{sectionTitles.hero}</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-2">
@@ -165,7 +181,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       {/* 2. CARE APPROACH SECTION */}
       <AccordionItem value="why-choose-us" className="order-3 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
-          <span className="font-semibold">3. Care Approach</span>
+          <span className="font-semibold">{sectionTitles.care}</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-2">
@@ -385,7 +401,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       {/* 3. ABOUT SECTION */}
       <AccordionItem value="about" className="order-2 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
-          <span className="font-semibold">2. About</span>
+          <span className="font-semibold">{sectionTitles.about}</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-2">
@@ -444,7 +460,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       {/* 4. FACILITIES SECTION */}
       <AccordionItem value="facilities" className="order-4 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
-          <span className="font-semibold">4. Facilities</span>
+          <span className="font-semibold">{sectionTitles.facilities}</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-2">
@@ -656,7 +672,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       {/* 5. SUITES SECTION */}
       <AccordionItem value="our-suites" className="order-7 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
-          <span className="font-semibold">7. Suites / Rooms</span>
+          <span className="font-semibold">{sectionTitles.suites}</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-2">
@@ -878,7 +894,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       {/* 6. EXTRA CARE / SERVICES SECTION */}
       <AccordionItem value="additional-services" className="order-8 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
-          <span className="font-semibold">8. Extra Care / Services</span>
+          <span className="font-semibold">{sectionTitles.services}</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-2">
@@ -1081,7 +1097,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       {/* 7. GALLERY SECTION */}
       <AccordionItem value="gallery" className="order-6 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
-          <span className="font-semibold">6. Gallery</span>
+          <span className="font-semibold">{sectionTitles.gallery}</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-2">
@@ -1162,7 +1178,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       {/* 8. REVIEWS SECTION */}
       <AccordionItem value="testimonials" className="order-9 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
-          <span className="font-semibold">9. Reviews</span>
+          <span className="font-semibold">{sectionTitles.reviews}</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-2">
@@ -1294,7 +1310,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       {/* 9. CHATBOT FAQ KNOWLEDGE */}
       <AccordionItem value="faq" className="order-[14] border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
-          <span className="font-semibold">14. Chatbot FAQ Knowledge</span>
+          <span className="font-semibold">{sectionTitles.faq}</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-2">
@@ -1418,7 +1434,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       {/* 10. OWNER STORY SECTION */}
       <AccordionItem value="owner-story" className="order-5 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
-          <span className="font-semibold">5. The People Behind The Care</span>
+          <span className="font-semibold">{sectionTitles.owner}</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-2">
@@ -1477,7 +1493,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       {/* 11. CONTACT / LOCATION SECTION */}
       <AccordionItem value="contact" className="order-10 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
-          <span className="font-semibold">10. Contact / Location</span>
+          <span className="font-semibold">{sectionTitles.contact}</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-2">
@@ -1526,7 +1542,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       {/* 12. CUSTOM SECTIONS */}
       <AccordionItem value="custom-sections" className="order-11 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
-          <span className="font-semibold">11. Embedded / Custom Sections</span>
+          <span className="font-semibold">{sectionTitles.custom}</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-2">
@@ -1712,7 +1728,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       {/* 13. SOCIAL MEDIA */}
       <AccordionItem value="social-media" className="order-12 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
-          <span className="font-semibold">12. Social Media</span>
+          <span className="font-semibold">{sectionTitles.social}</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <p className="text-sm text-gray-600 mb-4">Add your social media links to display icons in the footer</p>
@@ -1772,7 +1788,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       {/* 14. FOOTER */}
       <AccordionItem value="footer" className="order-[13] border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
-          <span className="font-semibold">13. Footer Links</span>
+          <span className="font-semibold">{sectionTitles.footer}</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <p className="text-sm text-gray-600 mb-4">

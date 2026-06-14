@@ -431,6 +431,8 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const libraryReviews = libraryItems(contentLibrary, 'reviews');
   const libraryFaqs = libraryItems(contentLibrary, 'faqs');
   const libraryGalleryImages = libraryImages(contentLibrary, 'gallery');
+  const heroBlock = libraryBlock(contentLibrary, 'hero');
+  const heroLinks = heroBlock?.links ?? [];
   const whyChooseBlock = libraryBlock(contentLibrary, 'why-choose-us');
   const facilitiesBlock = libraryBlock(contentLibrary, 'facilities');
   const dailyCareBlock = libraryBlock(contentLibrary, 'daily-care');
@@ -456,6 +458,8 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     heroImage,
   ]).filter((image) => isUsableGalleryImage(image, logoImage));
   const fallbackImages = ensureImageCount(galleryImages, heroImage);
+  const usedImages = new Set<string>();
+  rememberImage(usedImages, heroImage);
   const editedHighlights = Array.isArray(data.whyChooseUsFeatures) ? data.whyChooseUsFeatures : undefined;
   const highlights = (editedHighlights ?? record?.content.highlights ?? []).filter(Boolean);
   const editedRooms = Array.isArray(data.suites)
@@ -551,14 +555,35 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     .filter((item) => Boolean(item?.title && item?.text))
     .map((item) => ({ title: item!.title, text: item!.text, icon: item!.icon }))
     .slice(0, 6);
-  const ownerImage = imageFrom(ownerData.image, fallbackImages[5], fallbackImages[1], heroImage);
-  const facilityImage = imageFrom(data.facilitiesImage, facilitiesBlock?.images?.[0]?.url, fallbackImages[2], heroImage);
-  const aboutImage = imageFrom(
-    data.aboutImage,
-    data.facilitiesImage,
-    facilitiesBlock?.images?.[0]?.url,
-    fallbackImages.find((image) => image !== ownerImage && image !== heroImage),
-    heroImage,
+  const aboutImage = pickUniqueImage(
+    usedImages,
+    [
+      data.aboutImage,
+      normalizedRecord.aboutImage,
+      normalizedRecord.aboutData?.image,
+      fallbackImages.find((image) => image !== heroImage),
+    ],
+    fallbackImages,
+  );
+  const facilityImage = pickUniqueImage(
+    usedImages,
+    [
+      data.facilitiesImage,
+      facilitiesBlock?.images?.[0]?.url,
+      normalizedRecord.facilitiesData?.facilitiesImage,
+      fallbackImages[2],
+    ],
+    fallbackImages,
+  );
+  const ownerImage = pickUniqueImage(
+    usedImages,
+    [
+      ownerData.image,
+      normalizedRecord.ownerData?.image,
+      fallbackImages[5],
+      fallbackImages[1],
+    ],
+    fallbackImages,
   );
   const virtualTourUrl = embeddableVirtualTourUrl(
     stringFrom(locationData.virtualTourUrl, normalized.virtualTourUrl, data.virtualTourUrl, data.contactData?.virtualTourUrl),
@@ -576,11 +601,11 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       heading: stringFrom(data.heroHeading, normalized.heroHeading, record?.content.heroHeading, `Welcome to ${businessName}`),
       text: stringFrom(data.heroSubheading, normalized.heroSubheading, record?.content.heroSubheading, primaryDescription),
       image: heroImage,
-      button: stringFrom(data.ctaText, data.heroPrimaryCtaText, 'Book Now'),
-      primaryButton: stringFrom(data.heroPrimaryCtaText, 'Discover Our Suites'),
-      primaryHref: stringFrom(data.heroPrimaryCtaHref, '#suites'),
-      secondaryButton: stringFrom(data.heroSecondaryCtaText, 'Our Care Approach'),
-      secondaryHref: stringFrom(data.heroSecondaryCtaHref, '#care'),
+      button: stringFrom(data.ctaText, data.heroPrimaryCtaText, heroLinks[0]?.label, 'Book Now'),
+      primaryButton: stringFrom(data.heroPrimaryCtaText, heroLinks[0]?.label, 'Discover Our Suites'),
+      primaryHref: stringFrom(data.heroPrimaryCtaHref, heroLinks[0]?.url, '#suites'),
+      secondaryButton: stringFrom(data.heroSecondaryCtaText, heroLinks[1]?.label, 'Our Care Approach'),
+      secondaryHref: stringFrom(data.heroSecondaryCtaHref, heroLinks[1]?.url, '#care'),
     },
     theme: {
       primaryColor: stringFrom(data.primaryColor, normalizedRecord.primaryColor, '#0A1128'),
@@ -612,7 +637,11 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       items: facilityItems.length || editedFacilityItems ? facilityItems : featureItems.slice(0, 4),
     },
     services: services.map((service: any, index: number) => ({
-      image: imageFrom(service.image, fallbackImages[index + 3], fallbackImages[index], heroImage),
+      image: pickUniqueImage(
+        usedImages,
+        [service.image, fallbackImages[index + 3], fallbackImages[index]],
+        fallbackImages,
+      ),
       title: stringFrom(service.title, service.name, `Care service ${index + 1}`),
       text: stringFrom(service.description, service.text, 'Additional support available during the stay.'),
       price: stringFrom(service.price),
@@ -622,11 +651,11 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       text: primaryDescription,
       image: aboutImage,
     },
-    gallery: fallbackImages.slice(0, 12).map((image, index) => ({
+    gallery: fallbackImages.filter((image) => !hasSeenImage(usedImages, image)).slice(0, 12).map((image, index) => ({
       image,
       caption: stringFrom(record?.media.galleryImages?.[index]?.caption, `${businessName} photo ${index + 1}`),
     })),
-    suites: editedRooms && editedRooms.length === 0 ? [] : ensureSuiteCount(rooms, fallbackImages, data.pricePerNight || normalized.pricePerNight),
+    suites: editedRooms && editedRooms.length === 0 ? [] : ensureSuiteCount(rooms, fallbackImages, data.pricePerNight || normalized.pricePerNight, usedImages),
     testimonials: ensureTestimonials(testimonials, businessName, fallbackImages, heroImage, data.testimonialImage),
     faqs: faqs.map((faq: any) => ({
       question: stringFrom(faq.question),
@@ -826,6 +855,8 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
   })).filter((item) => item.question && item.answer);
 
   const mapImagesToUrls = (items: any[] = []) => items.map((item) => stringFrom(item.url, item.image, item)).filter(Boolean);
+  const heroBlock = block('hero');
+  const heroLinks = heroBlock?.links ?? [];
   const ownerBlock = block('owner-story');
   const contactBlock = block('contact');
   const locationBlock = block('location');
@@ -833,10 +864,10 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
 
   return {
     ...cleanData,
-    heroPrimaryCtaText: textFrom('heroPrimaryCtaText', 'Discover Our Suites'),
-    heroPrimaryCtaHref: textFrom('heroPrimaryCtaHref', '#suites'),
-    heroSecondaryCtaText: textFrom('heroSecondaryCtaText', 'Our Care Approach'),
-    heroSecondaryCtaHref: textFrom('heroSecondaryCtaHref', '#care'),
+    heroPrimaryCtaText: textFrom('heroPrimaryCtaText', cleanData.ctaText, heroLinks[0]?.label, 'Discover Our Suites'),
+    heroPrimaryCtaHref: textFrom('heroPrimaryCtaHref', heroLinks[0]?.url, '#suites'),
+    heroSecondaryCtaText: textFrom('heroSecondaryCtaText', heroLinks[1]?.label, 'Our Care Approach'),
+    heroSecondaryCtaHref: textFrom('heroSecondaryCtaHref', heroLinks[1]?.url, '#care'),
     whyChooseUsHeading: textFrom('whyChooseUsHeading', normalized.whyChooseUsData?.whyChooseUsHeading, normalized.whyChooseUsData?.heading, block('why-choose-us')?.title),
     whyChooseUsText: textFrom('whyChooseUsText', normalized.whyChooseUsData?.whyChooseUsText, normalized.whyChooseUsData?.text, block('why-choose-us')?.text),
     aboutHeading: textFrom('aboutHeading', normalized.aboutHeading, normalized.aboutData?.heading, block('hero')?.title),
@@ -983,6 +1014,38 @@ function ensureImageCount(images: string[], heroImage: string): string[] {
   return uniqueStrings([...images, ...fallback]);
 }
 
+function normalizedImageKey(image: string) {
+  return image.split('?')[0].trim().toLowerCase();
+}
+
+function rememberImage(usedImages: Set<string>, image: string) {
+  if (!image) return;
+  usedImages.add(normalizedImageKey(image));
+}
+
+function hasSeenImage(usedImages: Set<string>, image: string) {
+  return image ? usedImages.has(normalizedImageKey(image)) : false;
+}
+
+function pickUniqueImage(usedImages: Set<string>, preferred: unknown[], fallbackImages: string[]) {
+  const preferredImages = uniqueStrings(preferred).filter((image) => isUsableGalleryImage(image));
+  for (const image of preferredImages) {
+    if (hasSeenImage(usedImages, image)) continue;
+    rememberImage(usedImages, image);
+    return image;
+  }
+
+  for (const image of fallbackImages) {
+    if (!image || hasSeenImage(usedImages, image)) continue;
+    rememberImage(usedImages, image);
+    return image;
+  }
+
+  const fallback = preferredImages[0] || fallbackImages[0] || '';
+  rememberImage(usedImages, fallback);
+  return fallback;
+}
+
 function ensureFeatureCount(
   primary: Array<{ title: string; text: string }>,
   secondary: Array<{ title: string; text: string }>,
@@ -1003,7 +1066,7 @@ function ensureFeatureCount(
     }));
 }
 
-function ensureSuiteCount(rooms: any[], images: string[], fallbackPrice?: string) {
+function ensureSuiteCount(rooms: any[], images: string[], fallbackPrice?: string, usedImages?: Set<string>) {
   const fallbackSuites = [
     { name: 'Standard Suites', description: 'Comfortable and cosy suites perfect for a relaxing stay.' },
     { name: 'Deluxe Suites', description: 'Extra comfort and premium features for added calm.' },
@@ -1020,7 +1083,9 @@ function ensureSuiteCount(rooms: any[], images: string[], fallbackPrice?: string
     const priceLabel = price && priceUnit ? `${price} ${priceUnit}` : price;
     const roomImage = stringFrom(room.image);
     return {
-      image: imageFrom(isUsableGalleryImage(roomImage) ? roomImage : '', images[index + 1], images[index], images[0]),
+      image: usedImages
+        ? pickUniqueImage(usedImages, [isUsableGalleryImage(roomImage) ? roomImage : '', images[index + 1], images[index], images[0]], images)
+        : imageFrom(isUsableGalleryImage(roomImage) ? roomImage : '', images[index + 1], images[index], images[0]),
       title,
       text: stringFrom(room.description, priceLabel ? `${fallback.description} ${priceLabel}.` : fallback.description),
       price: priceLabel,

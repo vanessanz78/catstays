@@ -52,4 +52,115 @@ router.post('/website/scrape', async (req, res) => {
   }
 });
 
+router.post('/website/chat', async (req, res) => {
+  const { question, businessName, knowledge, history } = req.body as {
+    question?: string;
+    businessName?: string;
+    knowledge?: unknown;
+    history?: Array<{ sender?: 'user' | 'bot'; text?: string }>;
+  };
+
+  if (!question || typeof question !== 'string') {
+    res.status(400).json({ error: 'question is required' });
+    return;
+  }
+
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    res.status(503).json({ error: 'OPENAI_NOT_CONFIGURED' });
+    return;
+  }
+
+  const model = process.env.OPENAI_CHAT_MODEL || 'gpt-4.1-mini';
+  const compactKnowledge = buildCompactKnowledge(knowledge);
+  const recentHistory = Array.isArray(history)
+    ? history
+        .filter((message) => message?.text && (message.sender === 'user' || message.sender === 'bot'))
+        .slice(-6)
+        .map((message) => ({
+          role: message.sender === 'user' ? 'user' : 'assistant',
+          content: message.text,
+        }))
+    : [];
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model,
+        temperature: 0.2,
+        response_format: { type: 'json_object' },
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You are the website chat assistant for a cat boarding business. Answer warmly and clearly using only the supplied site content. If the site content does not contain enough information, do not guess. Instead, ask the customer for their email so the owner can reply within 24 hours. Return strict JSON with keys: answer (string), ownerFollowUp (boolean). Keep answers under 140 words unless listing room or service options.',
+          },
+          {
+            role: 'system',
+            content: `Business: ${String(businessName || 'CatStays')}\nSite content:\n${JSON.stringify(compactKnowledge)}`,
+          },
+          ...recentHistory,
+          {
+            role: 'user',
+            content: question,
+          },
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const payload = await response.text();
+      res.status(502).json({ error: 'OPENAI_REQUEST_FAILED', detail: payload.slice(0, 500) });
+      return;
+    }
+
+    const payload = await response.json() as {
+      choices?: Array<{
+        message?: {
+          content?: string;
+        };
+      }>;
+    };
+    const content = payload.choices?.[0]?.message?.content;
+    if (!content) {
+      res.status(502).json({ error: 'OPENAI_EMPTY_RESPONSE' });
+      return;
+    }
+
+    const parsed = JSON.parse(content) as { answer?: string; ownerFollowUp?: boolean };
+    res.json({
+      answer: typeof parsed.answer === 'string' ? parsed.answer : '',
+      ownerFollowUp: Boolean(parsed.ownerFollowUp),
+    });
+  } catch (error) {
+    res.status(502).json({ error: 'OPENAI_CHAT_ERROR', detail: (error as Error).message });
+  }
+});
+
+function buildCompactKnowledge(knowledge: unknown) {
+  if (!knowledge || typeof knowledge !== 'object') return {};
+
+  const input = knowledge as Record<string, any>;
+  return {
+    business: input.business,
+    footer: input.footer,
+    booking: input.booking,
+    about: input.about,
+    whyChoose: input.whyChoose,
+    facilities: input.facilities,
+    owner: input.owner,
+    suites: Array.isArray(input.suites) ? input.suites.slice(0, 8) : [],
+    services: Array.isArray(input.services) ? input.services.slice(0, 8) : [],
+    testimonials: Array.isArray(input.testimonials) ? input.testimonials.slice(0, 6) : [],
+    faqs: Array.isArray(input.faqs) ? input.faqs.slice(0, 12) : [],
+    locationDetails: input.locationDetails,
+    contentLibrary: input.contentLibrary,
+  };
+}
+
 export default router;

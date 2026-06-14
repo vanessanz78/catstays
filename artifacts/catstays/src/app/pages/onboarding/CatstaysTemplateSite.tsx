@@ -727,24 +727,26 @@ function FacilitiesDetailSection({ content }: { content: ReturnType<typeof build
 
   return (
     <section id="facilities" className="scroll-mt-28 bg-white px-6 py-16">
-      <div className="catstays-stack mx-auto grid max-w-[1400px] gap-10 md:grid-cols-[0.9fr_1.1fr] md:items-center">
-        <img src={content.facilities.image} alt="" className="catstays-template-section-image h-[460px] w-full rounded-md object-cover shadow-sm" />
-        <div>
-          <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Facilities</p>
-          <h2 className="text-3xl leading-tight md:text-5xl">{content.facilities.title}</h2>
-          <p className="mt-5 text-base leading-7 text-[#444]">{content.facilities.text}</p>
-          <div className="catstays-card-grid mt-8 grid gap-5 sm:grid-cols-2">
-            {content.facilities.items.map((item, index) => {
-              const Icon = facilityIcons[index % facilityIcons.length] || ShieldCheck;
-              return (
-                <article key={item.title} className="rounded-md border border-[#222]/10 bg-[#f8f5ef] p-5">
-                  <Icon className="mb-4 h-6 w-6 text-[#8c5b32]" />
-                  <h3 className="font-serif text-xl leading-tight">{item.title}</h3>
-                  <p className="mt-3 text-sm leading-6 text-[#444]">{item.text}</p>
-                </article>
-              );
-            })}
+      <div className="catstays-stack mx-auto max-w-[1400px]">
+        <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+          <img src={content.facilities.image} alt="" className="catstays-template-section-image h-[420px] w-full rounded-md object-cover shadow-sm md:h-[500px]" />
+          <div>
+            <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Facilities</p>
+            <h2 className="text-3xl leading-tight md:text-5xl">{content.facilities.title}</h2>
+            <p className="mt-5 max-w-3xl text-base leading-7 text-[#444]">{content.facilities.text}</p>
           </div>
+        </div>
+        <div className="catstays-card-grid mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+          {content.facilities.items.map((item, index) => {
+            const Icon = facilityIcons[index % facilityIcons.length] || ShieldCheck;
+            return (
+              <article key={item.title} className="rounded-md border border-[#222]/10 bg-[#f8f5ef] p-5">
+                <Icon className="mb-4 h-6 w-6 text-[#8c5b32]" />
+                <h3 className="font-serif text-xl leading-tight">{item.title}</h3>
+                <p className="mt-3 text-sm leading-6 text-[#444]">{item.text}</p>
+              </article>
+            );
+          })}
         </div>
       </div>
     </section>

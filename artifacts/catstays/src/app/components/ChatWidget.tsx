@@ -101,6 +101,7 @@ export function ChatWidget({ accentColor = '#C46A3A', businessName = 'CatStays',
     { sender: 'bot', text: `Hi! Welcome to ${businessName}. How can we help you today?` }
   ]);
   const [inputValue, setInputValue] = useState('');
+  const [isResponding, setIsResponding] = useState(false);
   const [awaitingOwnerEmail, setAwaitingOwnerEmail] = useState(false);
   const [pendingOwnerQuestion, setPendingOwnerQuestion] = useState('');
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -110,9 +111,9 @@ export function ChatWidget({ accentColor = '#C46A3A', businessName = 'CatStays',
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [isOpen, messages]);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     const messageText = inputValue.trim();
-    if (!messageText) return;
+    if (!messageText || isResponding) return;
 
     const userMessage: ChatMessage = { sender: 'user', text: messageText };
     const newMessages: ChatMessage[] = [...messages, userMessage];
@@ -134,16 +135,16 @@ export function ChatWidget({ accentColor = '#C46A3A', businessName = 'CatStays',
         };
       }
     } else {
-      response = answerFromKnowledge(messageText, knowledge, businessName);
+      setIsResponding(true);
+      response = await answerFromAssistant(messageText, knowledge, businessName, newMessages);
+      setIsResponding(false);
       if (response.ownerFollowUp) {
         setAwaitingOwnerEmail(true);
         setPendingOwnerQuestion(messageText);
       }
     }
 
-    setTimeout(() => {
-      setMessages([...newMessages, { sender: 'bot', text: response.text }]);
-    }, 450);
+    setMessages([...newMessages, { sender: 'bot', text: response.text }]);
   };
 
   return (
@@ -209,15 +210,17 @@ export function ChatWidget({ accentColor = '#C46A3A', businessName = 'CatStays',
               <Input
                 value={inputValue}
                 onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                placeholder="Type a message..."
+                onKeyDown={(e) => e.key === 'Enter' && void handleSend()}
+                placeholder={isResponding ? 'Thinking...' : 'Type a message...'}
                 className="rounded-full h-9 sm:h-10 text-xs sm:text-sm"
+                disabled={isResponding}
               />
               <Button
-                onClick={handleSend}
+                onClick={() => void handleSend()}
                 size="sm"
                 className="rounded-full w-9 h-9 sm:w-10 sm:h-10 p-0 flex-shrink-0"
                 style={{ backgroundColor: accentColor }}
+                disabled={isResponding}
               >
                 <Send className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
               </Button>
@@ -227,6 +230,40 @@ export function ChatWidget({ accentColor = '#C46A3A', businessName = 'CatStays',
       )}
     </>
   );
+}
+
+async function answerFromAssistant(
+  question: string,
+  knowledge: ChatKnowledge | undefined,
+  businessName: string,
+  history: ChatMessage[],
+): Promise<AnswerResult> {
+  try {
+    const response = await fetch('/api/website/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        question,
+        businessName,
+        knowledge,
+        history,
+      }),
+    });
+
+    if (response.ok) {
+      const payload = await response.json() as { answer?: string; ownerFollowUp?: boolean };
+      if (payload.answer) {
+        return {
+          text: payload.answer,
+          ownerFollowUp: Boolean(payload.ownerFollowUp),
+        };
+      }
+    }
+  } catch {
+    // Fall back to the local site-content assistant below.
+  }
+
+  return answerFromKnowledge(question, knowledge, businessName);
 }
 
 function answerFromKnowledge(question: string, knowledge: ChatKnowledge | undefined, businessName: string): AnswerResult {
