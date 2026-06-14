@@ -1043,6 +1043,12 @@ export function OnboardingWizard() {
         await refreshCattery();
       }
 
+      localStorage.setItem('catstays_onboarding', JSON.stringify({
+        step: 8,
+        data: liveData,
+        accountCreated: true,
+      }));
+
       // Move to success screen
       setStep(8);
     } catch (error) {

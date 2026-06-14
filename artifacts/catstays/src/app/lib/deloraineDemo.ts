@@ -910,7 +910,9 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
   const fallbackEmail = isDeloraineSource ? fallbackDeloraineScrape.email || '' : '';
   const fallbackAddress = isDeloraineSource ? fallbackDeloraineScrape.address || '' : '';
   const fallbackFaqs = isDeloraineSource ? fallbackDeloraineScrape.faqs : genericFaqs(businessName);
-  const reviews = scrape.reviews?.length ? scrape.reviews : (settings.testimonialsData?.testimonials ?? fallbackDeloraineScrape.reviews ?? []);
+  const reviews = scrape.reviews?.length
+    ? scrape.reviews
+    : (settings.testimonialsData?.testimonials ?? (isDeloraineSource ? fallbackDeloraineScrape.reviews ?? [] : []));
   const hours = stringValue(settings.hours) || scrape.hours || (isDeloraineSource ? fallbackDeloraineScrape.hours || '' : '');
   const owner = scrape.owner || settings.ownerData || (isDeloraineSource ? fallbackDeloraineScrape.owner : undefined);
   const commitment = scrape.commitment || settings.commitmentData || (isDeloraineSource ? fallbackDeloraineScrape.commitment : undefined);

@@ -171,6 +171,7 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
   });
 
   const root = parse(html);
+  const homeBodyText = readableText(root);
   const supplementalPages = await fetchSupplementalPages(parsedUrl, root);
   const scriptUrls = collectSameOriginScripts(root, parsedUrl).slice(0, 3);
   const scriptTexts: string[] = [];
@@ -195,7 +196,7 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
   const supplementalHeadings = supplementalPages.map((page) => page.heading).filter(Boolean);
   const bundleTexts = extractReadableBundleText(scriptBundle);
   const bodyText = cleanText([
-    root.querySelector('body')?.text ?? root.text,
+    homeBodyText,
     ...supplementalPages.map((page) => page.bodyText),
     ...bundleTexts.slice(0, 80),
   ].join(' '));
@@ -228,10 +229,10 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
   const hours = extractHours(searchableText);
   const virtualTourUrl = extractVirtualTourUrl(html + '\n' + scriptBundle, parsedUrl);
   const rooms = buildRooms(apiRooms, scriptBundle, images, bodyText);
-  const services = buildServices(scriptBundle, images);
-  const highlights = buildHighlights(scriptBundle, bodyText);
-  const faqs = buildFaqs(scriptBundle);
-  const reviews = buildReviews(scriptBundle, bodyText);
+  const services = buildServices(scriptBundle, images, supplementalPages, homeBodyText);
+  const highlights = buildHighlights(scriptBundle, bodyText, supplementalPages, homeBodyText, hours);
+  const faqs = buildFaqs(scriptBundle, supplementalPages, searchableText, hours);
+  const reviews = buildReviews(scriptBundle, bodyText, supplementalPages);
   const galleryImages = buildGalleryImages(scriptBundle, images, logoImage, galleryPageImages);
   const title = cleanText(meta.title || supplementalPages[0]?.title || firstText(bundleTexts, /Deloraine Cattery|Cattery/i) || 'Your Cattery');
   const businessName = deriveBusinessName(root, meta, supplementalPages, title, bodyText);
@@ -239,12 +240,7 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
   const heading = isWeakSectionHeading(headingCandidate)
     ? businessName
     : cleanText(headingCandidate || businessName || title.replace(/\s+-\s+.*$/, '') || 'Your Cattery');
-  const description = cleanText(
-    meta.description ||
-      supplementalHeadings[0] ||
-      firstText(bundleTexts, /cat boarding|cattery|feline|facility/i) ||
-      'A cat boarding website imported into CatStays.',
-  );
+  const description = buildSiteDescription(meta.description, homeBodyText, supplementalPages, supplementalHeadings, bundleTexts);
 
   if (!title && !description && !heading && !heroImage && !phone && !email && !images.length) {
     throw new TypeError('NO_USEFUL_CONTENT');
@@ -371,7 +367,7 @@ async function fetchSupplementalPages(baseUrl: URL, root: ReturnType<typeof pars
           url,
           title: cleanText(pageRoot.querySelector('title')?.text ?? ''),
           heading: cleanText(pageRoot.querySelector('h1')?.text ?? pageRoot.querySelector('h2')?.text ?? ''),
-          bodyText: cleanText(pageRoot.querySelector('body')?.text ?? pageRoot.text),
+          bodyText: readableText(pageRoot),
           images: collectHtmlImages(pageRoot, baseUrl),
         };
       } catch {
@@ -449,6 +445,11 @@ function collectSameOriginLinks(root: ReturnType<typeof parse>, baseUrl: URL): s
     .filter(Boolean)
     .filter((url) => new URL(url).origin === baseUrl.origin)
     .filter((url) => isHtmlLikeUrl(url));
+}
+
+function readableText(root: ReturnType<typeof parse>): string {
+  root.querySelectorAll('script, style, noscript').forEach((node) => node.remove());
+  return cleanText(root.querySelector('body')?.text ?? root.text);
 }
 
 function uniqueUrls(urls: string[]): string[] {
@@ -884,6 +885,8 @@ function buildRooms(apiRooms: CatteryScrapedRoom[], bundle: string, images: stri
     indoor: images.find((image) => /indoor/i.test(decodeURIComponent(image))),
   };
   const fallbackImages = images.filter((image) => image && !/logo|icon/i.test(decodeURIComponent(image)));
+  const roomFallbackImages = fallbackImages.filter((image) => !/building|facility|exterior/i.test(decodeURIComponent(image)));
+  const preferredRoomImages = roomFallbackImages.length > 1 ? roomFallbackImages.slice(1) : roomFallbackImages.length ? roomFallbackImages : fallbackImages;
 
   if (apiRooms.length) {
     return apiRooms.slice(0, 6).map((room) => ({
@@ -895,11 +898,11 @@ function buildRooms(apiRooms: CatteryScrapedRoom[], bundle: string, images: stri
             ? roomImages.communal
             : room.name.toLowerCase().includes('indoor')
               ? roomImages.indoor
-              : roomImages.private || roomImages.indoor || fallbackImages[0],
+              : roomImages.private || roomImages.indoor || preferredRoomImages[0] || fallbackImages[0],
     }));
   }
 
-  const textFallbackRooms = buildRoomsFromBodyText(bodyText, fallbackImages, roomImages);
+  const textFallbackRooms = buildRoomsFromBodyText(bodyText, preferredRoomImages, roomImages);
   if (textFallbackRooms.length) {
     return textFallbackRooms;
   }
@@ -920,10 +923,10 @@ function buildRooms(apiRooms: CatteryScrapedRoom[], bundle: string, images: stri
       amenities: ['Daily cleaning', 'Twice daily feeding', 'Secure environment'],
       image:
         name.toLowerCase().includes('private')
-          ? roomImages.private || fallbackImages[0]
+          ? roomImages.private || preferredRoomImages[0] || fallbackImages[0]
           : name.toLowerCase().includes('communal')
-            ? roomImages.communal || fallbackImages[2] || fallbackImages[0]
-            : roomImages.indoor || fallbackImages[1] || fallbackImages[0],
+            ? roomImages.communal || preferredRoomImages[2] || preferredRoomImages[0] || fallbackImages[0]
+            : roomImages.indoor || preferredRoomImages[1] || preferredRoomImages[0] || fallbackImages[0],
     }));
 }
 
@@ -980,8 +983,13 @@ function buildRoomsFromBodyText(
   return rooms;
 }
 
-function buildServices(bundle: string, images: string[]): CatteryScrapedService[] {
-  const fallbackImagePool = images.filter((image) => !/logo|icon/i.test(decodeURIComponent(image)));
+function buildServices(
+  bundle: string,
+  images: string[],
+  supplementalPages: ScrapedPage[],
+  homeBodyText: string,
+): CatteryScrapedService[] {
+  const fallbackImagePool = images.filter((image) => !/logo|icon|building|facility/i.test(decodeURIComponent(image)));
   const matches = [...bundle.matchAll(/name:"([^"]{3,80})",price:"([^"]{1,80})",description:"([^"]{20,420})"/g)];
   const services = matches
     .map((match) => ({
@@ -994,21 +1002,63 @@ function buildServices(bundle: string, images: string[]): CatteryScrapedService[
 
   if (services.length) return services.slice(0, 12);
 
-  return [
+  const serviceSources = {
+    home: homeBodyText,
+    pricing: pageText(supplementalPages, /pricing|fees|booking-pricing/i),
+    booking: pageText(supplementalPages, /booking/i),
+    gallery: pageText(supplementalPages, /gallery/i),
+  };
+  const fallbackServices = [
     {
-      title: 'Cat boarding',
-      description: 'Comfortable accommodation and daily care for cats.',
-      image: fallbackImagePool[0] || images[0],
+      title: 'Full room service',
+      description: firstSentenceMatching(`${serviceSources.home} ${serviceSources.pricing}`, /full room service|regular room service/i),
     },
     {
-      title: 'Photo updates',
-      description: 'Friendly updates for families while cats are staying.',
-      image: fallbackImagePool[1] || fallbackImagePool[0] || images[1] || images[0],
+      title: 'Customised feeding',
+      description: firstSentenceMatching(`${serviceSources.home} ${serviceSources.pricing}`, /customised feeding|fresh water|royal canin/i),
     },
-  ];
+    {
+      title: 'Private indoor and outdoor access',
+      description: firstSentenceMatching(`${serviceSources.home} ${serviceSources.pricing}`, /24 hour indoor\/outdoor access|24 hour outdoor access|private outdoor conservatory/i),
+    },
+    {
+      title: 'Booking support',
+      description: firstSentenceMatching(serviceSources.booking, /booking is only confirmed|confirm your booking|do not hear from us within 24 hours/i),
+    },
+    {
+      title: 'Owner reassurance',
+      description: firstSentenceMatching(serviceSources.gallery, /text letting me know|happy and settled|well looked after/i),
+    },
+  ]
+    .filter((service) => service.description)
+    .map((service, index) => ({
+      ...service,
+      image: fallbackImagePool[index] || fallbackImagePool[0] || images[index + 1] || images[0],
+    }));
+
+  return fallbackServices.length
+    ? fallbackServices.slice(0, 6)
+    : [
+        {
+          title: 'Cat boarding',
+          description: 'Comfortable accommodation and daily care for cats.',
+          image: fallbackImagePool[0] || images[0],
+        },
+        {
+          title: 'Photo updates',
+          description: 'Friendly updates for families while cats are staying.',
+          image: fallbackImagePool[1] || fallbackImagePool[0] || images[1] || images[0],
+        },
+      ];
 }
 
-function buildHighlights(bundle: string, bodyText: string): Array<{ title: string; description: string }> {
+function buildHighlights(
+  bundle: string,
+  bodyText: string,
+  supplementalPages: ScrapedPage[],
+  homeBodyText: string,
+  hours: string,
+): Array<{ title: string; description: string }> {
   const matches = [...bundle.matchAll(/title:"([^"]{3,80})",description:"([^"]{20,320})"/g)]
     .map((match) => ({ title: cleanText(match[1]), description: cleanText(match[2]) }))
     .filter((item) => !/Daily Brush|Medicine|Electric|Airport|Flea|Veterinary|Professional Grooming/i.test(item.title));
@@ -1016,17 +1066,36 @@ function buildHighlights(bundle: string, bodyText: string): Array<{ title: strin
   if (matches.length) return uniqueByTitle(matches).slice(0, 8);
 
   const fallback = [
-    ['Safe and secure', /safe|secure|security/i],
-    ['Purpose-built facility', /purpose built|facility/i],
-    ['On-site care', /on site|animal loving|care/i],
-  ] as const;
+    {
+      title: 'Five-star private suites',
+      description: firstSentenceMatching(homeBodyText, /5 star suite|sumptuous 5 star suite|private outdoor conservatory|24 hour outdoor access/i),
+    },
+    {
+      title: 'No communal living',
+      description: firstSentenceMatching(homeBodyText, /no communal living|do not mix families|will not be mingling with other cats/i),
+    },
+    {
+      title: 'Customised daily care',
+      description: firstSentenceMatching(bodyText, /customised feeding|plenty of love and cuddles|regular room service/i),
+    },
+    {
+      title: 'Vaccination standards',
+      description: firstSentenceMatching(pageText(supplementalPages, /vaccination|condition|terms/i), /fully vaccinated|vaccination record|no certificate no stay/i),
+    },
+    {
+      title: 'Convenient opening hours',
+      description: cleanText(hours) || firstSentenceMatching(pageText(supplementalPages, /open-hours|contact-hours|hours/i), /monday.?saturday|sunday mornings|3:30pm-5:30pm/i),
+    },
+  ];
 
-  return fallback
-    .filter(([, pattern]) => pattern.test(bodyText))
-    .map(([title]) => ({ title, description: 'Imported from the public cattery website.' }));
+  return uniqueByTitle(
+    fallback
+      .filter((item) => item.description)
+      .map((item) => ({ title: item.title, description: item.description })),
+  ).slice(0, 8);
 }
 
-function buildFaqs(bundle: string): Array<{ question: string; answer: string }> {
+function buildFaqs(bundle: string, supplementalPages: ScrapedPage[], searchableText: string, hours: string): Array<{ question: string; answer: string }> {
   const templateMatches = [...bundle.matchAll(/question:"([^"]{8,160})",answer:`([\s\S]*?)`/g)]
     .map((match) => ({
       question: cleanText(match[1]),
@@ -1041,7 +1110,60 @@ function buildFaqs(bundle: string): Array<{ question: string; answer: string }> 
     }))
     .filter((faq) => faq.question && faq.answer);
 
-  return uniqueByQuestion([...templateMatches, ...stringMatches]).slice(0, 20);
+  const explicitFaqs = uniqueByQuestion([...templateMatches, ...stringMatches]).slice(0, 20);
+  if (explicitFaqs.length) return explicitFaqs;
+
+  const vaccinationText = pageText(supplementalPages, /vaccination/i);
+  const hoursText = pageText(supplementalPages, /open-hours|contact-hours|hours/i);
+  const bookingText = pageText(supplementalPages, /booking/i);
+  const termsText = pageText(supplementalPages, /terms|conditions/i);
+  const homeText = searchableText;
+
+  return uniqueByQuestion(
+    [
+      {
+        question: 'What vaccinations are required?',
+        answer: combineSentences(vaccinationText, [
+          /fully vaccinated against cat flu/i,
+          /booking will not be confirmed until a copy of the vaccination record has been emailed/i,
+        ]),
+      },
+      {
+        question: 'What are your opening hours?',
+        answer: cleanText(hours) || combineSentences(hoursText || searchableText, [
+          /monday.?saturday[^.]*9:00am[^.]*10:30am/i,
+          /3:30pm[^.]*5:30pm/i,
+          /sunday[^.]*closed[^.]*morning/i,
+        ]),
+      },
+      {
+        question: 'When is my booking confirmed?',
+        answer: combineSentences(bookingText, [
+          /booking is only confirmed when we email through the confirmation quote/i,
+          /if you do not hear from us within 24 hours/i,
+        ]),
+      },
+      {
+        question: 'Do you mix cats from different families?',
+        answer: combineSentences(homeText, [
+          /does not have communal living/i,
+          /do not mix families/i,
+        ]),
+      },
+      {
+        question: 'Are there holiday surcharges or deposits?',
+        answer: joinSentences(
+          [
+            excerptAroundPattern(termsText || hoursText, /50%\s+deposit\s+will\s+be\s+required/i, 180),
+            excerptAroundPattern(termsText || hoursText, /\$3\.00(?:\s+extra\s+per\s+day|[^.]*surcharge)/i, 180),
+            excerptAroundPattern(termsText || hoursText, /non refundable after the 25th of November/i, 180),
+          ].filter(Boolean),
+          320,
+        ),
+      },
+    ]
+      .filter((faq) => faq.answer),
+  ).slice(0, 12);
 }
 
 function buildSiteContentLibrary(input: {
@@ -1480,7 +1602,7 @@ function isEmbeddableVirtualTourUrl(rawUrl: string, baseUrl: URL): boolean {
   }
 }
 
-function buildReviews(bundle: string, bodyText: string): CatteryScrapedReview[] {
+function buildReviews(bundle: string, bodyText: string, supplementalPages: ScrapedPage[]): CatteryScrapedReview[] {
   const reviewMatches = [
     ...bundle.matchAll(/name:"([^"]{2,80})",(?:location:"([^"]{2,80})",)?(?:rating:(\d),)?text:"([^"]{20,500})"/g),
     ...bundle.matchAll(/author:"([^"]{2,80})",quote:"([^"]{20,500})"/g),
@@ -1499,10 +1621,143 @@ function buildReviews(bundle: string, bodyText: string): CatteryScrapedReview[] 
     .filter((review) => review.name && review.text && !/Vanessa|Paul/i.test(review.name));
 
   if (reviews.length) return uniqueByReview(reviews).slice(0, 8);
+
+  const galleryText = pageText(supplementalPages, /gallery|review|testimonial/i);
+  const galleryReviews = extractReviewsFromPageText(galleryText);
+  if (galleryReviews.length) return uniqueByReview(galleryReviews).slice(0, 8);
+
   if (/review\/widgetJs|revelationpets\.com\?s=review/i.test(`${bundle} ${bodyText}`)) {
     return REVELATION_PETS_REVIEW_FALLBACKS;
   }
   return [];
+}
+
+function buildSiteDescription(
+  metaDescription: string,
+  homeBodyText: string,
+  supplementalPages: ScrapedPage[],
+  supplementalHeadings: string[],
+  bundleTexts: string[],
+): string {
+  if (!isWeakDescription(metaDescription)) return cleanText(metaDescription);
+
+  const homeSummary = summarizePrimaryContent(homeBodyText);
+  if (!isWeakDescription(homeSummary)) return homeSummary;
+
+  const pageSummary = summarizePrimaryContent(pageText(supplementalPages, /pricing|contact|hours|vaccination|terms/i));
+  if (!isWeakDescription(pageSummary)) return pageSummary;
+
+  const headingSummary = supplementalHeadings.find((heading) => !isWeakDescription(heading));
+  if (headingSummary) return cleanText(headingSummary);
+
+  const bundleSummary = firstText(bundleTexts, /cat boarding|cattery|feline|facility/i);
+  if (!isWeakDescription(bundleSummary)) return cleanText(bundleSummary);
+
+  return 'A cat boarding website imported into CatStays.';
+}
+
+function pageText(pages: ScrapedPage[], pattern: RegExp): string {
+  return cleanText(
+    pages
+      .filter((page) => pattern.test(`${page.url} ${page.title} ${page.heading}`))
+      .map((page) => page.bodyText)
+      .join(' '),
+  );
+}
+
+function summarizePrimaryContent(text: string): string {
+  const cleaned = cleanText(text);
+  if (!cleaned) return '';
+  const focusIndex = cleaned.toLowerCase().indexOf('welcome to');
+  const focusText = focusIndex >= 0 ? cleaned.slice(focusIndex) : cleaned;
+  const sentences = sentenceList(focusText)
+    .filter((sentence) => /cat|cattery|suite|boarding|resort|feline|facility|care/i.test(sentence))
+    .filter((sentence) => !/menu|skip to content|book now|new customers|existing customers|contact us|pricing|open hours/i.test(sentence));
+  return joinSentences(sentences, 280);
+}
+
+function isWeakDescription(value: string): boolean {
+  const text = cleanText(value);
+  if (!text || text.length < 20) return true;
+  return /^(gallery|booking form|contact details|open hours|pricing|home|page not found)$/i.test(text);
+}
+
+function sentenceList(text: string): string[] {
+  return cleanText(text.replace(/([a-z])\.([A-Z])/g, '$1. $2'))
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) => cleanText(sentence))
+    .filter(Boolean);
+}
+
+function firstSentenceMatching(text: string, pattern: RegExp): string {
+  const sentence = sentenceList(text).find((candidate) => pattern.test(candidate)) || '';
+  if (sentence && sentence.length <= 220) return sentence;
+  return excerptAroundPattern(sentence || text, pattern, 220);
+}
+
+function excerptAroundPattern(text: string, pattern: RegExp, maxChars: number): string {
+  const cleaned = cleanText(text.replace(/([a-z])([A-Z])/g, '$1 $2'));
+  const match = cleaned.match(pattern);
+  if (!match || typeof match.index !== 'number') return cleaned.slice(0, maxChars).trim();
+  const excerpt = cleaned.slice(match.index, match.index + maxChars);
+  return cleanText(excerpt.replace(/©\s*\d{4}.*$/i, '').replace(/\s+/g, ' ')).slice(0, maxChars).trim();
+}
+
+function joinSentences(sentences: string[], maxChars: number): string {
+  const unique: string[] = [];
+  const seen = new Set<string>();
+  for (const sentence of sentences) {
+    const normalized = sentence.toLowerCase();
+    if (!sentence || seen.has(normalized)) continue;
+    seen.add(normalized);
+    unique.push(sentence);
+  }
+
+  let result = '';
+  for (const sentence of unique) {
+    const next = result ? `${result} ${sentence}` : sentence;
+    if (next.length > maxChars && result) break;
+    result = next.slice(0, maxChars).trim();
+  }
+  return result;
+}
+
+function combineSentences(text: string, patterns: RegExp[]): string {
+  const matches = patterns
+    .map((pattern) => firstSentenceMatching(text, pattern))
+    .filter(Boolean);
+  return joinSentences(matches, 320);
+}
+
+function extractReviewsFromPageText(text: string): CatteryScrapedReview[] {
+  const cleaned = cleanText(text.replace(/[★☆]/g, ' '));
+  if (!cleaned) return [];
+
+  const reviewChunks = cleaned
+    .split(/(?=\b[A-Z][A-Za-z.' -]{2,60}\s+(?:Recommended|Fantastic|Wonderful|Impressed)\b)/g)
+    .map((chunk) => chunk.trim())
+    .filter(Boolean);
+
+  const reviews: CatteryScrapedReview[] = [];
+
+  reviewChunks.forEach((chunk) => {
+      const match = chunk.match(/^([A-Z][A-Za-z.' -]{2,60})\s+(Recommended|Fantastic|Wonderful|Impressed)\s+([\s\S]+)$/);
+      if (!match) return;
+      const [, name,, rest] = match;
+      const dateMatch = rest.match(/(\d{1,2}(?:st|nd|rd|th)\s+[A-Za-z]{3,9}\s+\d{4})/i);
+      const date = dateMatch?.[1] || '';
+      const textOnly = cleanText(rest.replace(date, '').replace(/©\s*\d{4}.*$/i, ''));
+      const quote = textOnly.slice(0, 420);
+      if (!name || !quote) return;
+      reviews.push({
+        name: cleanText(name),
+        text: quote,
+        rating: 5,
+        location: date,
+      });
+    });
+
+  return reviews;
 }
 
 function buildOwnerSection(bundle: string, images: string[], businessName: string) {
