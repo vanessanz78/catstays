@@ -8,6 +8,9 @@ const FETCH_TIMEOUT_MS = 10_000;
 const MAX_HTML_BYTES = 1_200_000;
 const MAX_ASSET_BYTES = 2_500_000;
 const MAX_REDIRECTS = 5;
+const MAX_CRAWLED_PAGES = 8;
+const MAX_SITEMAP_DOCUMENTS = 4;
+const MAX_SITEMAP_URLS = 24;
 
 const REVELATION_PETS_REVIEW_FALLBACKS: CatteryScrapedReview[] = [
   {
@@ -152,6 +155,14 @@ interface FetchTextOptions {
   allowByPath?: RegExp;
 }
 
+type ScrapedPage = {
+  url: string;
+  title: string;
+  heading: string;
+  bodyText: string;
+  images: string[];
+};
+
 export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsiteScrapeResult> {
   const parsedUrl = normalisePublicUrl(rawUrl);
   const html = await fetchText(parsedUrl, {
@@ -160,6 +171,7 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
   });
 
   const root = parse(html);
+  const supplementalPages = await fetchSupplementalPages(parsedUrl, root);
   const scriptUrls = collectSameOriginScripts(root, parsedUrl).slice(0, 3);
   const scriptTexts: string[] = [];
 
@@ -180,19 +192,29 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
   const apiRooms = await fetchRoomsApi(parsedUrl);
   const scriptBundle = scriptTexts.join('\n');
   const meta = buildMeta(root, parsedUrl);
+  const supplementalHeadings = supplementalPages.map((page) => page.heading).filter(Boolean);
   const bundleTexts = extractReadableBundleText(scriptBundle);
   const bodyText = cleanText([
     root.querySelector('body')?.text ?? root.text,
+    ...supplementalPages.map((page) => page.bodyText),
     ...bundleTexts.slice(0, 80),
   ].join(' '));
   const searchableText = cleanText(`${bodyText} ${scriptBundle}`);
   const bundleImages = collectBundleAssets(scriptBundle, parsedUrl);
-  const htmlImages = collectHtmlImages(root, parsedUrl);
+  const htmlImages = [
+    ...collectHtmlImages(root, parsedUrl),
+    ...supplementalPages.flatMap((page) => page.images),
+  ];
   const images = curateImageUrls([
     meta.heroImage,
     ...htmlImages,
     ...bundleImages,
   ]);
+  const galleryPageImages = curateImageUrls(
+    supplementalPages
+      .filter((page) => /gallery|photo|images?/i.test(page.url))
+      .flatMap((page) => page.images),
+  );
 
   const logoImage = findLogoImage(images);
   const heroImage = findHeroImage(images, logoImage) || meta.heroImage;
@@ -205,16 +227,21 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
   const socialLinks = extractSocialLinks(html + '\n' + scriptBundle);
   const hours = extractHours(searchableText);
   const virtualTourUrl = extractVirtualTourUrl(html + '\n' + scriptBundle, parsedUrl);
-  const rooms = buildRooms(apiRooms, scriptBundle, images);
+  const rooms = buildRooms(apiRooms, scriptBundle, images, bodyText);
   const services = buildServices(scriptBundle, images);
   const highlights = buildHighlights(scriptBundle, bodyText);
   const faqs = buildFaqs(scriptBundle);
   const reviews = buildReviews(scriptBundle, bodyText);
-  const galleryImages = buildGalleryImages(scriptBundle, images, logoImage);
-  const title = cleanText(meta.title || firstText(bundleTexts, /Deloraine Cattery|Cattery/i) || 'Your Cattery');
-  const heading = cleanText(meta.heading || title.replace(/\s+-\s+.*$/, '') || 'Your Cattery');
+  const galleryImages = buildGalleryImages(scriptBundle, images, logoImage, galleryPageImages);
+  const title = cleanText(meta.title || supplementalPages[0]?.title || firstText(bundleTexts, /Deloraine Cattery|Cattery/i) || 'Your Cattery');
+  const businessName = deriveBusinessName(root, meta, supplementalPages, title, bodyText);
+  const headingCandidate = cleanText(meta.heading || '');
+  const heading = isWeakSectionHeading(headingCandidate)
+    ? businessName
+    : cleanText(headingCandidate || businessName || title.replace(/\s+-\s+.*$/, '') || 'Your Cattery');
   const description = cleanText(
     meta.description ||
+      supplementalHeadings[0] ||
       firstText(bundleTexts, /cat boarding|cattery|feline|facility/i) ||
       'A cat boarding website imported into CatStays.',
   );
@@ -223,7 +250,6 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
     throw new TypeError('NO_USEFUL_CONTENT');
   }
 
-  const businessName = heading || title.replace(/\s+-\s+.*$/, '') || 'Your Cattery';
   const owner = buildOwnerSection(scriptBundle, images, businessName);
   const commitment = buildCommitmentSection(businessName, highlights, bodyText);
   const locationDetails = buildLocationDetails(businessName, address, city, virtualTourUrl);
@@ -329,6 +355,128 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
     },
     demoRooms: rooms,
   };
+}
+
+async function fetchSupplementalPages(baseUrl: URL, root: ReturnType<typeof parse>): Promise<ScrapedPage[]> {
+  const urls = await collectSupplementalPageUrls(baseUrl, root);
+  const pages = await Promise.all(
+    urls.map(async (url) => {
+      try {
+        const html = await fetchText(new URL(url), {
+          maxBytes: MAX_HTML_BYTES,
+          acceptedContent: /text\/html|application\/xhtml\+xml/i,
+        });
+        const pageRoot = parse(html);
+        return {
+          url,
+          title: cleanText(pageRoot.querySelector('title')?.text ?? ''),
+          heading: cleanText(pageRoot.querySelector('h1')?.text ?? pageRoot.querySelector('h2')?.text ?? ''),
+          bodyText: cleanText(pageRoot.querySelector('body')?.text ?? pageRoot.text),
+          images: collectHtmlImages(pageRoot, baseUrl),
+        };
+      } catch {
+        return null;
+      }
+    }),
+  );
+
+  return pages.filter((page): page is ScrapedPage => Boolean(page));
+}
+
+async function collectSupplementalPageUrls(baseUrl: URL, root: ReturnType<typeof parse>): Promise<string[]> {
+  const sitemapUrls = await fetchSitemapUrls(baseUrl).catch(() => []);
+  const linkedUrls = collectSameOriginLinks(root, baseUrl);
+  const combined = uniqueUrls([
+    ...sitemapUrls,
+    ...linkedUrls,
+  ]).filter((url) => url !== baseUrl.href);
+
+  return combined
+    .sort((left, right) => pagePriority(right) - pagePriority(left))
+    .slice(0, MAX_CRAWLED_PAGES);
+}
+
+async function fetchSitemapUrls(baseUrl: URL): Promise<string[]> {
+  const sitemapUrl = new URL('/sitemap.xml', baseUrl);
+  const xml = await fetchText(sitemapUrl, {
+    maxBytes: 350_000,
+    acceptedContent: /xml|text\/plain|text\/xml/i,
+    allowByPath: /\.xml$/i,
+  });
+  return fetchSitemapDocumentUrls(xml, baseUrl, 0);
+}
+
+async function fetchSitemapDocumentUrls(xml: string, baseUrl: URL, depth: number): Promise<string[]> {
+  const locs = Array.from(xml.matchAll(/<loc>([^<]+)<\/loc>/gi))
+    .map((match) => decodeEntities(match[1]).trim())
+    .map((url) => absoluteUrl(url, baseUrl))
+    .filter(Boolean)
+    .filter((url) => new URL(url).origin === baseUrl.origin);
+
+  if (!/<sitemapindex/i.test(xml)) {
+    return locs.filter((url) => isHtmlLikeUrl(url));
+  }
+
+  if (depth >= 1) {
+    return [];
+  }
+
+  const nestedDocs = locs
+    .filter((url) => /\.xml(?:\?|$)/i.test(url))
+    .slice(0, MAX_SITEMAP_DOCUMENTS);
+  const nestedResults = await Promise.all(
+    nestedDocs.map(async (url) => {
+      try {
+        const nestedXml = await fetchText(new URL(url), {
+          maxBytes: 350_000,
+          acceptedContent: /xml|text\/plain|text\/xml/i,
+          allowByPath: /\.xml$/i,
+        });
+        return fetchSitemapDocumentUrls(nestedXml, baseUrl, depth + 1);
+      } catch {
+        return [];
+      }
+    }),
+  );
+
+  return uniqueUrls(nestedResults.flat()).slice(0, MAX_SITEMAP_URLS);
+}
+
+function collectSameOriginLinks(root: ReturnType<typeof parse>, baseUrl: URL): string[] {
+  return root
+    .querySelectorAll('a[href]')
+    .map((anchor) => absoluteUrl(anchor.getAttribute('href') ?? '', baseUrl))
+    .filter(Boolean)
+    .filter((url) => new URL(url).origin === baseUrl.origin)
+    .filter((url) => isHtmlLikeUrl(url));
+}
+
+function uniqueUrls(urls: string[]): string[] {
+  const seen = new Set<string>();
+  return urls.filter((url) => {
+    const key = url.replace(/#.*$/, '').replace(/\/$/, '');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function isHtmlLikeUrl(url: string): boolean {
+  const pathname = new URL(url).pathname.toLowerCase();
+  return !/\.(?:xml|json|jpg|jpeg|png|gif|webp|avif|svg|pdf|zip|mp4|mov|webm)$/i.test(pathname);
+}
+
+function pagePriority(url: string): number {
+  const pathname = new URL(url).pathname.toLowerCase();
+  let score = 0;
+  if (pathname === '/' || pathname === '') score -= 20;
+  if (/gallery|photo|image/.test(pathname)) score += 12;
+  if (/booking|fees|pricing|price|suite|room/.test(pathname)) score += 10;
+  if (/contact|hour|open|location/.test(pathname)) score += 9;
+  if (/service|care|facility|faq|tour/.test(pathname)) score += 8;
+  if (/about|story|owner|vaccination|condition/.test(pathname)) score += 6;
+  if (/privacy|feed|author|tag|category/.test(pathname)) score -= 12;
+  return score;
 }
 
 function normalisePublicUrl(rawUrl: string): URL {
@@ -578,6 +726,48 @@ function buildMeta(root: ReturnType<typeof parse>, baseUrl: URL) {
   return { title, description, heading, heroImage };
 }
 
+function deriveBusinessName(
+  root: ReturnType<typeof parse>,
+  meta: ReturnType<typeof buildMeta>,
+  supplementalPages: ScrapedPage[],
+  title: string,
+  bodyText: string,
+): string {
+  const candidates = [
+    root.querySelector('.site-logo img')?.getAttribute('alt')?.trim() ?? '',
+    root.querySelector('.custom-logo')?.getAttribute('alt')?.trim() ?? '',
+    meta.title,
+    supplementalPages.find((page) => /welcome to /i.test(page.heading))?.heading ?? '',
+    root.querySelector('h2')?.text?.trim() ?? '',
+    root.querySelector('.site-title')?.text?.trim() ?? '',
+    title,
+    bodyText.match(/welcome to\s+([a-z0-9 '&-]{4,80}?)(?:\s+cat\s+resort|\s+cattery|\s*[.!,-])/i)?.[1] ?? '',
+    bodyText.match(/\b([a-z0-9 '&-]{4,80}?(?:cat resort|cattery))\b/i)?.[1] ?? '',
+  ];
+
+  for (const candidate of candidates) {
+    const normalized = normalizeBusinessName(candidate);
+    if (normalized) return normalized;
+  }
+
+  return 'Your Cattery';
+}
+
+function normalizeBusinessName(candidate: string): string {
+  const text = cleanText(candidate)
+    .replace(/\s+[|:-]\s+.*$/, '')
+    .replace(/\b(welcome to|home)\b/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!text || /^home$/i.test(text) || text.length < 4) return '';
+  return text;
+}
+
+function isWeakSectionHeading(candidate: string): boolean {
+  return !candidate || /^(home|welcome|about|gallery|pricing|contact)$/i.test(candidate.trim());
+}
+
 function collectSameOriginScripts(root: ReturnType<typeof parse>, baseUrl: URL): URL[] {
   return root
     .querySelectorAll('script[src]')
@@ -656,7 +846,12 @@ function findHeroImage(images: string[], logoImage: string): string {
   );
 }
 
-function buildGalleryImages(bundle: string, images: string[], logoImage: string): Array<{ url: string; caption: string }> {
+function buildGalleryImages(
+  bundle: string,
+  images: string[],
+  logoImage: string,
+  preferredImages: string[] = [],
+): Array<{ url: string; caption: string }> {
   const captionsByAsset = new Map<string, string>();
   const galleryMatches = bundle.matchAll(/src:([A-Za-z0-9_$]+),alt:"([^"]*)",title:"([^"]*)"/g);
   for (const match of galleryMatches) {
@@ -664,7 +859,7 @@ function buildGalleryImages(bundle: string, images: string[], logoImage: string)
   }
 
   const logoKey = imageKey(logoImage);
-  return images
+  return uniqueUrls([...preferredImages, ...images])
     .filter((image) => imageKey(image) !== logoKey)
     .slice(0, 12)
     .map((url, index) => ({
@@ -682,12 +877,13 @@ function captionForImage(image: string, captionsByAsset: Map<string, string>): s
   return cleanText(file.replace(/\b[A-Za-z0-9]{6,}\b/g, ''));
 }
 
-function buildRooms(apiRooms: CatteryScrapedRoom[], bundle: string, images: string[]): CatteryScrapedRoom[] {
+function buildRooms(apiRooms: CatteryScrapedRoom[], bundle: string, images: string[], bodyText: string): CatteryScrapedRoom[] {
   const roomImages = {
     private: images.find((image) => /private/i.test(decodeURIComponent(image))),
     communal: images.find((image) => /communal/i.test(decodeURIComponent(image))),
     indoor: images.find((image) => /indoor/i.test(decodeURIComponent(image))),
   };
+  const fallbackImages = images.filter((image) => image && !/logo|icon/i.test(decodeURIComponent(image)));
 
   if (apiRooms.length) {
     return apiRooms.slice(0, 6).map((room) => ({
@@ -699,8 +895,13 @@ function buildRooms(apiRooms: CatteryScrapedRoom[], bundle: string, images: stri
             ? roomImages.communal
             : room.name.toLowerCase().includes('indoor')
               ? roomImages.indoor
-              : roomImages.private || roomImages.indoor || images[0],
+              : roomImages.private || roomImages.indoor || fallbackImages[0],
     }));
+  }
+
+  const textFallbackRooms = buildRoomsFromBodyText(bodyText, fallbackImages, roomImages);
+  if (textFallbackRooms.length) {
+    return textFallbackRooms;
   }
 
   const roomNames = ['Private Rooms', 'Indoor Rooms', 'Communal Room'];
@@ -719,14 +920,68 @@ function buildRooms(apiRooms: CatteryScrapedRoom[], bundle: string, images: stri
       amenities: ['Daily cleaning', 'Twice daily feeding', 'Secure environment'],
       image:
         name.toLowerCase().includes('private')
-          ? roomImages.private
+          ? roomImages.private || fallbackImages[0]
           : name.toLowerCase().includes('communal')
-            ? roomImages.communal
-            : roomImages.indoor,
+            ? roomImages.communal || fallbackImages[2] || fallbackImages[0]
+            : roomImages.indoor || fallbackImages[1] || fallbackImages[0],
     }));
 }
 
+function buildRoomsFromBodyText(
+  bodyText: string,
+  fallbackImages: string[],
+  roomImages: { private?: string; communal?: string; indoor?: string },
+): CatteryScrapedRoom[] {
+  const roomDefinitions = [
+    {
+      name: 'Luxury Penthouses',
+      pattern: /luxury penthouses?.{0,280}/i,
+      capacity: 2,
+      image: roomImages.private || fallbackImages[0],
+    },
+    {
+      name: 'Master Suite',
+      pattern: /master suite.{0,280}/i,
+      capacity: 2,
+      image: roomImages.private || fallbackImages[1] || fallbackImages[0],
+    },
+    {
+      name: 'Standard Suites',
+      pattern: /standard suites?.{0,320}/i,
+      capacity: 3,
+      image: roomImages.indoor || fallbackImages[2] || fallbackImages[0],
+    },
+  ];
+
+  const prices = [...bodyText.matchAll(/\$(\d{2,3}(?:\.\d{2})?)\s*\/\s*day(?:\s*for\s*(\d)\s*cats?)?/gi)].map((match) => ({
+    amount: match[1],
+    cats: Number(match[2] || '1'),
+  }));
+
+  const rooms: CatteryScrapedRoom[] = [];
+
+  roomDefinitions.forEach((room, index) => {
+    const match = bodyText.match(room.pattern)?.[0] ?? '';
+    if (!match) return;
+    const price = prices[index]?.amount ?? '';
+    rooms.push({
+      name: room.name,
+      type: room.name,
+      description: firstSentence(cleanText(match)) || 'Comfortable cat boarding accommodation with daily care.',
+      price,
+      priceUnit: price ? 'per day' : '',
+      price_per_night: price ? Number(price) : undefined,
+      capacity: room.capacity,
+      amenities: ['Secure environment', 'Daily room service', 'Comfortable accommodation'],
+      image: room.image,
+    });
+  });
+
+  return rooms;
+}
+
 function buildServices(bundle: string, images: string[]): CatteryScrapedService[] {
+  const fallbackImagePool = images.filter((image) => !/logo|icon/i.test(decodeURIComponent(image)));
   const matches = [...bundle.matchAll(/name:"([^"]{3,80})",price:"([^"]{1,80})",description:"([^"]{20,420})"/g)];
   const services = matches
     .map((match) => ({
@@ -743,12 +998,12 @@ function buildServices(bundle: string, images: string[]): CatteryScrapedService[
     {
       title: 'Cat boarding',
       description: 'Comfortable accommodation and daily care for cats.',
-      image: images[0],
+      image: fallbackImagePool[0] || images[0],
     },
     {
       title: 'Photo updates',
       description: 'Friendly updates for families while cats are staying.',
-      image: images[1] || images[0],
+      image: fallbackImagePool[1] || fallbackImagePool[0] || images[1] || images[0],
     },
   ];
 }
@@ -1136,15 +1391,23 @@ function extractReadableBundleText(bundle: string): string[] {
 function extractAddress(root: ReturnType<typeof parse>, text: string): string {
   const addressTag = cleanText(root.querySelector('address')?.text ?? '');
   if (addressTag) return addressTag;
+  const labeledAddress = cleanText(
+    text.match(/Address:\s*([\s\S]{10,160}?)(?:Primary Contact|Alternate Contact|Phone|Email|Opening Hours|Please note)/i)?.[1] ?? '',
+  );
+  if (labeledAddress) return labeledAddress;
   const streetMatch =
     text.match(/\b\d{1,5}\s+[A-Z][A-Za-z0-9' -]{2,80}(?:Street|St|Road|Rd|Avenue|Ave|Drive|Dr|Lane|Ln|Way),?\s+[A-Z][A-Za-z' -]{2,80}(?:,\s*[A-Z][A-Za-z' -]{2,80})?/);
   return cleanText(streetMatch?.[0] ?? '');
 }
 
 function extractPhone(text: string): string {
-  const nzMobile = text.match(/\b0(?:2\d|9|7|6|4|3)\s?\d{3}\s?\d{3,4}\b/);
+  const labeledPhone = text.match(/(?:Primary Contact|Alternate Contact|Phone):?\s*((?:\(\d{2}\)\s*\d{3}[-\s]?\d{4})|(?:0\d(?:[\s-]?\d){7,8}))/i);
+  if (labeledPhone) return cleanText(labeledPhone[1]);
+  const nzLandline = text.match(/\(\d{2}\)\s*\d{3}[-\s]?\d{4}\b/);
+  if (nzLandline) return cleanText(nzLandline[0]);
+  const nzMobile = text.match(/\b0(?:2\d|9|7|6|4|3)(?:[\s-]?\d){6,8}\b/);
   if (nzMobile) return cleanText(nzMobile[0]);
-  const match = text.match(/(\+?\d[\d\s\-().]{7,}\d)/);
+  const match = text.match(/(\+\d[\d\s\-().]{7,}\d)/);
   return match ? cleanText(match[1]) : '';
 }
 
@@ -1171,6 +1434,11 @@ function extractSocialLinks(text: string): { facebook?: string; instagram?: stri
 function extractHours(text: string): string {
   if (/Mon-Sat:\s*9:00am\s*-\s*10:30am/i.test(text) && /Mon-Sun:\s*4:30pm\s*-\s*6:00pm/i.test(text) && /Closed Sunday mornings/i.test(text)) {
     return 'By appointment only. Mon-Sat: 9:00am - 10:30am. Mon-Sun: 4:30pm - 6:00pm. Closed Sunday mornings.';
+  }
+  const weekdayHours = text.match(/Monday-Saturday\s*(?:are open:)?\s*9:00am-10:30am.*?3:30pm-5:30pm/i)?.[0];
+  const sundayHours = text.match(/Sunday\s*(?:we are )?(?:closed|CLOSED).*?3:30pm-5:30pm/i)?.[0];
+  if (weekdayHours && sundayHours) {
+    return 'Monday-Saturday: 9:00am - 10:30am and 3:30pm - 5:30pm. Sunday: closed mornings, open again 3:30pm - 5:30pm.';
   }
   const openHours = text.match(/Open Hours[^.]{0,180}(?:Closed Sunday mornings)?/i)?.[0];
   if (/Open Hours/i.test(openHours ?? '') && /By Appointment Only/i.test(text) && /Closed Sunday mornings/i.test(text)) {
@@ -1239,16 +1507,19 @@ function buildReviews(bundle: string, bodyText: string): CatteryScrapedReview[] 
 
 function buildOwnerSection(bundle: string, images: string[], businessName: string) {
   const texts = extractReadableBundleText(bundle);
-  const ownerTitle =
-    firstText(texts, /Your Caring Hosts|About .*Vanessa|About .*Wilson|owner/i) ||
-    `Meet the people behind ${businessName}`;
+  const ownerTitle = firstText(texts, /Your Caring Hosts|About .*Vanessa|About .*Wilson|people behind/i);
   const ownerText = texts
     .filter((text) => /Paul|Vanessa|owner|host|family|farm|animals/i.test(text))
     .filter((text) => text !== ownerTitle)
     .slice(0, 3)
     .join(' ');
+  const fallbackTitle = `Meet the people behind ${businessName}`;
   return {
-    title: ownerTitle,
+    title: !ownerText && !images.find((image) => /Paul|Vanessa|Wilson|owner/i.test(decodeURIComponent(image)))
+      ? fallbackTitle
+      : /behind home/i.test(ownerTitle)
+        ? fallbackTitle
+        : ownerTitle || fallbackTitle,
     text: ownerText,
     image: images.find((image) => /Paul|Vanessa|Wilson|owner/i.test(decodeURIComponent(image))) || '',
   };
@@ -1299,14 +1570,20 @@ function buildLocationDetails(businessName: string, address: string, city: strin
 }
 
 function serviceImage(title: string, images: string[]): string {
+  const contentImages = images.filter((image) => !/logo|icon/i.test(decodeURIComponent(image)));
   const lower = title.toLowerCase();
+  let selected = '';
   if (lower.includes('brush') || lower.includes('flea')) {
-    return images.find((image) => /maine|groom|brush/i.test(decodeURIComponent(image))) || images[0];
+    selected = contentImages.find((image) => /maine|groom|brush/i.test(decodeURIComponent(image))) || contentImages[0] || images[0] || '';
+  } else if (lower.includes('airport') || lower.includes('pickup') || lower.includes('drop')) {
+    selected = contentImages.find((image) => /driveway|bus|map/i.test(decodeURIComponent(image))) || contentImages[0] || images[0] || '';
+  } else {
+    selected = contentImages.find((image) => /cat|kitty|room/i.test(decodeURIComponent(image))) || contentImages[0] || images[0] || '';
   }
-  if (lower.includes('airport') || lower.includes('pickup') || lower.includes('drop')) {
-    return images.find((image) => /driveway|bus|map/i.test(decodeURIComponent(image))) || images[0];
+  if (/logo|icon/i.test(decodeURIComponent(selected))) {
+    return contentImages.find(Boolean) || selected;
   }
-  return images.find((image) => /cat|kitty|room/i.test(decodeURIComponent(image))) || images[0];
+  return selected;
 }
 
 function capacityFromRoom(room: Record<string, unknown>): number {
@@ -1349,9 +1626,10 @@ function imageKey(image?: string): string {
   if (!image) return '';
   try {
     const url = new URL(image);
-    return `${url.origin}${url.pathname}`.toLowerCase();
+    const normalizedPath = url.pathname.replace(/-\d+x\d+(?=\.[^.]+$)/i, '');
+    return `${url.origin}${normalizedPath}`.toLowerCase();
   } catch {
-    return image.split('?')[0].toLowerCase();
+    return image.split('?')[0].replace(/-\d+x\d+(?=\.[^.]+$)/i, '').toLowerCase();
   }
 }
 

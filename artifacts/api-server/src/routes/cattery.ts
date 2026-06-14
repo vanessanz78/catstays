@@ -5,10 +5,31 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 const router: IRouter = Router();
 
 const ROOT_DOMAIN = 'catstays.app';
-const PUBLIC_APP_URL = (process.env['CATSTAYS_APP_URL'] || process.env['PUBLIC_APP_URL'] || 'https://catstays.app').replace(/\/$/, '');
-const supabaseUrl = process.env['VITE_SUPABASE_URL'];
-const supabaseAnonKey = process.env['VITE_SUPABASE_ANON_KEY'];
-const supabaseServiceKey = process.env['SUPABASE_SERVICE_ROLE_KEY'];
+
+function readEnvValue(...keys: string[]) {
+  for (const key of keys) {
+    const raw = process.env[key];
+    if (!raw) continue;
+    const value = raw.trim();
+    if (!value || /^\$[A-Z0-9_]+$/i.test(value)) continue;
+    return value;
+  }
+  return undefined;
+}
+
+function resolvePublicAppUrl() {
+  const configured =
+    readEnvValue('CATSTAYS_APP_URL', 'PUBLIC_APP_URL', 'VITE_PUBLIC_APP_URL') || 'https://catstays.app';
+  if (/^https?:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0)(?::\d+)?(?:\/|$)/i.test(configured)) {
+    return 'https://catstays.app';
+  }
+  return configured.replace(/\/$/, '');
+}
+
+const PUBLIC_APP_URL = resolvePublicAppUrl();
+const supabaseUrl = readEnvValue('VITE_SUPABASE_URL');
+const supabaseAnonKey = readEnvValue('VITE_SUPABASE_ANON_KEY');
+const supabaseServiceKey = readEnvValue('SUPABASE_SERVICE_ROLE_KEY');
 
 type PlanTier = 'starter' | 'professional' | 'premium';
 
@@ -91,6 +112,27 @@ function createServiceClient() {
   return createClient(supabaseUrl, supabaseServiceKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
+}
+
+async function ensureProvisioningClientsReady(
+  publicClient: SupabaseClient,
+  serviceClient: SupabaseClient,
+) {
+  const { error: authError } = await publicClient.auth.getSession();
+  if (authError) {
+    throw new Error('Supabase public auth is not configured correctly.');
+  }
+
+  const { error: adminError } = await serviceClient.auth.admin.listUsers({
+    page: 1,
+    perPage: 1,
+  });
+
+  if (adminError) {
+    throw new Error(
+      'Supabase provisioning is not configured correctly. Please check the service role key in Replit secrets.',
+    );
+  }
 }
 
 function slugify(value: string) {
@@ -193,6 +235,8 @@ router.post('/cattery/provision', async (req: Request, res: Response) => {
   }
 
   try {
+    await ensureProvisioningClientsReady(publicClient, serviceClient);
+
     const { data: signupData, error: signupError } = await publicClient.auth.signUp({
       email,
       password,

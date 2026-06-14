@@ -29,8 +29,28 @@ type BrandedEmailOptions = {
   footerNote?: string;
 };
 
-const APP_URL = (process.env['CATSTAYS_APP_URL'] || process.env['PUBLIC_APP_URL'] || 'https://catstays.app').replace(/\/$/, '');
-const LOGO_URL = process.env['CATSTAYS_EMAIL_LOGO_URL'] || `${APP_URL}/icons/icon-192.png`;
+function readEnvValue(...keys: string[]) {
+  for (const key of keys) {
+    const raw = process.env[key];
+    if (!raw) continue;
+    const value = raw.trim();
+    if (!value || /^\$[A-Z0-9_]+$/i.test(value)) continue;
+    return value;
+  }
+  return undefined;
+}
+
+function resolveAppUrl() {
+  const configured =
+    readEnvValue('CATSTAYS_APP_URL', 'PUBLIC_APP_URL', 'VITE_PUBLIC_APP_URL') || 'https://catstays.app';
+  if (/^https?:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0)(?::\d+)?(?:\/|$)/i.test(configured)) {
+    return 'https://catstays.app';
+  }
+  return configured.replace(/\/$/, '');
+}
+
+const APP_URL = resolveAppUrl();
+const LOGO_URL = readEnvValue('CATSTAYS_EMAIL_LOGO_URL') || `${APP_URL}/icons/icon-192.png`;
 
 const colors = {
   navy: '#0A1128',
@@ -141,7 +161,9 @@ export function catstaysEmailLayout(options: BrandedEmailOptions) {
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                 <tr>
                   <td style="vertical-align:middle;">
-                    <img src="${escapeHtml(LOGO_URL)}" width="48" height="48" alt="CatStays" style="display:inline-block;width:48px;height:48px;border-radius:12px;vertical-align:middle;margin-right:12px;" />
+                    <span style="display:inline-block;vertical-align:middle;margin-right:12px;padding:8px 10px;border-radius:14px;background:${colors.white};line-height:0;">
+                      <img src="${escapeHtml(LOGO_URL)}" width="48" height="48" alt="CatStays" style="display:block;width:48px;height:48px;" />
+                    </span>
                     <span style="display:inline-block;vertical-align:middle;font:700 24px Georgia,serif;color:${colors.white};">CatStays</span>
                   </td>
                   <td align="right" style="vertical-align:middle;font:700 11px Arial,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#F1C29C;">
