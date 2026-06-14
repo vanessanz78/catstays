@@ -26,15 +26,16 @@ Legacy filenames are retained for compatibility:
 - `confirm-signup.html` mirrors `confirmation.html`
 - `reset-password.html` mirrors `recovery.html`
 
-The templates use Supabase Auth variables such as `{{ .ConfirmationURL }}`, `{{ .Token }}`, `{{ .Email }}`, and `{{ .SiteURL }}`.
+The templates use Supabase Auth variables such as `{{ .ConfirmationURL }}`, `{{ .Token }}`, `{{ .Email }}`, `{{ .SiteURL }}`, and `{{ .RedirectTo }}`.
 
 Logo source:
 
-`{{ .SiteURL }}/icons/icon-192.png`
+`https://catstays.app/icons/icon-192.png`
 
 Recommended production values:
 
 - Site URL: `https://catstays.app`
+- Redirect URLs: include `https://catstays.app/confirm-email`
 - Sender name: `CatStays`
 - Sender email: the verified CatStays transactional sender
 

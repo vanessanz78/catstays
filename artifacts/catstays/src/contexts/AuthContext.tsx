@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/utils/supabase/client';
+import { getConfirmEmailUrl } from '@/utils/appUrl';
 
 interface Cattery {
   id: string;
@@ -84,7 +85,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email,
       password,
       options: {
-        data: { full_name: ownerName, business_name: businessName }
+        data: { full_name: ownerName, business_name: businessName },
+        emailRedirectTo: getConfirmEmailUrl(),
       }
     });
 

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { supabase } from '@/utils/supabase/client';
+import { getConfirmEmailUrl } from '@/utils/appUrl';
 
 interface ResendEmailButtonProps {
   email: string;
@@ -18,6 +19,9 @@ export function ResendEmailButton({ email }: ResendEmailButtonProps) {
     const { error } = await supabase.auth.resend({
       type: 'signup',
       email,
+      options: {
+        emailRedirectTo: getConfirmEmailUrl(),
+      },
     });
 
     if (error) {

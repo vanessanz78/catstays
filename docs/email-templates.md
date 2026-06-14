@@ -59,3 +59,10 @@ Set these values in production where possible:
 - `RESEND_API_KEY=...`
 
 The fallback logo URL is generated from `CATSTAYS_APP_URL` if `CATSTAYS_EMAIL_LOGO_URL` is not set.
+
+For Supabase Auth emails, keep the hosted Auth settings aligned with production:
+
+- Site URL: `https://catstays.app`
+- Additional Redirect URLs: include `https://catstays.app/confirm-email`
+
+If either setting drifts back to `http://localhost:3000`, confirmation emails and password reset links will open the wrong destination.

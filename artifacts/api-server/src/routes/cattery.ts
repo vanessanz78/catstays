@@ -5,6 +5,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 const router: IRouter = Router();
 
 const ROOT_DOMAIN = 'catstays.app';
+const PUBLIC_APP_URL = (process.env['CATSTAYS_APP_URL'] || process.env['PUBLIC_APP_URL'] || 'https://catstays.app').replace(/\/$/, '');
 const supabaseUrl = process.env['VITE_SUPABASE_URL'];
 const supabaseAnonKey = process.env['VITE_SUPABASE_ANON_KEY'];
 const supabaseServiceKey = process.env['SUPABASE_SERVICE_ROLE_KEY'];
@@ -192,7 +193,6 @@ router.post('/cattery/provision', async (req: Request, res: Response) => {
   }
 
   try {
-    const origin = req.headers.origin || 'https://catstays.app';
     const { data: signupData, error: signupError } = await publicClient.auth.signUp({
       email,
       password,
@@ -201,7 +201,7 @@ router.post('/cattery/provision', async (req: Request, res: Response) => {
           full_name: ownerName,
           business_name: businessName,
         },
-        emailRedirectTo: `${origin}/confirm-email`,
+        emailRedirectTo: `${PUBLIC_APP_URL}/confirm-email`,
       },
     });
 
