@@ -1,3 +1,4 @@
+import type { FocusEvent, MouseEvent } from 'react';
 import { Clock, Percent, Home, DollarSign, Tag, CalendarX, Plus, Trash2 } from 'lucide-react';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
@@ -107,6 +108,14 @@ export function BookingRulesForm({ data, setData }: BookingRulesFormProps) {
     const newDates = [...(data.blockOutDates || [])];
     newDates[index] = { ...newDates[index], [field]: value };
     setData({ ...data, blockOutDates: newDates });
+  };
+
+  const openNativeDatePicker = (event: FocusEvent<HTMLInputElement> | MouseEvent<HTMLInputElement>) => {
+    try {
+      event.currentTarget.showPicker?.();
+    } catch {
+      // Not every browser exposes showPicker; the text field still works.
+    }
   };
 
   return (
@@ -777,6 +786,8 @@ export function BookingRulesForm({ data, setData }: BookingRulesFormProps) {
                         id={`start-date-${index}`}
                         value={blockOut.startDate}
                         onChange={(e) => updateBlockOutDate(index, 'startDate', e.target.value)}
+                        onFocus={openNativeDatePicker}
+                        onClick={openNativeDatePicker}
                         className="rounded-lg h-9 pl-10 cursor-pointer"
                       />
                     </div>
@@ -790,6 +801,8 @@ export function BookingRulesForm({ data, setData }: BookingRulesFormProps) {
                         id={`end-date-${index}`}
                         value={blockOut.endDate}
                         onChange={(e) => updateBlockOutDate(index, 'endDate', e.target.value)}
+                        onFocus={openNativeDatePicker}
+                        onClick={openNativeDatePicker}
                         className="rounded-lg h-9 pl-10 cursor-pointer"
                       />
                     </div>

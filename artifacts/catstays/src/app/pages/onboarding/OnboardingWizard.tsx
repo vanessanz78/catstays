@@ -345,32 +345,53 @@ export function OnboardingWizard() {
 
   // Auto-detect tax based on location
   useEffect(() => {
-    if (data.location) {
-      const location = data.location.toLowerCase();
-      let taxType = 'Sales Tax';
-      let taxRate = '0';
-      
-      if (location.includes('new zealand') || location.includes('nz')) {
-        taxType = 'GST';
-        taxRate = '15';
-      } else if (location.includes('australia') || location.includes('au')) {
-        taxType = 'GST';
-        taxRate = '10';
-      } else if (location.includes('united kingdom') || location.includes('uk') || 
-                 location.includes('france') || location.includes('germany') ||
-                 location.includes('spain') || location.includes('italy') ||
-                 location.includes('ireland') || location.includes('netherlands') ||
-                 location.includes('belgium') || location.includes('portugal')) {
-        taxType = 'VAT';
-        taxRate = '20';
-      } else if (location.includes('united states') || location.includes('usa') || location.includes('us')) {
-        taxType = 'Sales Tax';
-        taxRate = '8';
-      }
-      
-      setData(prev => ({ ...prev, taxType, taxRate }));
+    const locationSignals = [
+      data.location,
+      data.address,
+      data.previewImportRecord?.identity?.location,
+      data.previewImportRecord?.normalizedPreviewData?.location,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+
+    if (!locationSignals) return;
+
+    let nextTaxType: string | null = null;
+    let nextTaxRate: string | null = null;
+
+    if (locationSignals.includes('new zealand') || /\bnz\b/.test(locationSignals)) {
+      nextTaxType = 'GST';
+      nextTaxRate = '15';
+    } else if (locationSignals.includes('australia') || /\bau\b/.test(locationSignals)) {
+      nextTaxType = 'GST';
+      nextTaxRate = '10';
+    } else if (
+      locationSignals.includes('united kingdom') ||
+      /\buk\b/.test(locationSignals) ||
+      ['france', 'germany', 'spain', 'italy', 'ireland', 'netherlands', 'belgium', 'portugal'].some((country) =>
+        locationSignals.includes(country),
+      )
+    ) {
+      nextTaxType = 'VAT';
+      nextTaxRate = '20';
+    } else if (
+      locationSignals.includes('united states') ||
+      locationSignals.includes('usa') ||
+      /\bus\b/.test(locationSignals)
+    ) {
+      nextTaxType = 'Sales Tax';
+      nextTaxRate = '8';
     }
-  }, [data.location]);
+
+    if (!nextTaxType || !nextTaxRate) return;
+
+    setData((prev: any) =>
+      prev.taxType === nextTaxType && prev.taxRate === nextTaxRate
+        ? prev
+        : { ...prev, taxType: nextTaxType, taxRate: nextTaxRate },
+    );
+  }, [data.location, data.address, data.previewImportRecord]);
 
   const handleNext = () => {
     if (step < totalSteps) {
@@ -662,6 +683,16 @@ export function OnboardingWizard() {
       }
     }
   }, []);
+
+  // Keep local progress synced so returning owners land on the correct step.
+  useEffect(() => {
+    if (!accountCreated && step <= 1) return;
+    localStorage.setItem('catstays_onboarding', JSON.stringify({
+      step,
+      data,
+      accountCreated,
+    }));
+  }, [step, data, accountCreated]);
 
   // Auto-save on unmount (when leaving the page)
   useEffect(() => {
@@ -1931,7 +1962,14 @@ export function OnboardingWizard() {
           <SuccessScreen 
             subdomain={data.subdomain}
             onGoToWebsite={() => window.open(`https://${data.subdomain}.catstays.app`, '_blank', 'noopener,noreferrer')}
-            onContinueToDataImport={() => setStep(9)}
+            onContinueToDataImport={() => {
+              setStep(9);
+              localStorage.setItem('catstays_onboarding', JSON.stringify({
+                step: 9,
+                data,
+                accountCreated,
+              }));
+            }}
             businessData={data}
             subscriptionTier={selectedPlan}
             trialFullAccess

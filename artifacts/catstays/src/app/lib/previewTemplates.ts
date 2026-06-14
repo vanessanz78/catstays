@@ -864,7 +864,7 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
 
   return {
     ...cleanData,
-    heroPrimaryCtaText: textFrom('heroPrimaryCtaText', cleanData.ctaText, heroLinks[0]?.label, 'Discover Our Suites'),
+    heroPrimaryCtaText: textFrom('heroPrimaryCtaText', heroLinks[0]?.label, cleanData.ctaText, 'Discover Our Suites'),
     heroPrimaryCtaHref: textFrom('heroPrimaryCtaHref', heroLinks[0]?.url, '#suites'),
     heroSecondaryCtaText: textFrom('heroSecondaryCtaText', heroLinks[1]?.label, 'Our Care Approach'),
     heroSecondaryCtaHref: textFrom('heroSecondaryCtaHref', heroLinks[1]?.url, '#care'),
@@ -872,7 +872,15 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
     whyChooseUsText: textFrom('whyChooseUsText', normalized.whyChooseUsData?.whyChooseUsText, normalized.whyChooseUsData?.text, block('why-choose-us')?.text),
     aboutHeading: textFrom('aboutHeading', normalized.aboutHeading, normalized.aboutData?.heading, block('hero')?.title),
     aboutText: textFrom('aboutText', normalized.aboutText, normalized.aboutData?.text, block('hero')?.text),
-    aboutImage: imageFieldFrom('aboutImage', normalized.aboutImage, normalized.aboutData?.image, normalized.facilitiesData?.facilitiesImage, blockImages('facilities')[0]?.url),
+    aboutImage: imageFieldFrom(
+      'aboutImage',
+      normalized.aboutImage,
+      normalized.aboutData?.image,
+      blockImages('gallery')[0]?.url,
+      record?.media.galleryImages?.[0]?.url,
+      normalized.facilitiesData?.facilitiesImage,
+      blockImages('facilities')[0]?.url,
+    ),
     facilitiesHeading: textFrom('facilitiesHeading', normalized.facilitiesData?.facilitiesHeading, normalized.facilitiesData?.heading, block('facilities')?.title),
     facilitiesText: textFrom('facilitiesText', normalized.facilitiesData?.facilitiesText, normalized.facilitiesData?.text, block('facilities')?.text),
     facilitiesImage: imageFieldFrom('facilitiesImage', normalized.facilitiesData?.facilitiesImage, normalized.facilitiesData?.image, blockImages('facilities')[0]?.url),

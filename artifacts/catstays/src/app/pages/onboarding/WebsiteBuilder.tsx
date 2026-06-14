@@ -142,6 +142,8 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
   const [searchData, setSearchData] = useState<any>(null);
   const [selectedRoom, setSelectedRoom] = useState<any>(null);
   const [isBookingFromClientPortal, setIsBookingFromClientPortal] = useState(false);
+  const selectedTemplate = normalizePreviewTemplateId(data.selectedTemplate || 'conversion-focus');
+  const isSourceOnlyOriginal = selectedTemplate === 'original';
 
   // AI regeneration handler - calls onAIRegenerate prop
   const handleAIClick = async (field: string) => {
@@ -241,7 +243,7 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
 
   // Render different preview layouts based on template
   const renderPreviewLayout = () => {
-    const template = normalizePreviewTemplateId(data.selectedTemplate || 'conversion-focus');
+    const template = selectedTemplate;
     const sourcePreviewUrl = importedPreviewUrl(data);
 
     if (template === 'original' && sourcePreviewUrl) {
@@ -915,50 +917,80 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
 
               {/* Scrollable content area */}
               <div className="flex-1 overflow-y-auto p-6 bg-[#F8F7F5]">
-              {/* Horizontal Tabs for Content and Design & Colors */}
-              <div className="mb-6">
-                <div className="flex gap-2 border-b border-gray-200">
-                  <button
-                    onClick={() => setEditorTab('content')}
-                    className={`px-6 py-3 font-medium transition-colors ${
-                      editorTab === 'content'
-                        ? 'border-b-2 text-gray-900'
-                        : 'text-gray-500 hover:text-gray-700'
-                    }`}
-                    style={editorTab === 'content' ? { borderColor: data.primaryColor || '#0A1128', color: data.primaryColor || '#0A1128' } : {}}
-                  >
-                    Content
-                  </button>
-                  <button
-                    onClick={() => setEditorTab('design')}
-                    className={`px-6 py-3 font-medium transition-colors ${
-                      editorTab === 'design'
-                        ? 'border-b-2 text-gray-900'
-                        : 'text-gray-500 hover:text-gray-700'
-                    }`}
-                    style={editorTab === 'design' ? { borderColor: data.primaryColor || '#0A1128', color: data.primaryColor || '#0A1128' } : {}}
-                  >
-                    Design & Colors
-                  </button>
+              {isSourceOnlyOriginal ? (
+                <div className="space-y-4">
+                  <div className="rounded-2xl border border-[#C46A3A]/20 bg-white p-5">
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#C46A3A]">Original Site Reference</p>
+                    <h3 className="mt-2 text-lg font-semibold text-[#2d3e2f]">This view preserves the owner site as a saved reference</h3>
+                    <p className="mt-3 text-sm leading-6 text-[#566457]">
+                      The original website is kept so the owner can come back later and review what was scraped, but it is not shown as a fake editable rebuild.
+                      To edit content live in the builder, switch to Focus, Editorial, or Showcase.
+                    </p>
+                    <div className="mt-4 grid gap-3 text-sm text-[#566457] sm:grid-cols-2">
+                      <div className="rounded-xl bg-[#F8F7F5] p-4">
+                        <p className="font-semibold text-[#2d3e2f]">Saved status</p>
+                        <p className="mt-1">{data.previewRecordStatus || 'in_progress'}</p>
+                      </div>
+                      <div className="rounded-xl bg-[#F8F7F5] p-4">
+                        <p className="font-semibold text-[#2d3e2f]">Imported source</p>
+                        <p className="mt-1 break-all">{data.importSourceUrl || data.sourceUrl || 'Website import'}</p>
+                      </div>
+                    </div>
+                    {onChangeTemplate ? (
+                      <Button onClick={onChangeTemplate} className="mt-5 rounded-xl bg-[#0A1128] text-white hover:bg-[#0A1128]/90">
+                        Choose Editable Template
+                      </Button>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <>
+                  {/* Horizontal Tabs for Content and Design & Colors */}
+                  <div className="mb-6">
+                    <div className="flex gap-2 border-b border-gray-200">
+                      <button
+                        onClick={() => setEditorTab('content')}
+                        className={`px-6 py-3 font-medium transition-colors ${
+                          editorTab === 'content'
+                            ? 'border-b-2 text-gray-900'
+                            : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                        style={editorTab === 'content' ? { borderColor: data.primaryColor || '#0A1128', color: data.primaryColor || '#0A1128' } : {}}
+                      >
+                        Content
+                      </button>
+                      <button
+                        onClick={() => setEditorTab('design')}
+                        className={`px-6 py-3 font-medium transition-colors ${
+                          editorTab === 'design'
+                            ? 'border-b-2 text-gray-900'
+                            : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                        style={editorTab === 'design' ? { borderColor: data.primaryColor || '#0A1128', color: data.primaryColor || '#0A1128' } : {}}
+                      >
+                        Design & Colors
+                      </button>
+                    </div>
+                  </div>
 
-              {/* Tab Content */}
-              <div className="space-y-4">
-                {editorTab === 'content' ? (
-                  <WebsiteEditorPanelEnhanced
-                    data={data}
-                    setData={setData}
-                    onAIRegenerate={handleAIClick}
-                    isRegenerating={isRegenerating}
-                  />
-                ) : (
-                  <DesignColorsPanel
-                    data={data}
-                    setData={setData}
-                  />
-                )}
-              </div>
+                  {/* Tab Content */}
+                  <div className="space-y-4">
+                    {editorTab === 'content' ? (
+                      <WebsiteEditorPanelEnhanced
+                        data={data}
+                        setData={setData}
+                        onAIRegenerate={handleAIClick}
+                        isRegenerating={isRegenerating}
+                      />
+                    ) : (
+                      <DesignColorsPanel
+                        data={data}
+                        setData={setData}
+                      />
+                    )}
+                  </div>
+                </>
+              )}
 
               {/* OLD TABS SECTION - Keeping for backward compatibility */}
               <div className="hidden">

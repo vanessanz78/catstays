@@ -200,6 +200,7 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
   const email = extractEmail(searchableText);
   const address = extractAddress(root, searchableText);
   const city = cityFromAddress(address) || cityFromHost(parsedUrl.hostname);
+  const country = countryFromAddress(address);
   const bookingUrl = extractFirstUrl(html + '\n' + scriptBundle, /revelationpets\.com|book/i);
   const socialLinks = extractSocialLinks(html + '\n' + scriptBundle);
   const hours = extractHours(searchableText);
@@ -262,6 +263,7 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
     email,
     address,
     city,
+    country,
     bookingUrl,
     hours,
     socialLinks,
@@ -587,15 +589,32 @@ function collectSameOriginScripts(root: ReturnType<typeof parse>, baseUrl: URL):
 
 function collectHtmlImages(root: ReturnType<typeof parse>, baseUrl: URL): string[] {
   const images: string[] = [];
-  for (const img of root.querySelectorAll('img')) {
-    const src = img.getAttribute('src');
-    const srcset = img.getAttribute('srcset');
-    if (src) images.push(src);
+  for (const node of root.querySelectorAll('img, [style*="background-image"], [data-src], [data-lazy-src], [data-original], [data-bg], [data-background-image]')) {
+    const directCandidates = [
+      node.getAttribute('src'),
+      node.getAttribute('data-src'),
+      node.getAttribute('data-lazy-src'),
+      node.getAttribute('data-original'),
+      node.getAttribute('data-bg'),
+      node.getAttribute('data-background-image'),
+      node.getAttribute('poster'),
+    ].filter(Boolean) as string[];
+
+    for (const candidate of directCandidates) {
+      images.push(candidate);
+    }
+
+    const srcset = node.getAttribute('srcset') || node.getAttribute('data-srcset');
     if (srcset) {
       for (const candidate of srcset.split(',')) {
         const [candidateUrl] = candidate.trim().split(/\s+/);
         if (candidateUrl) images.push(candidateUrl);
       }
+    }
+
+    const style = node.getAttribute('style') || '';
+    for (const match of style.matchAll(/background-image\s*:\s*url\((['"]?)(.*?)\1\)/gi)) {
+      if (match[2]) images.push(match[2]);
     }
   }
   return images.map((image) => absoluteUrl(image, baseUrl)).filter(Boolean);
@@ -961,6 +980,7 @@ function buildWebsiteSettings(input: {
   email: string;
   address: string;
   city: string;
+  country?: string;
   bookingUrl: string;
   hours: string;
   socialLinks: {
@@ -991,11 +1011,15 @@ function buildWebsiteSettings(input: {
   virtualTourUrl: string;
   siteContentLibrary: CatterySiteContentLibrary;
 }): Record<string, unknown> {
+  const curatedGalleryImages = input.galleryImages.length
+    ? input.galleryImages
+    : input.images.slice(0, 12).map((url, index) => ({ url, caption: `Cattery photo ${index + 1}` }));
+  const galleryUrls = curatedGalleryImages.map((image) => image.url).filter(Boolean);
   const roomCards = input.rooms.map((room, index) => ({
     name: room.name,
     price: room.price && room.priceUnit ? `${room.price}/${room.priceUnit.replace(/^per\s+/i, '')}` : room.price,
     description: room.description,
-    image: room.image || input.images[index + 1] || input.heroImage,
+    image: room.image || galleryUrls[index + 1] || input.images[index + 1] || input.heroImage,
     popular: index === 0,
     features: room.amenities ?? [],
   }));
@@ -1024,7 +1048,7 @@ function buildWebsiteSettings(input: {
     hours: input.hours,
     socialLinks: input.socialLinks,
     virtualTourUrl: input.virtualTourUrl,
-    location: input.city,
+    location: [input.city, input.country].filter(Boolean).join(', '),
     sourceUrl: input.bookingUrl,
     whyChooseUsData: {
       whyChooseUsHeading: `Why choose ${input.businessName}`,
@@ -1060,9 +1084,7 @@ function buildWebsiteSettings(input: {
     },
     galleryData: {
       galleryHeading: `Happy cats at ${input.businessName}`,
-      galleryImages: input.galleryImages.length
-        ? input.galleryImages
-        : input.images.slice(0, 8).map((url, index) => ({ url, caption: `Cattery photo ${index + 1}` })),
+      galleryImages: curatedGalleryImages,
     },
     faqData: {
       faqs: input.faqs,
