@@ -9,7 +9,7 @@ import { ImageUpload } from './ImageUpload';
 
 /**
  * Website Editor Panel - Sections ordered to match the generated preview (top to bottom)
- * Order: Hero -> Care Approach -> About -> Facilities -> Suites -> Services -> Gallery -> Reviews -> Owner Story -> Contact
+ * Order: Hero -> About -> Care Approach -> Facilities -> Owner Story -> Gallery -> Suites -> Services -> Reviews -> Contact -> Footer -> Chatbot
  */
 
 interface WebsiteEditorPanelEnhancedProps {
@@ -52,10 +52,30 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
     </select>
   );
 
+  const renderAnchorSelect = (value: string, onChange: (value: string) => void) => (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full h-10 px-3 rounded-lg border border-gray-300"
+    >
+      <option value="#booking">Booking strip</option>
+      <option value="#about">About</option>
+      <option value="#care">Care approach</option>
+      <option value="#facilities">Facilities</option>
+      <option value="#suites">Suites / rooms</option>
+      <option value="#services">Extra care / services</option>
+      <option value="#gallery">Gallery</option>
+      <option value="#reviews">Reviews</option>
+      <option value="#location">Location</option>
+      <option value="#virtual-tour">Virtual tour</option>
+      <option value="#contact">Contact</option>
+    </select>
+  );
+
   return (
-    <Accordion type="multiple" defaultValue={['hero']} className="space-y-2">
+    <Accordion type="multiple" defaultValue={['hero']} className="flex flex-col gap-2">
       {/* HERO SECTION */}
-      <AccordionItem value="hero" className="border rounded-xl px-4 bg-white">
+      <AccordionItem value="hero" className="order-1 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
           <span className="font-semibold">1. Home / Hero</span>
         </AccordionTrigger>
@@ -111,35 +131,41 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
             onChange={(url) => setData({ ...data, heroImage: url })}
           />
 
-          <div className="space-y-2">
-            <Label>Call-to-Action Button Text</Label>
-            <Input
-              value={data.ctaText || ''}
-              onChange={(e) => setData({ ...data, ctaText: e.target.value })}
-              placeholder="Book Now"
-              className="rounded-lg"
-            />
-            <p className="text-xs text-gray-500">Leave empty to hide the button</p>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Button Action</Label>
-            <select
-              value={data.ctaAction || 'booking'}
-              onChange={(e) => setData({ ...data, ctaAction: e.target.value })}
-              className="w-full h-10 px-3 rounded-lg border border-gray-300"
-            >
-              <option value="booking">Open Booking Form</option>
-              <option value="contact">Scroll to Contact Us</option>
-            </select>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>Primary Button Text</Label>
+              <Input
+                value={data.heroPrimaryCtaText || 'Discover Our Suites'}
+                onChange={(e) => setData({ ...data, heroPrimaryCtaText: e.target.value })}
+                placeholder="Discover Our Suites"
+                className="rounded-lg"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Primary Button Link</Label>
+              {renderAnchorSelect(data.heroPrimaryCtaHref || '#suites', (value) => setData({ ...data, heroPrimaryCtaHref: value }))}
+            </div>
+            <div className="space-y-2">
+              <Label>Secondary Button Text</Label>
+              <Input
+                value={data.heroSecondaryCtaText || 'Our Care Approach'}
+                onChange={(e) => setData({ ...data, heroSecondaryCtaText: e.target.value })}
+                placeholder="Our Care Approach"
+                className="rounded-lg"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Secondary Button Link</Label>
+              {renderAnchorSelect(data.heroSecondaryCtaHref || '#care', (value) => setData({ ...data, heroSecondaryCtaHref: value }))}
+            </div>
           </div>
         </AccordionContent>
       </AccordionItem>
 
       {/* 2. CARE APPROACH SECTION */}
-      <AccordionItem value="why-choose-us" className="border rounded-xl px-4 bg-white">
+      <AccordionItem value="why-choose-us" className="order-3 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
-          <span className="font-semibold">2. Care Approach</span>
+          <span className="font-semibold">3. Care Approach</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-2">
@@ -357,9 +383,9 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       </AccordionItem>
 
       {/* 3. ABOUT SECTION */}
-      <AccordionItem value="about" className="border rounded-xl px-4 bg-white">
+      <AccordionItem value="about" className="order-2 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
-          <span className="font-semibold">3. About</span>
+          <span className="font-semibold">2. About</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-2">
@@ -416,7 +442,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       </AccordionItem>
 
       {/* 4. FACILITIES SECTION */}
-      <AccordionItem value="facilities" className="border rounded-xl px-4 bg-white">
+      <AccordionItem value="facilities" className="order-4 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
           <span className="font-semibold">4. Facilities</span>
         </AccordionTrigger>
@@ -628,9 +654,9 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       </AccordionItem>
 
       {/* 5. SUITES SECTION */}
-      <AccordionItem value="our-suites" className="border rounded-xl px-4 bg-white">
+      <AccordionItem value="our-suites" className="order-7 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
-          <span className="font-semibold">5. Suites / Rooms</span>
+          <span className="font-semibold">7. Suites / Rooms</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-2">
@@ -850,9 +876,9 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       </AccordionItem>
 
       {/* 6. EXTRA CARE / SERVICES SECTION */}
-      <AccordionItem value="additional-services" className="border rounded-xl px-4 bg-white">
+      <AccordionItem value="additional-services" className="order-8 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
-          <span className="font-semibold">6. Extra Care / Services</span>
+          <span className="font-semibold">8. Extra Care / Services</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-2">
@@ -1053,9 +1079,9 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       </AccordionItem>
 
       {/* 7. GALLERY SECTION */}
-      <AccordionItem value="gallery" className="border rounded-xl px-4 bg-white">
+      <AccordionItem value="gallery" className="order-6 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
-          <span className="font-semibold">7. Gallery</span>
+          <span className="font-semibold">6. Gallery</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-2">
@@ -1134,9 +1160,9 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       </AccordionItem>
 
       {/* 8. REVIEWS SECTION */}
-      <AccordionItem value="testimonials" className="border rounded-xl px-4 bg-white">
+      <AccordionItem value="testimonials" className="order-9 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
-          <span className="font-semibold">8. Reviews</span>
+          <span className="font-semibold">9. Reviews</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-2">
@@ -1266,9 +1292,9 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       </AccordionItem>
 
       {/* 9. CHATBOT FAQ KNOWLEDGE */}
-      <AccordionItem value="faq" className="border rounded-xl px-4 bg-white">
+      <AccordionItem value="faq" className="order-[14] border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
-          <span className="font-semibold">9. Chatbot FAQ Knowledge</span>
+          <span className="font-semibold">14. Chatbot FAQ Knowledge</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-2">
@@ -1390,9 +1416,9 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       </AccordionItem>
 
       {/* 10. OWNER STORY SECTION */}
-      <AccordionItem value="owner-story" className="border rounded-xl px-4 bg-white">
+      <AccordionItem value="owner-story" className="order-5 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
-          <span className="font-semibold">10. The People Behind The Care</span>
+          <span className="font-semibold">5. The People Behind The Care</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-2">
@@ -1449,9 +1475,9 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       </AccordionItem>
 
       {/* 11. CONTACT / LOCATION SECTION */}
-      <AccordionItem value="contact" className="border rounded-xl px-4 bg-white">
+      <AccordionItem value="contact" className="order-10 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
-          <span className="font-semibold">11. Contact / Location</span>
+          <span className="font-semibold">10. Contact / Location</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-2">
@@ -1498,11 +1524,25 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       </AccordionItem>
 
       {/* 12. CUSTOM SECTIONS */}
-      <AccordionItem value="custom-sections" className="border rounded-xl px-4 bg-white">
+      <AccordionItem value="custom-sections" className="order-11 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
-          <span className="font-semibold">12. Custom Sections</span>
+          <span className="font-semibold">11. Embedded / Custom Sections</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
+          <div className="space-y-2">
+            <Label>Virtual Tour Embed URL</Label>
+            <Input
+              value={data.virtualTourUrl || data.locationData?.virtualTourUrl || ''}
+              onChange={(e) => setData({
+                ...data,
+                virtualTourUrl: e.target.value,
+                locationData: { ...(data.locationData || {}), virtualTourUrl: e.target.value },
+              })}
+              placeholder="https://www.google.com/maps/embed?..."
+              className="rounded-lg"
+            />
+          </div>
+
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <Label>Add your own sections</Label>
@@ -1670,9 +1710,9 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       </AccordionItem>
 
       {/* 13. SOCIAL MEDIA */}
-      <AccordionItem value="social-media" className="border rounded-xl px-4 bg-white">
+      <AccordionItem value="social-media" className="order-12 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
-          <span className="font-semibold">13. Social Media</span>
+          <span className="font-semibold">12. Social Media</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <p className="text-sm text-gray-600 mb-4">Add your social media links to display icons in the footer</p>
@@ -1730,33 +1770,35 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       </AccordionItem>
 
       {/* 14. FOOTER */}
-      <AccordionItem value="footer" className="border rounded-xl px-4 bg-white">
+      <AccordionItem value="footer" className="order-[13] border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
-          <span className="font-semibold">14. Footer Links</span>
+          <span className="font-semibold">13. Footer Links</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
-          <p className="text-sm text-gray-600 mb-4">Customize the footer Quick Links and Services sections</p>
+          <p className="text-sm text-gray-600 mb-4">
+            Footer links are generated from the real sections on this page, so visitors do not land on broken or misspelled anchors.
+          </p>
 
           <div className="space-y-2">
-            <Label>Quick Links (comma-separated)</Label>
-            <Input
-              value={data.footerQuickLinks || 'About Us, Our Rooms, Services, Contact'}
-              onChange={(e) => setData({ ...data, footerQuickLinks: e.target.value })}
-              placeholder="About Us, Our Rooms, Services, Contact"
-              className="rounded-lg"
-            />
-            <p className="text-xs text-gray-500">Separate links with commas</p>
+            <Label>Quick Links</Label>
+            <div className="flex flex-wrap gap-2">
+              {['Home', 'About', 'Care', 'Facilities', 'Suites', 'Gallery', 'Reviews', 'Location', data.virtualTourUrl ? 'Virtual Tour' : '', 'Contact'].filter(Boolean).map((label) => (
+                <span key={label} className="rounded-full border border-[#C46A3A]/30 bg-[#F8F7F5] px-3 py-1 text-xs font-semibold text-[#0A1128]">
+                  {label}
+                </span>
+              ))}
+            </div>
           </div>
 
           <div className="space-y-2">
-            <Label>Services Links (comma-separated)</Label>
-            <Input
-              value={data.footerServices || 'Cat Boarding, Cat Suites, Special Care, Photo Updates'}
-              onChange={(e) => setData({ ...data, footerServices: e.target.value })}
-              placeholder="Cat Boarding, Cat Suites, Special Care, Photo Updates"
+            <Label>Footer Summary</Label>
+            <Textarea
+              value={data.footerAbout || data.aboutText || ''}
+              onChange={(e) => setData({ ...data, footerAbout: e.target.value })}
+              placeholder="Short footer introduction"
               className="rounded-lg"
+              rows={3}
             />
-            <p className="text-xs text-gray-500">Separate services with commas</p>
           </div>
         </AccordionContent>
       </AccordionItem>

@@ -128,7 +128,7 @@ interface WebsiteBuilderProps {
   showImportBanner?: boolean;
 }
 
-export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, onChangeTemplate, showImportBanner }: WebsiteBuilderProps) {
+export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, onChangeTemplate }: WebsiteBuilderProps) {
   const [activeTab, setActiveTab] = useState('hero');
   const [editorTab, setEditorTab] = useState('content'); // 'content' or 'design'
   const [isRegenerating, setIsRegenerating] = useState(false);
@@ -878,25 +878,12 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
 
         {!isPanelCollapsed && (
           <>
-            {/* Import Banner */}
-            {showImportBanner && (
-              <div className="bg-[#F8F7F5] border border-[#C46A3A]/30 rounded-2xl p-4">
-                <div className="flex items-start gap-3">
-                  <Sparkles className="w-5 h-5 text-[#C46A3A] mt-0.5" />
-                  <div className="flex-1">
-                    <p className="font-semibold text-[#0A1128] mb-1">We've imported your content</p>
-                    <p className="text-sm text-[#0A1128]/80">Feel free to change your design or customize anything below</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
             <div 
-              className="rounded-2xl shadow-xl border-2 max-h-[90vh] flex flex-col min-w-0"
-              style={{ backgroundColor: 'white', borderColor: `${data.primaryColor}30` }}
+              className="rounded-2xl shadow-xl border max-h-[90vh] flex flex-col min-w-0 overflow-hidden"
+              style={{ backgroundColor: '#F8F7F5', borderColor: `${data.accentColor || '#C46A3A'}50` }}
             >
               {/* Fixed Header */}
-              <div className="flex-shrink-0 p-6 pb-4 border-b bg-white">
+              <div className="flex-shrink-0 p-6 pb-4 border-b bg-white/85" style={{ borderColor: `${data.accentColor || '#C46A3A'}30` }}>
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="text-2xl font-serif font-semibold" style={{ color: '#2d3e2f' }}>
@@ -912,7 +899,7 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
                         onClick={onChangeTemplate}
                         variant="outline"
                         size="sm"
-                        className="rounded-xl"
+                        className="rounded-xl border-[#C46A3A]/25 bg-white/80"
                       >
                         <RefreshCw className="w-3 h-3 mr-1" />
                         Template
@@ -927,7 +914,7 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
               </div>
 
               {/* Scrollable content area */}
-              <div className="flex-1 overflow-y-auto p-6">
+              <div className="flex-1 overflow-y-auto p-6 bg-[#F8F7F5]">
               {/* Horizontal Tabs for Content and Design & Colors */}
               <div className="mb-6">
                 <div className="flex gap-2 border-b border-gray-200">

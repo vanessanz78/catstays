@@ -20,7 +20,7 @@ export interface PreviewTemplateOption {
 
 export interface PreviewImportRecord {
   id: string;
-  status: 'preview' | 'live';
+  status: 'preview' | 'in_progress' | 'live';
   selectedTemplate: PreviewTemplateId;
   createdAt: string;
   source: {
@@ -74,6 +74,10 @@ export interface CatstaysTemplateContent {
     text: string;
     image: string;
     button: string;
+    primaryButton: string;
+    primaryHref: string;
+    secondaryButton: string;
+    secondaryHref: string;
   };
   theme: {
     primaryColor: string;
@@ -95,6 +99,7 @@ export interface CatstaysTemplateContent {
   features: Array<{
     title: string;
     text: string;
+    icon?: string;
   }>;
   whyChoose: {
     title: string;
@@ -102,6 +107,7 @@ export interface CatstaysTemplateContent {
     items: Array<{
       title: string;
       text: string;
+      icon?: string;
     }>;
   };
   facilities: {
@@ -111,6 +117,7 @@ export interface CatstaysTemplateContent {
     items: Array<{
       title: string;
       text: string;
+      icon?: string;
     }>;
   };
   services: Array<{
@@ -185,26 +192,26 @@ export const previewTemplateCards: PreviewTemplateOption[] = [
     id: 'original',
     name: 'Original',
     description: 'The scraped website exactly as it appears now',
-    image: 'https://images.unsplash.com/photo-1494253109108-2e30c049369b?w=900&h=600&fit=crop',
+    image: 'https://www.delorainecattery.com/assets/Deloraine%20Cattery%20Building-CX1rWDRb.png',
     sourceOnly: true,
   },
   {
     id: 'conversion-focus',
     name: 'Focus',
     description: 'Conversion-first layout with booking widget below the hero',
-    image: 'https://images.unsplash.com/photo-1543852786-1cf6624b9987?w=900&h=600&fit=crop',
+    image: 'https://www.delorainecattery.com/assets/Deloraine%20Cattery%20Building-CX1rWDRb.png',
   },
   {
     id: 'editorial-guide',
     name: 'Editorial',
     description: 'Story-led checkerboard sections with magazine-style pacing',
-    image: 'https://images.unsplash.com/photo-1518791841217-8f162f1e1131?w=900&h=600&fit=crop',
+    image: 'https://www.delorainecattery.com/assets/Paul%20and%20Vanessa-Dst6H-6-.jpg',
   },
   {
     id: 'modern-showcase',
     name: 'Showcase',
     description: 'Image-first pages with minimal copy and strong visual rhythm',
-    image: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=900&h=600&fit=crop',
+    image: 'https://www.delorainecattery.com/assets/Kitty3-nO3ryPLf.jpg',
   },
 ];
 
@@ -319,18 +326,20 @@ export function dataFromPreviewRecord(
   const selectedTemplate = normalizePreviewTemplateId(templateId);
   const updatedRecord: PreviewImportRecord = {
     ...record,
-    status: 'preview',
+    status: 'in_progress',
     selectedTemplate,
   };
+  savePreviewImportRecord(updatedRecord);
 
   return withOnboardingCollections({
     ...currentData,
     ...normalized,
     ...templateStyle(selectedTemplate),
+    __preferImportedCollections: true,
     selectedTemplate,
     previewImportRecord: updatedRecord,
     previewImportRecordId: record.id,
-    previewRecordStatus: 'preview',
+    previewRecordStatus: 'in_progress',
     importComplete: true,
     importSourceUrl: record.source.url,
     sourceUrl: record.source.url,
@@ -497,10 +506,12 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const mappedHighlights = highlights.map((feature: any) => ({
     title: stringFrom(feature.title, feature.name),
     text: stringFrom(feature.description, feature.text),
+    icon: stringFrom(feature.icon),
   }));
   const mappedServices = services.map((service: any) => ({
     title: stringFrom(service.title, service.name),
     text: stringFrom(service.description, service.text),
+    icon: stringFrom(service.icon),
   }));
   const featureItems = editedHighlights
     ? mappedHighlights.filter((feature) => feature.title || feature.text).slice(0, 4)
@@ -511,6 +522,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
         (whyChooseBlock?.items?.length ? whyChooseBlock.items : featureItems).map((item: any) => ({
           title: stringFrom(item.title, item.name),
           text: stringFrom(item.text, item.description),
+          icon: stringFrom(item.icon),
         })),
         featureItems,
       ).slice(0, 4);
@@ -519,21 +531,25 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     ? editedFacilityItems.map((item: any) => ({
         title: stringFrom(item.title, item.name),
         text: stringFrom(item.description, item.text),
+        icon: stringFrom(item.icon),
       }))
     : [
         ...(facilitiesBlock?.items ?? []).map((item: any) => ({
           title: stringFrom(item.title, item.name),
           text: stringFrom(item.text, item.description),
+          icon: stringFrom(item.icon),
         })),
         dailyCareBlock
           ? {
               title: stringFrom(dailyCareBlock.title, 'Daily Care Routine'),
               text: stringFrom(dailyCareBlock.text),
+              icon: 'Clock',
             }
           : null,
       ];
   const facilityItems = mappedFacilityItems
-    .filter((item): item is { title: string; text: string } => Boolean(item?.title && item?.text))
+    .filter((item) => Boolean(item?.title && item?.text))
+    .map((item) => ({ title: item!.title, text: item!.text, icon: item!.icon }))
     .slice(0, 6);
   const ownerImage = imageFrom(ownerData.image, fallbackImages[5], fallbackImages[1], heroImage);
   const facilityImage = imageFrom(data.facilitiesImage, facilitiesBlock?.images?.[0]?.url, fallbackImages[2], heroImage);
@@ -560,7 +576,11 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       heading: stringFrom(data.heroHeading, normalized.heroHeading, record?.content.heroHeading, `Welcome to ${businessName}`),
       text: stringFrom(data.heroSubheading, normalized.heroSubheading, record?.content.heroSubheading, primaryDescription),
       image: heroImage,
-      button: stringFrom(data.ctaText, 'Book Now'),
+      button: stringFrom(data.ctaText, data.heroPrimaryCtaText, 'Book Now'),
+      primaryButton: stringFrom(data.heroPrimaryCtaText, 'Discover Our Suites'),
+      primaryHref: stringFrom(data.heroPrimaryCtaHref, '#suites'),
+      secondaryButton: stringFrom(data.heroSecondaryCtaText, 'Our Care Approach'),
+      secondaryHref: stringFrom(data.heroSecondaryCtaHref, '#care'),
     },
     theme: {
       primaryColor: stringFrom(data.primaryColor, normalizedRecord.primaryColor, '#0A1128'),
@@ -733,22 +753,164 @@ function templateStyle(templateId: PreviewTemplateId) {
 }
 
 function withOnboardingCollections(data: Record<string, any>, fallback: Record<string, any> = {}) {
-  const arrayFrom = (key: string) => {
-    if (Array.isArray(data[key])) return data[key];
-    if (Array.isArray(fallback[key])) return fallback[key];
+  const { __preferImportedCollections, ...cleanData } = data;
+  const preferImportedCollections = Boolean(__preferImportedCollections);
+  const record = cleanData.previewImportRecord as PreviewImportRecord | undefined;
+  const normalized = (record?.normalizedPreviewData ?? cleanData) as Record<string, any>;
+  const contentLibrary =
+    record?.contentLibrary ??
+    normalized.siteContentLibrary ??
+    cleanData.siteContentLibrary ??
+    fallback.siteContentLibrary ??
+    emptyContentLibrary(stringFrom(record?.source.url, cleanData.sourceUrl, normalized.sourceUrl), stringFrom(record?.source.host, cleanData.sourceHost, normalized.sourceHost), stringFrom(cleanData.businessName, normalized.businessName, record?.identity.businessName));
+
+  const block = (category: string) => libraryBlock(contentLibrary, category);
+  const blockItems = (category: string) => libraryItems(contentLibrary, category);
+  const blockImages = (category: string) => libraryImages(contentLibrary, category);
+
+  const firstArray = (values: unknown[]) => {
+    for (const value of values) {
+      if (Array.isArray(value)) return value;
+    }
     return [];
   };
 
+  const arrayFrom = (key: string, ...importedSources: unknown[]) => {
+    const localSources = [cleanData[key], fallback[key]];
+    return firstArray(preferImportedCollections ? [...importedSources, ...localSources] : [cleanData[key], ...importedSources, fallback[key]]);
+  };
+
+  const textFrom = (key: string, ...importedSources: unknown[]) => (
+    preferImportedCollections
+      ? stringFrom(...importedSources, cleanData[key], fallback[key])
+      : stringFrom(cleanData[key], ...importedSources, fallback[key])
+  );
+
+  const imageFieldFrom = (key: string, ...importedSources: unknown[]) => (
+    preferImportedCollections
+      ? stringFrom(...importedSources, cleanData[key], fallback[key])
+      : stringFrom(cleanData[key], ...importedSources, fallback[key])
+  );
+
+  const mapItemsToFeatures = (items: any[] = []) => items.map((item) => ({
+    title: stringFrom(item.title, item.name),
+    description: stringFrom(item.description, item.text),
+    icon: stringFrom(item.icon),
+  })).filter((item) => item.title || item.description);
+
+  const mapItemsToSuites = (items: any[] = []) => items.map((item) => ({
+    name: stringFrom(item.name, item.title),
+    description: stringFrom(item.description, item.text),
+    price: stringFrom(item.price),
+    image: stringFrom(item.image),
+    amenities: Array.isArray(item.amenities) ? item.amenities : Array.isArray(item.features) ? item.features : [],
+  })).filter((item) => item.name || item.description || item.image);
+
+  const mapItemsToServices = (items: any[] = []) => items.map((item) => ({
+    title: stringFrom(item.title, item.name),
+    description: stringFrom(item.description, item.text),
+    price: stringFrom(item.price),
+    image: stringFrom(item.image),
+  })).filter((item) => item.title || item.description || item.image);
+
+  const mapItemsToReviews = (items: any[] = []) => items.map((item) => ({
+    name: stringFrom(item.name, item.title, item.author),
+    text: stringFrom(item.text, item.quote, item.description),
+    rating: typeof item.rating === 'number' ? item.rating : 5,
+    location: stringFrom(item.location, item.meta),
+  })).filter((item) => item.name || item.text);
+
+  const mapItemsToFaqs = (items: any[] = []) => items.map((item) => ({
+    question: stringFrom(item.question, item.title),
+    answer: stringFrom(item.answer, item.text, item.description),
+  })).filter((item) => item.question && item.answer);
+
+  const mapImagesToUrls = (items: any[] = []) => items.map((item) => stringFrom(item.url, item.image, item)).filter(Boolean);
+  const ownerBlock = block('owner-story');
+  const contactBlock = block('contact');
+  const locationBlock = block('location');
+  const socialBlock = block('social');
+
   return {
-    ...data,
+    ...cleanData,
+    heroPrimaryCtaText: textFrom('heroPrimaryCtaText', 'Discover Our Suites'),
+    heroPrimaryCtaHref: textFrom('heroPrimaryCtaHref', '#suites'),
+    heroSecondaryCtaText: textFrom('heroSecondaryCtaText', 'Our Care Approach'),
+    heroSecondaryCtaHref: textFrom('heroSecondaryCtaHref', '#care'),
+    whyChooseUsHeading: textFrom('whyChooseUsHeading', normalized.whyChooseUsData?.whyChooseUsHeading, normalized.whyChooseUsData?.heading, block('why-choose-us')?.title),
+    whyChooseUsText: textFrom('whyChooseUsText', normalized.whyChooseUsData?.whyChooseUsText, normalized.whyChooseUsData?.text, block('why-choose-us')?.text),
+    aboutHeading: textFrom('aboutHeading', normalized.aboutHeading, normalized.aboutData?.heading, block('hero')?.title),
+    aboutText: textFrom('aboutText', normalized.aboutText, normalized.aboutData?.text, block('hero')?.text),
+    aboutImage: imageFieldFrom('aboutImage', normalized.aboutImage, normalized.aboutData?.image, normalized.facilitiesData?.facilitiesImage, blockImages('facilities')[0]?.url),
+    facilitiesHeading: textFrom('facilitiesHeading', normalized.facilitiesData?.facilitiesHeading, normalized.facilitiesData?.heading, block('facilities')?.title),
+    facilitiesText: textFrom('facilitiesText', normalized.facilitiesData?.facilitiesText, normalized.facilitiesData?.text, block('facilities')?.text),
+    facilitiesImage: imageFieldFrom('facilitiesImage', normalized.facilitiesData?.facilitiesImage, normalized.facilitiesData?.image, blockImages('facilities')[0]?.url),
+    suitesHeading: textFrom('suitesHeading', normalized.suitesData?.suitesHeading, normalized.suitesData?.heading, block('rooms')?.title),
+    additionalServicesHeading: textFrom('additionalServicesHeading', normalized.servicesData?.servicesHeading, normalized.servicesData?.heading, block('services')?.title),
+    galleryHeading: textFrom('galleryHeading', normalized.galleryData?.galleryHeading, normalized.galleryData?.heading, block('gallery')?.title),
+    testimonialsHeading: textFrom('testimonialsHeading', normalized.testimonialsData?.testimonialsHeading, normalized.testimonialsData?.heading, block('reviews')?.title),
+    faqHeading: textFrom('faqHeading', normalized.faqData?.faqHeading, normalized.faqData?.heading, block('faqs')?.title),
+    ownerData: cleanData.ownerData ?? normalized.ownerData ?? (ownerBlock ? { title: ownerBlock.title, text: ownerBlock.text, image: ownerBlock.images?.[0]?.url } : undefined),
+    locationData: cleanData.locationData ?? normalized.locationData ?? (locationBlock ? {
+      heading: locationBlock.title,
+      text: locationBlock.text,
+      directions: locationBlock.items?.[0]?.text,
+    } : undefined),
+    hours: textFrom('hours', normalized.hours, normalized.contactData?.hours, contactBlock?.items?.find((item) => /hour/i.test(item.title))?.text),
+    socialLinks: cleanData.socialLinks ?? normalized.socialLinks ?? normalized.contactData?.socialLinks ?? {
+      facebook: socialBlock?.links?.find((link) => /facebook/i.test(link.label || link.url))?.url,
+      instagram: socialBlock?.links?.find((link) => /instagram/i.test(link.label || link.url))?.url,
+    },
+    virtualTourUrl: textFrom('virtualTourUrl', normalized.virtualTourUrl, normalized.locationData?.virtualTourUrl, cleanData.locationData?.virtualTourUrl),
+    whyChooseUsFeatures: arrayFrom(
+      'whyChooseUsFeatures',
+      normalized.whyChooseUsData?.whyChooseUsFeatures,
+      normalized.whyChooseUsData?.features,
+      mapItemsToFeatures(blockItems('why-choose-us')),
+      record?.content.highlights,
+    ),
+    facilityFeatures: arrayFrom(
+      'facilityFeatures',
+      normalized.facilitiesData?.facilityFeatures,
+      normalized.facilitiesData?.features,
+      mapItemsToFeatures(blockItems('facilities')),
+    ),
+    suites: arrayFrom(
+      'suites',
+      normalized.suitesData?.suites,
+      mapItemsToSuites(blockItems('rooms')),
+      mapItemsToSuites(record?.rooms ?? []),
+    ),
     roomTypes: arrayFrom('roomTypes'),
     pricingRates: arrayFrom('pricingRates'),
-    additionalServices: arrayFrom('additionalServices'),
+    additionalServices: arrayFrom(
+      'additionalServices',
+      normalized.servicesData?.services,
+      mapItemsToServices(blockItems('services')),
+      mapItemsToServices(record?.services ?? []),
+    ),
     discounts: arrayFrom('discounts'),
     blockOutDates: arrayFrom('blockOutDates'),
-    galleryImages: arrayFrom('galleryImages'),
-    testimonials: arrayFrom('testimonials'),
-    faqs: arrayFrom('faqs'),
+    galleryImages: arrayFrom(
+      'galleryImages',
+      mapImagesToUrls(normalized.galleryData?.galleryImages ?? []),
+      mapImagesToUrls(normalized.galleryData?.images ?? []),
+      mapImagesToUrls(blockImages('gallery')),
+      mapImagesToUrls(record?.media.galleryImages ?? []),
+      record?.media.images,
+    ),
+    testimonials: arrayFrom(
+      'testimonials',
+      normalized.testimonialsData?.testimonials,
+      mapItemsToReviews(blockItems('reviews')),
+      mapItemsToReviews(record?.contentLibrary?.blocks.find((candidate) => candidate.category === 'reviews')?.items ?? []),
+    ),
+    faqs: arrayFrom(
+      'faqs',
+      normalized.faqData?.faqs,
+      mapItemsToFaqs(blockItems('faqs')),
+      record?.faqs,
+    ),
     customSections: arrayFrom('customSections'),
   };
 }

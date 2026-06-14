@@ -1,13 +1,16 @@
 import { type CSSProperties, type MouseEvent, useRef, useState } from 'react';
 import {
+  Award,
   CalendarCheck,
   Camera,
   Car,
   ChevronLeft,
   ChevronRight,
+  CheckCircle,
   Clock,
   Facebook,
   HeartHandshake,
+  Home,
   Instagram,
   LogIn,
   Mail,
@@ -18,7 +21,9 @@ import {
   Scissors,
   ShieldCheck,
   Sparkles,
+  Star,
   Stethoscope,
+  Users,
   X,
   Zap,
 } from 'lucide-react';
@@ -42,6 +47,18 @@ type PreviewNoticeKind = 'booking' | 'contact';
 const trustIcons = [ShieldCheck, HeartHandshake, Sparkles, CalendarCheck];
 const facilityIcons = [ShieldCheck, Sparkles, Camera, Clock, HeartHandshake, CalendarCheck];
 const serviceIcons = [Scissors, Stethoscope, Zap, Car, Plane, ShieldCheck, HeartHandshake, CalendarCheck];
+const namedCareIcons = {
+  Shield: ShieldCheck,
+  Heart: HeartHandshake,
+  Award,
+  Star,
+  Clock,
+  Camera,
+  Home,
+  Users,
+  CheckCircle,
+  Sparkles,
+};
 
 export function CatstaysTemplateSite({
   data,
@@ -192,11 +209,11 @@ function FocusTemplate({
             <div className="my-6 h-px w-14 bg-[#b58b4a]" />
             <p className="max-w-lg text-base leading-7 text-[#333]">{content.hero.text}</p>
             <div className="mt-8 flex flex-wrap gap-4">
-              <a href="#suites" onClick={onPreviewAnchorClick} className="rounded-md bg-[#0A1128] px-6 py-4 text-xs font-bold uppercase tracking-[0.1em] text-white">
-                Discover Our Suites
+              <a href={content.hero.primaryHref || '#suites'} onClick={onPreviewAnchorClick} className="rounded-md bg-[#0A1128] px-6 py-4 text-xs font-bold uppercase tracking-[0.1em] text-white">
+                {content.hero.primaryButton}
               </a>
-              <a href="#care" onClick={onPreviewAnchorClick} className="rounded-md border border-[#0A1128]/45 px-6 py-4 text-xs font-bold uppercase tracking-[0.1em] text-[#0A1128]">
-                Our Care Approach
+              <a href={content.hero.secondaryHref || '#care'} onClick={onPreviewAnchorClick} className="rounded-md border border-[#0A1128]/45 px-6 py-4 text-xs font-bold uppercase tracking-[0.1em] text-[#0A1128]">
+                {content.hero.secondaryButton}
               </a>
             </div>
           </div>
@@ -399,7 +416,7 @@ function FeatureRow({ content }: { content: ReturnType<typeof buildCatstaysTempl
         {content.whyChoose.text ? <p className="mx-auto mt-5 max-w-4xl text-base leading-7 text-[#444]">{content.whyChoose.text}</p> : null}
         {features.length ? <div className="catstays-card-grid mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
           {features.map((feature, index) => {
-            const Icon = trustIcons[index] || ShieldCheck;
+            const Icon = careIconFor(feature.icon, index);
             return (
               <div key={feature.title} className="bg-[#f8f5ef] p-7 shadow-sm">
                 <Icon className="mx-auto mb-5 h-7 w-7 text-[#8c7b63]" />
@@ -412,6 +429,11 @@ function FeatureRow({ content }: { content: ReturnType<typeof buildCatstaysTempl
       </div>
     </section>
   );
+}
+
+function careIconFor(icon: string | undefined, index: number) {
+  if (icon && icon in namedCareIcons) return namedCareIcons[icon as keyof typeof namedCareIcons];
+  return trustIcons[index] || ShieldCheck;
 }
 
 function ShowcaseGalleryRail({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
