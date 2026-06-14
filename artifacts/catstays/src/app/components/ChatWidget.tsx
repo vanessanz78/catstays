@@ -25,6 +25,30 @@ interface ChatKnowledge {
     text?: string;
     primaryCta?: string;
   };
+  about?: {
+    title?: string;
+    text?: string;
+  };
+  whyChoose?: {
+    title?: string;
+    text?: string;
+    items?: Array<{
+      title?: string;
+      text?: string;
+    }>;
+  };
+  facilities?: {
+    title?: string;
+    text?: string;
+    items?: Array<{
+      title?: string;
+      text?: string;
+    }>;
+  };
+  owner?: {
+    title?: string;
+    text?: string;
+  };
   suites?: Array<{
     title?: string;
     text?: string;
@@ -35,6 +59,11 @@ interface ChatKnowledge {
     title?: string;
     text?: string;
     price?: string;
+  }>;
+  testimonials?: Array<{
+    quote?: string;
+    author?: string;
+    location?: string;
   }>;
   faqs?: Array<{
     question?: string;
@@ -335,6 +364,18 @@ function buildIndexedEntries(knowledge: ChatKnowledge) {
   addEntry('contact', 'Contact', [knowledge.footer?.phone, knowledge.footer?.email, knowledge.footer?.address].filter(Boolean).join(' '));
   addEntry('booking', 'Booking', knowledge.booking?.text);
   addEntry('location', 'Location', [knowledge.locationDetails?.text, knowledge.locationDetails?.directions].filter(Boolean).join(' '));
+  addEntry('about', knowledge.about?.title || 'About', knowledge.about?.text);
+  addEntry('care', knowledge.whyChoose?.title || 'Care approach', knowledge.whyChoose?.text);
+  addEntry('facilities', knowledge.facilities?.title || 'Facilities', knowledge.facilities?.text);
+  addEntry('owner', knowledge.owner?.title || 'Owner story', knowledge.owner?.text);
+
+  knowledge.whyChoose?.items?.forEach((item) => {
+    addEntry('care', item.title, item.text);
+  });
+
+  knowledge.facilities?.items?.forEach((item) => {
+    addEntry('facilities', item.title, item.text);
+  });
 
   knowledge.suites?.forEach((suite) => {
     addEntry('rooms', suite.title, [suite.price, suite.text, ...(suite.features ?? [])].filter(Boolean).join(' '));
@@ -342,6 +383,10 @@ function buildIndexedEntries(knowledge: ChatKnowledge) {
 
   knowledge.services?.forEach((service) => {
     addEntry('services', service.title, [service.price, service.text].filter(Boolean).join(' '));
+  });
+
+  knowledge.testimonials?.forEach((testimonial) => {
+    addEntry('reviews', testimonial.author || 'Review', [testimonial.quote, testimonial.location].filter(Boolean).join(' '));
   });
 
   knowledge.contentLibrary?.blocks?.forEach((block) => {

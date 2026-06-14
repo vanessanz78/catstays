@@ -8,8 +8,8 @@ import { Wand2, Plus, X, ChevronDown, ChevronUp, Check } from 'lucide-react';
 import { ImageUpload } from './ImageUpload';
 
 /**
- * Website Editor Panel - Sections ordered to match preview (top to bottom)
- * Order: Hero → Why Choose Us → Facilities → Our Suites → Additional Services → Gallery → Testimonials → FAQ → About → Commitment → Contact
+ * Website Editor Panel - Sections ordered to match the generated preview (top to bottom)
+ * Order: Hero -> Care Approach -> About -> Facilities -> Suites -> Services -> Gallery -> Reviews -> Owner Story -> Contact
  */
 
 interface WebsiteEditorPanelEnhancedProps {
@@ -57,7 +57,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       {/* HERO SECTION */}
       <AccordionItem value="hero" className="border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
-          <span className="font-semibold">Hero Section</span>
+          <span className="font-semibold">1. Home / Hero</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-2">
@@ -136,10 +136,10 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
         </AccordionContent>
       </AccordionItem>
 
-      {/* 2. WHY CHOOSE US SECTION */}
+      {/* 2. CARE APPROACH SECTION */}
       <AccordionItem value="why-choose-us" className="border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
-          <span className="font-semibold">2. Why Choose Us</span>
+          <span className="font-semibold">2. Care Approach</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-2">
@@ -166,7 +166,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
 
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <Label>Features</Label>
+              <Label>Care Points</Label>
               <Button
                 size="sm"
                 variant="outline"
@@ -356,15 +356,15 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
         </AccordionContent>
       </AccordionItem>
 
-      {/* 9. OUR STORY SECTION (moved from position 3) */}
+      {/* 3. ABOUT SECTION */}
       <AccordionItem value="about" className="border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
-          <span className="font-semibold">9. Our Story</span>
+          <span className="font-semibold">3. About</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label>About Heading</Label>
+              <Label>About Section Heading</Label>
               <Button
                 size="sm"
                 variant="ghost"
@@ -415,10 +415,10 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
         </AccordionContent>
       </AccordionItem>
 
-      {/* 3. OUR FACILITIES SECTION */}
+      {/* 4. FACILITIES SECTION */}
       <AccordionItem value="facilities" className="border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
-          <span className="font-semibold">3. Our Facilities</span>
+          <span className="font-semibold">4. Facilities</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-2">
@@ -627,10 +627,10 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
         </AccordionContent>
       </AccordionItem>
 
-      {/* 4. OUR SUITES SECTION */}
+      {/* 5. SUITES SECTION */}
       <AccordionItem value="our-suites" className="border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
-          <span className="font-semibold">4. Our Suites</span>
+          <span className="font-semibold">5. Suites / Rooms</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-2">
@@ -849,10 +849,10 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
         </AccordionContent>
       </AccordionItem>
 
-      {/* 5. OUR SERVICES SECTION */}
+      {/* 6. EXTRA CARE / SERVICES SECTION */}
       <AccordionItem value="additional-services" className="border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
-          <span className="font-semibold">5. Our Services</span>
+          <span className="font-semibold">6. Extra Care / Services</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-2">
@@ -895,7 +895,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
               </Button>
             </div>
 
-            {(data.additionalServices && data.additionalServices.length > 0 ? data.additionalServices : [
+            {(Array.isArray(data.additionalServices) ? data.additionalServices : [
               { title: 'Extra Comfort Check', price: '$8/day', description: 'Additional wellbeing check during the stay' },
               { title: 'Medication Administration', price: '$10/day', description: 'Careful medication management' },
               { title: 'Special Diet', price: '$15/day', description: 'Custom meal preparation' },
@@ -1052,10 +1052,10 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
         </AccordionContent>
       </AccordionItem>
 
-      {/* 6. GALLERY SECTION */}
+      {/* 7. GALLERY SECTION */}
       <AccordionItem value="gallery" className="border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
-          <span className="font-semibold">6. Gallery</span>
+          <span className="font-semibold">7. Gallery</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-2">
@@ -1097,7 +1097,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
               </Button>
             </div>
 
-            {(data.galleryImages && data.galleryImages.length > 0 ? data.galleryImages : [
+            {(Array.isArray(data.galleryImages) ? data.galleryImages : [
               'https://images.unsplash.com/photo-1574158622682-e40e69881006?w=800&h=800&fit=crop',
               'https://images.unsplash.com/photo-1518791841217-8f162f1e1131?w=800&h=800&fit=crop',
               'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=800&h=800&fit=crop',
@@ -1133,10 +1133,10 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
         </AccordionContent>
       </AccordionItem>
 
-      {/* 7. TESTIMONIALS SECTION */}
+      {/* 8. REVIEWS SECTION */}
       <AccordionItem value="testimonials" className="border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
-          <span className="font-semibold">7. Testimonials</span>
+          <span className="font-semibold">8. Reviews</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-2">
@@ -1163,7 +1163,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
 
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <Label>Testimonials</Label>
+              <Label>Reviews</Label>
               <Button
                 size="sm"
                 variant="outline"
@@ -1178,7 +1178,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
               </Button>
             </div>
 
-            {(data.testimonials && data.testimonials.length > 0 ? data.testimonials : [
+            {(Array.isArray(data.testimonials) ? data.testimonials : [
               { name: 'Sarah M.', text: 'Absolutely wonderful! My cat Whiskers loves it here.', rating: 5 },
               { name: 'James T.', text: 'Professional, caring, and spotlessly clean. Highly recommend!', rating: 5 },
               { name: 'Emma L.', text: 'I travel worry-free knowing my cats are in great hands.', rating: 5 }
@@ -1265,10 +1265,10 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
         </AccordionContent>
       </AccordionItem>
 
-      {/* 8. FAQ SECTION */}
+      {/* 9. CHATBOT FAQ KNOWLEDGE */}
       <AccordionItem value="faq" className="border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
-          <span className="font-semibold">8. FAQ</span>
+          <span className="font-semibold">9. Chatbot FAQ Knowledge</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-2">
@@ -1310,7 +1310,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
               </Button>
             </div>
 
-            {(data.faqs && data.faqs.length > 0 ? data.faqs : [
+            {(Array.isArray(data.faqs) ? data.faqs : [
               { question: 'What are your check-in times?', answer: 'Check-in is between 9 AM - 12 PM, and check-out is 3 PM - 6 PM.' },
               { question: 'Do you require vaccinations?', answer: 'Yes, all cats must be up-to-date on vaccinations for everyone\'s safety.' },
               { question: 'Can I visit my cat during their stay?', answer: 'We recommend letting cats settle in, but video updates are sent daily.' }
@@ -1389,19 +1389,19 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
         </AccordionContent>
       </AccordionItem>
 
-      {/* 10. OUR COMMITMENT SECTION */}
-      <AccordionItem value="commitment" className="border rounded-xl px-4 bg-white">
+      {/* 10. OWNER STORY SECTION */}
+      <AccordionItem value="owner-story" className="border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
-          <span className="font-semibold">10. Our Commitment</span>
+          <span className="font-semibold">10. The People Behind The Care</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label>Section Heading</Label>
+              <Label>Owner Story Heading</Label>
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => handleAIClick('commitmentHeading')}
+                onClick={() => handleAIClick('ownerTitle')}
                 disabled={isRegenerating}
                 className="text-xs h-7"
               >
@@ -1410,190 +1410,48 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
               </Button>
             </div>
             <Input
-              value={data.commitmentHeading || 'Our Commitment'}
-              onChange={(e) => setData({ ...data, commitmentHeading: e.target.value })}
-              placeholder="Our Commitment"
+              value={data.ownerData?.title || ''}
+              onChange={(e) => setData({ ...data, ownerData: { ...(data.ownerData || {}), title: e.target.value } })}
+              placeholder="About the people behind the care"
               className="rounded-lg"
             />
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label>Values</Label>
+              <Label>Owner Story Text</Label>
               <Button
                 size="sm"
-                variant="outline"
-                onClick={() => {
-                  const newValues = [...(data.commitmentValues || [
-                    { icon: 'Heart', title: 'Love & Care' },
-                    { icon: 'Shield', title: 'Safety First' },
-                    { icon: 'Star', title: 'Excellence' },
-                    { icon: 'Award', title: 'Quality' }
-                  ]), { icon: 'Heart', title: '', isNew: true }];
-                  setData({ ...data, commitmentValues: newValues });
-                  toggleExpanded(`commitment-${newValues.length - 1}`);
-                }}
+                variant="ghost"
+                onClick={() => handleAIClick('ownerText')}
+                disabled={isRegenerating}
                 className="text-xs h-7"
               >
-                <Plus className="w-3 h-3 mr-1" />
-                Add Value
+                <Wand2 className="w-3 h-3 mr-1" />
+                AI
               </Button>
             </div>
-
-            {(data.commitmentValues || [
-              { icon: 'Heart', title: 'Love & Care' },
-              { icon: 'Shield', title: 'Safety First' },
-              { icon: 'Star', title: 'Excellence' },
-              { icon: 'Award', title: 'Quality' }
-            ]).map((value: any, index: number) => {
-              const isExpanded = expandedItems[`commitment-${index}`] || value.isNew;
-              const isComplete = value.title;
-
-              return (
-                <div key={index} className="border rounded-lg bg-gray-50">
-                  {!isExpanded ? (
-                    <div className="flex items-center justify-between p-3">
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <span className="text-sm font-medium text-gray-700">
-                          {value.title || `Value ${index + 1}`}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => toggleExpanded(`commitment-${index}`)}
-                          className="h-7 w-7 p-0"
-                        >
-                          <ChevronDown className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            const newValues = (data.commitmentValues || [
-                              { icon: 'Heart', title: 'Love & Care' },
-                              { icon: 'Shield', title: 'Safety First' },
-                              { icon: 'Star', title: 'Excellence' },
-                              { icon: 'Award', title: 'Quality' }
-                            ]).filter((_: any, i: number) => i !== index);
-                            setData({ ...data, commitmentValues: newValues });
-                          }}
-                          className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-700">Value {index + 1}</span>
-                        <div className="flex items-center gap-1">
-                          {value.isNew && isComplete && (
-                            <Button
-                              size="sm"
-                              onClick={() => {
-                                const newValues = [...(data.commitmentValues || [
-                                  { icon: 'Heart', title: 'Love & Care' },
-                                  { icon: 'Shield', title: 'Safety First' },
-                                  { icon: 'Star', title: 'Excellence' },
-                                  { icon: 'Award', title: 'Quality' }
-                                ])];
-                                newValues[index] = { ...newValues[index], isNew: false };
-                                setData({ ...data, commitmentValues: newValues });
-                                toggleExpanded(`commitment-${index}`);
-                              }}
-                              className="h-7 text-xs bg-green-600 hover:bg-green-700"
-                            >
-                              <Check className="w-3 h-3 mr-1" />
-                              Save
-                            </Button>
-                          )}
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => toggleExpanded(`commitment-${index}`)}
-                            className="h-7 w-7 p-0"
-                          >
-                            <ChevronUp className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              const newValues = (data.commitmentValues || [
-                                { icon: 'Heart', title: 'Love & Care' },
-                                { icon: 'Shield', title: 'Safety First' },
-                                { icon: 'Star', title: 'Excellence' },
-                                { icon: 'Award', title: 'Quality' }
-                              ]).filter((_: any, i: number) => i !== index);
-                              setData({ ...data, commitmentValues: newValues });
-                            }}
-                            className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label className="text-xs">Icon</Label>
-                        {renderIconSelect(value.icon || 'Heart', (val) => {
-                          const newValues = [...(data.commitmentValues || [
-                            { icon: 'Heart', title: 'Love & Care' },
-                            { icon: 'Shield', title: 'Safety First' },
-                            { icon: 'Star', title: 'Excellence' },
-                            { icon: 'Award', title: 'Quality' }
-                          ])];
-                          newValues[index] = { ...newValues[index], icon: val };
-                          setData({ ...data, commitmentValues: newValues });
-                        })}
-                      </div>
-
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-xs">Title</Label>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleAIClick(`commitmentValue${index}Title`)}
-                            disabled={isRegenerating}
-                            className="text-xs h-6"
-                          >
-                            <Wand2 className="w-3 h-3 mr-1" />
-                            AI
-                          </Button>
-                        </div>
-                        <Input
-                          value={value.title || ''}
-                          onChange={(e) => {
-                            const newValues = [...(data.commitmentValues || [
-                              { icon: 'Heart', title: 'Love & Care' },
-                              { icon: 'Shield', title: 'Safety First' },
-                              { icon: 'Star', title: 'Excellence' },
-                              { icon: 'Award', title: 'Quality' }
-                            ])];
-                            newValues[index] = { ...newValues[index], title: e.target.value };
-                            setData({ ...data, commitmentValues: newValues });
-                          }}
-                          placeholder="Value title"
-                          className="h-9 rounded-lg text-sm"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+            <Textarea
+              value={data.ownerData?.text || ''}
+              onChange={(e) => setData({ ...data, ownerData: { ...(data.ownerData || {}), text: e.target.value } })}
+              placeholder="Tell the owner story..."
+              className="rounded-lg"
+              rows={6}
+            />
           </div>
+
+          <ImageUpload
+            label="Owner Image"
+            value={data.ownerData?.image || ''}
+            onChange={(url) => setData({ ...data, ownerData: { ...(data.ownerData || {}), image: url } })}
+          />
         </AccordionContent>
       </AccordionItem>
 
-      {/* 11. CONTACT INFORMATION SECTION */}
+      {/* 11. CONTACT / LOCATION SECTION */}
       <AccordionItem value="contact" className="border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
-          <span className="font-semibold">11. Contact Information</span>
+          <span className="font-semibold">11. Contact / Location</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-2">

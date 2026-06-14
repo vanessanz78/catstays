@@ -10,7 +10,7 @@ import { BookingFlowModal } from '../../components/BookingFlowModal';
 import { ChatWidget } from '../../components/ChatWidget';
 import { WebsiteHeader } from '../../components/WebsiteHeader';
 import { CatstaysTemplateSite } from './CatstaysTemplateSite';
-import { isOriginalTemplate } from '../../lib/previewTemplates';
+import { isOriginalTemplate, normalizePreviewTemplateId } from '../../lib/previewTemplates';
 import {
   WhyChooseUsSection,
   FacilitiesSection,
@@ -111,8 +111,8 @@ interface FullWebsitePreviewProps {
 
 export function FullWebsitePreview({
   data,
-  initialMode = 'dashboard',
-  initialDevice = 'mobile',
+  initialMode = 'website',
+  initialDevice = 'desktop',
   controlledMode,
   controlledDevice,
   showControls = true,
@@ -152,7 +152,7 @@ export function FullWebsitePreview({
       );
     }
 
-    const template = data.selectedTemplate || 'conversion-focus';
+    const template = normalizePreviewTemplateId(data.selectedTemplate || 'conversion-focus');
 
     if (
       template === 'conversion-focus' ||

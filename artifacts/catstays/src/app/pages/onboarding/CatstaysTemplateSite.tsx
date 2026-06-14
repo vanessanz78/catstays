@@ -1,4 +1,4 @@
-import { type MouseEvent, useRef, useState } from 'react';
+import { type CSSProperties, type MouseEvent, useRef, useState } from 'react';
 import {
   CalendarCheck,
   Camera,
@@ -87,6 +87,34 @@ export function CatstaysTemplateSite({
   return <FocusTemplate content={content} embedded={embedded} previewDevice={previewDevice} onPreviewAnchorClick={handlePreviewAnchorClick} onPreviewBookingAction={handlePreviewBookingAction} onPreviewBookingInteraction={handlePreviewBookingInteraction} onPreviewContactAction={handlePreviewContactAction} previewNoticeKind={previewNoticeKind} onDismissPreviewNotice={() => setPreviewNoticeKind(null)} />;
 }
 
+function templateRootStyle(content: ReturnType<typeof buildCatstaysTemplateContent>): CSSProperties {
+  return {
+    '--catstays-primary': content.theme.primaryColor,
+    '--catstays-accent': content.theme.accentColor,
+    '--catstays-bg': content.theme.backgroundColor,
+    '--catstays-heading-font': fontFamilyFor(content.theme.headingFont, 'heading'),
+    '--catstays-body-font': fontFamilyFor(content.theme.bodyFont, 'body'),
+    backgroundColor: content.theme.backgroundColor,
+    fontFamily: 'var(--catstays-body-font)',
+  } as CSSProperties;
+}
+
+function fontFamilyFor(font: string, role: 'heading' | 'body') {
+  const fonts: Record<string, string> = {
+    playfair: '"Playfair Display", Georgia, serif',
+    merriweather: 'Merriweather, Georgia, serif',
+    poppins: 'Poppins, Arial, sans-serif',
+    montserrat: 'Montserrat, Arial, sans-serif',
+    inter: 'Inter, Arial, sans-serif',
+    nunito: 'Nunito, Arial, sans-serif',
+    lato: 'Lato, Arial, sans-serif',
+    opensans: '"Open Sans", Arial, sans-serif',
+    roboto: 'Roboto, Arial, sans-serif',
+  };
+
+  return fonts[font] || (role === 'heading' ? fonts.playfair : fonts.inter);
+}
+
 function TemplateHeader({
   content,
   dark = false,
@@ -152,7 +180,7 @@ function FocusTemplate({
   onDismissPreviewNotice: () => void;
 }) {
   return (
-    <div data-catstays-template-root data-catstays-preview-device={previewDevice} className="catstays-template bg-[#f8f5ef] text-[#222]" style={{ fontFamily: 'Georgia, serif' }}>
+    <div data-catstays-template-root data-catstays-preview-device={previewDevice} className="catstays-template bg-[#f8f5ef] text-[#222]" style={templateRootStyle(content)}>
       <CatstaysPreviewDeviceStyles />
       <TemplateHeader content={content} onPreviewAnchorClick={onPreviewAnchorClick} />
       <PreviewBookingNotice kind={previewNoticeKind} onDismiss={onDismissPreviewNotice} />
@@ -218,7 +246,7 @@ function FocusTemplate({
         <ContactFormSection content={content} onPreviewContactAction={onPreviewContactAction} />
       </main>
       <TemplateFooter content={content} dark onPreviewAnchorClick={onPreviewAnchorClick} />
-      <ChatWidget accentColor="#A85A30" businessName={content.business.name} knowledge={content} />
+      <ChatWidget accentColor={content.theme.accentColor} businessName={content.business.name} knowledge={content} />
     </div>
   );
 }
@@ -251,7 +279,7 @@ function EditorialTemplate({
   ];
 
   return (
-    <div data-catstays-template-root data-catstays-preview-device={previewDevice} className="catstays-template bg-[#f8f5ef] text-[#222]" style={{ fontFamily: 'Georgia, serif' }}>
+    <div data-catstays-template-root data-catstays-preview-device={previewDevice} className="catstays-template bg-[#f8f5ef] text-[#222]" style={templateRootStyle(content)}>
       <CatstaysPreviewDeviceStyles />
       <TemplateHeader content={content} onPreviewAnchorClick={onPreviewAnchorClick} />
       <PreviewBookingNotice kind={previewNoticeKind} onDismiss={onDismissPreviewNotice} />
@@ -295,7 +323,7 @@ function EditorialTemplate({
         <ContactFormSection content={content} onPreviewContactAction={onPreviewContactAction} />
       </main>
       <TemplateFooter content={content} onPreviewAnchorClick={onPreviewAnchorClick} />
-      <ChatWidget accentColor="#C46A3A" businessName={content.business.name} knowledge={content} />
+      <ChatWidget accentColor={content.theme.accentColor} businessName={content.business.name} knowledge={content} />
     </div>
   );
 }
@@ -322,7 +350,7 @@ function ShowcaseTemplate({
   onDismissPreviewNotice: () => void;
 }) {
   return (
-    <div data-catstays-template-root data-catstays-preview-device={previewDevice} className="catstays-template bg-[#f8f6f1] text-[#222]" style={{ fontFamily: 'Georgia, serif' }}>
+    <div data-catstays-template-root data-catstays-preview-device={previewDevice} className="catstays-template bg-[#f8f6f1] text-[#222]" style={templateRootStyle(content)}>
       <CatstaysPreviewDeviceStyles />
       <TemplateHeader content={content} dark onPreviewAnchorClick={onPreviewAnchorClick} />
       <PreviewBookingNotice kind={previewNoticeKind} onDismiss={onDismissPreviewNotice} />
@@ -355,21 +383,21 @@ function ShowcaseTemplate({
         <ContactFormSection content={content} onPreviewContactAction={onPreviewContactAction} />
       </main>
       <TemplateFooter content={content} onPreviewAnchorClick={onPreviewAnchorClick} />
-      <ChatWidget accentColor="#C46A3A" businessName={content.business.name} knowledge={content} />
+      <ChatWidget accentColor={content.theme.accentColor} businessName={content.business.name} knowledge={content} />
     </div>
   );
 }
 
 function FeatureRow({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
-  const features = (content.whyChoose.items.length ? content.whyChoose.items : content.features).slice(0, 4);
+  const features = content.whyChoose.items.slice(0, 4);
 
   return (
     <section id="care" className="scroll-mt-28 bg-white px-6 py-16 text-center">
       <div className="mx-auto max-w-[1400px]">
         <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Care Approach</p>
-        <h2 className="mx-auto max-w-3xl text-3xl leading-tight md:text-5xl">{content.whyChoose.title}</h2>
+        <h2 className="mx-auto max-w-3xl text-3xl leading-tight md:text-5xl">{content.sectionHeadings.care}</h2>
         {content.whyChoose.text ? <p className="mx-auto mt-5 max-w-4xl text-base leading-7 text-[#444]">{content.whyChoose.text}</p> : null}
-        <div className="catstays-card-grid mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+        {features.length ? <div className="catstays-card-grid mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
           {features.map((feature, index) => {
             const Icon = trustIcons[index] || ShieldCheck;
             return (
@@ -380,7 +408,7 @@ function FeatureRow({ content }: { content: ReturnType<typeof buildCatstaysTempl
               </div>
             );
           })}
-        </div>
+        </div> : null}
       </div>
     </section>
   );
@@ -402,7 +430,7 @@ function ShowcaseGalleryRail({ content }: { content: ReturnType<typeof buildCats
       <div className="mb-5 flex items-center justify-between px-6">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Gallery</p>
-          <h2 className="mt-2 font-serif text-3xl leading-tight text-[#222]">A visual look inside the stay</h2>
+          <h2 className="mt-2 font-serif text-3xl leading-tight text-[#222]">{content.sectionHeadings.gallery}</h2>
         </div>
         <div className="hidden gap-2 sm:flex">
           <button type="button" onClick={() => scrollRail(-1)} className="grid h-10 w-10 place-items-center rounded-full border border-[#222]/15 bg-white text-[#222] shadow-sm">
@@ -455,7 +483,7 @@ function SuitesGrid({ content, compact = false }: { content: ReturnType<typeof b
   return (
     <section id="suites" className={`mx-auto max-w-[1400px] scroll-mt-28 px-6 text-center ${compact ? 'py-14' : 'py-20'}`}>
       <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Our Suites</p>
-      <h2 className="text-3xl leading-tight md:text-5xl">Beautiful suites for every kind of cat</h2>
+      <h2 className="text-3xl leading-tight md:text-5xl">{content.sectionHeadings.suites}</h2>
       <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-[#444]">Spacious, serene and stylish suites designed for your cat's comfort.</p>
       <div className="catstays-card-grid mx-auto mt-10 grid max-w-[1120px] gap-6 md:grid-cols-2 xl:grid-cols-3">
         {content.suites.map((suite) => (
@@ -566,7 +594,7 @@ function GalleryStrip({ content }: { content: ReturnType<typeof buildCatstaysTem
       <div className="mb-10 flex flex-col gap-5 text-center sm:flex-row sm:items-end sm:justify-between sm:text-left">
         <div>
           <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Gallery</p>
-          <h2 className="text-3xl leading-tight md:text-5xl">A closer look at the stay</h2>
+          <h2 className="text-3xl leading-tight md:text-5xl">{content.sectionHeadings.gallery}</h2>
         </div>
         <div className="flex justify-center gap-2">
           <button type="button" onClick={() => scrollRail(-1)} className="grid h-10 w-10 place-items-center rounded-full border border-[#222]/15 bg-white text-[#222] shadow-sm">
@@ -601,7 +629,7 @@ function ServicesGrid({ content }: { content: ReturnType<typeof buildCatstaysTem
       <div className="mb-10 flex flex-col gap-5 text-center sm:flex-row sm:items-end sm:justify-between sm:text-left">
         <div>
           <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Additional Services</p>
-          <h2 className="max-w-3xl text-3xl leading-tight md:text-5xl">Extra care when your cat needs it</h2>
+          <h2 className="max-w-3xl text-3xl leading-tight md:text-5xl">{content.sectionHeadings.services}</h2>
         </div>
         <div className="flex justify-center gap-2">
           <button type="button" onClick={() => scrollRail(-1)} className="grid h-10 w-10 place-items-center rounded-full border border-[#222]/15 bg-white text-[#222] shadow-sm">
@@ -646,7 +674,7 @@ function ReviewsSection({ content }: { content: ReturnType<typeof buildCatstaysT
         <div className="mb-10 flex flex-col gap-5 text-center sm:flex-row sm:items-end sm:justify-between sm:text-left">
           <div>
             <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Reviews</p>
-            <h2 className="text-3xl leading-tight md:text-5xl">Trusted by cat families</h2>
+            <h2 className="text-3xl leading-tight md:text-5xl">{content.sectionHeadings.reviews}</h2>
           </div>
           <div className="flex justify-center gap-2">
             <button type="button" onClick={() => scrollRail(-1)} className="grid h-10 w-10 place-items-center rounded-full border border-[#222]/15 bg-white text-[#222] shadow-sm">
@@ -705,8 +733,8 @@ function OwnerStorySection({ content }: { content: ReturnType<typeof buildCatsta
   if (!content.owner.text) return null;
 
   return (
-    <section id="owner" className="catstays-stack mx-auto grid max-w-[1400px] scroll-mt-28 gap-8 bg-white px-6 py-10 md:grid-cols-[0.9fr_1.1fr] md:items-stretch md:px-0 md:py-0">
-      <img src={content.owner.image} alt="" className="catstays-owner-image h-[420px] w-full rounded-md object-cover object-[50%_60%] md:h-[520px] md:max-h-[560px]" />
+    <section id="owner" className="catstays-stack mx-auto grid max-w-[1400px] scroll-mt-28 gap-8 bg-white px-6 py-10 md:grid-cols-[0.9fr_1.1fr] md:items-center md:px-0 md:py-0">
+      <img src={content.owner.image} alt="" className="catstays-owner-image h-[360px] w-full rounded-md object-cover object-[50%_58%] sm:h-[420px] md:h-[460px] md:max-h-[500px] lg:h-[500px]" />
       <div className="flex flex-col justify-center px-8 py-14 md:px-20">
         <p className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">The people behind the care</p>
         <h2 className="text-3xl leading-[1.12] md:text-5xl">{content.owner.title}</h2>
@@ -812,7 +840,7 @@ function ContactFormSection({
       <div className="catstays-stack mx-auto grid max-w-[1400px] gap-8 md:grid-cols-[0.85fr_1.15fr]">
         <div className="rounded-md border border-[#222]/10 bg-white p-8 shadow-sm">
           <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Contact</p>
-          <h2 className="text-3xl leading-tight md:text-5xl">Send us a message</h2>
+          <h2 className="text-3xl leading-tight md:text-5xl">{content.sectionHeadings.contact}</h2>
           <p className="mt-5 text-base leading-7 text-[#444]">Ask a question, arrange a visit, or start a booking enquiry.</p>
           <div className="mt-7 space-y-4 text-sm leading-6 text-[#444]">
             {content.footer.phone ? (
@@ -947,6 +975,67 @@ function CatstaysPreviewDeviceStyles() {
     <style>{`
       [data-catstays-template-root] {
         scroll-behavior: smooth;
+        background-color: var(--catstays-bg, #F8F7F5) !important;
+        font-family: var(--catstays-body-font, Inter, Arial, sans-serif);
+      }
+
+      [data-catstays-template-root] h1,
+      [data-catstays-template-root] h2,
+      [data-catstays-template-root] h3,
+      [data-catstays-template-root] h4,
+      [data-catstays-template-root] .font-serif {
+        font-family: var(--catstays-heading-font, Georgia, serif) !important;
+      }
+
+      [data-catstays-template-root] .font-sans,
+      [data-catstays-template-root] input,
+      [data-catstays-template-root] select,
+      [data-catstays-template-root] textarea,
+      [data-catstays-template-root] button {
+        font-family: var(--catstays-body-font, Inter, Arial, sans-serif) !important;
+      }
+
+      [data-catstays-template-root] [class*="bg-[#0A1128]"],
+      [data-catstays-template-root] [class*="bg-[#1f241b]"],
+      [data-catstays-template-root] [class*="bg-[#24311c]"] {
+        background-color: var(--catstays-primary, #0A1128) !important;
+      }
+
+      [data-catstays-template-root] [class*="text-[#0A1128]"],
+      [data-catstays-template-root] [class*="text-[#1f241b]"] {
+        color: var(--catstays-primary, #0A1128) !important;
+      }
+
+      [data-catstays-template-root] [class*="border-[#0A1128]"],
+      [data-catstays-template-root] [class*="border-[#1f241b]"] {
+        border-color: var(--catstays-primary, #0A1128) !important;
+      }
+
+      [data-catstays-template-root] [class*="bg-[#A85A30]"],
+      [data-catstays-template-root] [class*="bg-[#C46A3A]"],
+      [data-catstays-template-root] [class*="bg-[#b58b4a]"] {
+        background-color: var(--catstays-accent, #C46A3A) !important;
+      }
+
+      [data-catstays-template-root] [class*="text-[#A85A30]"],
+      [data-catstays-template-root] [class*="text-[#C46A3A]"],
+      [data-catstays-template-root] [class*="text-[#F5C08A]"],
+      [data-catstays-template-root] [class*="text-[#b58b4a]"],
+      [data-catstays-template-root] [class*="text-[#8c7b63]"],
+      [data-catstays-template-root] [class*="text-[#8c5b32]"] {
+        color: var(--catstays-accent, #C46A3A) !important;
+      }
+
+      [data-catstays-template-root] [class*="border-[#A85A30]"],
+      [data-catstays-template-root] [class*="border-[#C46A3A]"],
+      [data-catstays-template-root] [class*="border-[#b58b4a]"] {
+        border-color: var(--catstays-accent, #C46A3A) !important;
+      }
+
+      [data-catstays-template-root] [class*="bg-[#f8f5ef]"],
+      [data-catstays-template-root] [class*="bg-[#f8f6f1]"],
+      [data-catstays-template-root] [class*="bg-[#f8f7f5]"] {
+        background-color: var(--catstays-bg, #F8F7F5) !important;
       }
 
       [data-catstays-template-root] .catstays-template-section-image,
