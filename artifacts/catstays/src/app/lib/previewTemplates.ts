@@ -452,6 +452,8 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const libraryReviews = libraryItems(contentLibrary, 'reviews');
   const libraryFaqs = libraryItems(contentLibrary, 'faqs');
   const libraryGalleryImages = libraryImages(contentLibrary, 'gallery');
+  const libraryRoomRecords = libraryRoomsToRooms(libraryRooms);
+  const libraryServiceRecords = libraryItemsToServices(libraryServices);
   const heroBlock = libraryBlock(contentLibrary, 'hero');
   const heroLinks = heroBlock?.links ?? [];
   const whyChooseBlock = libraryBlock(contentLibrary, 'why-choose-us');
@@ -493,10 +495,22 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     : Array.isArray(data.roomTypes)
       ? data.roomTypes
       : undefined;
-  const rooms = (editedRooms ?? (record?.rooms?.length ? record.rooms : libraryRooms.length ? libraryRoomsToRooms(libraryRooms) : [])).filter(Boolean);
+  const normalizedRooms = normalizedRecord.suitesData?.suites ?? data.suitesData?.suites ?? [];
+  const rooms = (editedRooms ?? mergeRoomsByTitle(libraryRoomRecords, record?.rooms ?? [], normalizedRooms)).filter(Boolean);
   const editedServices = Array.isArray(data.additionalServices) ? data.additionalServices : undefined;
   const normalizedServices = normalizedRecord.servicesData?.services ?? data.servicesData?.services ?? [];
-  const services = (editedServices ?? (record?.services?.length ? record.services : libraryServices.length ? libraryItemsToServices(libraryServices) : normalizedServices)).filter(Boolean);
+  const services = (editedServices ?? mergeServicesByTitle(libraryServiceRecords, record?.services ?? [], normalizedServices)).filter(Boolean);
+  const roomImageKeys = new Set(
+    rooms
+      .map((room: any) => normalizedImageKey(stringFrom(room.image)))
+      .filter(Boolean),
+  );
+  const nonRoomImage = (image: unknown) => {
+    const url = stringFrom(image);
+    return url && !roomImageKeys.has(normalizedImageKey(url)) ? url : '';
+  };
+  const nonRoomImages = (...images: unknown[]) => images.map(nonRoomImage).filter(Boolean);
+  const nonRoomFallbackImages = fallbackImages.filter((image) => !roomImageKeys.has(normalizedImageKey(image)));
   const editedTestimonials = Array.isArray(data.testimonials) ? data.testimonials : undefined;
   const testimonials = ensureReviewFallback(
     (
@@ -562,7 +576,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     icon: stringFrom(service.icon),
   }));
   const featureItems = editedHighlights
-    ? mappedHighlights.filter((feature) => feature.title || feature.text).slice(0, 4)
+    ? mappedHighlights.filter((feature) => feature.title || feature.text).slice(0, 5)
     : importedFromSource && !mappedHighlights.length && !mappedServices.length
       ? []
     : ensureFeatureCount(mappedHighlights, mappedServices);
@@ -577,7 +591,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
           icon: stringFrom(item.icon),
         })),
         featureItems,
-      ).slice(0, 4);
+      ).slice(0, 5);
   const editedFacilityItems = Array.isArray(data.facilityFeatures) ? data.facilityFeatures : undefined;
   const mappedFacilityItems = editedFacilityItems
     ? editedFacilityItems.map((item: any) => ({
@@ -661,56 +675,52 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
           ownerData.image,
           normalizedRecord.ownerData?.image,
           ...mediaImagesForCategories(mediaAssets, ['owner']),
-          data.aboutImage,
-          normalizedRecord.aboutImage,
-          normalizedRecord.aboutData?.image,
-          ...mediaImagesForCategories(mediaAssets, ['gallery', 'facilities', 'rooms']),
-          fallbackImages.find((image) => image !== heroImage),
+          ...nonRoomImages(data.aboutImage, normalizedRecord.aboutImage, normalizedRecord.aboutData?.image),
+          ...mediaImagesForCategories(mediaAssets, ['gallery', 'facilities']).filter((image) => !roomImageKeys.has(normalizedImageKey(image))),
+          ...nonRoomFallbackImages.filter((image) => image !== heroImage),
         ]
       : [
-          data.aboutImage,
-          normalizedRecord.aboutImage,
-          normalizedRecord.aboutData?.image,
-          ...mediaImagesForCategories(mediaAssets, ['gallery', 'facilities', 'rooms']),
-          fallbackImages.find((image) => image !== heroImage),
+          ...nonRoomImages(data.aboutImage, normalizedRecord.aboutImage, normalizedRecord.aboutData?.image),
+          ...mediaImagesForCategories(mediaAssets, ['gallery', 'facilities']).filter((image) => !roomImageKeys.has(normalizedImageKey(image))),
+          ...nonRoomFallbackImages.filter((image) => image !== heroImage),
         ],
-    fallbackImages,
+    [],
   );
   const whyChooseImage = whyChooseText
     ? pickUniqueImage(
         usedImages,
         [
-          whyChooseBlock?.images?.[0]?.url,
-          ...mediaImagesForCategories(mediaAssets, ['gallery', 'facilities', 'rooms']),
-          fallbackImages.find((image) => image !== heroImage && image !== aboutImage),
+          nonRoomImage(whyChooseBlock?.images?.[0]?.url),
+          ...mediaImagesForCategories(mediaAssets, ['gallery', 'facilities']).filter((image) => !roomImageKeys.has(normalizedImageKey(image))),
+          ...nonRoomFallbackImages.filter((image) => image !== heroImage && image !== aboutImage),
         ],
-        fallbackImages,
+        [],
       )
     : '';
   const facilityImage = pickUniqueImage(
     usedImages,
     [
-      data.facilitiesImage,
-      facilitiesBlock?.images?.[0]?.url,
-      normalizedRecord.facilitiesData?.facilitiesImage,
-      ...mediaImagesForCategories(mediaAssets, ['facilities', 'rooms']),
-      fallbackImages[2],
+      ...nonRoomImages(data.facilitiesImage, facilitiesBlock?.images?.[0]?.url, normalizedRecord.facilitiesData?.facilitiesImage),
+      ...mediaImagesForCategories(mediaAssets, ['facilities']).filter((image) => !roomImageKeys.has(normalizedImageKey(image))),
+      ...nonRoomFallbackImages,
     ],
-    fallbackImages,
+    [],
   );
-  const ownerImage = ownerText
-    ? pickUniqueImage(
+  const directOwnerImage = stringFrom(ownerData.image, normalizedRecord.ownerData?.image, mediaImagesForCategories(mediaAssets, ['owner'])[0]);
+  const ownerImage = ownerText && isUsableGalleryImage(directOwnerImage, logoImage) && !isTextHeavyImage(directOwnerImage, mediaAssets)
+    ? directOwnerImage
+    : ownerText
+      ? pickUniqueImage(
         usedImages,
         [
           ownerData.image,
           normalizedRecord.ownerData?.image,
           ...mediaImagesForCategories(mediaAssets, ['owner']),
-          fallbackImages[5],
-          fallbackImages[1],
         ],
-        fallbackImages,
+        [],
       )
-    : '';
+      : '';
+  rememberImage(usedImages, ownerImage);
   const virtualTourUrl = embeddableVirtualTourUrl(
     stringFrom(locationData.virtualTourUrl, normalized.virtualTourUrl, data.virtualTourUrl, data.contactData?.virtualTourUrl),
     contentLibrary.sourceHost,
@@ -733,13 +743,22 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     : importedFromSource && !rooms.length
       ? []
       : ensureSuiteCount(rooms, fallbackImages, data.pricePerNight || normalized.pricePerNight, usedImages);
-  const unusedGalleryImages = fallbackImages
-    .filter((image) => !hasSeenImage(usedImages, image))
-    .filter((image) => isUsableGalleryImage(image, logoImage) && !isTextHeavyImage(image, mediaAssets));
-  const gallerySourceImages = (unusedGalleryImages.length ? unusedGalleryImages : importedFromSource ? [] : fallbackImages)
-    .filter((image) => isUsableGalleryImage(image, logoImage) && !isTextHeavyImage(image, mediaAssets))
-    .slice(0, 16);
-  const sourceGalleryImages = record?.media.galleryImages ?? [];
+  const sourceGalleryImages = uniqueGalleryItems([
+    ...libraryGalleryImages,
+    ...(record?.media.galleryImages ?? []),
+    ...fallbackImages.map((url) => ({ url })),
+  ]).filter((item) => isUsableGalleryImage(item.url, logoImage) && !isTextHeavyImage(item.url, mediaAssets));
+  const galleryReservedKeys = new Set(
+    [heroImage, aboutImage, whyChooseImage, facilityImage, ownerImage]
+      .map((image) => normalizedImageKey(image))
+      .filter(Boolean),
+  );
+  const gallerySourceImages = uniqueStrings([
+    ...sourceGalleryImages
+      .map((image) => image.url)
+      .filter((image) => !galleryReservedKeys.has(normalizedImageKey(image))),
+    ...sourceGalleryImages.map((image) => image.url),
+  ]).slice(0, 24);
   const captionForGalleryImage = (image: string, index: number) => stringFrom(
     sourceGalleryImages.find((galleryImage) => normalizedImageKey(galleryImage.url) === normalizedImageKey(image))?.caption,
     `${businessName} photo ${index + 1}`,
@@ -751,6 +770,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       tagline: stringFrom(data.tagline, 'Luxury holiday retreat for cats'),
       location: stringFrom(data.location, normalized.location, record?.identity.location),
     },
+    contentLibrary,
     hero: {
       eyebrow: stringFrom(data.heroEyebrow, 'A home away from home'),
       heading: stringFrom(data.heroHeading, normalized.heroHeading, record?.content.heroHeading, `Welcome to ${businessName}`),
@@ -891,6 +911,97 @@ function libraryItemsToServices(items: ReturnType<typeof libraryItems>) {
   }));
 }
 
+function mergeRoomsByTitle(...sources: any[][]) {
+  const merged: any[] = [];
+  const byTitle = new Map<string, any>();
+
+  for (const source of sources) {
+    if (!Array.isArray(source)) continue;
+    for (const room of source) {
+      if (!room) continue;
+      const title = stringFrom(room.name, room.title);
+      const key = contentTitleKey(title);
+      if (!key) {
+        merged.push(room);
+        continue;
+      }
+
+      const existing = byTitle.get(key);
+      if (!existing) {
+        const copy = { ...room, name: title || stringFrom(room.name), title };
+        byTitle.set(key, copy);
+        merged.push(copy);
+        continue;
+      }
+
+      fillMissingContentFields(existing, room);
+    }
+  }
+
+  return merged;
+}
+
+function mergeServicesByTitle(...sources: any[][]) {
+  const merged: any[] = [];
+  const byTitle = new Map<string, any>();
+
+  for (const source of sources) {
+    if (!Array.isArray(source)) continue;
+    for (const service of source) {
+      if (!service) continue;
+      const title = stringFrom(service.title, service.name);
+      const key = contentTitleKey(title);
+      if (!key) {
+        merged.push(service);
+        continue;
+      }
+
+      const existing = byTitle.get(key);
+      if (!existing) {
+        const copy = { ...service, title, name: title || stringFrom(service.name) };
+        byTitle.set(key, copy);
+        merged.push(copy);
+        continue;
+      }
+
+      fillMissingContentFields(existing, service);
+    }
+  }
+
+  return merged;
+}
+
+function fillMissingContentFields(target: any, source: any) {
+  for (const field of ['name', 'title', 'price', 'priceUnit', 'image', 'icon']) {
+    if (!stringFrom(target[field]) && stringFrom(source[field])) target[field] = source[field];
+  }
+
+  const sourceText = stringFrom(source.description, source.text);
+  const targetText = stringFrom(target.description, target.text);
+  if (sourceText && sourceText.length > targetText.length) {
+    if ('description' in target || !('text' in target)) target.description = sourceText;
+    else target.text = sourceText;
+  }
+
+  const targetAmenities = Array.isArray(target.amenities) ? target.amenities : [];
+  const sourceAmenities = Array.isArray(source.amenities)
+    ? source.amenities
+    : Array.isArray(source.features)
+      ? source.features
+      : [];
+  if (!targetAmenities.length && sourceAmenities.length) target.amenities = sourceAmenities;
+
+  const targetFeatures = Array.isArray(target.features) ? target.features : [];
+  if (!targetFeatures.length && sourceAmenities.length) target.features = sourceAmenities;
+}
+
+function contentTitleKey(value: string) {
+  return normalizeCopyForDedupe(value)
+    .replace(/\b(room|rooms|suite|suites|service|services)\b/g, '')
+    .replace(/\s+/g, ' ')
+    .trim() || normalizeCopyForDedupe(value);
+}
+
 function libraryItemsToReviews(items: ReturnType<typeof libraryItems>) {
   if (!items.length) return undefined;
   return items.map((item) => ({
@@ -958,6 +1069,14 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
     return firstArray(preferImportedCollections ? [...importedSources, ...localSources] : [cleanData[key], ...importedSources, fallback[key]]);
   };
 
+  const richArrayFrom = (key: string, ...importedSources: unknown[]) => {
+    const sources = preferImportedCollections
+      ? [...importedSources, cleanData[key], fallback[key]]
+      : [cleanData[key], ...importedSources, fallback[key]];
+    const nonEmpty = sources.find((value) => Array.isArray(value) && value.length);
+    return Array.isArray(nonEmpty) ? nonEmpty : firstArray(sources);
+  };
+
   const textFrom = (key: string, ...importedSources: unknown[]) => (
     preferImportedCollections
       ? stringFrom(...importedSources, cleanData[key], fallback[key])
@@ -1010,6 +1129,21 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
   const contactBlock = block('contact');
   const locationBlock = block('location');
   const socialBlock = block('social');
+  const ownerBlockData = ownerBlock
+    ? { title: ownerBlock.title, text: ownerBlock.text, image: ownerBlock.images?.[0]?.url }
+    : {};
+  const ownerSources = preferImportedCollections
+    ? [ownerBlockData, normalized.ownerData, cleanData.ownerData, fallback.ownerData]
+    : [cleanData.ownerData, normalized.ownerData, ownerBlockData, fallback.ownerData];
+  const ownerData = ownerSources.reduce<Record<string, string>>((merged, source) => {
+    if (!source || typeof source !== 'object') return merged;
+    const sourceRecord = source as Record<string, unknown>;
+    for (const field of ['title', 'text', 'description', 'image']) {
+      if (!stringFrom(merged[field]) && stringFrom(sourceRecord[field])) merged[field] = stringFrom(sourceRecord[field]);
+    }
+    return merged;
+  }, {});
+  const resolvedOwnerData = Object.values(ownerData).some(Boolean) ? ownerData : undefined;
 
   return {
     ...cleanData,
@@ -1040,7 +1174,7 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
     galleryHeading: textFrom('galleryHeading', normalized.galleryData?.galleryHeading, normalized.galleryData?.heading, block('gallery')?.title),
     testimonialsHeading: textFrom('testimonialsHeading', normalized.testimonialsData?.testimonialsHeading, normalized.testimonialsData?.heading, block('reviews')?.title),
     faqHeading: textFrom('faqHeading', normalized.faqData?.faqHeading, normalized.faqData?.heading, block('faqs')?.title),
-    ownerData: cleanData.ownerData ?? normalized.ownerData ?? (ownerBlock ? { title: ownerBlock.title, text: ownerBlock.text, image: ownerBlock.images?.[0]?.url } : undefined),
+    ownerData: resolvedOwnerData,
     locationData: cleanData.locationData ?? normalized.locationData ?? (locationBlock ? {
       heading: locationBlock.title,
       text: locationBlock.text,
@@ -1065,28 +1199,28 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
       normalized.facilitiesData?.features,
       mapItemsToFeatures(blockItems('facilities')),
     ),
-    suites: arrayFrom(
+    suites: richArrayFrom(
       'suites',
-      normalized.suitesData?.suites,
       mapItemsToSuites(blockItems('rooms')),
+      normalized.suitesData?.suites,
       mapItemsToSuites(record?.rooms ?? []),
     ),
     roomTypes: arrayFrom('roomTypes'),
     pricingRates: arrayFrom('pricingRates'),
-    additionalServices: arrayFrom(
+    additionalServices: richArrayFrom(
       'additionalServices',
-      normalized.servicesData?.services,
       mapItemsToServices(blockItems('services')),
+      normalized.servicesData?.services,
       mapItemsToServices(record?.services ?? []),
     ),
     discounts: arrayFrom('discounts'),
     blockOutDates: arrayFrom('blockOutDates'),
-    galleryImages: arrayFrom(
+    galleryImages: richArrayFrom(
       'galleryImages',
-      mapImagesToUrls(normalized.galleryData?.galleryImages ?? []),
-      mapImagesToUrls(normalized.galleryData?.images ?? []),
       mapImagesToUrls(blockImages('gallery')),
       mapImagesToUrls(record?.media.galleryImages ?? []),
+      mapImagesToUrls(normalized.galleryData?.galleryImages ?? []),
+      mapImagesToUrls(normalized.galleryData?.images ?? []),
       record?.media.images,
     ),
     testimonials: arrayFrom(
@@ -1151,6 +1285,21 @@ function uniqueStrings(values: unknown[]): string[] {
     seen.add(text);
     result.push(text);
   }
+  return result;
+}
+
+function uniqueGalleryItems(items: Array<{ url?: string; image?: string; caption?: string }>) {
+  const seen = new Set<string>();
+  const result: Array<{ url: string; caption?: string }> = [];
+
+  for (const item of items) {
+    const url = stringFrom(item.url, item.image);
+    const key = normalizedImageKey(url);
+    if (!url || seen.has(key)) continue;
+    seen.add(key);
+    result.push({ url, caption: stringFrom(item.caption) });
+  }
+
   return result;
 }
 
@@ -1401,11 +1550,12 @@ function ensureFeatureCount(
     { title: 'Premium Care', text: 'Thoughtful daily care, comfort checks, and calm spaces.' },
     { title: 'Daily Enrichment', text: "A reassuring stay shaped around each cat's personality." },
     { title: 'Photo Updates', text: 'Owners can receive updates while their cats are away.' },
+    { title: 'Clear Routines', text: 'Consistent feeding, cleaning, and comfort checks help cats settle.' },
   ]
     .filter((feature) => feature.title || feature.text)
-    .slice(0, 4)
+    .slice(0, 5)
     .map((feature, index) => ({
-      title: feature.title || ['Fully Licensed', 'Premium Care', 'Daily Enrichment', 'Photo Updates'][index],
+      title: feature.title || ['Fully Licensed', 'Premium Care', 'Daily Enrichment', 'Photo Updates', 'Clear Routines'][index],
       text: feature.text || 'A calm, professional cattery experience.',
     }));
 }
@@ -1426,10 +1576,15 @@ function ensureSuiteCount(rooms: any[], images: string[], fallbackPrice?: string
     const priceUnit = stringFrom(room.priceUnit);
     const priceLabel = price && priceUnit ? `${price} ${priceUnit}` : price;
     const roomImage = stringFrom(room.image);
+    const hasContextualRoomImage = isUsableGalleryImage(roomImage);
+    const resolvedImage = hasContextualRoomImage
+      ? roomImage
+      : usedImages
+        ? pickUniqueImage(usedImages, [images[index + 1], images[index], images[0]], images)
+        : imageFrom(images[index + 1], images[index], images[0]);
+    if (hasContextualRoomImage && usedImages) rememberImage(usedImages, roomImage);
     return {
-      image: usedImages
-        ? pickUniqueImage(usedImages, [isUsableGalleryImage(roomImage) ? roomImage : '', images[index + 1], images[index], images[0]], images)
-        : imageFrom(isUsableGalleryImage(roomImage) ? roomImage : '', images[index + 1], images[index], images[0]),
+      image: resolvedImage,
       title,
       text: stringFrom(room.description, priceLabel ? `${fallback.description} ${priceLabel}.` : fallback.description),
       price: priceLabel,

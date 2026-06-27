@@ -72,7 +72,6 @@ function majorTemplateImageKeys(content: ReturnType<typeof buildCatstaysTemplate
       content.whyChoose.image,
       content.facilities.image,
       content.owner.image,
-      ...content.suites.map((suite) => suite.image),
     ]
       .map((image) => templateImageKey(image))
       .filter(Boolean),
@@ -193,8 +192,8 @@ function TemplateHeader({
             </a>
           ))}
         </nav>
-        <a href="#booking" onClick={onPreviewAnchorClick} className={`catstays-mobile-full shrink-0 rounded-md px-5 py-3 text-center text-xs font-bold uppercase tracking-[0.1em] ${dark ? 'bg-white text-[#0A1128]' : 'bg-[#0A1128] text-white'}`}>
-          Book Now
+        <a href="/login" className={`catstays-mobile-full shrink-0 rounded-md px-5 py-3 text-center text-xs font-bold uppercase tracking-[0.1em] ${dark ? 'bg-white text-[#0A1128]' : 'bg-[#0A1128] text-white'}`}>
+          Sign In
         </a>
       </div>
     </header>
@@ -289,7 +288,6 @@ function FocusTemplate({
         <AboutSplit content={content} imageFirst onPreviewAnchorClick={onPreviewAnchorClick} />
         <FeatureRow content={content} />
         <FacilitiesDetailSection content={content} />
-        <OwnerStorySection content={content} />
         <GalleryStrip content={content} />
         <SuitesGrid content={content} />
         <ServicesGrid content={content} />
@@ -327,10 +325,12 @@ function EditorialTemplate({
 }) {
   const hasHeroImage = Boolean(content.hero.image);
   const sections = [
-    { id: 'about', title: content.about.title, text: content.about.text, image: content.about.image, eyebrow: `About ${content.business.name}` },
-    { id: 'care', title: content.whyChoose.title, text: content.whyChoose.text, image: content.whyChoose.image || content.gallery[1]?.image, eyebrow: 'Why choose us' },
-    { id: 'facilities', title: content.facilities.title, text: content.facilities.text, image: content.facilities.image, eyebrow: 'Premium accommodation' },
-  ].filter((section) => section.id === 'care' ? Boolean(section.text) : section.text || section.image);
+    content.owner.text
+      ? { id: 'about', title: content.owner.title, text: content.owner.text, image: content.owner.image, eyebrow: 'The people behind the care' }
+      : { id: 'about', title: content.about.title, text: content.about.text, image: content.about.image, eyebrow: `About ${content.business.name}` },
+    { id: 'care', title: content.sectionHeadings.care, text: content.whyChoose.text, image: content.whyChoose.image, eyebrow: 'Care confidence' },
+    { id: 'facilities', title: content.facilities.title, text: content.facilities.text, image: content.facilities.image, eyebrow: 'Rooms and routines' },
+  ].filter((section) => section.text || section.image);
 
   return (
     <div data-catstays-template-root data-catstays-preview-device={previewDevice} className="catstays-template bg-[#f8f5ef] text-[#222]" style={templateRootStyle(content)}>
@@ -345,8 +345,8 @@ function EditorialTemplate({
             <h2 className="text-4xl leading-[1.08] md:text-6xl">{content.hero.heading}</h2>
             <div className="my-6 h-px w-14 bg-[#b58b4a]" />
             <p className="max-w-lg text-base leading-7">{content.hero.text}</p>
-            <a href="#booking" onClick={onPreviewAnchorClick} className="catstays-mobile-full mt-8 w-max rounded-md bg-[#0A1128] px-6 py-4 text-center text-xs font-bold uppercase tracking-[0.1em] text-white">
-              Book Now
+            <a href="#suites" onClick={onPreviewAnchorClick} className="catstays-mobile-full mt-8 w-max rounded-md bg-[#0A1128] px-6 py-4 text-center text-xs font-bold uppercase tracking-[0.1em] text-white">
+              View Our Rooms
             </a>
           </div>
         </section>
@@ -365,18 +365,16 @@ function EditorialTemplate({
           </section>
         ))}
 
-        <FeatureRow content={content} />
         <FacilitiesDetailSection content={content} />
-        <SuitesGrid content={content} compact />
+        <SuitesGrid content={content} />
         <ServicesGrid content={content} />
         <GalleryStrip content={content} />
         <ReviewsSection content={content} />
-        <OwnerStorySection content={content} />
         <LocationSection content={content} />
         <VirtualTourSection content={content} />
         <ContactFormSection content={content} onPreviewContactAction={onPreviewContactAction} />
       </main>
-      <TemplateFooter content={content} onPreviewAnchorClick={onPreviewAnchorClick} />
+      <TemplateFooter content={content} dark onPreviewAnchorClick={onPreviewAnchorClick} />
       <ChatWidget accentColor={content.theme.accentColor} businessName={content.business.name} knowledge={content} />
     </div>
   );
@@ -433,19 +431,18 @@ function ShowcaseTemplate({
         <SuitesGrid content={content} />
         <ServicesGrid content={content} />
         <ReviewsSection content={content} />
-        <OwnerStorySection content={content} />
         <LocationSection content={content} />
         <VirtualTourSection content={content} />
         <ContactFormSection content={content} onPreviewContactAction={onPreviewContactAction} />
       </main>
-      <TemplateFooter content={content} onPreviewAnchorClick={onPreviewAnchorClick} />
+      <TemplateFooter content={content} dark onPreviewAnchorClick={onPreviewAnchorClick} />
       <ChatWidget accentColor={content.theme.accentColor} businessName={content.business.name} knowledge={content} />
     </div>
   );
 }
 
 function FeatureRow({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
-  const features = content.whyChoose.items.slice(0, 4);
+  const features = content.whyChoose.items.slice(0, 5);
   if (!features.length && !content.whyChoose.text) return null;
 
   return (
@@ -454,11 +451,11 @@ function FeatureRow({ content }: { content: ReturnType<typeof buildCatstaysTempl
         <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Care Approach</p>
         <h2 className="mx-auto max-w-3xl text-3xl leading-tight md:text-5xl">{content.sectionHeadings.care}</h2>
         {content.whyChoose.text ? <p className="mx-auto mt-5 max-w-4xl text-base leading-7 text-[#444]">{content.whyChoose.text}</p> : null}
-        {features.length ? <div className="catstays-card-grid mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+        {features.length ? <div className="catstays-card-grid mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-5">
           {features.map((feature, index) => {
             const Icon = careIconFor(feature.icon, index);
             return (
-              <div key={feature.title} className="bg-[#f8f5ef] p-7 shadow-sm">
+              <div key={feature.title} className="min-h-[220px] bg-[#f8f5ef] p-6 shadow-sm">
                 <Icon className="mx-auto mb-5 h-7 w-7 text-[#8c7b63]" />
                 <h3 className="mb-3 text-xl">{feature.title}</h3>
                 <p className="text-sm leading-6 text-[#444]">{feature.text}</p>
@@ -549,27 +546,27 @@ function SuitesGrid({ content, compact = false }: { content: ReturnType<typeof b
     <section id="suites" className={`mx-auto max-w-[1400px] scroll-mt-28 px-6 text-center ${compact ? 'py-14' : 'py-20'}`}>
       <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Our Suites</p>
       <h2 className="text-3xl leading-tight md:text-5xl">{content.sectionHeadings.suites}</h2>
-      <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-[#444]">Spacious, serene and stylish suites designed for your cat's comfort.</p>
-      <div className="catstays-card-grid mx-auto mt-10 grid max-w-[1120px] gap-6 md:grid-cols-2 xl:grid-cols-3">
+      <p className="mx-auto mt-4 max-w-3xl text-base leading-7 text-[#444]">See the room options, space, routines, and comfort details before choosing the stay that best suits your cat.</p>
+      <div className="catstays-card-grid mx-auto mt-10 grid max-w-[1280px] gap-8 md:grid-cols-2 xl:grid-cols-3">
         {content.suites.map((suite) => (
           <article key={suite.title} className="flex overflow-hidden rounded-md border border-[#222]/10 bg-white text-left shadow-sm">
             <div className="flex w-full flex-col">
-            <TemplateImage src={suite.image} className="h-56 w-full object-cover" />
-            <div className="flex flex-1 flex-col p-5 text-center">
-              <h3 className="mb-3 text-sm font-bold uppercase tracking-[0.08em]">{suite.title}</h3>
-              {suite.price ? <p className="mb-3 text-sm font-bold text-[#8c5b32]">{suite.price}</p> : null}
-              <p className="text-sm leading-6 text-[#444]">{suite.text}</p>
-              {suite.features.length ? (
-                <ul className="mt-4 space-y-2 text-left text-xs leading-5 text-[#555]">
-                  {suite.features.slice(0, 4).map((feature) => (
-                    <li key={feature}>- {feature}</li>
-                  ))}
-                </ul>
-              ) : null}
-              <button type="button" onClick={() => setActiveSuite(suite)} className="mx-auto mt-auto rounded-md border border-[#0A1128]/20 bg-[#0A1128] px-5 py-3 text-xs font-bold uppercase tracking-[0.12em] text-white">
-                View Suite
-              </button>
-            </div>
+              <TemplateImage src={suite.image} className="h-72 w-full object-cover md:h-80" />
+              <div className="flex flex-1 flex-col p-7 text-left">
+                <h3 className="mb-3 text-base font-bold uppercase tracking-[0.08em]">{suite.title}</h3>
+                {suite.price ? <p className="mb-4 text-base font-bold text-[#8c5b32]">{suite.price}</p> : null}
+                <p className="text-sm leading-7 text-[#444]">{suite.text}</p>
+                {suite.features.length ? (
+                  <ul className="mt-5 space-y-2 text-left text-sm leading-6 text-[#555]">
+                    {suite.features.slice(0, 4).map((feature) => (
+                      <li key={feature}>- {feature}</li>
+                    ))}
+                  </ul>
+                ) : null}
+                <button type="button" onClick={() => setActiveSuite(suite)} className="mt-auto w-max rounded-md border border-[#0A1128]/20 bg-[#0A1128] px-5 py-3 text-xs font-bold uppercase tracking-[0.12em] text-white">
+                  View Suite
+                </button>
+              </div>
             </div>
           </article>
         ))}
@@ -782,11 +779,11 @@ function FacilitiesDetailSection({ content }: { content: ReturnType<typeof build
             {hasText ? <p className="mt-5 max-w-3xl text-base leading-7 text-[#444]">{content.facilities.text}</p> : null}
           </div>
         </div>
-        {hasItems ? <div className="catstays-card-grid mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+        {hasItems ? <div className="catstays-card-grid mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-5">
           {content.facilities.items.map((item, index) => {
             const Icon = facilityIcons[index % facilityIcons.length] || ShieldCheck;
             return (
-              <article key={item.title} className="rounded-md border border-[#222]/10 bg-[#f8f5ef] p-5">
+              <article key={item.title} className="min-h-[220px] rounded-md border border-[#222]/10 bg-[#f8f5ef] p-5">
                 <Icon className="mb-4 h-6 w-6 text-[#8c5b32]" />
                 <h3 className="font-serif text-xl leading-tight">{item.title}</h3>
                 <p className="mt-3 text-sm leading-6 text-[#444]">{item.text}</p>
@@ -794,23 +791,6 @@ function FacilitiesDetailSection({ content }: { content: ReturnType<typeof build
             );
           })}
         </div> : null}
-      </div>
-    </section>
-  );
-}
-
-function OwnerStorySection({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
-  if (!content.owner.text) return null;
-  const hasImage = Boolean(content.owner.image);
-
-  return (
-    <section id="owner" className={`catstays-stack mx-auto grid max-w-[1400px] scroll-mt-28 gap-8 bg-white px-6 py-10 ${hasImage ? 'md:grid-cols-[0.9fr_1.1fr] md:items-center md:px-0 md:py-0' : ''}`}>
-      {hasImage ? <TemplateImage src={content.owner.image} className="catstays-owner-image h-[360px] w-full rounded-md object-cover object-[50%_58%] sm:h-[420px] md:h-[460px] md:max-h-[500px] lg:h-[500px]" /> : null}
-      <div className="flex flex-col justify-center px-8 py-14 md:px-20">
-        <p className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">The people behind the care</p>
-        <h2 className="text-3xl leading-[1.12] md:text-5xl">{content.owner.title}</h2>
-        <div className="my-6 h-px w-14 bg-[#b58b4a]" />
-        <p className="text-base leading-8 text-[#333]">{content.owner.text}</p>
       </div>
     </section>
   );
