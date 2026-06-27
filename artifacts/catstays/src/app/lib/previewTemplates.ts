@@ -715,6 +715,35 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     stringFrom(locationData.virtualTourUrl, normalized.virtualTourUrl, data.virtualTourUrl, data.contactData?.virtualTourUrl),
     contentLibrary.sourceHost,
   );
+  const serviceItems = services.map((service: any, index: number) => {
+    const serviceImage = stringFrom(service.image);
+    return {
+      image: imageFrom(
+        isUsableGalleryImage(serviceImage, logoImage) && !isTextHeavyImage(serviceImage, mediaAssets) ? serviceImage : '',
+        fallbackImages[index + 3],
+        fallbackImages[index],
+      ),
+      title: stringFrom(service.title, service.name, `Care service ${index + 1}`),
+      text: stringFrom(service.description, service.text, 'Additional support available during the stay.'),
+      price: stringFrom(service.price),
+    };
+  });
+  const suiteItems = editedRooms && editedRooms.length === 0
+    ? []
+    : importedFromSource && !rooms.length
+      ? []
+      : ensureSuiteCount(rooms, fallbackImages, data.pricePerNight || normalized.pricePerNight, usedImages);
+  const unusedGalleryImages = fallbackImages
+    .filter((image) => !hasSeenImage(usedImages, image))
+    .filter((image) => isUsableGalleryImage(image, logoImage) && !isTextHeavyImage(image, mediaAssets));
+  const gallerySourceImages = (unusedGalleryImages.length ? unusedGalleryImages : importedFromSource ? [] : fallbackImages)
+    .filter((image) => isUsableGalleryImage(image, logoImage) && !isTextHeavyImage(image, mediaAssets))
+    .slice(0, 16);
+  const sourceGalleryImages = record?.media.galleryImages ?? [];
+  const captionForGalleryImage = (image: string, index: number) => stringFrom(
+    sourceGalleryImages.find((galleryImage) => normalizedImageKey(galleryImage.url) === normalizedImageKey(image))?.caption,
+    `${businessName} photo ${index + 1}`,
+  );
 
   return {
     business: {
@@ -763,26 +792,17 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       image: facilityImage,
       items: facilityItems.length || editedFacilityItems ? facilityItems : featureItems.slice(0, 4),
     },
-    services: services.map((service: any, index: number) => ({
-      image: pickUniqueImage(
-        usedImages,
-        [service.image, fallbackImages[index + 3], fallbackImages[index]],
-        fallbackImages,
-      ),
-      title: stringFrom(service.title, service.name, `Care service ${index + 1}`),
-      text: stringFrom(service.description, service.text, 'Additional support available during the stay.'),
-      price: stringFrom(service.price),
-    })),
+    services: serviceItems,
     about: {
       title: stringFrom(data.aboutHeading, normalized.aboutHeading, ownerStoryText ? ownerData.title : '', record?.content.aboutHeading, `About ${businessName}`),
       text: aboutText,
       image: aboutImage,
     },
-    gallery: fallbackImages.filter((image) => !hasSeenImage(usedImages, image)).slice(0, 12).map((image, index) => ({
+    gallery: gallerySourceImages.map((image, index) => ({
       image,
-      caption: stringFrom(record?.media.galleryImages?.[index]?.caption, `${businessName} photo ${index + 1}`),
+      caption: captionForGalleryImage(image, index),
     })),
-    suites: editedRooms && editedRooms.length === 0 ? [] : importedFromSource && !rooms.length ? [] : ensureSuiteCount(rooms, fallbackImages, data.pricePerNight || normalized.pricePerNight, usedImages),
+    suites: suiteItems,
     testimonials: ensureTestimonials(testimonials, businessName, fallbackImages, heroImage, data.testimonialImage, !importedFromSource),
     faqs: faqs.map((faq: any) => ({
       question: stringFrom(faq.question),

@@ -60,6 +60,32 @@ const namedCareIcons = {
   Sparkles,
 };
 
+function templateImageKey(image?: string) {
+  return (image || '').split('?')[0].trim().toLowerCase();
+}
+
+function majorTemplateImageKeys(content: ReturnType<typeof buildCatstaysTemplateContent>) {
+  return new Set(
+    [
+      content.hero.image,
+      content.about.image,
+      content.whyChoose.image,
+      content.facilities.image,
+      content.owner.image,
+      ...content.suites.map((suite) => suite.image),
+    ]
+      .map((image) => templateImageKey(image))
+      .filter(Boolean),
+  );
+}
+
+function galleryItemsAwayFromMajorImages(content: ReturnType<typeof buildCatstaysTemplateContent>, limit: number) {
+  const usedImageKeys = majorTemplateImageKeys(content);
+  return content.gallery
+    .filter((item) => item.image && !usedImageKeys.has(templateImageKey(item.image)))
+    .slice(0, limit);
+}
+
 export function CatstaysTemplateSite({
   data,
   templateId,
@@ -420,6 +446,7 @@ function ShowcaseTemplate({
 
 function FeatureRow({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
   const features = content.whyChoose.items.slice(0, 4);
+  if (!features.length && !content.whyChoose.text) return null;
 
   return (
     <section id="care" className="scroll-mt-28 bg-white px-6 py-16 text-center">
@@ -451,10 +478,7 @@ function careIconFor(icon: string | undefined, index: number) {
 
 function ShowcaseGalleryRail({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
   const railRef = useRef<HTMLDivElement | null>(null);
-  const images = content.gallery
-    .filter((item) => item.image !== content.hero.image)
-    .slice(0, 8);
-  const railImages = images.length >= 3 ? images : content.gallery.slice(0, 8);
+  const railImages = galleryItemsAwayFromMajorImages(content, 8);
   if (!railImages.length) return null;
 
   const scrollRail = (direction: -1 | 1) => {
@@ -498,6 +522,8 @@ function AboutSplit({
   onPreviewAnchorClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
 }) {
   const hasImage = Boolean(content.about.image);
+  const hasText = Boolean(content.about.text);
+  if (!hasImage && !hasText) return null;
 
   return (
     <section id="about" className={`catstays-stack mx-auto grid max-w-[1400px] scroll-mt-28 ${hasImage ? 'md:grid-cols-2' : ''}`}>
@@ -506,10 +532,10 @@ function AboutSplit({
         <p className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-[#8c7b63]">About {content.business.name}</p>
         <h2 className="text-3xl leading-[1.12] md:text-5xl">{content.about.title}</h2>
         <div className="my-6 h-px w-14 bg-[#b58b4a]" />
-        <p className="text-base leading-7 text-[#333]">{content.about.text}</p>
-        <a href="#contact" onClick={onPreviewAnchorClick} className="catstays-mobile-full mt-8 w-max rounded-md bg-[#0A1128] px-6 py-4 text-center text-xs font-bold uppercase tracking-[0.1em] text-white">
+        {hasText ? <p className="text-base leading-7 text-[#333]">{content.about.text}</p> : null}
+        {hasText ? <a href="#contact" onClick={onPreviewAnchorClick} className="catstays-mobile-full mt-8 w-max rounded-md bg-[#0A1128] px-6 py-4 text-center text-xs font-bold uppercase tracking-[0.1em] text-white">
           More About Us
-        </a>
+        </a> : null}
       </div>
     </section>
   );
@@ -517,6 +543,7 @@ function AboutSplit({
 
 function SuitesGrid({ content, compact = false }: { content: ReturnType<typeof buildCatstaysTemplateContent>; compact?: boolean }) {
   const [activeSuite, setActiveSuite] = useState<(ReturnType<typeof buildCatstaysTemplateContent>['suites'][number]) | null>(null);
+  if (!content.suites.length) return null;
 
   return (
     <section id="suites" className={`mx-auto max-w-[1400px] scroll-mt-28 px-6 text-center ${compact ? 'py-14' : 'py-20'}`}>
@@ -620,7 +647,7 @@ function ConversionBanner({
 
 function GalleryStrip({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
   const railRef = useRef<HTMLDivElement | null>(null);
-  const images = content.gallery.slice(0, 16);
+  const images = galleryItemsAwayFromMajorImages(content, 16);
   if (!images.length) return null;
 
   const scrollRail = (direction: -1 | 1) => {
@@ -739,8 +766,10 @@ function ReviewsSection({ content }: { content: ReturnType<typeof buildCatstaysT
 }
 
 function FacilitiesDetailSection({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
-  if (!content.facilities.items.length) return null;
   const hasImage = Boolean(content.facilities.image);
+  const hasText = Boolean(content.facilities.text);
+  const hasItems = Boolean(content.facilities.items.length);
+  if (!hasImage && !hasText && !hasItems) return null;
 
   return (
     <section id="facilities" className="scroll-mt-28 bg-white px-6 py-16">
@@ -750,10 +779,10 @@ function FacilitiesDetailSection({ content }: { content: ReturnType<typeof build
           <div>
             <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Facilities</p>
             <h2 className="text-3xl leading-tight md:text-5xl">{content.facilities.title}</h2>
-            <p className="mt-5 max-w-3xl text-base leading-7 text-[#444]">{content.facilities.text}</p>
+            {hasText ? <p className="mt-5 max-w-3xl text-base leading-7 text-[#444]">{content.facilities.text}</p> : null}
           </div>
         </div>
-        <div className="catstays-card-grid mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+        {hasItems ? <div className="catstays-card-grid mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
           {content.facilities.items.map((item, index) => {
             const Icon = facilityIcons[index % facilityIcons.length] || ShieldCheck;
             return (
@@ -764,7 +793,7 @@ function FacilitiesDetailSection({ content }: { content: ReturnType<typeof build
               </article>
             );
           })}
-        </div>
+        </div> : null}
       </div>
     </section>
   );
