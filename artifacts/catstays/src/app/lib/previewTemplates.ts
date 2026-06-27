@@ -1,6 +1,8 @@
 import {
   buildPreviewDataFromScrape,
   fallbackDeloraineScrape,
+  type CatteryMediaAsset,
+  type CatteryMediaCategory,
   type CatterySiteContentLibrary,
   type DelorainePreviewData,
   type ImportedCatteryScrape,
@@ -43,6 +45,7 @@ export interface PreviewImportRecord {
     heroImage?: string;
     logoImage?: string;
     images: string[];
+    mediaAssets?: CatteryMediaAsset[];
     galleryImages: NonNullable<ImportedCatteryScrape['galleryImages']>;
   };
   content: {
@@ -282,6 +285,7 @@ export function buildPreviewImportRecord(scrape: ImportedCatteryScrape): Preview
       heroImage: normalizedPreviewData.heroImage,
       logoImage: scrape.logoImage,
       images: scrape.images ?? [],
+      mediaAssets: scrape.mediaAssets ?? normalizedPreviewData.mediaAssets ?? scrape.siteContentLibrary?.mediaAssets ?? [],
       galleryImages: scrape.galleryImages ?? [],
     },
     content: {
@@ -426,6 +430,13 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     normalized.siteContentLibrary ??
     data.siteContentLibrary ??
     emptyContentLibrary(stringFrom(record?.source.url, data.sourceUrl, normalized.sourceUrl), stringFrom(record?.source.host, data.sourceHost, normalized.sourceHost), businessName);
+  const mediaAssets = normaliseMediaAssets(
+    record?.media.mediaAssets,
+    normalizedRecord.mediaAssets,
+    data.mediaAssets,
+    contentLibrary.mediaAssets,
+  );
+  const importedHasMedia = Boolean(mediaAssets.length && (record?.source.url || data.sourceUrl || data.importSourceUrl));
   const libraryRooms = libraryItems(contentLibrary, 'rooms');
   const libraryServices = libraryItems(contentLibrary, 'services');
   const libraryReviews = libraryItems(contentLibrary, 'reviews');
@@ -438,16 +449,21 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const dailyCareBlock = libraryBlock(contentLibrary, 'daily-care');
   const locationBlock = libraryBlock(contentLibrary, 'location');
   const logoImage = stringFrom(data.logoImage, normalizedRecord.logoImage, record?.media.logoImage);
-  const heroImage = imageFrom(
-    data.heroImage,
-    normalized.heroImage,
-    record?.media.heroImage,
-    record?.media.images?.[0],
-    record?.media.galleryImages?.[0]?.url,
+  const genericHeroFallback = imageFrom(
+    record?.media.images?.find((image) => !isTextHeavyImage(image, mediaAssets)),
+    record?.media.galleryImages?.find((image) => !isTextHeavyImage(image.url, mediaAssets))?.url,
   );
+  const heroImage =
+    firstSafeImage([data.heroImage, normalized.heroImage, record?.media.heroImage], mediaAssets) ||
+    mediaImageForCategories(mediaAssets, ['hero', 'facilities', 'gallery']) ||
+    (importedHasMedia ? '' : genericHeroFallback);
   const editedGalleryImages = Array.isArray(data.galleryImages) ? data.galleryImages : undefined;
+  const taggedGalleryImages = mediaAssets
+    .filter((asset) => isPreviewSafeMedia(asset))
+    .map((asset) => asset.url);
   const galleryImages = uniqueStrings([
     ...(editedGalleryImages ?? [
+      ...taggedGalleryImages,
       ...(record?.media.images ?? []),
       ...(record?.media.galleryImages ?? []).map((image) => image.url),
       ...libraryGalleryImages.map((image) => image.url),
@@ -456,8 +472,8 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     data.aboutImage,
     data.ownerData?.image,
     heroImage,
-  ]).filter((image) => isUsableGalleryImage(image, logoImage));
-  const fallbackImages = ensureImageCount(galleryImages, heroImage);
+  ]).filter((image) => isUsableGalleryImage(image, logoImage) && !isTextHeavyImage(image, mediaAssets));
+  const fallbackImages = ensureImageCount(galleryImages, heroImage, !importedHasMedia);
   const usedImages = new Set<string>();
   rememberImage(usedImages, heroImage);
   const editedHighlights = Array.isArray(data.whyChooseUsFeatures) ? data.whyChooseUsFeatures : undefined;
@@ -561,6 +577,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       data.aboutImage,
       normalizedRecord.aboutImage,
       normalizedRecord.aboutData?.image,
+      mediaImageForCategories(mediaAssets, ['gallery', 'facilities', 'rooms']),
       fallbackImages.find((image) => image !== heroImage),
     ],
     fallbackImages,
@@ -571,6 +588,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       data.facilitiesImage,
       facilitiesBlock?.images?.[0]?.url,
       normalizedRecord.facilitiesData?.facilitiesImage,
+      mediaImageForCategories(mediaAssets, ['facilities', 'rooms']),
       fallbackImages[2],
     ],
     fallbackImages,
@@ -580,6 +598,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     [
       ownerData.image,
       normalizedRecord.ownerData?.image,
+      mediaImageForCategories(mediaAssets, ['owner']),
       fallbackImages[5],
       fallbackImages[1],
     ],
@@ -1003,22 +1022,84 @@ function uniqueStrings(values: unknown[]): string[] {
   return result;
 }
 
+function normaliseMediaAssets(...sources: unknown[]): CatteryMediaAsset[] {
+  const seen = new Set<string>();
+  const assets: CatteryMediaAsset[] = [];
+  for (const source of sources) {
+    if (!Array.isArray(source)) continue;
+    for (const item of source) {
+      if (!item || typeof item !== 'object') continue;
+      const asset = item as CatteryMediaAsset;
+      const url = stringFrom(asset.url);
+      if (!/^https?:\/\//i.test(url)) continue;
+      const key = normalizedImageKey(url);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      assets.push({
+        ...asset,
+        url,
+        tags: Array.isArray(asset.tags) ? asset.tags.map((tag) => stringFrom(tag)).filter(Boolean) : [],
+      });
+    }
+  }
+  return assets;
+}
+
+function isPreviewSafeMedia(asset: CatteryMediaAsset): boolean {
+  if (!asset.url) return false;
+  if (asset.isLogo || asset.isDecorative || asset.containsText) return false;
+  return !isLikelyTextHeavyImage(asset.url);
+}
+
+function mediaImageForCategories(mediaAssets: CatteryMediaAsset[], categories: CatteryMediaCategory[]): string {
+  return mediaAssets
+    .filter((asset) => categories.includes((asset.category ?? 'unknown') as CatteryMediaCategory))
+    .filter((asset) => isPreviewSafeMedia(asset))
+    .sort((left, right) => (right.score ?? 0) - (left.score ?? 0))[0]?.url || '';
+}
+
+function firstSafeImage(images: unknown[], mediaAssets: CatteryMediaAsset[]): string {
+  return uniqueStrings(images).find((image) => !isTextHeavyImage(image, mediaAssets) && isUsableGalleryImage(image)) || '';
+}
+
+function isTextHeavyImage(image: string, mediaAssets: CatteryMediaAsset[]): boolean {
+  const key = normalizedImageKey(image);
+  const asset = mediaAssets.find((candidate) => normalizedImageKey(candidate.url) === key);
+  return Boolean(asset?.containsText || asset?.isLogo || asset?.isDecorative || isLikelyTextHeavyImage(image));
+}
+
+function isLikelyTextHeavyImage(image: string): boolean {
+  const decoded = safeDecode(image).toLowerCase();
+  return /\b(text|copy|typography|words|poster|flyer|brochure|menu|pricing|prices|rates|sign|banner|header|social|share|og-image|open-graph|facebook|instagram|screenshot|screen|card|quote|review-graphic|testimonial-graphic|business-card)\b/i.test(decoded);
+}
+
+function safeDecode(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 function isUsableGalleryImage(image: string, logoImage?: string): boolean {
   const normalized = image.split('?')[0].toLowerCase();
   const logoKey = logoImage?.split('?')[0].toLowerCase();
   if (!normalized) return false;
   if (logoKey && normalized === logoKey) return false;
-  const decoded = decodeURIComponent(normalized);
-  return !/logo|favicon|apple-touch-icon|icon|avatar|profile|placeholder|silhouette|black.?cat|catstays|\/cat(?:[-_][a-z0-9]+)?\.png$/i.test(decoded);
+  const decoded = safeDecode(normalized);
+  if (isLikelyTextHeavyImage(decoded)) return false;
+  return !/logo|favicon|apple-touch-icon|icon|placeholder|silhouette|black.?cat|catstays|\/cat(?:[-_][a-z0-9]+)?\.png$/i.test(decoded);
 }
 
-function ensureImageCount(images: string[], heroImage: string): string[] {
-  const fallback = [
-    heroImage,
-    'https://images.unsplash.com/photo-1543852786-1cf6624b9987?w=1200&h=900&fit=crop',
-    'https://images.unsplash.com/photo-1573865526739-10c1de0e0ef2?w=1200&h=900&fit=crop',
-    'https://images.unsplash.com/photo-1518791841217-8f162f1e1131?w=1200&h=900&fit=crop',
-  ];
+function ensureImageCount(images: string[], heroImage: string, allowGenericFallback = true): string[] {
+  const fallback = allowGenericFallback
+    ? [
+        heroImage,
+        'https://images.unsplash.com/photo-1543852786-1cf6624b9987?w=1200&h=900&fit=crop',
+        'https://images.unsplash.com/photo-1573865526739-10c1de0e0ef2?w=1200&h=900&fit=crop',
+        'https://images.unsplash.com/photo-1518791841217-8f162f1e1131?w=1200&h=900&fit=crop',
+      ]
+    : [heroImage];
   return uniqueStrings([...images, ...fallback]);
 }
 
@@ -1045,6 +1126,7 @@ function pickUniqueImage(usedImages: Set<string>, preferred: unknown[], fallback
 
   for (const image of fallbackImages) {
     if (!image || hasSeenImage(usedImages, image)) continue;
+    if (!isUsableGalleryImage(image)) continue;
     rememberImage(usedImages, image);
     return image;
   }
