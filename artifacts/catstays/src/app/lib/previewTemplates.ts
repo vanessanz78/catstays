@@ -1,6 +1,7 @@
 import {
   buildPreviewDataFromScrape,
   fallbackDeloraineScrape,
+  type CatteryContentSnippet,
   type CatteryMediaAsset,
   type CatteryMediaCategory,
   type CatterySiteContentLibrary,
@@ -62,6 +63,7 @@ export interface PreviewImportRecord {
   services: NonNullable<ImportedCatteryScrape['services']>;
   faqs: NonNullable<ImportedCatteryScrape['faqs']>;
   contentLibrary: CatterySiteContentLibrary;
+  contentSnippets?: CatteryContentSnippet[];
   normalizedPreviewData: DelorainePreviewData;
 }
 
@@ -302,6 +304,7 @@ export function buildPreviewImportRecord(scrape: ImportedCatteryScrape): Preview
     services: scrape.services ?? [],
     faqs: scrape.faqs ?? [],
     contentLibrary: normalizedPreviewData.siteContentLibrary ?? emptyContentLibrary(sourceUrl, sourceHost, businessName),
+    contentSnippets: scrape.contentSnippets ?? normalizedPreviewData.contentSnippets ?? scrape.siteContentLibrary?.contentSnippets ?? [],
     normalizedPreviewData,
   };
 }
@@ -436,7 +439,13 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     data.mediaAssets,
     contentLibrary.mediaAssets,
   );
-  const importedHasMedia = Boolean(mediaAssets.length && (record?.source.url || data.sourceUrl || data.importSourceUrl));
+  const contentSnippets = normaliseContentSnippets(
+    record?.contentSnippets,
+    normalizedRecord.contentSnippets,
+    data.contentSnippets,
+    contentLibrary.contentSnippets,
+  );
+  const importedFromSource = Boolean(record?.source.url || data.sourceUrl || data.importSourceUrl);
   const libraryRooms = libraryItems(contentLibrary, 'rooms');
   const libraryServices = libraryItems(contentLibrary, 'services');
   const libraryReviews = libraryItems(contentLibrary, 'reviews');
@@ -456,7 +465,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const heroImage =
     firstSafeImage([data.heroImage, normalized.heroImage, record?.media.heroImage], mediaAssets) ||
     mediaImageForCategories(mediaAssets, ['hero', 'facilities', 'gallery']) ||
-    (importedHasMedia ? '' : genericHeroFallback);
+    (importedFromSource ? '' : genericHeroFallback);
   const editedGalleryImages = Array.isArray(data.galleryImages) ? data.galleryImages : undefined;
   const taggedGalleryImages = mediaAssets
     .filter((asset) => isPreviewSafeMedia(asset))
@@ -473,7 +482,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     data.ownerData?.image,
     heroImage,
   ]).filter((image) => isUsableGalleryImage(image, logoImage) && !isTextHeavyImage(image, mediaAssets));
-  const fallbackImages = ensureImageCount(galleryImages, heroImage, !importedHasMedia);
+  const fallbackImages = ensureImageCount(galleryImages, heroImage, !importedFromSource);
   const usedImages = new Set<string>();
   rememberImage(usedImages, heroImage);
   const editedHighlights = Array.isArray(data.whyChooseUsFeatures) ? data.whyChooseUsFeatures : undefined;
@@ -516,11 +525,13 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     record?.normalizedPreviewData?.hours,
     'By appointment',
   );
+  const sourceAboutText = snippetTextFor(contentSnippets, ['owner-story', 'facilities', 'general']);
   const primaryDescription = stringFrom(
     data.aboutText,
     normalized.aboutText,
     record?.content.aboutText,
     record?.content.description,
+    sourceAboutText,
     'A calm, caring cat boarding experience designed around comfort, routine, and reassurance.',
   );
   const mappedHighlights = highlights.map((feature: any) => ({
@@ -535,9 +546,13 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   }));
   const featureItems = editedHighlights
     ? mappedHighlights.filter((feature) => feature.title || feature.text).slice(0, 4)
+    : importedFromSource && !mappedHighlights.length && !mappedServices.length
+      ? []
     : ensureFeatureCount(mappedHighlights, mappedServices);
   const whyChooseItems = editedHighlights
     ? featureItems
+    : importedFromSource && !(whyChooseBlock?.items?.length) && !featureItems.length
+      ? []
     : ensureFeatureCount(
         (whyChooseBlock?.items?.length ? whyChooseBlock.items : featureItems).map((item: any) => ({
           title: stringFrom(item.title, item.name),
@@ -651,7 +666,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     },
     facilities: {
       title: stringFrom(data.facilitiesHeading, facilitiesBlock?.title, 'Our Facilities'),
-      text: stringFrom(data.facilitiesText, facilitiesBlock?.text, 'Comfortable, secure spaces designed around daily cat care, quiet routines, and peace of mind.'),
+      text: stringFrom(data.facilitiesText, facilitiesBlock?.text, snippetTextFor(contentSnippets, ['facilities', 'rooms']), 'Comfortable, secure spaces designed around daily cat care, quiet routines, and peace of mind.'),
       image: facilityImage,
       items: facilityItems.length || editedFacilityItems ? facilityItems : featureItems.slice(0, 4),
     },
@@ -674,8 +689,8 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       image,
       caption: stringFrom(record?.media.galleryImages?.[index]?.caption, `${businessName} photo ${index + 1}`),
     })),
-    suites: editedRooms && editedRooms.length === 0 ? [] : ensureSuiteCount(rooms, fallbackImages, data.pricePerNight || normalized.pricePerNight, usedImages),
-    testimonials: ensureTestimonials(testimonials, businessName, fallbackImages, heroImage, data.testimonialImage),
+    suites: editedRooms && editedRooms.length === 0 ? [] : importedFromSource && !rooms.length ? [] : ensureSuiteCount(rooms, fallbackImages, data.pricePerNight || normalized.pricePerNight, usedImages),
+    testimonials: ensureTestimonials(testimonials, businessName, fallbackImages, heroImage, data.testimonialImage, !importedFromSource),
     faqs: faqs.map((faq: any) => ({
       question: stringFrom(faq.question),
       answer: stringFrom(faq.answer),
@@ -727,6 +742,8 @@ function emptyContentLibrary(sourceUrl: string, sourceHost: string, businessName
     sourceHost,
     businessName,
     blocks: [],
+    mediaAssets: [],
+    contentSnippets: [],
   };
 }
 
@@ -1045,6 +1062,39 @@ function normaliseMediaAssets(...sources: unknown[]): CatteryMediaAsset[] {
   return assets;
 }
 
+function normaliseContentSnippets(...sources: unknown[]): CatteryContentSnippet[] {
+  const seen = new Set<string>();
+  const snippets: CatteryContentSnippet[] = [];
+  for (const source of sources) {
+    if (!Array.isArray(source)) continue;
+    for (const item of source) {
+      if (!item || typeof item !== 'object') continue;
+      const snippet = item as Partial<CatteryContentSnippet>;
+      const text = stringFrom(snippet.text);
+      if (!text) continue;
+      const key = `${stringFrom(snippet.category)}:${text.toLowerCase().slice(0, 160)}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      snippets.push({
+        sourceUrl: stringFrom(snippet.sourceUrl),
+        sourcePageTitle: stringFrom(snippet.sourcePageTitle),
+        heading: stringFrom(snippet.heading),
+        category: stringFrom(snippet.category) || 'general',
+        tags: Array.isArray(snippet.tags) ? snippet.tags.map((tag) => stringFrom(tag)).filter(Boolean) : [],
+        title: stringFrom(snippet.title, snippet.heading, snippet.sourcePageTitle, 'Imported content'),
+        text,
+      });
+    }
+  }
+  return snippets;
+}
+
+function snippetTextFor(snippets: CatteryContentSnippet[], categories: string[]): string {
+  return snippets
+    .find((snippet) => categories.includes(snippet.category) && snippet.text)
+    ?.text || '';
+}
+
 function isPreviewSafeMedia(asset: CatteryMediaAsset): boolean {
   if (!asset.url) return false;
   if (asset.isLogo || asset.isDecorative || asset.containsText) return false;
@@ -1194,6 +1244,7 @@ function ensureTestimonials(
   images: string[],
   heroImage: string,
   testimonialImage?: unknown,
+  allowFallback = true,
 ) {
   const mapped = testimonials
     .map((testimonial: any, index: number) => ({
@@ -1206,14 +1257,14 @@ function ensureTestimonials(
 
   if (mapped.length) return mapped.slice(0, 10);
 
-  return [
+  return allowFallback ? [
     {
       quote: "I built this because I needed it, and now I wouldn't run my cattery without it.",
       author: 'Vanessa',
       image: imageFrom(testimonialImage, images[3], heroImage),
       location: businessName,
     },
-  ];
+  ] : [];
 }
 
 function hostFromUrl(rawUrl: string) {

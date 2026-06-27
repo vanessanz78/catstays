@@ -177,7 +177,7 @@ function TemplateHeader({
 
 function TemplateImage({ src, className }: { src?: string; className: string }) {
   if (!src) {
-    return <div className={`${className} bg-[#efe8dd]`} aria-hidden="true" />;
+    return null;
   }
 
   return <img src={src} alt="" className={className} />;
@@ -204,13 +204,15 @@ function FocusTemplate({
   previewNoticeKind: PreviewNoticeKind | null;
   onDismissPreviewNotice: () => void;
 }) {
+  const hasHeroImage = Boolean(content.hero.image);
+
   return (
     <div data-catstays-template-root data-catstays-preview-device={previewDevice} className="catstays-template bg-[#f8f5ef] text-[#222]" style={templateRootStyle(content)}>
       <CatstaysPreviewDeviceStyles />
       <TemplateHeader content={content} onPreviewAnchorClick={onPreviewAnchorClick} />
       <PreviewBookingNotice kind={previewNoticeKind} onDismiss={onDismissPreviewNotice} />
       <main>
-        <section id="home" className="catstays-stack mx-auto grid max-w-[1400px] scroll-mt-28 md:grid-cols-2">
+        <section id="home" className={`catstays-stack mx-auto grid max-w-[1400px] scroll-mt-28 ${hasHeroImage ? 'md:grid-cols-2' : ''}`}>
           <div className="flex flex-col justify-center px-6 py-14 sm:px-10 md:py-20">
             <p className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-[#8c7b63]">{content.hero.eyebrow}</p>
             <h2 className="max-w-xl text-4xl leading-[1.05] sm:text-5xl lg:text-6xl">{content.hero.heading}</h2>
@@ -225,7 +227,7 @@ function FocusTemplate({
               </a>
             </div>
           </div>
-          <TemplateImage src={content.hero.image} className="catstays-template-section-image h-[420px] w-full object-cover md:h-[620px]" />
+          {hasHeroImage ? <TemplateImage src={content.hero.image} className="catstays-template-section-image h-[420px] w-full object-cover md:h-[620px]" /> : null}
         </section>
 
         <section id="booking" className="relative z-10 mx-auto w-full max-w-[1400px] scroll-mt-28 px-6 md:-mt-16">
@@ -297,6 +299,7 @@ function EditorialTemplate({
   previewNoticeKind: PreviewNoticeKind | null;
   onDismissPreviewNotice: () => void;
 }) {
+  const hasHeroImage = Boolean(content.hero.image);
   const sections = [
     { id: 'about', title: content.about.title, text: content.about.text, image: content.about.image, eyebrow: `About ${content.business.name}` },
     { id: 'care', title: content.whyChoose.title, text: content.whyChoose.text, image: content.gallery[1]?.image || content.hero.image, eyebrow: 'Why choose us' },
@@ -309,8 +312,8 @@ function EditorialTemplate({
       <TemplateHeader content={content} onPreviewAnchorClick={onPreviewAnchorClick} />
       <PreviewBookingNotice kind={previewNoticeKind} onDismiss={onDismissPreviewNotice} />
       <main>
-        <section id="home" className="catstays-stack mx-auto grid max-w-[1400px] scroll-mt-28 md:grid-cols-2">
-          <TemplateImage src={content.hero.image} className="catstays-template-section-image h-[420px] w-full object-cover md:h-[560px]" />
+        <section id="home" className={`catstays-stack mx-auto grid max-w-[1400px] scroll-mt-28 ${hasHeroImage ? 'md:grid-cols-2' : ''}`}>
+          {hasHeroImage ? <TemplateImage src={content.hero.image} className="catstays-template-section-image h-[420px] w-full object-cover md:h-[560px]" /> : null}
           <div className="flex flex-col justify-center bg-white px-8 py-14 md:px-20">
             <p className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">{content.hero.eyebrow}</p>
             <h2 className="text-4xl leading-[1.08] md:text-6xl">{content.hero.heading}</h2>
@@ -374,15 +377,17 @@ function ShowcaseTemplate({
   previewNoticeKind: PreviewNoticeKind | null;
   onDismissPreviewNotice: () => void;
 }) {
+  const hasHeroImage = Boolean(content.hero.image);
+
   return (
     <div data-catstays-template-root data-catstays-preview-device={previewDevice} className="catstays-template bg-[#f8f6f1] text-[#222]" style={templateRootStyle(content)}>
       <CatstaysPreviewDeviceStyles />
       <TemplateHeader content={content} dark onPreviewAnchorClick={onPreviewAnchorClick} />
       <PreviewBookingNotice kind={previewNoticeKind} onDismiss={onDismissPreviewNotice} />
       <main>
-        <section id="home" className="relative min-h-[620px] scroll-mt-28 overflow-hidden">
-          <TemplateImage src={content.hero.image} className="absolute inset-0 h-full w-full object-cover" />
-          <div className="absolute inset-0 bg-black/45" />
+        <section id="home" className={`relative min-h-[620px] scroll-mt-28 overflow-hidden ${hasHeroImage ? '' : 'bg-[#0A1128]'}`}>
+          {hasHeroImage ? <TemplateImage src={content.hero.image} className="absolute inset-0 h-full w-full object-cover" /> : null}
+          {hasHeroImage ? <div className="absolute inset-0 bg-black/45" /> : null}
           <div className="relative mx-auto flex min-h-[620px] max-w-[1400px] flex-col justify-end px-6 pb-16 text-white md:pb-24">
             <p className="mb-5 text-xs font-bold uppercase tracking-[0.24em] text-white/75">{content.hero.eyebrow}</p>
             <h2 className="max-w-4xl text-5xl leading-[1.02] md:text-7xl">{content.hero.heading}</h2>
@@ -450,6 +455,7 @@ function ShowcaseGalleryRail({ content }: { content: ReturnType<typeof buildCats
     .filter((item) => item.image !== content.hero.image)
     .slice(0, 8);
   const railImages = images.length >= 3 ? images : content.gallery.slice(0, 8);
+  if (!railImages.length) return null;
 
   const scrollRail = (direction: -1 | 1) => {
     railRef.current?.scrollBy({ left: direction * 420, behavior: 'smooth' });
@@ -491,9 +497,11 @@ function AboutSplit({
   imageFirst?: boolean;
   onPreviewAnchorClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
 }) {
+  const hasImage = Boolean(content.about.image);
+
   return (
-    <section id="about" className="catstays-stack mx-auto grid max-w-[1400px] scroll-mt-28 md:grid-cols-2">
-      <TemplateImage src={content.about.image} className={`catstays-template-section-image h-[460px] w-full object-cover ${imageFirst ? '' : 'md:order-2'}`} />
+    <section id="about" className={`catstays-stack mx-auto grid max-w-[1400px] scroll-mt-28 ${hasImage ? 'md:grid-cols-2' : ''}`}>
+      {hasImage ? <TemplateImage src={content.about.image} className={`catstays-template-section-image h-[460px] w-full object-cover ${imageFirst ? '' : 'md:order-2'}`} /> : null}
       <div className="flex flex-col justify-center bg-white px-8 py-14 md:px-20">
         <p className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-[#8c7b63]">About {content.business.name}</p>
         <h2 className="text-3xl leading-[1.12] md:text-5xl">{content.about.title}</h2>
@@ -732,12 +740,13 @@ function ReviewsSection({ content }: { content: ReturnType<typeof buildCatstaysT
 
 function FacilitiesDetailSection({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
   if (!content.facilities.items.length) return null;
+  const hasImage = Boolean(content.facilities.image);
 
   return (
     <section id="facilities" className="scroll-mt-28 bg-white px-6 py-16">
       <div className="catstays-stack mx-auto max-w-[1400px]">
-        <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-          <TemplateImage src={content.facilities.image} className="catstays-template-section-image h-[420px] w-full rounded-md object-cover shadow-sm md:h-[500px]" />
+        <div className={`grid gap-10 ${hasImage ? 'lg:grid-cols-[0.9fr_1.1fr] lg:items-center' : ''}`}>
+          {hasImage ? <TemplateImage src={content.facilities.image} className="catstays-template-section-image h-[420px] w-full rounded-md object-cover shadow-sm md:h-[500px]" /> : null}
           <div>
             <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Facilities</p>
             <h2 className="text-3xl leading-tight md:text-5xl">{content.facilities.title}</h2>
@@ -763,10 +772,11 @@ function FacilitiesDetailSection({ content }: { content: ReturnType<typeof build
 
 function OwnerStorySection({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
   if (!content.owner.text) return null;
+  const hasImage = Boolean(content.owner.image);
 
   return (
-    <section id="owner" className="catstays-stack mx-auto grid max-w-[1400px] scroll-mt-28 gap-8 bg-white px-6 py-10 md:grid-cols-[0.9fr_1.1fr] md:items-center md:px-0 md:py-0">
-      <TemplateImage src={content.owner.image} className="catstays-owner-image h-[360px] w-full rounded-md object-cover object-[50%_58%] sm:h-[420px] md:h-[460px] md:max-h-[500px] lg:h-[500px]" />
+    <section id="owner" className={`catstays-stack mx-auto grid max-w-[1400px] scroll-mt-28 gap-8 bg-white px-6 py-10 ${hasImage ? 'md:grid-cols-[0.9fr_1.1fr] md:items-center md:px-0 md:py-0' : ''}`}>
+      {hasImage ? <TemplateImage src={content.owner.image} className="catstays-owner-image h-[360px] w-full rounded-md object-cover object-[50%_58%] sm:h-[420px] md:h-[460px] md:max-h-[500px] lg:h-[500px]" /> : null}
       <div className="flex flex-col justify-center px-8 py-14 md:px-20">
         <p className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">The people behind the care</p>
         <h2 className="text-3xl leading-[1.12] md:text-5xl">{content.owner.title}</h2>

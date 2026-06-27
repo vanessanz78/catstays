@@ -88,6 +88,16 @@ export interface CatteryMediaAsset {
   score?: number;
 }
 
+export interface CatteryContentSnippet {
+  sourceUrl: string;
+  sourcePageTitle?: string;
+  heading?: string;
+  category: string;
+  tags: string[];
+  title: string;
+  text: string;
+}
+
 export interface CatterySiteContentBlock {
   id: string;
   category: CatterySiteContentCategory;
@@ -107,6 +117,7 @@ export interface CatterySiteContentLibrary {
   capturedAt?: string;
   blocks: CatterySiteContentBlock[];
   mediaAssets?: CatteryMediaAsset[];
+  contentSnippets?: CatteryContentSnippet[];
 }
 
 export interface ImportedCatteryScrape {
@@ -119,6 +130,7 @@ export interface ImportedCatteryScrape {
   logoImage?: string;
   images?: string[];
   mediaAssets?: CatteryMediaAsset[];
+  contentSnippets?: CatteryContentSnippet[];
   galleryImages?: Array<{ url: string; caption?: string }>;
   phone?: string;
   email?: string;
@@ -197,6 +209,7 @@ export interface DelorainePreviewData {
   selectedTemplate?: string | null;
   heroImage?: string;
   mediaAssets?: CatteryMediaAsset[];
+  contentSnippets?: CatteryContentSnippet[];
   ctaText?: string;
   headingFont?: string;
   subheadingFont?: string;
@@ -921,6 +934,11 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
     scrape.siteContentLibrary?.mediaAssets,
     Array.isArray(settings.mediaLibrary) ? settings.mediaLibrary : undefined,
   );
+  const contentSnippets = normaliseContentSnippets(
+    scrape.contentSnippets,
+    scrape.siteContentLibrary?.contentSnippets,
+    Array.isArray(settings.contentSnippets) ? settings.contentSnippets : undefined,
+  );
   const mediaImageUrls = mediaAssets
     .filter((asset) => isPreviewSafeMedia(asset))
     .map((asset) => asset.url);
@@ -929,11 +947,12 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
     scrape.heroImage,
     ...(scrape.images ?? []),
   ]).filter((image) => !isTextHeavyImage(image, mediaAssets));
-  const fallbackAssets = scrapedImages.length ? [] : isDeloraineSource ? deloraineAssets : genericCatAssets;
+  const isRealSourceImport = Boolean(scrape.extractedFrom?.html || scrape.mediaAssets?.length || scrape.siteContentLibrary?.mediaAssets?.length);
+  const fallbackAssets = scrapedImages.length ? [] : isDeloraineSource ? deloraineAssets : isRealSourceImport ? [] : genericCatAssets;
   const images = uniqueImages([...scrapedImages, ...fallbackAssets]);
-  const fallbackRooms = isDeloraineSource ? fallbackDeloraineScrape.rooms ?? [] : genericRooms(images);
-  const fallbackServices = isDeloraineSource ? fallbackDeloraineScrape.services ?? [] : genericServices(images);
-  const fallbackHighlights = isDeloraineSource ? fallbackDeloraineScrape.highlights ?? [] : genericHighlights();
+  const fallbackRooms = isDeloraineSource ? fallbackDeloraineScrape.rooms ?? [] : isRealSourceImport ? [] : genericRooms(images);
+  const fallbackServices = isDeloraineSource ? fallbackDeloraineScrape.services ?? [] : isRealSourceImport ? [] : genericServices(images);
+  const fallbackHighlights = isDeloraineSource ? fallbackDeloraineScrape.highlights ?? [] : isRealSourceImport ? [] : genericHighlights();
   const rooms = scrape.rooms?.length ? scrape.rooms : fallbackRooms;
   const services = (scrape.services?.length ? scrape.services : fallbackServices).slice(0, 12);
   const highlights = scrape.highlights?.length ? scrape.highlights : fallbackHighlights;
@@ -949,7 +968,7 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
   const fallbackPhone = isDeloraineSource ? fallbackDeloraineScrape.phone || '' : '';
   const fallbackEmail = isDeloraineSource ? fallbackDeloraineScrape.email || '' : '';
   const fallbackAddress = isDeloraineSource ? fallbackDeloraineScrape.address || '' : '';
-  const fallbackFaqs = isDeloraineSource ? fallbackDeloraineScrape.faqs : genericFaqs(businessName);
+  const fallbackFaqs = isDeloraineSource ? fallbackDeloraineScrape.faqs : isRealSourceImport ? [] : genericFaqs(businessName);
   const reviews = scrape.reviews?.length
     ? scrape.reviews
     : (settings.testimonialsData?.testimonials ?? (isDeloraineSource ? fallbackDeloraineScrape.reviews ?? [] : []));
@@ -986,6 +1005,7 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
       socialLinks,
       virtualTourUrl,
       mediaAssets,
+      contentSnippets,
     });
   const heroImage = imageForCategory(mediaAssets, 'hero') ||
     imageForCategory(mediaAssets, 'facilities') ||
@@ -1020,6 +1040,7 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
     selectedTemplate: scrape.sourceUrl ? 'original' : 'conversion-focus',
     heroImage,
     mediaAssets,
+    contentSnippets,
     ctaText: 'Book a stay',
     headingFont: 'playfair',
     subheadingFont: 'inter',
@@ -1074,6 +1095,8 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
       testimonialsHeading: 'Trusted cat care',
       testimonials: reviews.length
         ? reviews
+        : isRealSourceImport
+          ? []
         : [
             {
               name: 'Regular guest family',
@@ -1185,6 +1208,35 @@ function normaliseMediaAssets(...sources: unknown[]): CatteryMediaAsset[] {
   return assets;
 }
 
+function normaliseContentSnippets(...sources: unknown[]): CatteryContentSnippet[] {
+  const seen = new Set<string>();
+  const snippets: CatteryContentSnippet[] = [];
+
+  for (const source of sources) {
+    if (!Array.isArray(source)) continue;
+    for (const item of source) {
+      if (!item || typeof item !== 'object') continue;
+      const candidate = item as Partial<CatteryContentSnippet>;
+      const text = stringValue(candidate.text);
+      if (!text) continue;
+      const key = `${stringValue(candidate.category)}:${text.toLowerCase().slice(0, 160)}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      snippets.push({
+        sourceUrl: stringValue(candidate.sourceUrl),
+        sourcePageTitle: stringValue(candidate.sourcePageTitle),
+        heading: stringValue(candidate.heading),
+        category: stringValue(candidate.category) || 'general',
+        tags: Array.isArray(candidate.tags) ? candidate.tags.map((tag) => stringValue(tag)).filter(Boolean) : [],
+        title: stringValue(candidate.title) || stringValue(candidate.heading) || stringValue(candidate.sourcePageTitle) || 'Imported content',
+        text,
+      });
+    }
+  }
+
+  return snippets;
+}
+
 function isPreviewSafeMedia(asset: CatteryMediaAsset): boolean {
   if (!asset.url) return false;
   if (asset.isLogo || asset.isDecorative || asset.containsText) return false;
@@ -1248,6 +1300,7 @@ function buildSiteContentLibrary(input: {
   socialLinks?: ImportedCatteryScrape['socialLinks'];
   virtualTourUrl?: string;
   mediaAssets?: CatteryMediaAsset[];
+  contentSnippets?: CatteryContentSnippet[];
 }): CatterySiteContentLibrary {
   const { scrape, businessName } = input;
   const blocks: CatterySiteContentBlock[] = [
@@ -1401,6 +1454,7 @@ function buildSiteContentLibrary(input: {
     capturedAt: new Date().toISOString(),
     blocks,
     mediaAssets: input.mediaAssets,
+    contentSnippets: input.contentSnippets,
   };
 }
 

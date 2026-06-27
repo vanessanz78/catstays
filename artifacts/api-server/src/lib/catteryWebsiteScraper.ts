@@ -8,9 +8,9 @@ const FETCH_TIMEOUT_MS = 10_000;
 const MAX_HTML_BYTES = 1_200_000;
 const MAX_ASSET_BYTES = 2_500_000;
 const MAX_REDIRECTS = 5;
-const MAX_CRAWLED_PAGES = 8;
-const MAX_SITEMAP_DOCUMENTS = 4;
-const MAX_SITEMAP_URLS = 24;
+const MAX_CRAWLED_PAGES = 40;
+const MAX_SITEMAP_DOCUMENTS = 8;
+const MAX_SITEMAP_URLS = 160;
 
 const REVELATION_PETS_REVIEW_FALLBACKS: CatteryScrapedReview[] = [
   {
@@ -90,6 +90,16 @@ export interface CatteryMediaAsset {
   score: number;
 }
 
+export interface CatteryContentSnippet {
+  sourceUrl: string;
+  sourcePageTitle?: string;
+  heading?: string;
+  category: string;
+  tags: string[];
+  title: string;
+  text: string;
+}
+
 export interface CatterySiteContentItem {
   title: string;
   text?: string;
@@ -121,6 +131,7 @@ export interface CatterySiteContentLibrary {
   capturedAt: string;
   blocks: CatterySiteContentBlock[];
   mediaAssets: CatteryMediaAsset[];
+  contentSnippets: CatteryContentSnippet[];
 }
 
 export interface CatteryWebsiteScrapeResult {
@@ -248,7 +259,7 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
     ...bundleMediaAssets,
   ]);
   const images = mediaAssets
-    .filter((asset) => !asset.isLogo && !asset.isDecorative)
+    .filter((asset) => !asset.isLogo && !asset.isDecorative && !asset.containsText)
     .map((asset) => asset.url);
   const galleryPageAssets = curateMediaAssets(
     supplementalPages
@@ -280,6 +291,16 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
     ? businessName
     : cleanText(headingCandidate || businessName || title.replace(/\s+-\s+.*$/, '') || 'Your Cattery');
   const description = buildSiteDescription(meta.description, homeBodyText, supplementalPages, supplementalHeadings, bundleTexts);
+  const contentSnippets = buildContentSnippets([
+    {
+      url: parsedUrl.toString(),
+      title,
+      heading,
+      bodyText: homeBodyText,
+      mediaAssets: [],
+    },
+    ...supplementalPages,
+  ]);
 
   if (!title && !description && !heading && !heroImage && !phone && !email && !images.length) {
     throw new TypeError('NO_USEFUL_CONTENT');
@@ -306,6 +327,7 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
     rooms,
     services,
     mediaAssets,
+    contentSnippets,
     highlights,
     faqs,
     reviews,
@@ -321,6 +343,7 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
     logoImage,
     images,
     mediaAssets,
+    contentSnippets,
     galleryImages,
     phone,
     email,
@@ -396,29 +419,49 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
 }
 
 async function fetchSupplementalPages(baseUrl: URL, root: ReturnType<typeof parse>): Promise<ScrapedPage[]> {
-  const urls = await collectSupplementalPageUrls(baseUrl, root);
-  const pages = await Promise.all(
-    urls.map(async (url) => {
-      try {
-        const html = await fetchText(new URL(url), {
-          maxBytes: MAX_HTML_BYTES,
-          acceptedContent: /text\/html|application\/xhtml\+xml/i,
-        });
-        const pageRoot = parse(html);
-        return {
-          url,
-          title: cleanText(pageRoot.querySelector('title')?.text ?? ''),
-          heading: cleanText(pageRoot.querySelector('h1')?.text ?? pageRoot.querySelector('h2')?.text ?? ''),
-          bodyText: readableText(pageRoot),
-          mediaAssets: collectHtmlMediaAssets(pageRoot, baseUrl, url, cleanText(pageRoot.querySelector('title')?.text ?? '')),
-        };
-      } catch {
-        return null;
-      }
-    }),
-  );
+  const queue = await collectSupplementalPageUrls(baseUrl, root);
+  const queued = new Set(queue.map(urlKey));
+  const visited = new Set([urlKey(baseUrl.href)]);
+  const pages: ScrapedPage[] = [];
 
-  return pages.filter((page): page is ScrapedPage => Boolean(page));
+  while (queue.length && pages.length < MAX_CRAWLED_PAGES) {
+    const url = queue.shift();
+    if (!url) break;
+    const key = urlKey(url);
+    queued.delete(key);
+    if (visited.has(key)) continue;
+    visited.add(key);
+
+    try {
+      const html = await fetchText(new URL(url), {
+        maxBytes: MAX_HTML_BYTES,
+        acceptedContent: /text\/html|application\/xhtml\+xml/i,
+      });
+      const pageRoot = parse(html);
+      const title = cleanText(pageRoot.querySelector('title')?.text ?? '');
+      const heading = cleanText(pageRoot.querySelector('h1')?.text ?? pageRoot.querySelector('h2')?.text ?? '');
+      const discoveredLinks = collectSameOriginLinks(pageRoot, baseUrl);
+      pages.push({
+        url,
+        title,
+        heading,
+        bodyText: readableText(pageRoot),
+        mediaAssets: collectHtmlMediaAssets(pageRoot, baseUrl, url, title),
+      });
+
+      for (const link of discoveredLinks.sort((left, right) => pagePriority(right) - pagePriority(left))) {
+        const linkKey = urlKey(link);
+        if (visited.has(linkKey) || queued.has(linkKey) || linkKey === urlKey(baseUrl.href)) continue;
+        if (queue.length >= MAX_CRAWLED_PAGES * 4) break;
+        queue.push(link);
+        queued.add(linkKey);
+      }
+    } catch {
+      // Continue crawling the rest of the public site if one linked page fails.
+    }
+  }
+
+  return pages;
 }
 
 async function collectSupplementalPageUrls(baseUrl: URL, root: ReturnType<typeof parse>): Promise<string[]> {
@@ -431,7 +474,7 @@ async function collectSupplementalPageUrls(baseUrl: URL, root: ReturnType<typeof
 
   return combined
     .sort((left, right) => pagePriority(right) - pagePriority(left))
-    .slice(0, MAX_CRAWLED_PAGES);
+    .slice(0, MAX_SITEMAP_URLS);
 }
 
 async function fetchSitemapUrls(baseUrl: URL): Promise<string[]> {
@@ -497,16 +540,36 @@ function readableText(root: ReturnType<typeof parse>): string {
 function uniqueUrls(urls: string[]): string[] {
   const seen = new Set<string>();
   return urls.filter((url) => {
-    const key = url.replace(/#.*$/, '').replace(/\/$/, '');
+    const key = urlKey(url);
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
 }
 
+function urlKey(url: string): string {
+  try {
+    const parsed = new URL(url);
+    parsed.hash = '';
+    parsed.searchParams.sort();
+    return parsed.href.replace(/\/$/, '');
+  } catch {
+    return url.replace(/#.*$/, '').replace(/\/$/, '');
+  }
+}
+
 function isHtmlLikeUrl(url: string): boolean {
   const pathname = new URL(url).pathname.toLowerCase();
   return !/\.(?:xml|json|jpg|jpeg|png|gif|webp|avif|svg|pdf|zip|mp4|mov|webm)$/i.test(pathname);
+}
+
+function isImageAssetUrl(url: string): boolean {
+  try {
+    const pathname = new URL(url, 'https://example.com').pathname.toLowerCase();
+    return /\.(?:jpe?g|png|webp|avif)$/i.test(pathname);
+  } catch {
+    return /\.(?:jpe?g|png|webp|avif)(?:[?#].*)?$/i.test(url);
+  }
 }
 
 function pagePriority(url: string): number {
@@ -827,7 +890,7 @@ function collectHtmlMediaAssets(
   sourcePageTitle = '',
 ): CatteryMediaAsset[] {
   const assets: CatteryMediaAsset[] = [];
-  for (const node of root.querySelectorAll('img, [style*="background-image"], [data-src], [data-lazy-src], [data-original], [data-bg], [data-background-image]')) {
+  for (const node of root.querySelectorAll('img, source[srcset], source[data-srcset], [style*="background-image"], [data-src], [data-lazy-src], [data-original], [data-bg], [data-background-image]')) {
     const figure = (node as any).closest?.('figure') as { querySelector?: (selector: string) => { text?: string } | null } | undefined;
     const caption = cleanText(figure?.querySelector?.('figcaption')?.text ?? '');
     const alt = cleanText(node.getAttribute('alt') ?? node.getAttribute('aria-label') ?? '');
@@ -894,6 +957,53 @@ function collectHtmlMediaAssets(
       if (asset) assets.push(asset);
     }
   }
+
+  for (const node of root.querySelectorAll('a[href]')) {
+    const href = node.getAttribute('href') ?? '';
+    if (!isImageAssetUrl(href)) continue;
+    const nearbyText = cleanText([
+      node.text,
+      node.getAttribute('title') ?? '',
+      node.getAttribute('aria-label') ?? '',
+      node.getAttribute('class') ?? '',
+      (node.parentNode as any)?.text ?? '',
+    ].join(' ')).slice(0, 700);
+    const asset = mediaAssetFromUrl(href, baseUrl, {
+      sourceUrl,
+      sourcePageTitle,
+      title: cleanText(node.getAttribute('title') ?? ''),
+      caption: cleanText(node.text ?? ''),
+      nearbyText,
+      sourceKind: 'linked',
+    });
+    if (asset) assets.push(asset);
+  }
+
+  for (const node of root.querySelectorAll('link[href]')) {
+    const href = node.getAttribute('href') ?? '';
+    const rel = node.getAttribute('rel') ?? '';
+    const as = node.getAttribute('as') ?? '';
+    if (!isImageAssetUrl(href) && !/image/i.test(`${rel} ${as}`)) continue;
+    const asset = mediaAssetFromUrl(href, baseUrl, {
+      sourceUrl,
+      sourcePageTitle,
+      nearbyText: cleanText(`${rel} ${as}`),
+      sourceKind: 'linked',
+    });
+    if (asset) assets.push(asset);
+  }
+
+  for (const node of root.querySelectorAll('meta[content]')) {
+    const property = node.getAttribute('property') ?? node.getAttribute('name') ?? '';
+    if (!/image|thumbnail/i.test(property)) continue;
+    const asset = mediaAssetFromUrl(node.getAttribute('content') ?? '', baseUrl, {
+      sourceUrl,
+      sourcePageTitle,
+      nearbyText: cleanText(`${property} ${sourcePageTitle}`),
+      sourceKind: 'meta',
+    });
+    if (asset) assets.push(asset);
+  }
   return assets;
 }
 
@@ -921,7 +1031,7 @@ function mediaAssetFromUrl(
     title?: string;
     caption?: string;
     nearbyText?: string;
-    sourceKind?: 'html' | 'srcset' | 'background' | 'bundle' | 'meta';
+    sourceKind?: 'html' | 'srcset' | 'background' | 'bundle' | 'meta' | 'linked';
   },
 ): CatteryMediaAsset | null {
   const url = absoluteUrl(rawUrl, baseUrl);
@@ -949,7 +1059,7 @@ function classifyMediaAsset(
     title?: string;
     caption?: string;
     nearbyText?: string;
-    sourceKind?: 'html' | 'srcset' | 'background' | 'bundle' | 'meta';
+    sourceKind?: 'html' | 'srcset' | 'background' | 'bundle' | 'meta' | 'linked';
   },
 ): Pick<CatteryMediaAsset, 'tags' | 'category' | 'containsText' | 'isLogo' | 'isDecorative' | 'score'> {
   const decodedUrl = safeDecode(url);
@@ -1001,6 +1111,7 @@ function classifyMediaAsset(
   if (category === 'owner') score += 15;
   if (metadata.alt || metadata.caption) score += 8;
   if (metadata.sourceKind === 'srcset') score += imageWidth(url) > 0 ? 6 : 0;
+  if (metadata.sourceKind === 'linked') score += 10;
   if (containsText) score -= 30;
   if (isLogo || isDecorative) score -= 40;
 
@@ -1408,6 +1519,77 @@ function buildFaqs(bundle: string, supplementalPages: ScrapedPage[], searchableT
   ).slice(0, 12);
 }
 
+function buildContentSnippets(pages: ScrapedPage[]): CatteryContentSnippet[] {
+  const snippets: CatteryContentSnippet[] = [];
+  const seen = new Set<string>();
+
+  for (const page of pages) {
+    const sourceText = cleanText(page.bodyText);
+    if (!sourceText || sourceText.length < 60) continue;
+    const sentences = sentenceList(sourceText)
+      .filter((sentence) => sentence.length >= 35)
+      .filter((sentence) => !/^(menu|home|about|gallery|contact|book now|skip to content)$/i.test(sentence))
+      .filter((sentence) => !/copyright|all rights reserved|privacy policy|terms of use/i.test(sentence));
+    const text = joinSentences(sentences, 900);
+    if (!text) continue;
+
+    const category = inferContentCategory(`${page.url} ${page.title} ${page.heading} ${text}`);
+    const tags = inferContentTags(`${page.url} ${page.title} ${page.heading} ${text}`);
+    const key = `${category}:${text.toLowerCase().slice(0, 160)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    snippets.push({
+      sourceUrl: page.url,
+      sourcePageTitle: page.title,
+      heading: page.heading,
+      category,
+      tags,
+      title: cleanText(page.heading || page.title || categoryLabel(category)),
+      text,
+    });
+  }
+
+  return snippets.slice(0, 80);
+}
+
+function inferContentCategory(text: string): string {
+  const lower = text.toLowerCase();
+  if (/owner|host|team|staff|family|about us|our story|paul|vanessa/.test(lower)) return 'owner-story';
+  if (/room|suite|private|indoor|communal|penthouse|accommodation|pricing|rates|fees/.test(lower)) return 'rooms';
+  if (/service|groom|brush|medicine|medication|flea|worm|airport|pickup|drop.?off|transport|veterinary/.test(lower)) return 'services';
+  if (/gallery|photo|photos|images|tour/.test(lower)) return 'gallery';
+  if (/facility|facilities|building|security|heated|insulated|outdoor|garden|grounds/.test(lower)) return 'facilities';
+  if (/vaccination|policy|terms|conditions|deposit|cancel|requirement/.test(lower)) return 'commitment';
+  if (/contact|location|address|phone|email|hours|directions|map/.test(lower)) return 'contact';
+  if (/review|testimonial|recommend|feedback/.test(lower)) return 'reviews';
+  if (/book|booking|enquiry|availability|reserve/.test(lower)) return 'booking';
+  return 'general';
+}
+
+function inferContentTags(text: string): string[] {
+  const lower = text.toLowerCase();
+  const tags = new Set<string>();
+  const add = (tag: string, pattern: RegExp) => {
+    if (pattern.test(lower)) tags.add(tag);
+  };
+  add('rooms', /room|suite|accommodation|boarding|private|indoor|communal|penthouse/);
+  add('pricing', /price|pricing|rate|fee|\$\d|deposit|surcharge/);
+  add('services', /service|groom|brush|medicine|medication|transport|airport|pickup|drop.?off/);
+  add('owner', /owner|host|team|staff|family|paul|vanessa/);
+  add('facilities', /facility|building|secure|security|heated|insulated|outdoor|garden|grounds/);
+  add('care', /care|feeding|clean|routine|litter|medication|vaccination|comfort/);
+  add('contact', /contact|address|phone|email|hours|directions|location/);
+  add('gallery', /gallery|photo|image|tour/);
+  add('reviews', /review|testimonial|recommend|feedback/);
+  return Array.from(tags);
+}
+
+function categoryLabel(category: string): string {
+  return category
+    .replace(/-/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 function buildSiteContentLibrary(input: {
   sourceUrl: string;
   sourceHost: string;
@@ -1428,6 +1610,7 @@ function buildSiteContentLibrary(input: {
   rooms: CatteryScrapedRoom[];
   services: CatteryScrapedService[];
   mediaAssets: CatteryMediaAsset[];
+  contentSnippets: CatteryContentSnippet[];
   highlights: Array<{ title: string; description: string }>;
   faqs: Array<{ question: string; answer: string }>;
   reviews: CatteryScrapedReview[];
@@ -1587,6 +1770,7 @@ function buildSiteContentLibrary(input: {
     capturedAt: new Date().toISOString(),
     blocks,
     mediaAssets: input.mediaAssets,
+    contentSnippets: input.contentSnippets,
   };
 }
 
@@ -1608,6 +1792,7 @@ function buildWebsiteSettings(input: {
   logoImage: string;
   images: string[];
   mediaAssets: CatteryMediaAsset[];
+  contentSnippets: CatteryContentSnippet[];
   galleryImages: Array<{ url: string; caption: string }>;
   phone: string;
   email: string;
@@ -1672,6 +1857,7 @@ function buildWebsiteSettings(input: {
     heroImage: input.heroImage || input.images[0],
     logoImage: input.logoImage,
     mediaLibrary: input.mediaAssets,
+    contentSnippets: input.contentSnippets,
     ctaText: 'Book a stay',
     headingFont: 'playfair',
     subheadingFont: 'inter',
