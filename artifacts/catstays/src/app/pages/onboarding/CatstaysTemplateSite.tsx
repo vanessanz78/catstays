@@ -302,9 +302,9 @@ function EditorialTemplate({
   const hasHeroImage = Boolean(content.hero.image);
   const sections = [
     { id: 'about', title: content.about.title, text: content.about.text, image: content.about.image, eyebrow: `About ${content.business.name}` },
-    { id: 'care', title: content.whyChoose.title, text: content.whyChoose.text, image: content.gallery[1]?.image || content.hero.image, eyebrow: 'Why choose us' },
+    { id: 'care', title: content.whyChoose.title, text: content.whyChoose.text, image: content.whyChoose.image || content.gallery[1]?.image, eyebrow: 'Why choose us' },
     { id: 'facilities', title: content.facilities.title, text: content.facilities.text, image: content.facilities.image, eyebrow: 'Premium accommodation' },
-  ];
+  ].filter((section) => section.id === 'care' ? Boolean(section.text) : section.text || section.image);
 
   return (
     <div data-catstays-template-root data-catstays-preview-device={previewDevice} className="catstays-template bg-[#f8f5ef] text-[#222]" style={templateRootStyle(content)}>
@@ -328,14 +328,14 @@ function EditorialTemplate({
         <ConversionBanner content={content} onPreviewBookingAction={onPreviewBookingAction} onPreviewBookingInteraction={onPreviewBookingInteraction} />
 
         {sections.map((section, index) => (
-          <section key={section.title} id={section.id} className="catstays-stack mx-auto grid max-w-[1400px] scroll-mt-28 md:grid-cols-2">
+          <section key={section.id} id={section.id} className={`catstays-stack mx-auto grid max-w-[1400px] scroll-mt-28 ${section.image ? 'md:grid-cols-2' : ''}`}>
             <div className={`flex flex-col justify-center bg-white px-8 py-14 md:px-20 ${index % 2 === 1 ? 'md:order-2' : ''}`}>
               <p className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">{section.eyebrow}</p>
               <h2 className="text-3xl leading-[1.12] md:text-5xl">{section.title}</h2>
               <div className="my-6 h-px w-14 bg-[#b58b4a]" />
-              <p className="max-w-lg text-base leading-7">{section.text}</p>
+              {section.text ? <p className="max-w-lg text-base leading-7">{section.text}</p> : null}
             </div>
-            <TemplateImage src={section.image} className="catstays-template-section-image h-full min-h-[420px] w-full object-cover md:min-h-[560px]" />
+            {section.image ? <TemplateImage src={section.image} className="catstays-template-section-image h-full min-h-[420px] w-full object-cover md:min-h-[560px]" /> : null}
           </section>
         ))}
 

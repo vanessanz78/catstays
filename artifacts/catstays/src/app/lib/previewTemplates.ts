@@ -109,6 +109,7 @@ export interface CatstaysTemplateContent {
   whyChoose: {
     title: string;
     text: string;
+    image?: string;
     items: Array<{
       title: string;
       text: string;
@@ -525,13 +526,29 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     record?.normalizedPreviewData?.hours,
     'By appointment',
   );
+  const ownerStoryText = stringFrom(ownerData.text, ownerData.description, snippetTextFor(contentSnippets, ['owner-story']));
   const sourceAboutText = snippetTextFor(contentSnippets, ['owner-story', 'facilities', 'general']);
   const primaryDescription = stringFrom(
-    data.aboutText,
-    normalized.aboutText,
-    record?.content.aboutText,
     record?.content.description,
-    sourceAboutText,
+    data.heroSubheading,
+    normalized.heroSubheading,
+    record?.content.heroSubheading,
+    record?.content.aboutText,
+    sourceAboutText !== ownerStoryText ? sourceAboutText : '',
+    data.aboutText !== ownerStoryText ? data.aboutText : '',
+    normalized.aboutText !== ownerStoryText ? normalized.aboutText : '',
+    'A calm, caring cat boarding experience designed around comfort, routine, and reassurance.',
+  );
+  const usedSectionCopy: string[] = [];
+  const heroText = pickUniqueCopy(
+    usedSectionCopy,
+    [
+      data.heroSubheading,
+      normalized.heroSubheading,
+      record?.content.heroSubheading,
+      record?.content.description,
+      primaryDescription,
+    ],
     'A calm, caring cat boarding experience designed around comfort, routine, and reassurance.',
   );
   const mappedHighlights = highlights.map((feature: any) => ({
@@ -586,39 +603,114 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     .filter((item) => Boolean(item?.title && item?.text))
     .map((item) => ({ title: item!.title, text: item!.text, icon: item!.icon }))
     .slice(0, 6);
+  const aboutText = pickUniqueCopy(
+    usedSectionCopy,
+    [
+      ownerStoryText,
+      data.aboutText,
+      normalized.aboutText,
+      record?.content.aboutText,
+      sourceAboutText,
+      primaryDescription,
+    ],
+    primaryDescription,
+  );
+  const whyChooseText = pickUniqueCopy(
+    usedSectionCopy,
+    [
+      data.whyChooseUsText,
+      whyChooseBlock?.text,
+      snippetTextFor(contentSnippets, ['why-choose-us', 'facilities', 'daily-care', 'general']),
+      mappedHighlights.find((feature) => feature.text)?.text,
+      featureItems.find((feature) => feature.text)?.text,
+    ],
+  );
+  const facilitiesText = pickUniqueCopy(
+    usedSectionCopy,
+    [
+      data.facilitiesText,
+      facilitiesBlock?.text,
+      snippetTextFor(contentSnippets, ['facilities', 'rooms', 'daily-care']),
+      facilityItems.find((feature) => feature.text)?.text,
+    ],
+    'Comfortable, secure spaces designed around daily cat care, quiet routines, and peace of mind.',
+  );
+  const ownerText = pickUniqueCopy(
+    usedSectionCopy,
+    [
+      ownerStoryText,
+      ownerData.text,
+      ownerData.description,
+      snippetTextFor(contentSnippets, ['owner-story']),
+    ],
+  );
+  const footerAbout = pickUniqueCopy(
+    [...usedSectionCopy],
+    [
+      data.footerAbout,
+      snippetTextFor(contentSnippets, ['footer', 'general']),
+      record?.content.description,
+      primaryDescription,
+    ],
+    primaryDescription,
+  );
   const aboutImage = pickUniqueImage(
     usedImages,
-    [
-      data.aboutImage,
-      normalizedRecord.aboutImage,
-      normalizedRecord.aboutData?.image,
-      mediaImageForCategories(mediaAssets, ['gallery', 'facilities', 'rooms']),
-      fallbackImages.find((image) => image !== heroImage),
-    ],
+    ownerStoryText
+      ? [
+          ownerData.image,
+          normalizedRecord.ownerData?.image,
+          ...mediaImagesForCategories(mediaAssets, ['owner']),
+          data.aboutImage,
+          normalizedRecord.aboutImage,
+          normalizedRecord.aboutData?.image,
+          ...mediaImagesForCategories(mediaAssets, ['gallery', 'facilities', 'rooms']),
+          fallbackImages.find((image) => image !== heroImage),
+        ]
+      : [
+          data.aboutImage,
+          normalizedRecord.aboutImage,
+          normalizedRecord.aboutData?.image,
+          ...mediaImagesForCategories(mediaAssets, ['gallery', 'facilities', 'rooms']),
+          fallbackImages.find((image) => image !== heroImage),
+        ],
     fallbackImages,
   );
+  const whyChooseImage = whyChooseText
+    ? pickUniqueImage(
+        usedImages,
+        [
+          whyChooseBlock?.images?.[0]?.url,
+          ...mediaImagesForCategories(mediaAssets, ['gallery', 'facilities', 'rooms']),
+          fallbackImages.find((image) => image !== heroImage && image !== aboutImage),
+        ],
+        fallbackImages,
+      )
+    : '';
   const facilityImage = pickUniqueImage(
     usedImages,
     [
       data.facilitiesImage,
       facilitiesBlock?.images?.[0]?.url,
       normalizedRecord.facilitiesData?.facilitiesImage,
-      mediaImageForCategories(mediaAssets, ['facilities', 'rooms']),
+      ...mediaImagesForCategories(mediaAssets, ['facilities', 'rooms']),
       fallbackImages[2],
     ],
     fallbackImages,
   );
-  const ownerImage = pickUniqueImage(
-    usedImages,
-    [
-      ownerData.image,
-      normalizedRecord.ownerData?.image,
-      mediaImageForCategories(mediaAssets, ['owner']),
-      fallbackImages[5],
-      fallbackImages[1],
-    ],
-    fallbackImages,
-  );
+  const ownerImage = ownerText
+    ? pickUniqueImage(
+        usedImages,
+        [
+          ownerData.image,
+          normalizedRecord.ownerData?.image,
+          ...mediaImagesForCategories(mediaAssets, ['owner']),
+          fallbackImages[5],
+          fallbackImages[1],
+        ],
+        fallbackImages,
+      )
+    : '';
   const virtualTourUrl = embeddableVirtualTourUrl(
     stringFrom(locationData.virtualTourUrl, normalized.virtualTourUrl, data.virtualTourUrl, data.contactData?.virtualTourUrl),
     contentLibrary.sourceHost,
@@ -633,7 +725,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     hero: {
       eyebrow: stringFrom(data.heroEyebrow, 'A home away from home'),
       heading: stringFrom(data.heroHeading, normalized.heroHeading, record?.content.heroHeading, `Welcome to ${businessName}`),
-      text: stringFrom(data.heroSubheading, normalized.heroSubheading, record?.content.heroSubheading, primaryDescription),
+      text: heroText,
       image: heroImage,
       button: stringFrom(data.ctaText, data.heroPrimaryCtaText, heroLinks[0]?.label, 'Book Now'),
       primaryButton: stringFrom(data.heroPrimaryCtaText, heroLinks[0]?.label, 'Discover Our Suites'),
@@ -661,12 +753,13 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     features: featureItems,
     whyChoose: {
       title: stringFrom(data.whyChooseUsHeading, whyChooseBlock?.title, `Why choose ${businessName}`),
-      text: stringFrom(data.whyChooseUsText, whyChooseBlock?.text, primaryDescription),
+      text: whyChooseText,
+      image: whyChooseImage,
       items: whyChooseItems,
     },
     facilities: {
       title: stringFrom(data.facilitiesHeading, facilitiesBlock?.title, 'Our Facilities'),
-      text: stringFrom(data.facilitiesText, facilitiesBlock?.text, snippetTextFor(contentSnippets, ['facilities', 'rooms']), 'Comfortable, secure spaces designed around daily cat care, quiet routines, and peace of mind.'),
+      text: facilitiesText,
       image: facilityImage,
       items: facilityItems.length || editedFacilityItems ? facilityItems : featureItems.slice(0, 4),
     },
@@ -681,8 +774,8 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       price: stringFrom(service.price),
     })),
     about: {
-      title: stringFrom(data.aboutHeading, normalized.aboutHeading, record?.content.aboutHeading, `About ${businessName}`),
-      text: primaryDescription,
+      title: stringFrom(data.aboutHeading, normalized.aboutHeading, ownerStoryText ? ownerData.title : '', record?.content.aboutHeading, `About ${businessName}`),
+      text: aboutText,
       image: aboutImage,
     },
     gallery: fallbackImages.filter((image) => !hasSeenImage(usedImages, image)).slice(0, 12).map((image, index) => ({
@@ -697,7 +790,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     })).filter((faq) => faq.question && faq.answer),
     owner: {
       title: stringFrom(ownerData.title, `Meet the people behind ${businessName}`),
-      text: stringFrom(ownerData.text, ownerData.description, primaryDescription),
+      text: ownerText,
       image: ownerImage,
     },
     commitment: {
@@ -723,7 +816,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       primaryCta: stringFrom(data.primaryCta, 'Check Availability'),
     },
     footer: {
-      about: stringFrom(data.footerAbout, primaryDescription),
+      about: footerAbout,
       phone: stringFrom(data.phone, normalized.phone, record?.contact.phone),
       email: stringFrom(data.email, normalized.email, record?.contact.email),
       address: stringFrom(data.address, normalized.address, record?.contact.address),
@@ -906,10 +999,12 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
     heroSecondaryCtaHref: textFrom('heroSecondaryCtaHref', heroLinks[1]?.url, '#care'),
     whyChooseUsHeading: textFrom('whyChooseUsHeading', normalized.whyChooseUsData?.whyChooseUsHeading, normalized.whyChooseUsData?.heading, block('why-choose-us')?.title),
     whyChooseUsText: textFrom('whyChooseUsText', normalized.whyChooseUsData?.whyChooseUsText, normalized.whyChooseUsData?.text, block('why-choose-us')?.text),
-    aboutHeading: textFrom('aboutHeading', normalized.aboutHeading, normalized.aboutData?.heading, block('hero')?.title),
-    aboutText: textFrom('aboutText', normalized.aboutText, normalized.aboutData?.text, block('hero')?.text),
+    aboutHeading: textFrom('aboutHeading', ownerBlock?.title, normalized.aboutHeading, normalized.aboutData?.heading, block('hero')?.title),
+    aboutText: textFrom('aboutText', ownerBlock?.text, normalized.aboutText, normalized.aboutData?.text, block('hero')?.text),
     aboutImage: imageFieldFrom(
       'aboutImage',
+      ownerBlock?.images?.[0]?.url,
+      normalized.ownerData?.image,
       normalized.aboutImage,
       normalized.aboutData?.image,
       blockImages('gallery')[0]?.url,
@@ -1095,6 +1190,90 @@ function snippetTextFor(snippets: CatteryContentSnippet[], categories: string[])
     ?.text || '';
 }
 
+const copyDedupeStopWords = new Set([
+  'about',
+  'again',
+  'also',
+  'and',
+  'are',
+  'away',
+  'both',
+  'but',
+  'care',
+  'cat',
+  'cats',
+  'cattery',
+  'deloraine',
+  'for',
+  'from',
+  'has',
+  'have',
+  'home',
+  'into',
+  'new',
+  'not',
+  'our',
+  'that',
+  'the',
+  'their',
+  'this',
+  'to',
+  'with',
+  'your',
+]);
+
+function pickUniqueCopy(usedCopy: string[], candidates: unknown[], fallback: unknown = '') {
+  for (const candidate of uniqueStrings(candidates)) {
+    if (isDuplicateCopy(candidate, usedCopy)) continue;
+    usedCopy.push(candidate);
+    return candidate;
+  }
+
+  const fallbackText = stringFrom(fallback);
+  if (fallbackText && !isDuplicateCopy(fallbackText, usedCopy)) {
+    usedCopy.push(fallbackText);
+    return fallbackText;
+  }
+
+  return '';
+}
+
+function isDuplicateCopy(candidate: string, usedCopy: string[]) {
+  const normalizedCandidate = normalizeCopyForDedupe(candidate);
+  if (!normalizedCandidate) return true;
+
+  const candidateTokens = copyTokens(normalizedCandidate);
+  return usedCopy.some((used) => {
+    const normalizedUsed = normalizeCopyForDedupe(used);
+    if (!normalizedUsed) return false;
+    if (normalizedCandidate === normalizedUsed) return true;
+    if (Math.min(normalizedCandidate.length, normalizedUsed.length) > 80) {
+      if (normalizedCandidate.includes(normalizedUsed) || normalizedUsed.includes(normalizedCandidate)) return true;
+    }
+
+    const usedTokens = copyTokens(normalizedUsed);
+    if (candidateTokens.length < 5 || usedTokens.length < 5) return false;
+    const overlap = candidateTokens.filter((token) => usedTokens.includes(token)).length;
+    return overlap / Math.min(candidateTokens.length, usedTokens.length) >= 0.72;
+  });
+}
+
+function normalizeCopyForDedupe(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function copyTokens(value: string) {
+  return value
+    .split(' ')
+    .map((token) => token.trim())
+    .filter((token) => token.length > 2 && !copyDedupeStopWords.has(token));
+}
+
 function isPreviewSafeMedia(asset: CatteryMediaAsset): boolean {
   if (!asset.url) return false;
   if (asset.isLogo || asset.isDecorative || asset.containsText) return false;
@@ -1102,10 +1281,15 @@ function isPreviewSafeMedia(asset: CatteryMediaAsset): boolean {
 }
 
 function mediaImageForCategories(mediaAssets: CatteryMediaAsset[], categories: CatteryMediaCategory[]): string {
+  return mediaImagesForCategories(mediaAssets, categories)[0] || '';
+}
+
+function mediaImagesForCategories(mediaAssets: CatteryMediaAsset[], categories: CatteryMediaCategory[]): string[] {
   return mediaAssets
     .filter((asset) => categories.includes((asset.category ?? 'unknown') as CatteryMediaCategory))
     .filter((asset) => isPreviewSafeMedia(asset))
-    .sort((left, right) => (right.score ?? 0) - (left.score ?? 0))[0]?.url || '';
+    .sort((left, right) => (right.score ?? 0) - (left.score ?? 0))
+    .map((asset) => asset.url);
 }
 
 function firstSafeImage(images: unknown[], mediaAssets: CatteryMediaAsset[]): string {
