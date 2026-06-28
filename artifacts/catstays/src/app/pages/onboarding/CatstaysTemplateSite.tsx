@@ -80,9 +80,16 @@ function majorTemplateImageKeys(content: ReturnType<typeof buildCatstaysTemplate
 
 function galleryItemsAwayFromMajorImages(content: ReturnType<typeof buildCatstaysTemplateContent>, limit: number) {
   const usedImageKeys = majorTemplateImageKeys(content);
-  return content.gallery
-    .filter((item) => item.image && !usedImageKeys.has(templateImageKey(item.image)))
-    .slice(0, limit);
+  const seen = new Set<string>();
+  const usable = content.gallery.filter((item) => {
+    const key = templateImageKey(item.image);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  const preferred = usable.filter((item) => !usedImageKeys.has(templateImageKey(item.image)));
+  const overflow = usable.filter((item) => usedImageKeys.has(templateImageKey(item.image)));
+  return [...preferred, ...overflow].slice(0, limit);
 }
 
 export function CatstaysTemplateSite({
@@ -328,7 +335,7 @@ function EditorialTemplate({
     content.owner.text
       ? { id: 'about', title: content.owner.title, text: content.owner.text, image: content.owner.image, eyebrow: 'The people behind the care' }
       : { id: 'about', title: content.about.title, text: content.about.text, image: content.about.image, eyebrow: `About ${content.business.name}` },
-    { id: 'care', title: content.sectionHeadings.care, text: content.whyChoose.text, image: content.whyChoose.image, eyebrow: 'Care confidence' },
+    { id: 'care', title: content.commitment.title, text: content.commitment.text, image: content.whyChoose.image, eyebrow: 'Care confidence' },
     { id: 'facilities', title: content.facilities.title, text: content.facilities.text, image: content.facilities.image, eyebrow: 'Rooms and routines' },
   ].filter((section) => section.text || section.image);
 
@@ -547,12 +554,12 @@ function SuitesGrid({ content, compact = false }: { content: ReturnType<typeof b
       <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Our Suites</p>
       <h2 className="text-3xl leading-tight md:text-5xl">{content.sectionHeadings.suites}</h2>
       <p className="mx-auto mt-4 max-w-3xl text-base leading-7 text-[#444]">See the room options, space, routines, and comfort details before choosing the stay that best suits your cat.</p>
-      <div className="catstays-card-grid mx-auto mt-10 grid max-w-[1280px] gap-8 md:grid-cols-2 xl:grid-cols-3">
+      <div className="catstays-card-grid mx-auto mt-12 grid max-w-[1280px] gap-10 md:grid-cols-2 xl:grid-cols-3">
         {content.suites.map((suite) => (
-          <article key={suite.title} className="flex overflow-hidden rounded-md border border-[#222]/10 bg-white text-left shadow-sm">
+          <article key={suite.title} className="flex overflow-hidden rounded-xl border border-[#0A1128]/10 bg-white text-left shadow-[0_18px_45px_rgba(10,17,40,0.08)] ring-1 ring-white/70">
             <div className="flex w-full flex-col">
-              <TemplateImage src={suite.image} className="h-72 w-full object-cover md:h-80" />
-              <div className="flex flex-1 flex-col p-7 text-left">
+              <TemplateImage src={suite.image} className="h-80 w-full object-cover md:h-96" />
+              <div className="flex flex-1 flex-col p-8 text-left md:p-9">
                 <h3 className="mb-3 text-base font-bold uppercase tracking-[0.08em]">{suite.title}</h3>
                 {suite.price ? <p className="mb-4 text-base font-bold text-[#8c5b32]">{suite.price}</p> : null}
                 <p className="text-sm leading-7 text-[#444]">{suite.text}</p>
@@ -563,7 +570,7 @@ function SuitesGrid({ content, compact = false }: { content: ReturnType<typeof b
                     ))}
                   </ul>
                 ) : null}
-                <button type="button" onClick={() => setActiveSuite(suite)} className="mt-auto w-max rounded-md border border-[#0A1128]/20 bg-[#0A1128] px-5 py-3 text-xs font-bold uppercase tracking-[0.12em] text-white">
+                <button type="button" onClick={() => setActiveSuite(suite)} className="mt-auto w-max rounded-md border border-[#0A1128]/20 bg-[#0A1128] px-5 py-3 text-xs font-bold uppercase tracking-[0.12em] text-white shadow-sm">
                   View Suite
                 </button>
               </div>
@@ -644,7 +651,7 @@ function ConversionBanner({
 
 function GalleryStrip({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
   const railRef = useRef<HTMLDivElement | null>(null);
-  const images = galleryItemsAwayFromMajorImages(content, 16);
+  const images = galleryItemsAwayFromMajorImages(content, 24);
   if (!images.length) return null;
 
   const scrollRail = (direction: -1 | 1) => {
@@ -669,7 +676,7 @@ function GalleryStrip({ content }: { content: ReturnType<typeof buildCatstaysTem
       </div>
       <div ref={railRef} className="flex snap-x gap-5 overflow-x-auto px-1 pb-3 [scrollbar-width:thin]">
         {images.map((item, index) => (
-          <figure key={`${item.image}-${index}`} className="min-w-[82vw] snap-start overflow-hidden bg-white shadow-sm sm:min-w-[46vw] lg:min-w-[31vw]">
+          <figure key={`${item.image}-${index}`} className="min-w-[82vw] snap-start overflow-hidden rounded-lg bg-white shadow-sm sm:min-w-[46vw] lg:min-w-[31vw]">
             <TemplateImage src={item.image} className="h-72 w-full object-cover" />
           </figure>
         ))}
