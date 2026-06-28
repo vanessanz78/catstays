@@ -331,15 +331,13 @@ function EditorialTemplate({
   onDismissPreviewNotice: () => void;
 }) {
   const hasHeroImage = Boolean(content.hero.image);
-  const suitePreviewImage = content.suites.find((suite) => suite.image)?.image || content.facilities.image || content.whyChoose.image;
   const sections = [
     content.owner.text
       ? { id: 'about', title: content.owner.title, text: content.owner.text, image: content.owner.image, eyebrow: 'The people behind the care' }
       : content.about.text
         ? { id: 'about', title: content.about.title, text: content.about.text, image: content.about.image, eyebrow: `About ${content.business.name}` }
         : null,
-    { id: 'care', title: content.commitment.title || content.whyChoose.title, text: content.commitment.text || content.whyChoose.text, image: content.whyChoose.image || content.facilities.image || suitePreviewImage, eyebrow: 'Care confidence' },
-    { id: 'facilities', title: content.facilities.title || content.sectionHeadings.suites, text: content.facilities.text, image: content.facilities.image || suitePreviewImage, eyebrow: 'Rooms and routines' },
+    { id: 'care', title: content.commitment.title || content.whyChoose.title, text: content.commitment.text || content.whyChoose.text, image: content.whyChoose.image || content.facilities.image, eyebrow: 'Care confidence' },
   ].filter((section): section is { id: string; title: string; text: string; image: string; eyebrow: string } => Boolean(section && (section.text || section.image)));
 
   return (
