@@ -473,13 +473,15 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const taggedGalleryImages = mediaAssets
     .filter((asset) => isPreviewSafeMedia(asset))
     .map((asset) => asset.url);
+  const sourceGalleryCandidates = [
+    ...taggedGalleryImages,
+    ...(record?.media.images ?? []),
+    ...(record?.media.galleryImages ?? []).map((image) => image.url),
+    ...libraryGalleryImages.map((image) => image.url),
+    ...(editedGalleryImages ?? []),
+  ];
   const galleryImages = uniqueStrings([
-    ...(editedGalleryImages ?? [
-      ...taggedGalleryImages,
-      ...(record?.media.images ?? []),
-      ...(record?.media.galleryImages ?? []).map((image) => image.url),
-      ...libraryGalleryImages.map((image) => image.url),
-    ]),
+    ...(importedFromSource ? sourceGalleryCandidates : editedGalleryImages ?? sourceGalleryCandidates),
     data.facilitiesImage,
     data.aboutImage,
     data.ownerData?.image,
@@ -490,16 +492,24 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   rememberImage(usedImages, heroImage);
   const editedHighlights = Array.isArray(data.whyChooseUsFeatures) ? data.whyChooseUsFeatures : undefined;
   const highlights = (editedHighlights ?? record?.content.highlights ?? []).filter(Boolean);
-  const editedRooms = Array.isArray(data.suites)
+  const dataRooms = Array.isArray(data.suites)
     ? data.suites
     : Array.isArray(data.roomTypes)
       ? data.roomTypes
       : undefined;
   const normalizedRooms = normalizedRecord.suitesData?.suites ?? data.suitesData?.suites ?? [];
-  const rooms = (editedRooms ?? mergeRoomsByTitle(libraryRoomRecords, record?.rooms ?? [], normalizedRooms)).filter(Boolean);
-  const editedServices = Array.isArray(data.additionalServices) ? data.additionalServices : undefined;
+  const editedRooms = importedFromSource ? undefined : dataRooms;
+  const rooms = (importedFromSource
+    ? mergeRoomsByTitle(record?.rooms ?? [], libraryRoomRecords, normalizedRooms, dataRooms ?? [])
+    : editedRooms ?? mergeRoomsByTitle(libraryRoomRecords, record?.rooms ?? [], normalizedRooms)
+  ).filter(Boolean);
+  const dataServices = Array.isArray(data.additionalServices) ? data.additionalServices : undefined;
   const normalizedServices = normalizedRecord.servicesData?.services ?? data.servicesData?.services ?? [];
-  const services = (editedServices ?? mergeServicesByTitle(libraryServiceRecords, record?.services ?? [], normalizedServices)).filter(Boolean);
+  const editedServices = importedFromSource ? undefined : dataServices;
+  const services = (importedFromSource
+    ? mergeServicesByTitle(record?.services ?? [], libraryServiceRecords, normalizedServices, dataServices ?? [])
+    : editedServices ?? mergeServicesByTitle(libraryServiceRecords, record?.services ?? [], normalizedServices)
+  ).filter(Boolean);
   const roomImageKeys = new Set(
     rooms
       .map((room: any) => normalizedImageKey(stringFrom(room.image)))
@@ -727,12 +737,13 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   );
   const serviceItems = services.map((service: any, index: number) => {
     const serviceImage = stringFrom(service.image);
+    const resolvedServiceImage = isUsableGalleryImage(serviceImage, logoImage) && !isTextHeavyImage(serviceImage, mediaAssets)
+      ? serviceImage
+      : importedFromSource
+        ? ''
+        : imageFrom('', fallbackImages[index + 3], fallbackImages[index]);
     return {
-      image: imageFrom(
-        isUsableGalleryImage(serviceImage, logoImage) && !isTextHeavyImage(serviceImage, mediaAssets) ? serviceImage : '',
-        fallbackImages[index + 3],
-        fallbackImages[index],
-      ),
+      image: resolvedServiceImage,
       title: stringFrom(service.title, service.name, `Care service ${index + 1}`),
       text: stringFrom(service.description, service.text, 'Additional support available during the stay.'),
       price: stringFrom(service.price),
@@ -742,11 +753,15 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     ? []
     : importedFromSource && !rooms.length
       ? []
-      : ensureSuiteCount(rooms, fallbackImages, data.pricePerNight || normalized.pricePerNight, usedImages);
+      : ensureSuiteCount(rooms, fallbackImages, data.pricePerNight || normalized.pricePerNight, usedImages, !importedFromSource);
   const sourceGalleryImages = uniqueGalleryItems([
+    ...mediaAssets
+      .filter((asset) => isPreviewSafeMedia(asset) && asset.category === 'gallery')
+      .map((asset) => ({ url: asset.url, caption: stringFrom(asset.caption, asset.alt, asset.title) })),
     ...libraryGalleryImages,
     ...(record?.media.galleryImages ?? []),
-    ...fallbackImages.map((url) => ({ url })),
+    ...((Array.isArray(data.galleryImages) ? data.galleryImages : []) as unknown[]).map((url) => ({ url: stringFrom(url) })),
+    ...(importedFromSource ? [] : fallbackImages.map((url) => ({ url }))),
   ]).filter((item) => isUsableGalleryImage(item.url, logoImage) && !isTextHeavyImage(item.url, mediaAssets));
   const galleryReservedKeys = new Set(
     [heroImage, aboutImage, whyChooseImage, facilityImage, ownerImage]
@@ -1560,7 +1575,13 @@ function ensureFeatureCount(
     }));
 }
 
-function ensureSuiteCount(rooms: any[], images: string[], fallbackPrice?: string, usedImages?: Set<string>) {
+function ensureSuiteCount(
+  rooms: any[],
+  images: string[],
+  fallbackPrice?: string,
+  usedImages?: Set<string>,
+  allowImageFallback = true,
+) {
   const fallbackSuites = [
     { name: 'Standard Suites', description: 'Comfortable and cosy suites perfect for a relaxing stay.' },
     { name: 'Deluxe Suites', description: 'Extra comfort and premium features for added calm.' },
@@ -1579,9 +1600,11 @@ function ensureSuiteCount(rooms: any[], images: string[], fallbackPrice?: string
     const hasContextualRoomImage = isUsableGalleryImage(roomImage);
     const resolvedImage = hasContextualRoomImage
       ? roomImage
-      : usedImages
-        ? pickUniqueImage(usedImages, [images[index + 1], images[index], images[0]], images)
-        : imageFrom(images[index + 1], images[index], images[0]);
+      : !allowImageFallback
+        ? ''
+        : usedImages
+          ? pickUniqueImage(usedImages, [images[index + 1], images[index], images[0]], images)
+          : imageFrom(images[index + 1], images[index], images[0]);
     if (hasContextualRoomImage && usedImages) rememberImage(usedImages, roomImage);
     return {
       image: resolvedImage,

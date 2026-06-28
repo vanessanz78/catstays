@@ -65,6 +65,7 @@ import {
   normalizePreviewTemplateId,
   savePreviewImportRecord,
   templateOptionsForData,
+  type PreviewImportRecord,
   type PreviewTemplateId,
   type ImportedCatteryScrape,
 } from '../../lib/previewTemplates';
@@ -76,6 +77,203 @@ function sourceUrlForTemplateSnapshot(data: Record<string, any>) {
   const trimmedUrl = String(sourceUrl || '').trim();
   if (!trimmedUrl) return 'https://www.delorainecattery.com/';
   return /^https?:\/\//i.test(trimmedUrl) ? trimmedUrl : `https://${trimmedUrl}`;
+}
+
+function mediaKey(url: string) {
+  return String(url || '').split('?')[0].trim().toLowerCase();
+}
+
+function slugKey(value: string) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+async function savePreviewSourceCatalog(record: PreviewImportRecord, catteryId?: string | null) {
+  try {
+    const { data: authData } = await supabase.auth.getUser();
+    const userId = authData.user?.id;
+    if (!userId || !record.source.url) return;
+
+    const { data: importRow, error: importError } = await supabase
+      .from('preview_source_imports')
+      .upsert({
+        cattery_id: catteryId || null,
+        created_by: userId,
+        source_url: record.source.url,
+        source_host: record.source.host,
+        business_name: record.identity.businessName,
+        import_status: record.status,
+        template_hint: record.selectedTemplate,
+        raw_summary: {
+          contact: record.contact,
+          identity: record.identity,
+          source: record.source,
+          counts: {
+            images: record.media.images.length,
+            mediaAssets: record.media.mediaAssets?.length ?? 0,
+            galleryImages: record.media.galleryImages.length,
+            contentSnippets: record.contentSnippets?.length ?? 0,
+            rooms: record.rooms.length,
+            services: record.services.length,
+            faqs: record.faqs.length,
+          },
+        },
+      }, { onConflict: 'source_fingerprint,created_by' })
+      .select('id')
+      .single();
+
+    if (importError || !importRow?.id) {
+      console.warn('Could not save preview source import catalog', importError);
+      return;
+    }
+
+    const importId = importRow.id as string;
+    await supabase.from('preview_template_slot_assignments').delete().eq('import_id', importId);
+    await supabase.from('preview_source_content_media_links').delete().eq('import_id', importId);
+    await supabase.from('preview_source_content_items').delete().eq('import_id', importId);
+
+    const mediaByKey = new Map<string, any>();
+    const addMedia = (url: string, details: Record<string, any> = {}) => {
+      const key = mediaKey(url);
+      if (!key) return;
+      const existing = mediaByKey.get(key) || {};
+      mediaByKey.set(key, {
+        import_id: importId,
+        url,
+        source_page_url: details.sourceUrl || existing.source_page_url || record.source.url,
+        source_page_title: details.sourcePageTitle || existing.source_page_title || '',
+        alt_text: details.alt || existing.alt_text || '',
+        title: details.title || existing.title || '',
+        caption: details.caption || existing.caption || '',
+        nearby_text: details.nearbyText || existing.nearby_text || '',
+        semantic_role: details.category || existing.semantic_role || 'gallery',
+        section_hint: details.sectionHint || existing.section_hint || details.category || 'gallery',
+        tags: Array.isArray(details.tags) ? details.tags : existing.tags || [],
+        contains_text: Boolean(details.containsText ?? existing.contains_text),
+        is_logo: Boolean(details.isLogo ?? existing.is_logo),
+        is_decorative: Boolean(details.isDecorative ?? existing.is_decorative),
+        quality_score: typeof details.score === 'number' ? details.score : existing.quality_score ?? null,
+        ai_metadata: details.aiMetadata || existing.ai_metadata || {},
+      });
+    };
+
+    for (const asset of record.media.mediaAssets ?? []) addMedia(asset.url, asset);
+    for (const image of record.media.galleryImages) addMedia(image.url, { caption: image.caption, category: 'gallery', tags: (image as any).tags });
+    for (const url of record.media.images) addMedia(url, { category: 'gallery' });
+    for (const room of record.rooms) addMedia(room.image || '', { category: 'rooms', sectionHint: room.name, nearbyText: room.description, tags: ['room', room.name].filter(Boolean) });
+    for (const service of record.services) addMedia(service.image || '', { category: 'services', sectionHint: service.title, nearbyText: service.description, tags: ['service', service.title].filter(Boolean) });
+
+    const mediaRows = [...mediaByKey.values()];
+    const { data: savedMedia } = mediaRows.length
+      ? await supabase
+          .from('preview_source_media_assets')
+          .upsert(mediaRows, { onConflict: 'import_id,normalized_url' })
+          .select('id,url,semantic_role')
+      : { data: [] as any[] };
+    const savedMediaByUrl = new Map((savedMedia ?? []).map((media) => [mediaKey(media.url), media]));
+
+    const contentRows: Array<Record<string, any> & { linkedImage?: string; slotKey?: string }> = [];
+    const addContent = (semanticRole: string, title: string, body: string, details: Record<string, any> = {}) => {
+      if (!String(title || body).trim()) return;
+      contentRows.push({
+        import_id: importId,
+        source_page_url: details.sourceUrl || record.source.url,
+        source_page_title: details.sourcePageTitle || '',
+        heading: details.heading || '',
+        title,
+        body,
+        semantic_role: semanticRole,
+        section_hint: details.sectionHint || semanticRole,
+        tags: Array.isArray(details.tags) ? details.tags : [semanticRole],
+        intent: details.intent || {},
+        sort_order: contentRows.length,
+        linkedImage: details.linkedImage,
+        slotKey: details.slotKey,
+      });
+    };
+
+    for (const snippet of record.contentSnippets ?? []) {
+      addContent(snippet.category || 'general', snippet.title, snippet.text, {
+        sourceUrl: snippet.sourceUrl,
+        sourcePageTitle: snippet.sourcePageTitle,
+        heading: snippet.heading,
+        tags: snippet.tags,
+      });
+    }
+    for (const block of record.contentLibrary.blocks ?? []) {
+      addContent(block.category, block.title, block.text || '', {
+        linkedImage: block.images?.[0]?.url,
+        slotKey: block.category,
+        tags: [block.category],
+      });
+      for (const item of block.items ?? []) {
+        addContent(block.category, item.title, item.text || item.answer || '', {
+          linkedImage: item.image,
+          slotKey: `${block.category}:${slugKey(item.title)}`,
+          tags: [block.category, item.title].filter(Boolean),
+        });
+      }
+    }
+    for (const room of record.rooms) {
+      addContent('rooms', room.name, room.description, {
+        linkedImage: room.image,
+        slotKey: `rooms:${slugKey(room.name)}`,
+        tags: ['room', room.name].filter(Boolean),
+        intent: { price: room.price, priceUnit: room.priceUnit, amenities: room.amenities ?? [] },
+      });
+    }
+    for (const service of record.services) {
+      addContent('services', service.title, service.description, {
+        linkedImage: service.image,
+        slotKey: `services:${slugKey(service.title)}`,
+        tags: ['service', service.title].filter(Boolean),
+        intent: { price: service.price },
+      });
+    }
+    for (const faq of record.faqs) addContent('faqs', faq.question, faq.answer, { slotKey: `faqs:${slugKey(faq.question)}` });
+
+    const contentRowsForDb = contentRows.map(({ linkedImage, slotKey, ...row }) => row);
+    const { data: savedContent } = contentRowsForDb.length
+      ? await supabase.from('preview_source_content_items').insert(contentRowsForDb).select('id,semantic_role,sort_order')
+      : { data: [] as any[] };
+
+    const linkRows: any[] = [];
+    const slotRows: any[] = [];
+    (savedContent ?? []).forEach((content, index) => {
+      const sourceContent = contentRows[index];
+      const media = savedMediaByUrl.get(mediaKey(sourceContent?.linkedImage || ''));
+      if (media) {
+        linkRows.push({
+          import_id: importId,
+          content_item_id: content.id,
+          media_asset_id: media.id,
+          semantic_role: sourceContent.semantic_role,
+          confidence: 0.96,
+          reason: 'Image was found with the matching source-site content block.',
+        });
+      }
+      if (sourceContent?.slotKey) {
+        slotRows.push({
+          import_id: importId,
+          template_id: 'all-previews',
+          slot_key: sourceContent.slotKey,
+          content_item_id: content.id,
+          media_asset_id: media?.id ?? null,
+          confidence: media ? 0.96 : 0.82,
+          rationale: media
+            ? 'Use the original image-copy pairing before falling back to gallery images.'
+            : 'Use the source content block in the matching preview section.',
+        });
+      }
+    });
+
+    if (linkRows.length) await supabase.from('preview_source_content_media_links').insert(linkRows);
+    if (slotRows.length) await supabase.from('preview_template_slot_assignments').upsert(slotRows, { onConflict: 'import_id,template_id,slot_key' });
+  } catch (error) {
+    console.warn('Preview source catalog save skipped', error);
+  }
 }
 
 function OnboardingTemplateSnapshot({
@@ -467,6 +665,7 @@ export function OnboardingWizard() {
 
       const previewRecord = buildPreviewImportRecord(payload);
       savePreviewImportRecord(previewRecord);
+      void savePreviewSourceCatalog(previewRecord, cattery?.id);
 
       setData(prev => ({
         ...dataFromPreviewRecord(previewRecord, 'original', prev),
