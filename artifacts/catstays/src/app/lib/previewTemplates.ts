@@ -197,7 +197,7 @@ export const previewTemplateCards: PreviewTemplateOption[] = [
   {
     id: 'original',
     name: 'Original',
-    description: 'The scraped website exactly as it appears now',
+    description: 'A generated clone of the scraped site using saved content and media',
     image: 'https://www.delorainecattery.com/assets/Deloraine%20Cattery%20Building-CX1rWDRb.png',
     sourceOnly: true,
   },

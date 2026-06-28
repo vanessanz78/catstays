@@ -105,19 +105,6 @@ const getIconComponent = (iconName: string) => {
   return icons[iconName] || Shield;
 };
 
-function importedPreviewUrl(data: Record<string, any>) {
-  const rawUrl = data.importSourceUrl || data.sourceUrl;
-  if (!rawUrl || typeof rawUrl !== 'string') return '';
-
-  try {
-    const url = new URL(rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`);
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') return '';
-    return url.toString();
-  } catch {
-    return '';
-  }
-}
-
 interface WebsiteBuilderProps {
   data: any;
   setData: (data: any) => void;
@@ -143,7 +130,6 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
   const [selectedRoom, setSelectedRoom] = useState<any>(null);
   const [isBookingFromClientPortal, setIsBookingFromClientPortal] = useState(false);
   const selectedTemplate = normalizePreviewTemplateId(data.selectedTemplate || 'conversion-focus');
-  const isSourceOnlyOriginal = selectedTemplate === 'original';
 
   // AI regeneration handler - calls onAIRegenerate prop
   const handleAIClick = async (field: string) => {
@@ -244,22 +230,6 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
   // Render different preview layouts based on template
   const renderPreviewLayout = () => {
     const template = selectedTemplate;
-    const sourcePreviewUrl = importedPreviewUrl(data);
-
-    if (template === 'original' && sourcePreviewUrl) {
-      return (
-        <div className="min-h-[720px] w-full bg-white">
-          <iframe
-            title={`${data.businessName || 'Imported cattery'} original website preview`}
-            src={sourcePreviewUrl}
-            className="block min-h-[720px] w-full border-0 bg-white"
-            referrerPolicy="no-referrer-when-downgrade"
-            sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
-          />
-        </div>
-      );
-    }
-
     return <CatstaysTemplateSite data={data} templateId={template} embedded />;
   };
 
@@ -917,33 +887,6 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
 
               {/* Scrollable content area */}
               <div className="flex-1 overflow-y-auto p-6 bg-[#F8F7F5]">
-              {isSourceOnlyOriginal ? (
-                <div className="space-y-4">
-                  <div className="rounded-2xl border border-[#C46A3A]/20 bg-white p-5">
-                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#C46A3A]">Original Site Reference</p>
-                    <h3 className="mt-2 text-lg font-semibold text-[#2d3e2f]">This view preserves the owner site as a saved reference</h3>
-                    <p className="mt-3 text-sm leading-6 text-[#566457]">
-                      The original website is kept so the owner can come back later and review what was scraped, but it is not shown as a fake editable rebuild.
-                      To edit content live in the builder, switch to Focus, Editorial, or Showcase.
-                    </p>
-                    <div className="mt-4 grid gap-3 text-sm text-[#566457] sm:grid-cols-2">
-                      <div className="rounded-xl bg-[#F8F7F5] p-4">
-                        <p className="font-semibold text-[#2d3e2f]">Saved status</p>
-                        <p className="mt-1">{data.previewRecordStatus || 'in_progress'}</p>
-                      </div>
-                      <div className="rounded-xl bg-[#F8F7F5] p-4">
-                        <p className="font-semibold text-[#2d3e2f]">Imported source</p>
-                        <p className="mt-1 break-all">{data.importSourceUrl || data.sourceUrl || 'Website import'}</p>
-                      </div>
-                    </div>
-                    {onChangeTemplate ? (
-                      <Button onClick={onChangeTemplate} className="mt-5 rounded-xl bg-[#0A1128] text-white hover:bg-[#0A1128]/90">
-                        Choose Editable Template
-                      </Button>
-                    ) : null}
-                  </div>
-                </div>
-              ) : (
                 <>
                   {/* Horizontal Tabs for Content and Design & Colors */}
                   <div className="mb-6">
@@ -990,7 +933,6 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
                     )}
                   </div>
                 </>
-              )}
 
               {/* OLD TABS SECTION - Keeping for backward compatibility */}
               <div className="hidden">

@@ -365,21 +365,6 @@ function TemplateSnapshot({
     transformOrigin: 'top left',
   };
 
-  if (template === 'original') {
-    const sourceUrl = sourceUrlForSnapshot(data);
-    return (
-      <div className="relative h-36 overflow-hidden bg-white">
-        <iframe
-          src={sourceUrl}
-          title={`${data.businessName || 'Original website'} thumbnail`}
-          loading="lazy"
-          className="absolute left-0 top-0 border-0 bg-white"
-          style={miniatureStyle}
-        />
-      </div>
-    );
-  }
-
   return (
     <div className="relative h-36 overflow-hidden bg-white">
       <div className="absolute left-0 top-0" style={miniatureStyle}>
@@ -387,14 +372,6 @@ function TemplateSnapshot({
       </div>
     </div>
   );
-}
-
-function sourceUrlForSnapshot(data: DelorainePreviewData) {
-  const record = (data as any).previewImportRecord as PreviewImportRecord | undefined;
-  const sourceUrl = record?.source?.url || (data as any).importSourceUrl || (data as any).sourceUrl || DELORAINE_SOURCE_URL;
-  const trimmedUrl = String(sourceUrl).trim();
-  if (!trimmedUrl) return DELORAINE_SOURCE_URL;
-  return /^https?:\/\//i.test(trimmedUrl) ? trimmedUrl : `https://${trimmedUrl}`;
 }
 
 function templateLabel(template: PreviewTemplateId) {

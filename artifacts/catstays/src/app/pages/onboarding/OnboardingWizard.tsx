@@ -72,13 +72,6 @@ import {
 
 const logoIcon = '/assets/b463d12091f20e48be52186dedd2a0f6707d0b66.png';
 
-function sourceUrlForTemplateSnapshot(data: Record<string, any>) {
-  const sourceUrl = data.previewImportRecord?.source?.url || data.importSourceUrl || data.sourceUrl;
-  const trimmedUrl = String(sourceUrl || '').trim();
-  if (!trimmedUrl) return 'https://www.delorainecattery.com/';
-  return /^https?:\/\//i.test(trimmedUrl) ? trimmedUrl : `https://${trimmedUrl}`;
-}
-
 function mediaKey(url: string) {
   return String(url || '').split('?')[0].trim().toLowerCase();
 }
@@ -290,20 +283,6 @@ function OnboardingTemplateSnapshot({
     transform: `scale(${miniatureScale})`,
     transformOrigin: 'top left',
   } as const;
-
-  if (template === 'original') {
-    return (
-      <div className="relative h-full overflow-hidden bg-white">
-        <iframe
-          src={sourceUrlForTemplateSnapshot(data)}
-          title={`${data.businessName || 'Original website'} thumbnail`}
-          loading="lazy"
-          className="absolute left-0 top-0 border-0 bg-white"
-          style={miniatureStyle}
-        />
-      </div>
-    );
-  }
 
   return (
     <div className="relative h-full overflow-hidden bg-white">
