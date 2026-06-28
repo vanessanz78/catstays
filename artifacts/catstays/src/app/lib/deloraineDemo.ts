@@ -12,11 +12,65 @@ const deloraineAssets = [
   'https://www.delorainecattery.com/assets/Kitty3-nO3ryPLf.jpg',
   'https://www.delorainecattery.com/assets/Wally-C97dE8Dg.jpg',
   'https://www.delorainecattery.com/assets/Lola-c8BpaLTB.jpg',
+  'https://www.delorainecattery.com/assets/Paul%20and%20Vanessa%20Wilson%20Bali_1763441194280-DBuXTA8R.jpg',
   'https://www.delorainecattery.com/assets/Paul%20and%20Vanessa-Dst6H-6-.jpg',
+  'https://www.delorainecattery.com/assets/BellaandMinnie-CP8ooFhh.jpg',
+  'https://www.delorainecattery.com/assets/CatinCommunalRoom-CDu7XlyB.jpg',
+  'https://www.delorainecattery.com/assets/20250102_103130-ge7rsGuv.jpg',
+  'https://www.delorainecattery.com/assets/Foxy-5UcuYm8S.jpg',
+  'https://www.delorainecattery.com/assets/HillorayandHarlo-YHV8KQR9.jpg',
+  'https://www.delorainecattery.com/assets/KaiaAndIndi-Dc7Q9cCz.jpg',
+  'https://www.delorainecattery.com/assets/KaiaandMelody-CMsZ2ICb.jpg',
+  'https://www.delorainecattery.com/assets/Kitty-BKwpqmFr.jpg',
+  'https://www.delorainecattery.com/assets/Kitty1-BcKyOqjp.jpg',
+  'https://www.delorainecattery.com/assets/MainCooneGroom-DD2DP_0c.jpg',
+  'https://www.delorainecattery.com/assets/MaineCoon-Xq4sf5fu.jpg',
+  'https://www.delorainecattery.com/assets/Monty-CE06uDNS.jpg',
+  'https://www.delorainecattery.com/assets/Toby-CfSGhp67.jpg',
+  'https://www.delorainecattery.com/assets/Window-CA-ghRx4.jpg',
+  'https://www.delorainecattery.com/assets/Deloraine_Cattery_Map_2048x2048-Dyzneguz.webp',
+  'https://www.delorainecattery.com/assets/Fish%20Bus%20Stop-BegvTyVX.png',
+  'https://www.delorainecattery.com/assets/Our%20Driveway-tG7Scj_U.png',
 ];
 
 const deloraineVirtualTourEmbedUrl =
   'https://www.google.com/maps/embed?pb=!4v1585042151806!6m8!1m7!1sCAoSLEFGMVFpcE4yclY4ZXBnVTVJTlc4VkVoTEN2dmx5Wk45b201czhtZ3ZUbFpr!2m2!1d-35.72669200000001!2d174.355986!3f20.68!4f-14.75!5f0.4000000000000002';
+
+const deloraineAssetCaptions = [
+  'Deloraine Cattery building',
+  'Private boarding rooms',
+  'Communal play area',
+  'Indoor boarding suites',
+  'Happy white kittens',
+  'Wally the Siamese cat',
+  'Lola at playtime',
+  'Paul and Vanessa Wilson',
+  'Paul and Vanessa at Deloraine',
+  'Bella and Minnie relaxing',
+  'Cat in communal room',
+  'Deloraine guest cat',
+  'Foxy relaxing',
+  'Hilloray and Harlo',
+  'Kaia and Indi',
+  'Kaia and Melody',
+  'Kitty enjoying the cattery',
+  'Kitty in the rooms',
+  'Maine Coon grooming care',
+  'Maine Coon guest',
+  'Monty relaxing',
+  'Toby at Deloraine',
+  'Window view for cats',
+  'Deloraine Cattery location map',
+  'Big Fish bus stop landmark',
+  'Deloraine driveway entrance',
+];
+
+const deloraineGalleryAssets = deloraineAssets
+  .map((url, index) => ({
+    url,
+    caption: deloraineAssetCaptions[index] || 'Deloraine Cattery photo',
+  }))
+  .filter((image) => !isLikelyTextHeavyImage(image.url));
 
 const genericCatAssets = [
   'https://images.unsplash.com/photo-1770255860384-3359fd44b467?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1200',
@@ -263,20 +317,7 @@ export const fallbackDeloraineScrape: ImportedCatteryScrape = {
   heading: 'Deloraine Cattery',
   heroImage: deloraineAssets[0],
   images: deloraineAssets,
-  galleryImages: deloraineAssets.map((url, index) => ({
-    url,
-    caption:
-      [
-        'Deloraine Cattery building',
-        'Private boarding rooms',
-        'Communal play area',
-        'Indoor boarding suites',
-        'Happy white kittens',
-        'Wally the Siamese cat',
-        'Lola at playtime',
-        'Paul and Vanessa Wilson',
-      ][index] || 'Deloraine Cattery photo',
-  })),
+  galleryImages: deloraineGalleryAssets,
   phone: '021 463 616',
   email: 'enquiry@delorainecattery.com',
   address: '50 Konini Street, Abbey Caves, Whangarei',
@@ -741,14 +782,7 @@ export const fallbackDeloraineScrape: ImportedCatteryScrape = {
         title: 'Happy Cats at Deloraine',
         text: 'A gallery of the facilities and cats who love staying at Deloraine Cattery.',
         source: 'scrape',
-        images: [
-          { url: deloraineAssets[4], caption: 'Happy kittens at Deloraine' },
-          { url: deloraineAssets[5], caption: 'Wally relaxing' },
-          { url: deloraineAssets[6], caption: 'Lola at playtime' },
-          { url: deloraineAssets[2], caption: 'Communal room with outdoor views' },
-          { url: deloraineAssets[1], caption: 'Private boarding room' },
-          { url: deloraineAssets[3], caption: 'Indoor room accommodation' },
-        ],
+        images: deloraineGalleryAssets,
       },
       {
         id: 'reviews',
@@ -950,21 +984,29 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
   const isRealSourceImport = Boolean(scrape.extractedFrom?.html || scrape.mediaAssets?.length || scrape.siteContentLibrary?.mediaAssets?.length);
   const fallbackAssets = scrapedImages.length ? [] : isDeloraineSource ? deloraineAssets : isRealSourceImport ? [] : genericCatAssets;
   const images = uniqueImages([...scrapedImages, ...fallbackAssets]);
-  const fallbackRooms = isDeloraineSource ? fallbackDeloraineScrape.rooms ?? [] : isRealSourceImport ? [] : genericRooms(images);
-  const fallbackServices = isDeloraineSource ? fallbackDeloraineScrape.services ?? [] : isRealSourceImport ? [] : genericServices(images);
-  const fallbackHighlights = isDeloraineSource ? fallbackDeloraineScrape.highlights ?? [] : isRealSourceImport ? [] : genericHighlights();
-  const rooms = scrape.rooms?.length ? scrape.rooms : fallbackRooms;
-  const services = (scrape.services?.length ? scrape.services : fallbackServices).slice(0, 12);
-  const highlights = scrape.highlights?.length ? scrape.highlights : fallbackHighlights;
-  const galleryImages =
-    scrape.galleryImages?.length
-      ? scrape.galleryImages.filter((image) => !isTextHeavyImage(image.url, mediaAssets))
-      : images.map((url, index) => ({ url, caption: `${businessNameFromScrape(scrape)} photo ${index + 1}` }));
   const businessName =
     meaningfulHeading(stringValue(settings.businessName)) ||
     cleanBusinessName(scrape.title) ||
     meaningfulHeading(scrape.heading) ||
     businessNameFromScrape(scrape);
+  const fallbackRooms = isDeloraineSource ? fallbackDeloraineScrape.rooms ?? [] : isRealSourceImport ? [] : genericRooms(images);
+  const fallbackServices = isDeloraineSource ? fallbackDeloraineScrape.services ?? [] : isRealSourceImport ? [] : genericServices(images);
+  const fallbackHighlights = isDeloraineSource ? fallbackDeloraineScrape.highlights ?? [] : isRealSourceImport ? [] : genericHighlights();
+  const rooms = isDeloraineSource
+    ? mergeRoomsByName(scrape.rooms ?? [], fallbackRooms)
+    : scrape.rooms?.length ? scrape.rooms : fallbackRooms;
+  const services = (isDeloraineSource
+    ? mergeServicesByTitle(scrape.services ?? [], fallbackServices)
+    : scrape.services?.length ? scrape.services : fallbackServices
+  ).slice(0, 12);
+  const highlights = isDeloraineSource
+    ? mergeHighlightsByTitle(scrape.highlights ?? [], fallbackHighlights)
+    : scrape.highlights?.length ? scrape.highlights : fallbackHighlights;
+  const galleryImages = uniqueGalleryImages([
+    ...(scrape.galleryImages ?? []),
+    ...(isDeloraineSource ? fallbackDeloraineScrape.galleryImages ?? [] : []),
+    ...(!scrape.galleryImages?.length ? images.map((url, index) => ({ url, caption: `${businessName} photo ${index + 1}` })) : []),
+  ]).filter((image) => !isTextHeavyImage(image.url, mediaAssets));
   const fallbackPhone = isDeloraineSource ? fallbackDeloraineScrape.phone || '' : '';
   const fallbackEmail = isDeloraineSource ? fallbackDeloraineScrape.email || '' : '';
   const fallbackAddress = isDeloraineSource ? fallbackDeloraineScrape.address || '' : '';
@@ -973,10 +1015,10 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
     ? scrape.reviews
     : (settings.testimonialsData?.testimonials ?? (isDeloraineSource ? fallbackDeloraineScrape.reviews ?? [] : []));
   const hours = stringValue(settings.hours) || scrape.hours || (isDeloraineSource ? fallbackDeloraineScrape.hours || '' : '');
-  const owner = scrape.owner || settings.ownerData || (isDeloraineSource ? fallbackDeloraineScrape.owner : undefined);
-  const commitment = scrape.commitment || settings.commitmentData || (isDeloraineSource ? fallbackDeloraineScrape.commitment : undefined);
-  const locationDetails = scrape.locationDetails || settings.locationData || (isDeloraineSource ? fallbackDeloraineScrape.locationDetails : undefined);
-  const socialLinks = scrape.socialLinks || settings.socialLinks || (isDeloraineSource ? fallbackDeloraineScrape.socialLinks : undefined);
+  const owner = mergeOwnerData(scrape.owner, settings.ownerData, isDeloraineSource ? fallbackDeloraineScrape.owner : undefined);
+  const commitment = mergeCommitmentData(scrape.commitment, settings.commitmentData, isDeloraineSource ? fallbackDeloraineScrape.commitment : undefined);
+  const locationDetails = mergeLocationData(scrape.locationDetails, settings.locationData, isDeloraineSource ? fallbackDeloraineScrape.locationDetails : undefined);
+  const socialLinks = mergeSocialLinks(scrape.socialLinks, settings.socialLinks, isDeloraineSource ? fallbackDeloraineScrape.socialLinks : undefined);
   const virtualTourUrl =
     embeddableVirtualTourUrl(
       stringValue(settings.virtualTourUrl) ||
@@ -986,10 +1028,8 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
       scrape.sourceHost,
     ) ||
     (isDeloraineSource ? fallbackDeloraineScrape.virtualTourUrl || '' : '');
-  const siteContentLibrary =
-    scrape.siteContentLibrary ||
-    siteContentLibraryFromSettings(settings.siteContentLibrary) ||
-    buildSiteContentLibrary({
+  const sourceContentLibrary = scrape.siteContentLibrary || siteContentLibraryFromSettings(settings.siteContentLibrary);
+  const generatedSiteContentLibrary = buildSiteContentLibrary({
       scrape,
       businessName,
       rooms,
@@ -1007,6 +1047,9 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
       mediaAssets,
       contentSnippets,
     });
+  const siteContentLibrary = sourceContentLibrary
+    ? mergeSiteContentLibraries(sourceContentLibrary, generatedSiteContentLibrary)
+    : generatedSiteContentLibrary;
   const heroImage = imageForCategory(mediaAssets, 'hero') ||
     imageForCategory(mediaAssets, 'facilities') ||
     firstSafeImage(scrape.heroImage, mediaAssets) ||
@@ -1237,6 +1280,346 @@ function normaliseContentSnippets(...sources: unknown[]): CatteryContentSnippet[
   return snippets;
 }
 
+function mergeRoomsByName(...sources: Array<NonNullable<ImportedCatteryScrape['rooms']>>): NonNullable<ImportedCatteryScrape['rooms']> {
+  const merged: NonNullable<ImportedCatteryScrape['rooms']> = [];
+  const byName = new Map<string, NonNullable<ImportedCatteryScrape['rooms']>[number]>();
+
+  for (const source of sources) {
+    if (!Array.isArray(source)) continue;
+    for (const room of source) {
+      const name = stringValue(room.name);
+      const key = sourceItemKey(name);
+      if (!key) {
+        merged.push(room);
+        continue;
+      }
+
+      const existing = byName.get(key);
+      if (!existing) {
+        const copy = { ...room, name };
+        byName.set(key, copy);
+        merged.push(copy);
+        continue;
+      }
+
+      mergeSourceRecord(existing, room, ['name', 'price', 'priceUnit', 'image']);
+      if (!existing.price_per_night && room.price_per_night) existing.price_per_night = room.price_per_night;
+      if (!existing.capacity && room.capacity) existing.capacity = room.capacity;
+      existing.description = longerText(existing.description, room.description);
+      existing.amenities = mergeStringLists(existing.amenities, room.amenities);
+    }
+  }
+
+  return merged;
+}
+
+function mergeServicesByTitle(...sources: Array<NonNullable<ImportedCatteryScrape['services']>>): NonNullable<ImportedCatteryScrape['services']> {
+  const merged: NonNullable<ImportedCatteryScrape['services']> = [];
+  const byTitle = new Map<string, NonNullable<ImportedCatteryScrape['services']>[number]>();
+
+  for (const source of sources) {
+    if (!Array.isArray(source)) continue;
+    for (const service of source) {
+      const title = stringValue(service.title);
+      const key = sourceItemKey(title);
+      if (!key) {
+        merged.push(service);
+        continue;
+      }
+
+      const existing = byTitle.get(key);
+      if (!existing) {
+        const copy = { ...service, title };
+        byTitle.set(key, copy);
+        merged.push(copy);
+        continue;
+      }
+
+      mergeSourceRecord(existing, service, ['title', 'price', 'image']);
+      existing.description = longerText(existing.description, service.description);
+    }
+  }
+
+  return merged;
+}
+
+function mergeHighlightsByTitle(...sources: Array<NonNullable<ImportedCatteryScrape['highlights']>>): NonNullable<ImportedCatteryScrape['highlights']> {
+  const merged: NonNullable<ImportedCatteryScrape['highlights']> = [];
+  const byTitle = new Map<string, NonNullable<ImportedCatteryScrape['highlights']>[number]>();
+
+  for (const source of sources) {
+    if (!Array.isArray(source)) continue;
+    for (const highlight of source) {
+      const title = stringValue(highlight.title);
+      const key = sourceItemKey(title);
+      if (!key) {
+        merged.push(highlight);
+        continue;
+      }
+
+      const existing = byTitle.get(key);
+      if (!existing) {
+        const copy = { ...highlight, title };
+        byTitle.set(key, copy);
+        merged.push(copy);
+        continue;
+      }
+
+      mergeSourceRecord(existing, highlight, ['title']);
+      existing.description = longerText(existing.description, highlight.description);
+    }
+  }
+
+  return merged;
+}
+
+function uniqueGalleryImages(items: NonNullable<ImportedCatteryScrape['galleryImages']>): NonNullable<ImportedCatteryScrape['galleryImages']> {
+  const seen = new Map<string, { url: string; caption?: string }>();
+
+  for (const item of items) {
+    const url = stringValue(item.url);
+    if (!/^https?:\/\//i.test(url)) continue;
+    const key = mediaImageKey(url);
+    const existing = seen.get(key);
+    if (!existing) {
+      seen.set(key, { url, caption: stringValue(item.caption) || undefined });
+      continue;
+    }
+
+    if (!existing.caption && stringValue(item.caption)) existing.caption = stringValue(item.caption);
+  }
+
+  return Array.from(seen.values());
+}
+
+function mergeOwnerData(
+  ...sources: Array<ImportedCatteryScrape['owner'] | Record<string, any> | undefined>
+): ImportedCatteryScrape['owner'] | undefined {
+  const owner: NonNullable<ImportedCatteryScrape['owner']> = {};
+
+  for (const source of sources) {
+    if (!source || typeof source !== 'object') continue;
+    owner.title = owner.title || readStringField(source, ['title', 'heading', 'name']);
+    owner.image = owner.image || readStringField(source, ['image', 'imageUrl', 'photo']);
+    owner.text = longerText(owner.text, readStringField(source, ['text', 'description', 'body', 'copy']));
+  }
+
+  return owner.title || owner.text || owner.image ? owner : undefined;
+}
+
+function mergeCommitmentData(
+  ...sources: Array<ImportedCatteryScrape['commitment'] | Record<string, any> | undefined>
+): ImportedCatteryScrape['commitment'] | undefined {
+  const commitment: NonNullable<ImportedCatteryScrape['commitment']> = {};
+
+  for (const source of sources) {
+    if (!source || typeof source !== 'object') continue;
+    commitment.title = commitment.title || readStringField(source, ['title', 'heading']);
+    commitment.text = longerText(commitment.text, readStringField(source, ['text', 'description', 'body', 'copy']));
+    const items = Array.isArray((source as any).items) ? (source as any).items : [];
+    commitment.items = mergeHighlightsByTitle(
+      commitment.items ?? [],
+      items.map((item: any) => ({
+        title: readStringField(item, ['title', 'name']),
+        description: readStringField(item, ['description', 'text', 'body']),
+      })),
+    );
+  }
+
+  return commitment.title || commitment.text || commitment.items?.length ? commitment : undefined;
+}
+
+function mergeLocationData(
+  ...sources: Array<ImportedCatteryScrape['locationDetails'] | Record<string, any> | undefined>
+): ImportedCatteryScrape['locationDetails'] | undefined {
+  const location: NonNullable<ImportedCatteryScrape['locationDetails']> = {};
+
+  for (const source of sources) {
+    if (!source || typeof source !== 'object') continue;
+    location.heading = location.heading || readStringField(source, ['heading', 'title']);
+    location.text = longerText(location.text, readStringField(source, ['text', 'description', 'address']));
+    location.directions = longerText(location.directions, readStringField(source, ['directions', 'drivingDirections', 'instructions']));
+    location.virtualTourUrl = location.virtualTourUrl || readStringField(source, ['virtualTourUrl', 'virtualTour', 'tourUrl']);
+  }
+
+  return location.heading || location.text || location.directions || location.virtualTourUrl ? location : undefined;
+}
+
+function mergeSocialLinks(
+  ...sources: Array<ImportedCatteryScrape['socialLinks'] | Record<string, any> | undefined>
+): ImportedCatteryScrape['socialLinks'] | undefined {
+  const links: NonNullable<ImportedCatteryScrape['socialLinks']> = {};
+
+  for (const source of sources) {
+    if (!source || typeof source !== 'object') continue;
+    links.facebook = links.facebook || readStringField(source, ['facebook', 'facebookUrl']);
+    links.instagram = links.instagram || readStringField(source, ['instagram', 'instagramUrl']);
+  }
+
+  return links.facebook || links.instagram ? links : undefined;
+}
+
+function mergeSiteContentLibraries(
+  primary: CatterySiteContentLibrary,
+  supplemental: CatterySiteContentLibrary,
+): CatterySiteContentLibrary {
+  const blocks: CatterySiteContentBlock[] = [];
+  const byCategory = new Map<string, CatterySiteContentBlock>();
+
+  for (const library of [primary, supplemental]) {
+    for (const block of library.blocks ?? []) {
+      const key = block.category || block.id;
+      const existing = byCategory.get(key);
+      if (!existing) {
+        const copy = {
+          ...block,
+          items: block.items ? [...block.items] : undefined,
+          images: block.images ? [...block.images] : undefined,
+          links: block.links ? [...block.links] : undefined,
+        };
+        byCategory.set(key, copy);
+        blocks.push(copy);
+        continue;
+      }
+
+      mergeContentBlock(existing, block);
+    }
+  }
+
+  return {
+    ...primary,
+    sourceUrl: primary.sourceUrl || supplemental.sourceUrl,
+    sourceHost: primary.sourceHost || supplemental.sourceHost,
+    businessName: primary.businessName || supplemental.businessName,
+    capturedAt: primary.capturedAt || supplemental.capturedAt,
+    blocks,
+    mediaAssets: normaliseMediaAssets(primary.mediaAssets, supplemental.mediaAssets),
+    contentSnippets: normaliseContentSnippets(primary.contentSnippets, supplemental.contentSnippets),
+  };
+}
+
+function mergeContentBlock(target: CatterySiteContentBlock, source: CatterySiteContentBlock) {
+  target.title = target.title || source.title;
+  target.text = longerText(target.text, source.text);
+  target.source = target.source === 'scrape' ? target.source : source.source ?? target.source;
+  target.items = mergeContentItems(target.items ?? [], source.items ?? []);
+  target.images = mergeContentImages(target.images ?? [], source.images ?? []);
+  target.links = mergeContentLinks(target.links ?? [], source.links ?? []);
+}
+
+function mergeContentItems(
+  primary: CatterySiteContentItem[],
+  supplemental: CatterySiteContentItem[],
+): CatterySiteContentItem[] {
+  const merged = [...primary];
+  const byTitle = new Map(merged.map((item) => [sourceItemKey(item.title), item]));
+
+  for (const item of supplemental) {
+    const key = sourceItemKey(item.title);
+    const existing = byTitle.get(key);
+    if (!key || !existing) {
+      merged.push({ ...item });
+      if (key) byTitle.set(key, merged[merged.length - 1]);
+      continue;
+    }
+
+    mergeSourceRecord(existing, item, ['title', 'price', 'meta', 'image', 'url', 'answer']);
+    existing.text = longerText(existing.text, item.text);
+    existing.features = mergeStringLists(existing.features, item.features);
+    existing.details = mergeStringLists(existing.details, item.details);
+    if (!existing.rating && item.rating) existing.rating = item.rating;
+    if (!existing.date && item.date) existing.date = item.date;
+  }
+
+  return merged;
+}
+
+function mergeContentImages(
+  primary: NonNullable<CatterySiteContentBlock['images']>,
+  supplemental: NonNullable<CatterySiteContentBlock['images']>,
+): NonNullable<CatterySiteContentBlock['images']> {
+  const seen = new Map<string, NonNullable<CatterySiteContentBlock['images']>[number]>();
+
+  for (const item of [...primary, ...supplemental]) {
+    const url = stringValue(item.url);
+    if (!url) continue;
+    const key = mediaImageKey(url);
+    const existing = seen.get(key);
+    if (!existing) {
+      seen.set(key, { ...item, url });
+      continue;
+    }
+
+    existing.caption = existing.caption || item.caption;
+    existing.category = existing.category || item.category;
+    existing.containsText = existing.containsText || item.containsText;
+    existing.tags = mergeStringLists(existing.tags, item.tags);
+  }
+
+  return Array.from(seen.values());
+}
+
+function mergeContentLinks(
+  primary: NonNullable<CatterySiteContentBlock['links']>,
+  supplemental: NonNullable<CatterySiteContentBlock['links']>,
+): NonNullable<CatterySiteContentBlock['links']> {
+  const seen = new Set<string>();
+  const links: NonNullable<CatterySiteContentBlock['links']> = [];
+
+  for (const link of [...primary, ...supplemental]) {
+    const label = stringValue(link.label);
+    const url = stringValue(link.url);
+    const key = `${label}:${url}`.toLowerCase();
+    if (!label || !url || seen.has(key)) continue;
+    seen.add(key);
+    links.push({ label, url });
+  }
+
+  return links;
+}
+
+function mergeSourceRecord(target: Record<string, any>, source: Record<string, any>, fields: string[]) {
+  for (const field of fields) {
+    if (!stringValue(target[field]) && stringValue(source[field])) target[field] = source[field];
+  }
+}
+
+function readStringField(source: Record<string, any>, fields: string[]) {
+  for (const field of fields) {
+    const value = stringValue(source[field]);
+    if (value) return value;
+  }
+  return '';
+}
+
+function longerText(primary?: string, supplemental?: string): string | undefined {
+  const first = stringValue(primary);
+  const second = stringValue(supplemental);
+  if (!first) return second || undefined;
+  if (!second) return first;
+  return second.length > first.length ? second : first;
+}
+
+function mergeStringLists(primary?: unknown[], supplemental?: unknown[]): string[] | undefined {
+  const values = [
+    ...(Array.isArray(primary) ? primary : []),
+    ...(Array.isArray(supplemental) ? supplemental : []),
+  ]
+    .map((value) => stringValue(value))
+    .filter(Boolean);
+  const unique = Array.from(new Set(values));
+  return unique.length ? unique : undefined;
+}
+
+function sourceItemKey(value?: string): string {
+  return stringValue(value)
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/\b(room|rooms|suite|suites|service|services)\b/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
 function isPreviewSafeMedia(asset: CatteryMediaAsset): boolean {
   if (!asset.url) return false;
   if (asset.isLogo || asset.isDecorative || asset.containsText) return false;
@@ -1252,7 +1635,7 @@ function isTextHeavyImage(url: string | undefined, mediaAssets: CatteryMediaAsse
 
 function isLikelyTextHeavyImage(url: string): boolean {
   const decoded = safeDecode(url).toLowerCase();
-  return /\b(logo|wordmark|poster|flyer|brochure|menu|pricing|prices|rates|sign|banner|header|social|share|og-image|open-graph|facebook|instagram|screenshot|screen|card|quote|testimonial|review-graphic|business-card)\b/i.test(decoded);
+  return /\b(logo|wordmark|poster|flyer|brochure|menu|pricing|prices|rates|sign|banner|header|social|share|og-image|open-graph|facebook|instagram|screenshot|screen|card|quote|testimonial|review-graphic|business-card|map|directions|driveway|bus.?stop|route|gps|landmark)\b/i.test(decoded);
 }
 
 function imageForCategory(mediaAssets: CatteryMediaAsset[], category: CatteryMediaCategory): string {

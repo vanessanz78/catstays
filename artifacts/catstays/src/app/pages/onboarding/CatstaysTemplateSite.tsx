@@ -331,13 +331,16 @@ function EditorialTemplate({
   onDismissPreviewNotice: () => void;
 }) {
   const hasHeroImage = Boolean(content.hero.image);
+  const suitePreviewImage = content.suites.find((suite) => suite.image)?.image || content.facilities.image || content.whyChoose.image;
   const sections = [
     content.owner.text
       ? { id: 'about', title: content.owner.title, text: content.owner.text, image: content.owner.image, eyebrow: 'The people behind the care' }
-      : { id: 'about', title: content.about.title, text: content.about.text, image: content.about.image, eyebrow: `About ${content.business.name}` },
-    { id: 'care', title: content.commitment.title, text: content.commitment.text, image: content.whyChoose.image, eyebrow: 'Care confidence' },
-    { id: 'facilities', title: content.facilities.title, text: content.facilities.text, image: content.facilities.image, eyebrow: 'Rooms and routines' },
-  ].filter((section) => section.text || section.image);
+      : content.about.text
+        ? { id: 'about', title: content.about.title, text: content.about.text, image: content.about.image, eyebrow: `About ${content.business.name}` }
+        : null,
+    { id: 'care', title: content.commitment.title || content.whyChoose.title, text: content.commitment.text || content.whyChoose.text, image: content.whyChoose.image || content.facilities.image || suitePreviewImage, eyebrow: 'Care confidence' },
+    { id: 'facilities', title: content.facilities.title || content.sectionHeadings.suites, text: content.facilities.text, image: content.facilities.image || suitePreviewImage, eyebrow: 'Rooms and routines' },
+  ].filter((section): section is { id: string; title: string; text: string; image: string; eyebrow: string } => Boolean(section && (section.text || section.image)));
 
   return (
     <div data-catstays-template-root data-catstays-preview-device={previewDevice} className="catstays-template bg-[#f8f5ef] text-[#222]" style={templateRootStyle(content)}>
@@ -368,7 +371,7 @@ function EditorialTemplate({
               <div className="my-6 h-px w-14 bg-[#b58b4a]" />
               {section.text ? <p className="max-w-lg text-base leading-7">{section.text}</p> : null}
             </div>
-            {section.image ? <TemplateImage src={section.image} className="catstays-template-section-image h-full min-h-[420px] w-full object-cover md:min-h-[560px]" /> : null}
+            {section.image ? <TemplateImage src={section.image} className="catstays-template-section-image h-[320px] w-full object-cover md:h-[440px] lg:h-[480px]" /> : null}
           </section>
         ))}
 
@@ -482,7 +485,7 @@ function careIconFor(icon: string | undefined, index: number) {
 
 function ShowcaseGalleryRail({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
   const railRef = useRef<HTMLDivElement | null>(null);
-  const railImages = galleryItemsAwayFromMajorImages(content, 8);
+  const railImages = galleryItemsAwayFromMajorImages(content, 12);
   if (!railImages.length) return null;
 
   const scrollRail = (direction: -1 | 1) => {
@@ -525,20 +528,26 @@ function AboutSplit({
   imageFirst?: boolean;
   onPreviewAnchorClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
 }) {
-  const hasImage = Boolean(content.about.image);
-  const hasText = Boolean(content.about.text);
+  const useOwnerStory = Boolean(content.owner.text);
+  const sectionTitle = useOwnerStory ? content.owner.title : content.about.title;
+  const sectionText = useOwnerStory ? content.owner.text : content.about.text;
+  const sectionImage = useOwnerStory ? content.owner.image || content.about.image : content.about.image;
+  const sectionEyebrow = useOwnerStory ? 'The people behind the care' : `About ${content.business.name}`;
+  const sectionButton = useOwnerStory ? 'Meet The Team' : 'More About Us';
+  const hasImage = Boolean(sectionImage);
+  const hasText = Boolean(sectionText);
   if (!hasImage && !hasText) return null;
 
   return (
     <section id="about" className={`catstays-stack mx-auto grid max-w-[1400px] scroll-mt-28 ${hasImage ? 'md:grid-cols-2' : ''}`}>
-      {hasImage ? <TemplateImage src={content.about.image} className={`catstays-template-section-image h-[460px] w-full object-cover ${imageFirst ? '' : 'md:order-2'}`} /> : null}
+      {hasImage ? <TemplateImage src={sectionImage} className={`catstays-template-section-image h-[460px] w-full object-cover ${imageFirst ? '' : 'md:order-2'}`} /> : null}
       <div className="flex flex-col justify-center bg-white px-8 py-14 md:px-20">
-        <p className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-[#8c7b63]">About {content.business.name}</p>
-        <h2 className="text-3xl leading-[1.12] md:text-5xl">{content.about.title}</h2>
+        <p className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-[#8c7b63]">{sectionEyebrow}</p>
+        <h2 className="text-3xl leading-[1.12] md:text-5xl">{sectionTitle}</h2>
         <div className="my-6 h-px w-14 bg-[#b58b4a]" />
-        {hasText ? <p className="text-base leading-7 text-[#333]">{content.about.text}</p> : null}
+        {hasText ? <p className="text-base leading-7 text-[#333]">{sectionText}</p> : null}
         {hasText ? <a href="#contact" onClick={onPreviewAnchorClick} className="catstays-mobile-full mt-8 w-max rounded-md bg-[#0A1128] px-6 py-4 text-center text-xs font-bold uppercase tracking-[0.1em] text-white">
-          More About Us
+          {sectionButton}
         </a> : null}
       </div>
     </section>
@@ -570,9 +579,11 @@ function SuitesGrid({ content, compact = false }: { content: ReturnType<typeof b
                     ))}
                   </ul>
                 ) : null}
-                <button type="button" onClick={() => setActiveSuite(suite)} className="mt-auto w-max rounded-md border border-[#0A1128]/20 bg-[#0A1128] px-5 py-3 text-xs font-bold uppercase tracking-[0.12em] text-white shadow-sm">
-                  View Suite
-                </button>
+                <div className="mt-auto pt-8">
+                  <button type="button" onClick={() => setActiveSuite(suite)} className="w-max rounded-md border border-[#0A1128]/20 bg-[#0A1128] px-5 py-3 text-xs font-bold uppercase tracking-[0.12em] text-white shadow-sm">
+                    View Suite
+                  </button>
+                </div>
               </div>
             </div>
           </article>
