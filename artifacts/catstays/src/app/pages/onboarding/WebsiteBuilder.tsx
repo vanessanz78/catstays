@@ -22,7 +22,7 @@
  * - All subsequent payments remain current
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
@@ -117,7 +117,7 @@ interface WebsiteBuilderProps {
 
 export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, onChangeTemplate }: WebsiteBuilderProps) {
   const [activeTab, setActiveTab] = useState('hero');
-  const [editorTab, setEditorTab] = useState('content'); // 'content' or 'design'
+  const [editorTab, setEditorTab] = useState(data.websiteBuilderTab === 'design' ? 'design' : 'content'); // 'content' or 'design'
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isPanelCollapsed, setIsPanelCollapsed] = useState(false);
   
@@ -130,6 +130,17 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
   const [selectedRoom, setSelectedRoom] = useState<any>(null);
   const [isBookingFromClientPortal, setIsBookingFromClientPortal] = useState(false);
   const selectedTemplate = normalizePreviewTemplateId(data.selectedTemplate || 'conversion-focus');
+
+  useEffect(() => {
+    if (data.websiteBuilderTab === 'content' || data.websiteBuilderTab === 'design') {
+      setEditorTab(data.websiteBuilderTab);
+    }
+  }, [data.websiteBuilderTab]);
+
+  const handleEditorTabChange = (tab: 'content' | 'design') => {
+    setEditorTab(tab);
+    setData({ ...data, websiteBuilderTab: tab });
+  };
 
   // AI regeneration handler - calls onAIRegenerate prop
   const handleAIClick = async (field: string) => {
@@ -892,7 +903,7 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
                   <div className="mb-6">
                     <div className="flex gap-2 border-b border-gray-200">
                       <button
-                        onClick={() => setEditorTab('content')}
+                        onClick={() => handleEditorTabChange('content')}
                         className={`px-6 py-3 font-medium transition-colors ${
                           editorTab === 'content'
                             ? 'border-b-2 text-gray-900'
@@ -903,7 +914,7 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
                         Content
                       </button>
                       <button
-                        onClick={() => setEditorTab('design')}
+                        onClick={() => handleEditorTabChange('design')}
                         className={`px-6 py-3 font-medium transition-colors ${
                           editorTab === 'design'
                             ? 'border-b-2 text-gray-900'

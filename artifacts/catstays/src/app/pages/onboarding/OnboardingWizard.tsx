@@ -360,6 +360,144 @@ function offlinePublishMessage(message: string) {
   return message;
 }
 
+const PUBLIC_SITE_INDEX_KEY = 'catstays_public_sites';
+
+type PublicSiteStatus = 'draft' | 'live';
+
+type SaveProgressOptions = {
+  sourceData?: any;
+  status?: PublicSiteStatus;
+  nextStep?: number;
+};
+
+function firstString(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  }
+  return '';
+}
+
+function slugifyCattery(value: unknown, fallback = 'my-cattery') {
+  return slugKey(firstString(value)) || fallback;
+}
+
+function isLikelySlugLocation(value: unknown) {
+  const trimmed = firstString(value);
+  if (!trimmed) return false;
+  if (/[,0-9]/.test(trimmed)) return false;
+  return slugKey(trimmed) === trimmed.toLowerCase();
+}
+
+function normalizeTimeInput(value: unknown, fallback: string, meridiem: 'am' | 'pm') {
+  const raw = firstString(value);
+  if (!raw) return fallback;
+
+  const match = raw.toLowerCase().match(/^(\d{1,2})(?::?(\d{2}))?\s*(am|pm)?$/);
+  if (!match) return raw;
+
+  let hours = Number(match[1]);
+  const minutes = match[2] || '00';
+  const suffix = (match[3] || meridiem) as 'am' | 'pm';
+  if (suffix === 'pm' && hours < 12) hours += 12;
+  if (suffix === 'am' && hours === 12) hours = 0;
+
+  const minuteNumber = Number(minutes);
+  if (
+    !Number.isFinite(hours) ||
+    hours > 23 ||
+    !Number.isFinite(minuteNumber) ||
+    minuteNumber > 59
+  ) {
+    return raw;
+  }
+
+  return `${String(hours).padStart(2, '0')}:${String(minuteNumber).padStart(2, '0')}`;
+}
+
+function normalizeOnboardingData(input: any = {}) {
+  const record = input.previewImportRecord || {};
+  const normalized = record.normalizedPreviewData || input.normalizedPreviewData || {};
+  const contact = record.contact || normalized.contactData || {};
+  const locationData =
+    input.locationData ||
+    normalized.locationData ||
+    normalized.contactData?.locationData ||
+    normalized.contactData?.locationDetails ||
+    null;
+  const businessName = firstString(
+    input.businessName,
+    record.identity?.businessName,
+    normalized.businessName,
+    'My Cattery',
+  );
+  const address = firstString(
+    input.address,
+    contact.address,
+    normalized.address,
+    locationData?.fullAddress,
+    locationData?.formattedAddress,
+    locationData?.mapAddress,
+    locationData?.address,
+  );
+  const rawLocation = firstString(input.location);
+  const location = !rawLocation || isLikelySlugLocation(rawLocation)
+    ? firstString(address, normalized.location, record.identity?.location, rawLocation, businessName)
+    : rawLocation;
+
+  let heroPrimaryCtaHref = firstString(input.heroPrimaryCtaHref, '#suites');
+  let heroPrimaryCtaText = firstString(input.heroPrimaryCtaText);
+  if (
+    !heroPrimaryCtaText ||
+    heroPrimaryCtaText === 'Discover Our Suites' ||
+    (heroPrimaryCtaText === 'Book Now' && heroPrimaryCtaHref === '#booking')
+  ) {
+    heroPrimaryCtaText = 'View Suites';
+    heroPrimaryCtaHref = '#suites';
+  }
+
+  return {
+    ...input,
+    businessName,
+    address,
+    location,
+    subdomain: slugifyCattery(input.subdomain || record.identity?.subdomain || businessName),
+    locationData,
+    websiteBuilderTab: input.websiteBuilderTab === 'design' ? 'design' : 'content',
+    showFacilitiesDetailSection: input.showFacilitiesDetailSection === true,
+    heroPrimaryCtaText,
+    heroPrimaryCtaHref,
+    heroSecondaryCtaText: firstString(input.heroSecondaryCtaText, 'Our Care Approach'),
+    heroSecondaryCtaHref: firstString(input.heroSecondaryCtaHref, '#care'),
+    morningStart: normalizeTimeInput(input.morningStart, '09:00', 'am'),
+    morningEnd: normalizeTimeInput(input.morningEnd, '10:30', 'am'),
+    afternoonStart: normalizeTimeInput(input.afternoonStart, '16:30', 'pm'),
+    afternoonEnd: normalizeTimeInput(input.afternoonEnd, '18:00', 'pm'),
+  };
+}
+
+function saveTenantSiteSnapshot(input: any, status: PublicSiteStatus = 'draft') {
+  const normalized = normalizeOnboardingData({ ...input, previewRecordStatus: status });
+  const slug = slugifyCattery(normalized.subdomain || normalized.businessName);
+  const snapshot = {
+    slug,
+    status,
+    updatedAt: new Date().toISOString(),
+    data: { ...normalized, subdomain: slug },
+  };
+
+  try {
+    const index = JSON.parse(localStorage.getItem(PUBLIC_SITE_INDEX_KEY) || '{}');
+    index[slug] = snapshot;
+    localStorage.setItem(PUBLIC_SITE_INDEX_KEY, JSON.stringify(index));
+    localStorage.setItem(`catstays_public_site_${slug}`, JSON.stringify(snapshot));
+  } catch (error) {
+    console.warn('Failed to save public site snapshot', error);
+  }
+
+  return snapshot;
+}
+
 export function OnboardingWizard() {
   const navigate = useNavigate();
   const { cattery, refreshCattery } = useAuth();
@@ -405,7 +543,7 @@ export function OnboardingWizard() {
     heroImage: '',
     heroHeading: 'Luxury Cat Boarding',
     heroSubheading: 'A home away from home for your feline friends',
-    heroPrimaryCtaText: 'Discover Our Suites',
+    heroPrimaryCtaText: 'View Suites',
     heroPrimaryCtaHref: '#suites',
     heroSecondaryCtaText: 'Our Care Approach',
     heroSecondaryCtaHref: '#care',
@@ -420,6 +558,8 @@ export function OnboardingWizard() {
     siteContentLibrary: null,
     contentLibrary: null,
     sectionsOrder: [],
+    websiteBuilderTab: 'content',
+    showFacilitiesDetailSection: false,
     
     // Website Content - Preloaded defaults
     galleryImages: [
@@ -452,8 +592,8 @@ export function OnboardingWizard() {
     openByAppointmentOnly: false,
     bookingInterval: '15',
     morningStart: '09:00',
-    morningEnd: '12:00',
-    afternoonStart: '15:00',
+    morningEnd: '10:30',
+    afternoonStart: '16:30',
     afternoonEnd: '18:00',
     
     // Deposit Requirements
@@ -572,14 +712,14 @@ export function OnboardingWizard() {
 
   const handleNext = () => {
     if (step < totalSteps) {
-      handleSaveProgress();
+      void handleSaveProgress({ nextStep: step + 1 });
       setStep(step + 1);
     }
   };
 
   const handleBack = () => {
     if (step > 1) {
-      handleSaveProgress();
+      void handleSaveProgress({ nextStep: step - 1 });
       setStep(step - 1);
     }
   };
@@ -587,7 +727,7 @@ export function OnboardingWizard() {
   const handleGoToStep = (stepNumber: number) => {
     // Only allow navigation to step 1, or if account is created
     if (stepNumber === 1 || accountCreated) {
-      handleSaveProgress();
+      void handleSaveProgress({ nextStep: stepNumber });
       setStep(stepNumber);
     }
   };
@@ -614,9 +754,12 @@ export function OnboardingWizard() {
       emailConfirmed: false,
       status: 'draft',
     };
+    const nextData = normalizeOnboardingData(data);
+    setData(nextData);
+    saveTenantSiteSnapshot(nextData, nextData.previewRecordStatus === 'live' ? 'live' : 'draft');
     setAccountCreated(true);
     localStorage.setItem('catstays_account', JSON.stringify(draftAccount));
-    localStorage.setItem('catstays_onboarding', JSON.stringify({ step: 2, data, accountCreated: true }));
+    localStorage.setItem('catstays_onboarding', JSON.stringify({ step: 2, data: nextData, accountCreated: true }));
     setIsSaving(false);
     setStep(2);
   };
@@ -646,12 +789,17 @@ export function OnboardingWizard() {
       savePreviewImportRecord(previewRecord);
       void savePreviewSourceCatalog(previewRecord, cattery?.id);
 
-      setData(prev => ({
-        ...dataFromPreviewRecord(previewRecord, 'original', prev),
-        isImporting: false,
-        importComplete: true,
-        importError: '',
-      }));
+      setData(prev => {
+        const nextData = normalizeOnboardingData({
+          ...dataFromPreviewRecord(previewRecord, 'original', prev),
+          isImporting: false,
+          importComplete: true,
+          importError: '',
+        });
+        saveTenantSiteSnapshot(nextData, 'draft');
+        localStorage.setItem('catstays_onboarding', JSON.stringify({ step, data: nextData, accountCreated }));
+        return nextData;
+      });
     } catch {
       setData(prev => ({
         ...prev,
@@ -661,90 +809,101 @@ export function OnboardingWizard() {
     }
   };
 
-  const handleSaveProgress = async () => {
+  const handleSaveProgress = async (options: SaveProgressOptions = {}) => {
     setIsSaving(true);
+    const currentStep = options.nextStep ?? step;
+    const currentStatus = options.status ?? data.previewRecordStatus ?? 'draft';
+    const currentData = normalizeOnboardingData({
+      ...(options.sourceData || data),
+      previewRecordStatus: currentStatus,
+    });
+    const snapshot = saveTenantSiteSnapshot(currentData, currentStatus);
+    setData(snapshot.data);
+
     // Always save locally for resilience
-    localStorage.setItem('catstays_onboarding', JSON.stringify({ step, data, accountCreated }));
+    localStorage.setItem('catstays_onboarding', JSON.stringify({ step: currentStep, data: snapshot.data, accountCreated }));
 
     // Save cattery profile + website settings to Supabase if logged in
     if (cattery?.id) {
       const websiteSettings = {
-        primaryColor: data.primaryColor,
-        accentColor: data.accentColor,
-        backgroundColor: data.backgroundColor,
-        typography: data.typography,
-        headingFont: data.headingFont,
-        subheadingFont: data.subheadingFont,
-        bodyFont: data.bodyFont,
-        logo: data.logo,
-        heroImage: data.heroImage,
-        heroHeading: data.heroHeading,
-        heroSubheading: data.heroSubheading,
-        heroPrimaryCtaText: data.heroPrimaryCtaText,
-        heroPrimaryCtaHref: data.heroPrimaryCtaHref,
-        heroSecondaryCtaText: data.heroSecondaryCtaText,
-        heroSecondaryCtaHref: data.heroSecondaryCtaHref,
-        aboutText: data.aboutText,
-        aboutHeading: data.aboutHeading,
-        whyChooseUsHeading: data.whyChooseUsHeading,
-        whyChooseUsFeatures: data.whyChooseUsFeatures,
-        facilitiesHeading: data.facilitiesHeading,
-        facilitiesText: data.facilitiesText,
-        facilitiesImage: data.facilitiesImage,
-        facilityFeatures: data.facilityFeatures,
-        suitesHeading: data.suitesHeading,
-        suites: data.suites,
-        additionalServicesHeading: data.additionalServicesHeading,
-        galleryHeading: data.galleryHeading,
-        galleryImages: data.galleryImages,
-        testimonialsHeading: data.testimonialsHeading,
-        faqHeading: data.faqHeading,
-        ownerData: data.ownerData,
-        locationData: data.locationData,
-        socialLinks: data.socialLinks,
-        virtualTourUrl: data.virtualTourUrl,
-        footerAbout: data.footerAbout,
-        siteContentLibrary: data.siteContentLibrary,
-        contentLibrary: data.contentLibrary,
-        sectionsOrder: data.sectionsOrder,
-        importSourceUrl: data.importSourceUrl,
-        sourceUrl: data.sourceUrl,
-        sourceHost: data.sourceHost,
-        previewImportRecord: data.previewImportRecord,
-        previewImportRecordId: data.previewImportRecordId,
-        previewRecordStatus: data.previewRecordStatus,
-        liveTemplate: data.selectedTemplate,
-        testimonials: data.testimonials,
-        faqs: data.faqs,
-        additionalServices: data.additionalServices,
-        openByAppointmentOnly: data.openByAppointmentOnly,
-        bookingInterval: data.bookingInterval,
-        morningStart: data.morningStart,
-        morningEnd: data.morningEnd,
-        afternoonStart: data.afternoonStart,
-        afternoonEnd: data.afternoonEnd,
-        depositType: data.depositType,
-        depositAmount: data.depositAmount,
-        cleaningBufferEnabled: data.cleaningBufferEnabled,
-        cleaningBuffer: data.cleaningBuffer,
-        pricingPer: data.pricingPer,
-        pricingRates: data.pricingRates,
-        chargeTax: data.chargeTax,
-        taxRate: data.taxRate,
-        taxType: data.taxType,
-        discounts: data.discounts,
-        blockOutDates: data.blockOutDates,
-        selectedTemplate: data.selectedTemplate,
+        primaryColor: currentData.primaryColor,
+        accentColor: currentData.accentColor,
+        backgroundColor: currentData.backgroundColor,
+        typography: currentData.typography,
+        headingFont: currentData.headingFont,
+        subheadingFont: currentData.subheadingFont,
+        bodyFont: currentData.bodyFont,
+        logo: currentData.logo,
+        heroImage: currentData.heroImage,
+        heroHeading: currentData.heroHeading,
+        heroSubheading: currentData.heroSubheading,
+        heroPrimaryCtaText: currentData.heroPrimaryCtaText,
+        heroPrimaryCtaHref: currentData.heroPrimaryCtaHref,
+        heroSecondaryCtaText: currentData.heroSecondaryCtaText,
+        heroSecondaryCtaHref: currentData.heroSecondaryCtaHref,
+        aboutText: currentData.aboutText,
+        aboutHeading: currentData.aboutHeading,
+        whyChooseUsHeading: currentData.whyChooseUsHeading,
+        whyChooseUsFeatures: currentData.whyChooseUsFeatures,
+        facilitiesHeading: currentData.facilitiesHeading,
+        facilitiesText: currentData.facilitiesText,
+        facilitiesImage: currentData.facilitiesImage,
+        facilityFeatures: currentData.facilityFeatures,
+        suitesHeading: currentData.suitesHeading,
+        suites: currentData.suites,
+        additionalServicesHeading: currentData.additionalServicesHeading,
+        galleryHeading: currentData.galleryHeading,
+        galleryImages: currentData.galleryImages,
+        testimonialsHeading: currentData.testimonialsHeading,
+        faqHeading: currentData.faqHeading,
+        ownerData: currentData.ownerData,
+        locationData: currentData.locationData,
+        socialLinks: currentData.socialLinks,
+        virtualTourUrl: currentData.virtualTourUrl,
+        footerAbout: currentData.footerAbout,
+        siteContentLibrary: currentData.siteContentLibrary,
+        contentLibrary: currentData.contentLibrary,
+        sectionsOrder: currentData.sectionsOrder,
+        importSourceUrl: currentData.importSourceUrl,
+        sourceUrl: currentData.sourceUrl,
+        sourceHost: currentData.sourceHost,
+        previewImportRecord: currentData.previewImportRecord,
+        previewImportRecordId: currentData.previewImportRecordId,
+        previewRecordStatus: currentData.previewRecordStatus,
+        liveTemplate: currentData.selectedTemplate,
+        testimonials: currentData.testimonials,
+        faqs: currentData.faqs,
+        additionalServices: currentData.additionalServices,
+        openByAppointmentOnly: currentData.openByAppointmentOnly,
+        bookingInterval: currentData.bookingInterval,
+        morningStart: currentData.morningStart,
+        morningEnd: currentData.morningEnd,
+        afternoonStart: currentData.afternoonStart,
+        afternoonEnd: currentData.afternoonEnd,
+        depositType: currentData.depositType,
+        depositAmount: currentData.depositAmount,
+        cleaningBufferEnabled: currentData.cleaningBufferEnabled,
+        cleaningBuffer: currentData.cleaningBuffer,
+        pricingPer: currentData.pricingPer,
+        pricingRates: currentData.pricingRates,
+        chargeTax: currentData.chargeTax,
+        taxRate: currentData.taxRate,
+        taxType: currentData.taxType,
+        discounts: currentData.discounts,
+        blockOutDates: currentData.blockOutDates,
+        selectedTemplate: currentData.selectedTemplate,
+        websiteBuilderTab: currentData.websiteBuilderTab,
+        showFacilitiesDetailSection: currentData.showFacilitiesDetailSection,
       };
 
       await supabase
         .from('catteries')
         .update({
-          name: data.businessName || cattery.name,
-          phone: data.phone || cattery.phone,
-          address: data.address || cattery.address,
-          city: data.location || cattery.city,
-          slug: data.subdomain || cattery.slug,
+          name: currentData.businessName || cattery.name,
+          phone: currentData.phone || cattery.phone,
+          address: currentData.address || cattery.address,
+          city: currentData.location || cattery.city,
+          slug: currentData.subdomain || cattery.slug,
           website_settings: websiteSettings,
         })
         .eq('id', cattery.id);
@@ -760,63 +919,84 @@ export function OnboardingWizard() {
     if (cattery) {
       setAccountCreated(true);
       const ws = cattery.website_settings as Record<string, any> || {};
-      setData(prev => ({
-        ...prev,
-        businessName: cattery.name || prev.businessName,
-        phone: cattery.phone || prev.phone,
-        address: cattery.address || prev.address,
-        location: cattery.city || prev.location,
-        subdomain: cattery.slug || prev.subdomain,
-        primaryColor: ws.primaryColor || prev.primaryColor,
-        accentColor: ws.accentColor || prev.accentColor,
-        backgroundColor: ws.backgroundColor || prev.backgroundColor,
-        typography: ws.typography || prev.typography,
-        headingFont: ws.headingFont || prev.headingFont,
-        subheadingFont: ws.subheadingFont || prev.subheadingFont,
-        bodyFont: ws.bodyFont || prev.bodyFont,
-        logo: ws.logo || prev.logo,
-        heroImage: ws.heroImage || prev.heroImage,
-        heroHeading: ws.heroHeading || prev.heroHeading,
-        heroSubheading: ws.heroSubheading || prev.heroSubheading,
-        heroPrimaryCtaText: ws.heroPrimaryCtaText || prev.heroPrimaryCtaText,
-        heroPrimaryCtaHref: ws.heroPrimaryCtaHref || prev.heroPrimaryCtaHref,
-        heroSecondaryCtaText: ws.heroSecondaryCtaText || prev.heroSecondaryCtaText,
-        heroSecondaryCtaHref: ws.heroSecondaryCtaHref || prev.heroSecondaryCtaHref,
-        aboutText: ws.aboutText || prev.aboutText,
-        aboutHeading: ws.aboutHeading || prev.aboutHeading,
-        whyChooseUsHeading: ws.whyChooseUsHeading || prev.whyChooseUsHeading,
-        whyChooseUsFeatures: ws.whyChooseUsFeatures ?? prev.whyChooseUsFeatures,
-        facilitiesHeading: ws.facilitiesHeading || prev.facilitiesHeading,
-        facilitiesText: ws.facilitiesText || prev.facilitiesText,
-        facilitiesImage: ws.facilitiesImage || prev.facilitiesImage,
-        facilityFeatures: ws.facilityFeatures ?? prev.facilityFeatures,
-        suitesHeading: ws.suitesHeading || prev.suitesHeading,
-        suites: ws.suites ?? prev.suites,
-        additionalServicesHeading: ws.additionalServicesHeading || prev.additionalServicesHeading,
-        galleryHeading: ws.galleryHeading || prev.galleryHeading,
-        galleryImages: ws.galleryImages ?? prev.galleryImages,
-        testimonialsHeading: ws.testimonialsHeading || prev.testimonialsHeading,
-        testimonials: ws.testimonials ?? prev.testimonials,
-        faqHeading: ws.faqHeading || prev.faqHeading,
-        faqs: ws.faqs ?? prev.faqs,
-        additionalServices: ws.additionalServices ?? prev.additionalServices,
-        ownerData: ws.ownerData || prev.ownerData,
-        locationData: ws.locationData || prev.locationData,
-        socialLinks: ws.socialLinks || prev.socialLinks,
-        virtualTourUrl: ws.virtualTourUrl || prev.virtualTourUrl,
-        footerAbout: ws.footerAbout || prev.footerAbout,
-        siteContentLibrary: ws.siteContentLibrary || prev.siteContentLibrary,
-        contentLibrary: ws.contentLibrary || prev.contentLibrary,
-        sectionsOrder: ws.sectionsOrder || prev.sectionsOrder,
-        importSourceUrl: ws.importSourceUrl || ws.sourceUrl || prev.importSourceUrl,
-        sourceUrl: ws.sourceUrl || ws.importSourceUrl || prev.sourceUrl,
-        sourceHost: ws.sourceHost || prev.sourceHost,
-        previewImportRecord: ws.previewImportRecord || prev.previewImportRecord,
-        previewImportRecordId: ws.previewImportRecordId || prev.previewImportRecordId,
-        previewRecordStatus: ws.previewRecordStatus || prev.previewRecordStatus,
-        liveTemplate: ws.liveTemplate || prev.liveTemplate,
-        selectedTemplate: ws.selectedTemplate || ws.liveTemplate || prev.selectedTemplate,
-      }));
+      setData(prev =>
+        normalizeOnboardingData({
+          ...prev,
+          businessName: cattery.name || prev.businessName,
+          phone: cattery.phone || prev.phone,
+          address: cattery.address || prev.address,
+          location: cattery.city || cattery.address || prev.location,
+          subdomain: cattery.slug || prev.subdomain,
+          primaryColor: ws.primaryColor || prev.primaryColor,
+          accentColor: ws.accentColor || prev.accentColor,
+          backgroundColor: ws.backgroundColor || prev.backgroundColor,
+          typography: ws.typography || prev.typography,
+          headingFont: ws.headingFont || prev.headingFont,
+          subheadingFont: ws.subheadingFont || prev.subheadingFont,
+          bodyFont: ws.bodyFont || prev.bodyFont,
+          logo: ws.logo || prev.logo,
+          heroImage: ws.heroImage || prev.heroImage,
+          heroHeading: ws.heroHeading || prev.heroHeading,
+          heroSubheading: ws.heroSubheading || prev.heroSubheading,
+          heroPrimaryCtaText: ws.heroPrimaryCtaText || prev.heroPrimaryCtaText,
+          heroPrimaryCtaHref: ws.heroPrimaryCtaHref || prev.heroPrimaryCtaHref,
+          heroSecondaryCtaText: ws.heroSecondaryCtaText || prev.heroSecondaryCtaText,
+          heroSecondaryCtaHref: ws.heroSecondaryCtaHref || prev.heroSecondaryCtaHref,
+          aboutText: ws.aboutText || prev.aboutText,
+          aboutHeading: ws.aboutHeading || prev.aboutHeading,
+          whyChooseUsHeading: ws.whyChooseUsHeading || prev.whyChooseUsHeading,
+          whyChooseUsFeatures: ws.whyChooseUsFeatures ?? prev.whyChooseUsFeatures,
+          facilitiesHeading: ws.facilitiesHeading || prev.facilitiesHeading,
+          facilitiesText: ws.facilitiesText || prev.facilitiesText,
+          facilitiesImage: ws.facilitiesImage || prev.facilitiesImage,
+          facilityFeatures: ws.facilityFeatures ?? prev.facilityFeatures,
+          suitesHeading: ws.suitesHeading || prev.suitesHeading,
+          suites: ws.suites ?? prev.suites,
+          additionalServicesHeading: ws.additionalServicesHeading || prev.additionalServicesHeading,
+          galleryHeading: ws.galleryHeading || prev.galleryHeading,
+          galleryImages: ws.galleryImages ?? prev.galleryImages,
+          testimonialsHeading: ws.testimonialsHeading || prev.testimonialsHeading,
+          testimonials: ws.testimonials ?? prev.testimonials,
+          faqHeading: ws.faqHeading || prev.faqHeading,
+          faqs: ws.faqs ?? prev.faqs,
+          additionalServices: ws.additionalServices ?? prev.additionalServices,
+          ownerData: ws.ownerData || prev.ownerData,
+          locationData: ws.locationData || prev.locationData,
+          socialLinks: ws.socialLinks || prev.socialLinks,
+          virtualTourUrl: ws.virtualTourUrl || prev.virtualTourUrl,
+          footerAbout: ws.footerAbout || prev.footerAbout,
+          siteContentLibrary: ws.siteContentLibrary || prev.siteContentLibrary,
+          contentLibrary: ws.contentLibrary || prev.contentLibrary,
+          sectionsOrder: ws.sectionsOrder || prev.sectionsOrder,
+          importSourceUrl: ws.importSourceUrl || ws.sourceUrl || prev.importSourceUrl,
+          sourceUrl: ws.sourceUrl || ws.importSourceUrl || prev.sourceUrl,
+          sourceHost: ws.sourceHost || prev.sourceHost,
+          previewImportRecord: ws.previewImportRecord || prev.previewImportRecord,
+          previewImportRecordId: ws.previewImportRecordId || prev.previewImportRecordId,
+          previewRecordStatus: ws.previewRecordStatus || prev.previewRecordStatus,
+          liveTemplate: ws.liveTemplate || prev.liveTemplate,
+          selectedTemplate: ws.selectedTemplate || ws.liveTemplate || prev.selectedTemplate,
+          openByAppointmentOnly: ws.openByAppointmentOnly ?? prev.openByAppointmentOnly,
+          bookingInterval: ws.bookingInterval || prev.bookingInterval,
+          morningStart: ws.morningStart || prev.morningStart,
+          morningEnd: ws.morningEnd || prev.morningEnd,
+          afternoonStart: ws.afternoonStart || prev.afternoonStart,
+          afternoonEnd: ws.afternoonEnd || prev.afternoonEnd,
+          depositType: ws.depositType || prev.depositType,
+          depositAmount: ws.depositAmount || prev.depositAmount,
+          cleaningBufferEnabled: ws.cleaningBufferEnabled ?? prev.cleaningBufferEnabled,
+          cleaningBuffer: ws.cleaningBuffer || prev.cleaningBuffer,
+          pricingPer: ws.pricingPer || prev.pricingPer,
+          pricingRates: ws.pricingRates ?? prev.pricingRates,
+          chargeTax: ws.chargeTax ?? prev.chargeTax,
+          taxRate: ws.taxRate || prev.taxRate,
+          taxType: ws.taxType || prev.taxType,
+          discounts: ws.discounts ?? prev.discounts,
+          blockOutDates: ws.blockOutDates ?? prev.blockOutDates,
+          websiteBuilderTab: ws.websiteBuilderTab || prev.websiteBuilderTab,
+          showFacilitiesDetailSection: ws.showFacilitiesDetailSection ?? prev.showFacilitiesDetailSection,
+        }),
+      );
     }
   }, [cattery?.id]);
 
@@ -828,7 +1008,7 @@ export function OnboardingWizard() {
       try {
         const account = JSON.parse(accountData);
         setAccountCreated(true);
-        setData(prev => ({ ...prev, name: account.name, email: account.email }));
+        setData(prev => normalizeOnboardingData({ ...prev, name: account.name, email: account.email }));
       } catch (e) {
         console.error('Failed to load account data');
       }
@@ -840,7 +1020,7 @@ export function OnboardingWizard() {
       try {
         const { businessName } = JSON.parse(signupData);
         if (businessName) {
-          setData(prev => ({ ...prev, businessName }));
+          setData(prev => normalizeOnboardingData({ ...prev, businessName }));
         }
         localStorage.removeItem('catstays_signup_data');
       } catch (e) {
@@ -854,7 +1034,7 @@ export function OnboardingWizard() {
       try {
         const { step: savedStep, data: savedData, accountCreated: savedAccountCreated } = JSON.parse(saved);
         setStep(savedStep);
-        setData(savedData);
+        setData(normalizeOnboardingData(savedData));
         if (savedAccountCreated) setAccountCreated(savedAccountCreated);
       } catch (e) {
         console.error('Failed to load saved progress');
@@ -865,9 +1045,12 @@ export function OnboardingWizard() {
   // Keep local progress synced so returning owners land on the correct step.
   useEffect(() => {
     if (!accountCreated && step <= 1) return;
+    const nextData = normalizeOnboardingData(data);
+    const status = nextData.previewRecordStatus === 'live' ? 'live' : 'draft';
+    const snapshot = saveTenantSiteSnapshot(nextData, status);
     localStorage.setItem('catstays_onboarding', JSON.stringify({
       step,
-      data,
+      data: snapshot.data,
       accountCreated,
     }));
   }, [step, data, accountCreated]);
@@ -876,9 +1059,13 @@ export function OnboardingWizard() {
   useEffect(() => {
     return () => {
       if (step > 1 && accountCreated) {
+        const snapshot = saveTenantSiteSnapshot(
+          data,
+          data.previewRecordStatus === 'live' ? 'live' : 'draft',
+        );
         localStorage.setItem('catstays_onboarding', JSON.stringify({ 
           step, 
-          data, 
+          data: snapshot.data,
           accountCreated 
         }));
       }
@@ -1105,10 +1292,11 @@ export function OnboardingWizard() {
   };
 
   const handleTemplateSelect = (template: PreviewTemplateId) => {
-    const nextData = applyPreviewTemplate(data, template);
-    setData(nextData);
+    const nextData = normalizeOnboardingData(applyPreviewTemplate(data, template));
+    const snapshot = saveTenantSiteSnapshot(nextData, nextData.previewRecordStatus === 'live' ? 'live' : 'draft');
+    setData(snapshot.data);
     setShowTemplateSelection(false);
-    localStorage.setItem('catstays_onboarding', JSON.stringify({ step, data: nextData, accountCreated }));
+    localStorage.setItem('catstays_onboarding', JSON.stringify({ step, data: snapshot.data, accountCreated }));
     setStep(Math.min(step + 1, totalSteps));
   };
 
@@ -1118,22 +1306,24 @@ export function OnboardingWizard() {
 
     try {
       let activeCatteryId = cattery?.id ?? null;
-      const liveData = markPreviewSelectionLive(data);
-      setData(liveData);
+      let publishedData = normalizeOnboardingData(markPreviewSelectionLive(data));
+      const initialPublishedSnapshot = saveTenantSiteSnapshot(publishedData, 'live');
+      publishedData = initialPublishedSnapshot.data;
+      setData(publishedData);
 
       if (!activeCatteryId) {
-        if (!liveData.name || !liveData.email || !liveData.password || (liveData.password || '').length < 8) {
+        if (!publishedData.name || !publishedData.email || !publishedData.password || (publishedData.password || '').length < 8) {
           setCreateAccountError('Please complete your account details before publishing.');
           setStep(1);
           return;
         }
 
-        localStorage.setItem('catstays_onboarding', JSON.stringify({ step, data: liveData, accountCreated: true }));
+        localStorage.setItem('catstays_onboarding', JSON.stringify({ step, data: publishedData, accountCreated: true }));
 
         const response = await fetch('/api/cattery/provision', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ data: liveData, plan: selectedPlan }),
+          body: JSON.stringify({ data: publishedData, plan: selectedPlan }),
         });
 
         const rawPayload = await response.text();
@@ -1152,40 +1342,48 @@ export function OnboardingWizard() {
         if (!response.ok) {
           const message = payload.error || publishErrorMessage(response.status, rawPayload);
           if (response.status === 409 && message.toLowerCase().includes('account')) {
-            setCreateAccountError(message);
-            setAccountCreated(false);
-            setStep(1);
+            setPaymentError('That account already exists. Your setup is saved as a live draft; please sign in to finish publishing.');
+            setAccountCreated(true);
+            localStorage.setItem('catstays_onboarding', JSON.stringify({ step: 7, data: publishedData, accountCreated: true }));
+            setStep(7);
             return;
           }
           throw new Error(message);
         }
 
         activeCatteryId = payload.catteryId || null;
-        if (payload.slug && payload.slug !== data.subdomain) {
-          setData((prev: any) => ({ ...prev, subdomain: payload.slug }));
+        if (payload.slug && payload.slug !== publishedData.subdomain) {
+          publishedData = normalizeOnboardingData({
+            ...publishedData,
+            subdomain: payload.slug,
+            previewRecordStatus: 'live',
+          });
+          const slugSnapshot = saveTenantSiteSnapshot(publishedData, 'live');
+          publishedData = slugSnapshot.data;
+          setData(publishedData);
         }
 
         localStorage.setItem('catstays_account', JSON.stringify({
-          name: liveData.name,
-          email: liveData.email,
-          businessName: liveData.businessName,
+          name: publishedData.name,
+          email: publishedData.email,
+          businessName: publishedData.businessName,
           createdAt: new Date().toISOString(),
           emailConfirmed: false,
           catteryId: activeCatteryId,
-          slug: payload.slug || liveData.subdomain,
+          slug: payload.slug || publishedData.subdomain,
           status: 'confirmation_sent',
         }));
         await refreshCattery();
       } else {
         // Save all cattery data to Supabase for already-authenticated owners.
-        await handleSaveProgress();
+        await handleSaveProgress({ sourceData: publishedData, status: 'live', nextStep: step });
       }
 
       // Create rooms from the roomTypes defined in booking setup.
       // New unconfirmed users are provisioned server-side because RLS prevents
       // browser writes until the confirmation link is clicked.
-      const liveRoomTypes = Array.isArray(liveData.roomTypes) ? liveData.roomTypes : [];
-      const livePricingRates = Array.isArray(liveData.pricingRates) ? liveData.pricingRates : [];
+      const liveRoomTypes = Array.isArray(publishedData.roomTypes) ? publishedData.roomTypes : [];
+      const livePricingRates = Array.isArray(publishedData.pricingRates) ? publishedData.pricingRates : [];
       if (cattery?.id && liveRoomTypes.length > 0) {
         const defaultRate = parseFloat(livePricingRates[0]?.price || '30');
         const roomInserts = liveRoomTypes.map((rt: any) => ({
@@ -1221,9 +1419,13 @@ export function OnboardingWizard() {
         await refreshCattery();
       }
 
+      const finalPublishedSnapshot = saveTenantSiteSnapshot(publishedData, 'live');
+      publishedData = finalPublishedSnapshot.data;
+      setData(publishedData);
+
       localStorage.setItem('catstays_onboarding', JSON.stringify({
         step: 8,
-        data: liveData,
+        data: publishedData,
         accountCreated: true,
       }));
 
@@ -1266,7 +1468,7 @@ export function OnboardingWizard() {
           variant="ghost" 
           onClick={() => {
             if (confirm('Are you sure you want to exit? Your progress will be saved.')) {
-              handleSaveProgress();
+              void handleSaveProgress();
               navigate('/');
             }
           }}
@@ -1854,7 +2056,13 @@ export function OnboardingWizard() {
                   <Button
                     variant="outline"
                     className="rounded-xl"
-                    onClick={() => setStep(3)}
+                    onClick={() => {
+                      const nextData = normalizeOnboardingData({ ...data, websiteBuilderTab: 'design' });
+                      const snapshot = saveTenantSiteSnapshot(nextData, nextData.previewRecordStatus === 'live' ? 'live' : 'draft');
+                      setData(snapshot.data);
+                      localStorage.setItem('catstays_onboarding', JSON.stringify({ step: 3, data: snapshot.data, accountCreated }));
+                      setStep(3);
+                    }}
                   >
                     <Palette className="w-4 h-4 mr-2" />
                     Edit Colors
@@ -1862,7 +2070,12 @@ export function OnboardingWizard() {
                   <Button
                     variant="outline"
                     className="rounded-xl"
-                    onClick={() => window.open('/tenant/' + data.subdomain, '_blank')}
+                    onClick={() => {
+                      const snapshot = saveTenantSiteSnapshot(data, data.previewRecordStatus === 'live' ? 'live' : 'draft');
+                      setData(snapshot.data);
+                      localStorage.setItem('catstays_onboarding', JSON.stringify({ step, data: snapshot.data, accountCreated }));
+                      window.open('/tenant/' + snapshot.slug, '_blank');
+                    }}
                   >
                     <ExternalLink className="w-4 h-4 mr-2" />
                     View Full Site
@@ -1870,7 +2083,7 @@ export function OnboardingWizard() {
                   <Button
                     variant="outline"
                     className="rounded-xl"
-                    onClick={handleSaveProgress}
+                    onClick={() => void handleSaveProgress()}
                   >
                     <Save className="w-4 h-4 mr-2" />
                     Save For Later
@@ -2145,12 +2358,18 @@ export function OnboardingWizard() {
         {step === 8 && (
           <SuccessScreen 
             subdomain={data.subdomain}
-            onGoToWebsite={() => window.open(`https://${data.subdomain}.catstays.app`, '_blank', 'noopener,noreferrer')}
+            onGoToWebsite={() => {
+              const snapshot = saveTenantSiteSnapshot(data, 'live');
+              setData(snapshot.data);
+              window.open(`/tenant/${snapshot.slug}`, '_blank', 'noopener,noreferrer');
+            }}
             onContinueToDataImport={() => {
+              const snapshot = saveTenantSiteSnapshot(data, 'live');
+              setData(snapshot.data);
               setStep(9);
               localStorage.setItem('catstays_onboarding', JSON.stringify({
                 step: 9,
-                data,
+                data: snapshot.data,
                 accountCreated,
               }));
             }}

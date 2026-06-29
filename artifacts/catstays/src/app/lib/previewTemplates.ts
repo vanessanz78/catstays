@@ -838,7 +838,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       text: heroText,
       image: heroImage,
       button: stringFrom(data.ctaText, data.heroPrimaryCtaText, heroLinks[0]?.label, 'Book Now'),
-      primaryButton: stringFrom(data.heroPrimaryCtaText, heroLinks[0]?.label, 'Discover Our Suites'),
+      primaryButton: stringFrom(data.heroPrimaryCtaText, heroLinks[0]?.label, 'View Suites'),
       primaryHref: stringFrom(data.heroPrimaryCtaHref, heroLinks[0]?.url, '#suites'),
       secondaryButton: stringFrom(data.heroSecondaryCtaText, heroLinks[1]?.label, 'Our Care Approach'),
       secondaryHref: stringFrom(data.heroSecondaryCtaHref, heroLinks[1]?.url, '#care'),
@@ -1238,7 +1238,7 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
 
   return {
     ...cleanData,
-    heroPrimaryCtaText: textFrom('heroPrimaryCtaText', heroLinks[0]?.label, cleanData.ctaText, 'Discover Our Suites'),
+    heroPrimaryCtaText: textFrom('heroPrimaryCtaText', heroLinks[0]?.label, cleanData.ctaText, 'View Suites'),
     heroPrimaryCtaHref: textFrom('heroPrimaryCtaHref', heroLinks[0]?.url, '#suites'),
     heroSecondaryCtaText: textFrom('heroSecondaryCtaText', heroLinks[1]?.label, 'Our Care Approach'),
     heroSecondaryCtaHref: textFrom('heroSecondaryCtaHref', heroLinks[1]?.url, '#care'),

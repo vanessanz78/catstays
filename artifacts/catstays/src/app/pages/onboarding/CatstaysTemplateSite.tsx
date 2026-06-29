@@ -296,7 +296,6 @@ function FocusTemplate({
         </section>
 
         <FeatureRow content={content} />
-        <FacilitiesDetailSection content={content} hideIntro sectionId="facilities" />
         <AboutSplit content={content} imageFirst onPreviewAnchorClick={onPreviewAnchorClick} buttonLabel="Contact Us" />
         <GalleryStrip content={content} />
         <SuitesGrid content={content} />
@@ -341,7 +340,6 @@ function EditorialTemplate({
         ? { id: 'about', title: content.about.title, text: content.about.text, image: content.about.image, eyebrow: `About ${content.business.name}` }
         : null,
     { id: 'care', title: content.commitment.title || content.whyChoose.title, text: content.commitment.text || content.whyChoose.text, image: content.whyChoose.image || content.facilities.image, eyebrow: 'Care confidence' },
-    { id: 'facilities', title: content.facilities.title, text: content.facilities.text, image: content.facilities.image, eyebrow: 'Rooms and routines' },
   ].filter((section): section is { id: string; title: string; text: string; image: string; eyebrow: string } => Boolean(section && (section.text || section.image)));
 
   return (
@@ -377,7 +375,6 @@ function EditorialTemplate({
           </section>
         ))}
 
-        <FacilitiesDetailSection content={content} hideIntro sectionId="facility-standards" />
         <SuitesGrid content={content} />
         <ServicesGrid content={content} />
         <GalleryStrip content={content} />
@@ -439,7 +436,6 @@ function ShowcaseTemplate({
 
         <AboutSplit content={content} onPreviewAnchorClick={onPreviewAnchorClick} />
         <FeatureRow content={content} />
-        <FacilitiesDetailSection content={content} hideIntro sectionId="facilities" />
         <SuitesGrid content={content} />
         <ServicesGrid content={content} />
         <ReviewsSection content={content} />
