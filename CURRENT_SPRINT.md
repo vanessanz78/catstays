@@ -20,26 +20,32 @@ Stabilise the CatStays onboarding publish flow and give future Codex chats a roo
 - Project startup docs live in `docs/README.md` and `docs/project-operating-system.md`.
 - On 2026-07-01, the duplicate-email publish loop was fixed in `artifacts/api-server/src/routes/cattery.ts`.
 - The fix changes duplicate signup/provisioning email errors so the Publish step can show an inline error instead of sending the user back to step 1.
-- `docs/changelog.md` and `docs/onboarding-flow.md` were updated for that fix.
+- Duplicate email detection comes from Supabase Auth users (`auth.users` / Authentication > Users), not OAuth Apps and not the public `customers` table.
+- Replit's database module may exist in the workspace, but the publish/provisioning route uses Supabase Auth and Supabase tables, not the Replit Postgres database.
+- `docs/changelog.md` and `docs/onboarding-flow.md` were updated for the publish-loop fix.
 - No root-level Architect Update exists yet.
 
 ## Next Actions
 
 1. Pull `main` into Replit.
-2. UAT the Publish step with an already-registered email and confirm it stays on Publish with an inline error.
-3. UAT a fresh email publish path to confirm normal provisioning still reaches Success.
-4. If any other publish/provisioning error still sends users to step 1, inspect `OnboardingWizard.tsx` next.
+2. In Supabase Authentication > Users, delete or use a different email than any existing Auth user before testing a fresh publish path.
+3. UAT the Publish step with an already-registered email and confirm it stays on Publish with an inline error.
+4. UAT a fresh email publish path to confirm normal provisioning still reaches Success.
+5. Confirm the email confirmation redirect URL. If links still open a development/auth URL, verify Supabase Auth URL Configuration and Replit `CATSTAYS_APP_URL` / `VITE_PUBLIC_APP_URL` values.
+6. If any other publish/provisioning error still sends users to step 1, inspect `OnboardingWizard.tsx` next.
 
 ## Decisions This Sprint
 
 - Add root-level sprint and decision documents so future Codex chats have a stable project entry point.
 - Treat duplicate-email publish failures as Publish-step errors rather than account-step resets.
+- Treat Supabase Authentication > Users as the source of truth for signup email uniqueness.
 
 ## Risks Or Blockers
 
 - Full local typecheck was not run because the MacBook Air should stay resource-constrained and no dependencies were installed locally.
 - No GitHub CI/status checks were attached to the latest commit.
 - Replit UAT is still required before considering the publish-loop fix fully verified.
+- Confirmation emails may still redirect to a development URL if Supabase URL Configuration or Replit public app URL values are not production-aligned.
 
 ## Local Cleanup Notes
 
