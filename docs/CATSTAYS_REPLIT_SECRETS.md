@@ -33,10 +33,14 @@ SUPABASE_PROJECT_REF=iwyoezwqorddkmqnjbif
 These are public/client-safe values already configured in `.replit`.
 
 ```env
+CATSTAYS_APP_URL=https://catstays.app
+VITE_PUBLIC_APP_URL=https://catstays.app
 VITE_SUPABASE_URL=https://iwyoezwqorddkmqnjbif.supabase.co
 VITE_SUPABASE_ANON_KEY=sb_publishable_Y4Hwj84ljj86Lfec3xkUkg_TSsfZKG7
 STRIPE_PUBLIC_KEY=pk_live_51TE1rTB3RIUlHBEr7mKyoXvhRRZX8kfO7cUc8f5f8CJLPXVFwJS9pzI0hL80qTIFU39Hfd1gUiCfyPIg73m6HSKf00rWNV4Ofo
 ```
+
+`CATSTAYS_APP_URL` and `VITE_PUBLIC_APP_URL` should stay pointed at the live CatStays URL so Supabase confirmation emails do not inherit a Replit development preview origin.
 
 ## How `.replit` maps these names
 
@@ -49,6 +53,8 @@ STRIPE_API_KEY = "$STRIPE_SECRET_KEY"
 So in Replit Secrets, add `STRIPE_SECRET_KEY`, not `STRIPE_API_KEY`.
 
 The app code reads `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`, and `STRIPE_WEBHOOK_SECRET` directly, so those Replit Secret names must match exactly.
+
+The publish provisioning route reads `CATSTAYS_APP_URL` for email confirmation redirects. The frontend reads `VITE_PUBLIC_APP_URL` for public app links.
 
 ## Where to get each private value
 
