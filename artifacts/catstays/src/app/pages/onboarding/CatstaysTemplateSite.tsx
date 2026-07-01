@@ -47,6 +47,7 @@ type PreviewNoticeKind = 'booking' | 'contact';
 const trustIcons = [ShieldCheck, HeartHandshake, Sparkles, CalendarCheck];
 const facilityIcons = [ShieldCheck, Sparkles, Camera, Clock, HeartHandshake, CalendarCheck];
 const serviceIcons = [Scissors, Stethoscope, Zap, Car, Plane, ShieldCheck, HeartHandshake, CalendarCheck];
+const fallbackPreviewImage = 'https://images.unsplash.com/photo-1573865526739-10c1de0e0ef2?w=1200&h=900&fit=crop';
 const namedCareIcons = {
   Shield: ShieldCheck,
   Heart: HeartHandshake,
@@ -147,7 +148,10 @@ function TemplateHeader({
     ['Care', '#care'],
     ['Facilities', '#facilities'],
     ['Suites', '#suites'],
+    ['Services', '#services'],
+    ...content.customSections.slice(0, 4).map((section) => [section.title, `#${section.id}`]),
     ['Gallery', '#gallery'],
+    ...(content.faqs.length ? [['FAQs', '#faqs']] : []),
     ['Contact', '#contact'],
   ];
 
@@ -217,7 +221,7 @@ function FocusTemplate({
               </a>
             </div>
           </div>
-          <img src={content.hero.image} alt="" className="catstays-template-section-image h-[420px] w-full object-cover md:h-[620px]" />
+          <SafeImage src={content.hero.image} alt="" className="catstays-template-section-image h-[420px] w-full object-cover md:h-[620px]" />
         </section>
 
         <section id="booking" className="relative z-10 mx-auto w-full max-w-[1400px] scroll-mt-28 px-6 md:-mt-16">
@@ -257,6 +261,8 @@ function FocusTemplate({
         <GalleryStrip content={content} />
         <SuitesGrid content={content} />
         <ServicesGrid content={content} />
+        <SourceContentSections content={content} />
+        <FaqSection content={content} />
         <ReviewsSection content={content} />
         <LocationSection content={content} />
         <VirtualTourSection content={content} />
@@ -302,7 +308,7 @@ function EditorialTemplate({
       <PreviewBookingNotice kind={previewNoticeKind} onDismiss={onDismissPreviewNotice} />
       <main>
         <section id="home" className="catstays-stack mx-auto grid max-w-[1400px] scroll-mt-28 md:grid-cols-2">
-          <img src={content.hero.image} alt="" className="catstays-template-section-image h-[420px] w-full object-cover md:h-[560px]" />
+          <SafeImage src={content.hero.image} alt="" className="catstays-template-section-image h-[420px] w-full object-cover md:h-[560px]" />
           <div className="flex flex-col justify-center bg-white px-8 py-14 md:px-20">
             <p className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">{content.hero.eyebrow}</p>
             <h2 className="text-4xl leading-[1.08] md:text-6xl">{content.hero.heading}</h2>
@@ -324,7 +330,7 @@ function EditorialTemplate({
               <div className="my-6 h-px w-14 bg-[#b58b4a]" />
               <p className="max-w-lg text-base leading-7">{section.text}</p>
             </div>
-            <img src={section.image} alt="" className="catstays-template-section-image h-full min-h-[420px] w-full object-cover md:min-h-[560px]" />
+            <SafeImage src={section.image} alt="" className="catstays-template-section-image h-full min-h-[420px] w-full object-cover md:min-h-[560px]" />
           </section>
         ))}
 
@@ -332,6 +338,8 @@ function EditorialTemplate({
         <FacilitiesDetailSection content={content} />
         <SuitesGrid content={content} compact />
         <ServicesGrid content={content} />
+        <SourceContentSections content={content} />
+        <FaqSection content={content} />
         <GalleryStrip content={content} />
         <ReviewsSection content={content} />
         <OwnerStorySection content={content} />
@@ -373,7 +381,7 @@ function ShowcaseTemplate({
       <PreviewBookingNotice kind={previewNoticeKind} onDismiss={onDismissPreviewNotice} />
       <main>
         <section id="home" className="relative min-h-[620px] scroll-mt-28 overflow-hidden">
-          <img src={content.hero.image} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          <SafeImage src={content.hero.image} alt="" className="absolute inset-0 h-full w-full object-cover" />
           <div className="absolute inset-0 bg-black/45" />
           <div className="relative mx-auto flex min-h-[620px] max-w-[1400px] flex-col justify-end px-6 pb-16 text-white md:pb-24">
             <p className="mb-5 text-xs font-bold uppercase tracking-[0.24em] text-white/75">{content.hero.eyebrow}</p>
@@ -393,6 +401,8 @@ function ShowcaseTemplate({
         <FacilitiesDetailSection content={content} />
         <SuitesGrid content={content} />
         <ServicesGrid content={content} />
+        <SourceContentSections content={content} />
+        <FaqSection content={content} />
         <ReviewsSection content={content} />
         <OwnerStorySection content={content} />
         <LocationSection content={content} />
@@ -414,11 +424,11 @@ function FeatureRow({ content }: { content: ReturnType<typeof buildCatstaysTempl
         <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Care Approach</p>
         <h2 className="mx-auto max-w-3xl text-3xl leading-tight md:text-5xl">{content.sectionHeadings.care}</h2>
         {content.whyChoose.text ? <p className="mx-auto mt-5 max-w-4xl text-base leading-7 text-[#444]">{content.whyChoose.text}</p> : null}
-        {features.length ? <div className="catstays-card-grid mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+        {features.length ? <div className={centeredGridClass(features.length, 4)}>
           {features.map((feature, index) => {
             const Icon = careIconFor(feature.icon, index);
             return (
-              <div key={feature.title} className="bg-[#f8f5ef] p-7 shadow-sm">
+              <div key={feature.title} className="w-full bg-[#f8f5ef] p-7 shadow-sm">
                 <Icon className="mx-auto mb-5 h-7 w-7 text-[#8c7b63]" />
                 <h3 className="mb-3 text-xl">{feature.title}</h3>
                 <p className="text-sm leading-6 text-[#444]">{feature.text}</p>
@@ -434,6 +444,31 @@ function FeatureRow({ content }: { content: ReturnType<typeof buildCatstaysTempl
 function careIconFor(icon: string | undefined, index: number) {
   if (icon && icon in namedCareIcons) return namedCareIcons[icon as keyof typeof namedCareIcons];
   return trustIcons[index] || ShieldCheck;
+}
+
+function centeredGridClass(count: number, maxColumns: 3 | 4, spacing = 'mt-10 gap-6') {
+  const base = `catstays-card-grid mx-auto grid w-full justify-center ${spacing}`;
+  if (count <= 1) return `${base} max-w-[520px] grid-cols-1`;
+  if (count === 2) return `${base} max-w-[980px] grid-cols-1 md:grid-cols-2`;
+  if (count === 3) return `${base} max-w-[1180px] grid-cols-1 md:grid-cols-2 xl:grid-cols-3`;
+  return maxColumns === 4
+    ? `${base} max-w-[1400px] grid-cols-1 md:grid-cols-2 xl:grid-cols-4`
+    : `${base} max-w-[1180px] grid-cols-1 md:grid-cols-2 xl:grid-cols-3`;
+}
+
+function SafeImage({ src, alt, className }: { src?: string; alt: string; className?: string }) {
+  return (
+    <img
+      src={src || fallbackPreviewImage}
+      alt={alt}
+      className={className}
+      onError={(event) => {
+        if (event.currentTarget.dataset.fallbackApplied) return;
+        event.currentTarget.dataset.fallbackApplied = 'true';
+        event.currentTarget.src = fallbackPreviewImage;
+      }}
+    />
+  );
 }
 
 function ShowcaseGalleryRail({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
@@ -466,7 +501,7 @@ function ShowcaseGalleryRail({ content }: { content: ReturnType<typeof buildCats
       <div ref={railRef} className="flex snap-x gap-5 overflow-x-auto px-6 pb-2 [scrollbar-width:thin]">
         {railImages.map((item, index) => (
           <figure key={`${item.image}-${index}`} className="min-w-[78vw] snap-start overflow-hidden bg-white shadow-sm sm:min-w-[46vw] lg:min-w-[31vw]">
-            <img src={item.image} alt="" className="h-[320px] w-full object-cover" />
+            <SafeImage src={item.image} alt="" className="h-[320px] w-full object-cover" />
           </figure>
         ))}
       </div>
@@ -485,7 +520,7 @@ function AboutSplit({
 }) {
   return (
     <section id="about" className="catstays-stack mx-auto grid max-w-[1400px] scroll-mt-28 md:grid-cols-2">
-      <img src={content.about.image} alt="" className={`catstays-template-section-image h-[460px] w-full object-cover ${imageFirst ? '' : 'md:order-2'}`} />
+      <SafeImage src={content.about.image} alt="" className={`catstays-template-section-image h-[460px] w-full object-cover ${imageFirst ? '' : 'md:order-2'}`} />
       <div className="flex flex-col justify-center bg-white px-8 py-14 md:px-20">
         <p className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-[#8c7b63]">About {content.business.name}</p>
         <h2 className="text-3xl leading-[1.12] md:text-5xl">{content.about.title}</h2>
@@ -507,11 +542,11 @@ function SuitesGrid({ content, compact = false }: { content: ReturnType<typeof b
       <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Our Suites</p>
       <h2 className="text-3xl leading-tight md:text-5xl">{content.sectionHeadings.suites}</h2>
       <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-[#444]">Spacious, serene and stylish suites designed for your cat's comfort.</p>
-      <div className="catstays-card-grid mx-auto mt-10 grid max-w-[1120px] gap-6 md:grid-cols-2 xl:grid-cols-3">
+      <div className={centeredGridClass(content.suites.length, 3)}>
         {content.suites.map((suite) => (
-          <article key={suite.title} className="flex overflow-hidden rounded-md border border-[#222]/10 bg-white text-left shadow-sm">
+          <article key={suite.title} className="flex w-full overflow-hidden rounded-md border border-[#222]/10 bg-white text-left shadow-sm">
             <div className="flex w-full flex-col">
-            <img src={suite.image} alt="" className="h-56 w-full object-cover" />
+            <SafeImage src={suite.image} alt="" className="h-56 w-full object-cover" />
             <div className="flex flex-1 flex-col p-5 text-center">
               <h3 className="mb-3 text-sm font-bold uppercase tracking-[0.08em]">{suite.title}</h3>
               {suite.price ? <p className="mb-3 text-sm font-bold text-[#8c5b32]">{suite.price}</p> : null}
@@ -537,7 +572,7 @@ function SuitesGrid({ content, compact = false }: { content: ReturnType<typeof b
             <button type="button" onClick={() => setActiveSuite(null)} className="absolute right-4 top-4 z-10 grid h-10 w-10 place-items-center rounded-full bg-white/90 text-[#222] shadow">
               <X className="h-5 w-5" />
             </button>
-            <img src={activeSuite.image} alt="" className="h-72 w-full object-cover" />
+            <SafeImage src={activeSuite.image} alt="" className="h-72 w-full object-cover" />
             <div className="p-7 md:p-9">
               <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Suite Details</p>
               <h3 className="font-serif text-4xl leading-tight">{activeSuite.title}</h3>
@@ -630,7 +665,7 @@ function GalleryStrip({ content }: { content: ReturnType<typeof buildCatstaysTem
       <div ref={railRef} className="flex snap-x gap-5 overflow-x-auto px-1 pb-3 [scrollbar-width:thin]">
         {images.map((item, index) => (
           <figure key={`${item.image}-${index}`} className="min-w-[82vw] snap-start overflow-hidden bg-white shadow-sm sm:min-w-[46vw] lg:min-w-[31vw]">
-            <img src={item.image} alt="" className="h-72 w-full object-cover" />
+            <SafeImage src={item.image} alt="" className="h-72 w-full object-cover" />
           </figure>
         ))}
       </div>
@@ -676,6 +711,65 @@ function ServicesGrid({ content }: { content: ReturnType<typeof buildCatstaysTem
             </article>
           );
         })}
+      </div>
+    </section>
+  );
+}
+
+function SourceContentSections({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
+  if (!content.customSections.length) return null;
+
+  return (
+    <>
+      {content.customSections.map((section, index) => (
+        <section key={section.id || section.title} id={section.id} className={`scroll-mt-28 px-6 py-16 ${index % 2 === 0 ? 'bg-white' : 'bg-[#f8f5ef]'}`}>
+          <div className="catstays-stack mx-auto grid max-w-[1400px] gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
+            <div className={index % 2 === 1 ? 'lg:order-2' : ''}>
+              <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">From the owner site</p>
+              <h2 className="text-3xl leading-tight md:text-5xl">{section.title}</h2>
+              <p className="mt-5 max-w-3xl text-base leading-7 text-[#444]">{section.text}</p>
+              {section.items.length ? (
+                <div className="mt-7 grid gap-4 sm:grid-cols-2">
+                  {section.items.slice(0, 6).map((item) => (
+                    <article key={`${section.id}-${item.title}`} className="rounded-md border border-[#222]/10 bg-white/80 p-4 shadow-sm">
+                      {item.title ? <h3 className="font-serif text-xl leading-tight">{item.title}</h3> : null}
+                      {item.text ? <p className="mt-2 text-sm leading-6 text-[#444]">{item.text}</p> : null}
+                    </article>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+            {section.images[0] ? (
+              <SafeImage src={section.images[0]} alt="" className="catstays-template-section-image h-[360px] w-full rounded-md object-cover shadow-sm md:h-[460px]" />
+            ) : (
+              <div className="grid h-[360px] place-items-center rounded-md bg-[#0A1128] p-8 text-center text-white shadow-sm md:h-[460px]">
+                <Sparkles className="mb-4 h-8 w-8 text-[#F5C08A]" />
+                <p className="font-serif text-3xl">{section.title}</p>
+              </div>
+            )}
+          </div>
+        </section>
+      ))}
+    </>
+  );
+}
+
+function FaqSection({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
+  if (!content.faqs.length) return null;
+
+  return (
+    <section id="faqs" className="scroll-mt-28 bg-white px-6 py-16">
+      <div className="mx-auto max-w-[1100px]">
+        <p className="mb-3 text-center text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Questions and answers</p>
+        <h2 className="text-center text-3xl leading-tight md:text-5xl">Helpful things to know</h2>
+        <div className="mt-10 grid gap-4">
+          {content.faqs.slice(0, 10).map((faq) => (
+            <article key={faq.question} className="rounded-md border border-[#222]/10 bg-[#f8f5ef] p-5 shadow-sm">
+              <h3 className="font-serif text-xl leading-tight">{faq.question}</h3>
+              <p className="mt-3 text-sm leading-7 text-[#444]">{faq.answer}</p>
+            </article>
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -729,14 +823,14 @@ function FacilitiesDetailSection({ content }: { content: ReturnType<typeof build
     <section id="facilities" className="scroll-mt-28 bg-white px-6 py-16">
       <div className="catstays-stack mx-auto max-w-[1400px]">
         <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-          <img src={content.facilities.image} alt="" className="catstays-template-section-image h-[420px] w-full rounded-md object-cover shadow-sm md:h-[500px]" />
+          <SafeImage src={content.facilities.image} alt="" className="catstays-template-section-image h-[420px] w-full rounded-md object-cover shadow-sm md:h-[500px]" />
           <div>
             <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Facilities</p>
             <h2 className="text-3xl leading-tight md:text-5xl">{content.facilities.title}</h2>
             <p className="mt-5 max-w-3xl text-base leading-7 text-[#444]">{content.facilities.text}</p>
           </div>
         </div>
-        <div className="catstays-card-grid mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+        <div className={centeredGridClass(content.facilities.items.length, 3, 'mt-8 gap-5')}>
           {content.facilities.items.map((item, index) => {
             const Icon = facilityIcons[index % facilityIcons.length] || ShieldCheck;
             return (
@@ -758,7 +852,7 @@ function OwnerStorySection({ content }: { content: ReturnType<typeof buildCatsta
 
   return (
     <section id="owner" className="catstays-stack mx-auto grid max-w-[1400px] scroll-mt-28 gap-8 bg-white px-6 py-10 md:grid-cols-[0.9fr_1.1fr] md:items-center md:px-0 md:py-0">
-      <img src={content.owner.image} alt="" className="catstays-owner-image h-[360px] w-full rounded-md object-cover object-[50%_58%] sm:h-[420px] md:h-[460px] md:max-h-[500px] lg:h-[500px]" />
+      <SafeImage src={content.owner.image} alt="" className="catstays-owner-image h-[360px] w-full rounded-md object-cover object-[50%_58%] sm:h-[420px] md:h-[460px] md:max-h-[500px] lg:h-[500px]" />
       <div className="flex flex-col justify-center px-8 py-14 md:px-20">
         <p className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">The people behind the care</p>
         <h2 className="text-3xl leading-[1.12] md:text-5xl">{content.owner.title}</h2>
@@ -1186,6 +1280,10 @@ function TemplateFooter({
             <a href="#services" onClick={onPreviewAnchorClick} className={linkClass}>Extra Care</a>
             <a href="#gallery" onClick={onPreviewAnchorClick} className={linkClass}>Gallery</a>
             <a href="#reviews" onClick={onPreviewAnchorClick} className={linkClass}>Reviews</a>
+            {content.customSections.map((section) => (
+              <a key={section.id} href={`#${section.id}`} onClick={onPreviewAnchorClick} className={linkClass}>{section.title}</a>
+            ))}
+            {content.faqs.length ? <a href="#faqs" onClick={onPreviewAnchorClick} className={linkClass}>FAQs</a> : null}
             <a href="#location" onClick={onPreviewAnchorClick} className={linkClass}>Location</a>
             {virtualTourUrl ? <a href="#virtual-tour" onClick={onPreviewAnchorClick} className={linkClass}>Virtual Tour</a> : null}
           </nav>

@@ -168,6 +168,16 @@ export interface CatstaysTemplateContent {
     directions: string;
     virtualTourUrl: string;
   };
+  customSections: Array<{
+    id: string;
+    title: string;
+    text: string;
+    items: Array<{
+      title: string;
+      text: string;
+    }>;
+    images: string[];
+  }>;
   booking: {
     text: string;
     bannerText: string;
@@ -437,6 +447,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const facilitiesBlock = libraryBlock(contentLibrary, 'facilities');
   const dailyCareBlock = libraryBlock(contentLibrary, 'daily-care');
   const locationBlock = libraryBlock(contentLibrary, 'location');
+  const sourceSections = sourceContentSections(contentLibrary);
   const logoImage = stringFrom(data.logoImage, normalizedRecord.logoImage, record?.media.logoImage);
   const heroImage = imageFrom(
     data.heroImage,
@@ -683,6 +694,28 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       directions: stringFrom(locationData.directions, locationBlock?.items?.[0]?.text, data.location, normalized.location),
       virtualTourUrl,
     },
+    customSections: (Array.isArray(data.customSections) && data.customSections.length ? data.customSections : sourceSections)
+      .map((section: any) => ({
+        id: slugify(stringFrom(section.id, section.title, section.heading, 'source-section')),
+        title: stringFrom(section.title, section.heading),
+        text: stringFrom(section.text, section.description, section.content),
+        items: Array.isArray(section.items)
+          ? section.items
+              .map((item: any) => ({
+                title: stringFrom(item.title, item.name),
+                text: stringFrom(item.text, item.description, item.answer),
+              }))
+              .filter((item: any) => item.title || item.text)
+          : [],
+        images: uniqueStrings([
+          section.media,
+          ...(Array.isArray(section.images) ? section.images.map((image: any) => stringFrom(image.url, image.image, image)) : []),
+        ])
+          .filter((image: string) => isUsableGalleryImage(image, logoImage))
+          .slice(0, 6),
+      }))
+      .filter((section) => section.title && section.text)
+      .slice(0, 8),
     booking: {
       text: stringFrom(data.bookingText, "Check availability and secure your cat's holiday today."),
       bannerText: stringFrom(data.bookingBannerText, "Check availability and secure your cat's stay today."),
@@ -721,6 +754,40 @@ function libraryItems(library: CatterySiteContentLibrary, category: string) {
 
 function libraryImages(library: CatterySiteContentLibrary, category: string) {
   return libraryBlock(library, category)?.images ?? [];
+}
+
+function sourceContentSections(library: CatterySiteContentLibrary) {
+  const coreCategories = new Set([
+    'hero',
+    'why-choose-us',
+    'rooms',
+    'services',
+    'gallery',
+    'reviews',
+    'faqs',
+    'owner-story',
+    'commitment',
+    'location',
+    'contact',
+    'social',
+  ]);
+
+  return library.blocks
+    .filter((block) => !coreCategories.has(block.category))
+    .map((block) => ({
+      id: block.id,
+      title: block.title,
+      heading: block.title,
+      text: block.text || '',
+      description: block.text || '',
+      items: (block.items ?? []).map((item) => ({
+        title: item.title,
+        text: item.text || item.answer || '',
+      })),
+      images: (block.images ?? []).map((image) => image.url).filter(Boolean),
+      media: (block.images ?? [])[0]?.url || '',
+    }))
+    .filter((block) => block.title && block.text);
 }
 
 function libraryRoomsToRooms(items: ReturnType<typeof libraryItems>) {
@@ -950,7 +1017,7 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
       mapItemsToFaqs(blockItems('faqs')),
       record?.faqs,
     ),
-    customSections: arrayFrom('customSections'),
+    customSections: arrayFrom('customSections', sourceContentSections(contentLibrary)),
   };
 }
 
@@ -1009,7 +1076,13 @@ function isUsableGalleryImage(image: string, logoImage?: string): boolean {
   if (!normalized) return false;
   if (logoKey && normalized === logoKey) return false;
   const decoded = decodeURIComponent(normalized);
-  return !/logo|favicon|apple-touch-icon|icon|avatar|profile|placeholder|silhouette|black.?cat|catstays|\/cat(?:[-_][a-z0-9]+)?\.png$/i.test(decoded);
+  if (!/^https?:\/\//i.test(image) && !/^data:image\//i.test(image)) return false;
+  if (/%60|`|:o\(|media\/\W/.test(decoded)) return false;
+  if (/logo|wordmark|brand|cardb|favicon|apple-touch-icon|icon|avatar|profile|placeholder|silhouette|black.?cat|catstays|\/cat(?:[-_][a-z0-9]+)?\.png$/i.test(decoded)) return false;
+  const width = imageWidth(image);
+  const height = imageHeight(image);
+  if (width && height && width / height > 2.8 && height <= 360) return false;
+  return true;
 }
 
 function ensureImageCount(images: string[], heroImage: string): string[] {
@@ -1052,6 +1125,16 @@ function pickUniqueImage(usedImages: Set<string>, preferred: unknown[], fallback
   const fallback = preferredImages[0] || fallbackImages[0] || '';
   rememberImage(usedImages, fallback);
   return fallback;
+}
+
+function imageWidth(image: string): number {
+  const width = image.match(/[?&](?:w|width)=([0-9]+)/i)?.[1] || image.match(/\/w_([0-9]+)/i)?.[1];
+  return width ? Number(width) : 0;
+}
+
+function imageHeight(image: string): number {
+  const height = image.match(/[?&](?:h|height)=([0-9]+)/i)?.[1] || image.match(/,h_([0-9]+)/i)?.[1];
+  return height ? Number(height) : 0;
 }
 
 function ensureFeatureCount(

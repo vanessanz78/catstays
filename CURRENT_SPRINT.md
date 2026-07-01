@@ -1,10 +1,10 @@
 # Current Sprint
 
-Last updated: 2026-07-01
+Last updated: 2026-07-02
 
 ## Goal
 
-Stabilise the CatStays onboarding publish flow and give future Codex chats a root-level sprint entry point.
+Stabilise CatStays onboarding publish and imported website preview quality, with FancyFelines as the current UAT example.
 
 ## Source Of Truth
 
@@ -24,16 +24,22 @@ Stabilise the CatStays onboarding publish flow and give future Codex chats a roo
 - Replit's database module may exist in the workspace, but the publish/provisioning route uses Supabase Auth and Supabase tables, not the Replit Postgres database.
 - `.replit` now sets `CATSTAYS_APP_URL` and `VITE_PUBLIC_APP_URL` to `https://catstays.app` so confirmation URLs prefer the live app URL instead of a Replit development preview origin.
 - `docs/changelog.md`, `docs/onboarding-flow.md`, and `docs/CATSTAYS_REPLIT_SECRETS.md` were updated for the publish-loop and app URL work.
+- On 2026-07-02, FancyFelines UAT showed the imported preview still using the legacy `/demo/deloraine` route, using a logo-style wordmark as hero/header imagery, showing broken image boxes, left-weighted card grids for three/two-card sections, and missing owner-site content such as grooming, Q&A, collaborations, health care, HBOT, and PEMF pages.
+- The website scraper now crawls more same-origin source pages, reads sitemap links, captures supplemental page content/images, extracts Q&A page content into FAQs, and stores extra owner-site pages as source content blocks for one-page preview sections.
+- Imported preview templates now filter likely logos/wordmarks out of hero, gallery, room, and service imagery. Logos can still be stored as logos, but they must not be selected as top/header photography.
+- Imported preview templates now show source-page sections, include FAQs in navigation/footer/chatbot knowledge, use fallback imagery for broken source images, and center short card rows such as three care cards or two suite cards.
+- Demo routes now support imported slugs such as `/demo/fancyfelines`, `/demo/fancyfelines/dashboard`, and `/demo/fancyfelines/client` while preserving the legacy Deloraine routes.
 - No root-level Architect Update exists yet.
 
 ## Next Actions
 
-1. Pull `main` into Replit and republish/restart so the Replit public app URL values are active.
-2. In Supabase Authentication > Users, delete or use a different email than any existing Auth user before testing a fresh publish path.
-3. UAT the Publish step with an already-registered email and confirm it stays on Publish with an inline error.
-4. UAT a fresh email publish path to confirm normal provisioning still reaches Success.
-5. Confirm the email confirmation redirect URL now points to the live CatStays URL. If links still open a development/auth URL, verify Supabase Auth URL Configuration and additional redirect URLs in Supabase.
-6. If any other publish/provisioning error still sends users to step 1, inspect `OnboardingWizard.tsx` next.
+1. Pull `main` into Replit and republish/restart so the latest import and app URL changes are active.
+2. UAT importing `https://fancyfelines.nz` and confirm the demo URL updates to `/demo/fancyfelines`.
+3. Confirm generated previews do not use the FancyFelines logo/wordmark as hero/header photography and do not show broken image boxes.
+4. Confirm the Care Approach and Boarding Options card rows are centered and responsive when there are only three or two cards.
+5. Confirm Professional Cat Grooming, Q&A/FAQs, collaborations, health care, HBOT, PEMF, and other source-site pages appear as appropriate one-page sections or FAQs, and that FAQs are available to the chatbot/footer.
+6. Re-run publish UAT with both existing and fresh Auth emails: existing emails should stay on Publish with an inline error; fresh emails should complete provisioning.
+7. Confirm email confirmation redirect URLs still point to the live CatStays URL. If links open a development/auth URL, verify Supabase Auth URL Configuration and additional redirect URLs.
 
 ## Decisions This Sprint
 
@@ -41,18 +47,23 @@ Stabilise the CatStays onboarding publish flow and give future Codex chats a roo
 - Treat duplicate-email publish failures as Publish-step errors rather than account-step resets.
 - Treat Supabase Authentication > Users as the source of truth for signup email uniqueness.
 - Pin Replit public app URL values to `https://catstays.app` for confirmation email redirects.
+- Treat the owner website import as a source-site capture step before template generation: crawl/capture relevant pages and images, then map that indexed content into the one-page preview.
+- Do not use owner logos, wordmarks, favicons, or brand-only graphics as hero/header/gallery photos in generated previews.
+- When source content exceeds the default template sections, add editable one-page sections instead of dropping the content.
 
 ## Risks Or Blockers
 
 - Full local typecheck was not run because the MacBook Air should stay resource-constrained and no dependencies were installed locally.
 - No GitHub CI/status checks were attached to the latest commit.
-- Replit UAT is still required before considering the publish-loop fix fully verified.
+- Replit UAT is still required before considering the publish-loop and imported-preview fixes fully verified.
 - Supabase Auth URL Configuration must allow the live CatStays confirmation URL.
+- Some third-party websites may block images or hide content behind client-side rendering; CatStays should fail soft with captured source sections and safe image fallbacks rather than showing broken preview boxes.
 
 ## Local Cleanup Notes
 
-- No local clone, dependency install, build output, cache, or dev server was created for this document update.
-- Previous temporary sparse checkout work for the publish-loop fix was removed before this sprint document was created.
+- A temporary sparse checkout was created under the local `work/` folder for the FancyFelines import fixes.
+- No dependency install, local build output, cache, or dev server was created.
+- Remove the temporary sparse checkout after the GitHub commit is pushed.
 
 ## Handoff
 

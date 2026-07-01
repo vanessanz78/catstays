@@ -1,6 +1,43 @@
 # Decision Log
 
-Last updated: 2026-07-01
+Last updated: 2026-07-02
+
+## 2026-07-02 - Import Source Site Before Preview Generation
+
+Decision: Treat website import as a source-site capture step before template generation.
+
+Reason: FancyFelines UAT showed that generating a preview from only shallow homepage content drops important owner-site pages such as grooming, Q&A, collaborations, health care, HBOT, PEMF, and pricing/rates. CatStays should first crawl and store relevant source pages/images, then map the indexed content into the one-page preview.
+
+Impact:
+
+- The scraper should crawl same-origin links and sitemap pages within a bounded budget before building the preview.
+- Extra owner-site pages should become source content blocks, FAQs, service cards, or editable custom sections instead of being discarded.
+- One-page preview navigation, footer links, and chatbot knowledge should include the imported FAQ/source-section content where practical.
+- Replit UAT should include sites beyond Deloraine so the importer learns from varied cattery site structures.
+
+## 2026-07-02 - Logos Are Not Header Photos
+
+Decision: Do not use owner logos, wordmarks, favicons, or brand-only graphics as hero/header/gallery photography in generated previews.
+
+Reason: FancyFelines UAT showed a logo-style wordmark being selected as the main visual, which made the preview look broken and unlike a real cattery website. Logos may be stored as logos, but hero/header imagery should be actual photography or safe fallback imagery.
+
+Impact:
+
+- Import logic filters likely logos/wordmarks out of hero, gallery, suite, room, and service image selection.
+- Broken or unusable image URLs should fail soft to a safe fallback instead of rendering empty boxes.
+- UAT should check that generated previews use real cattery/site imagery where available and never rely on a logo as the top visual.
+
+## 2026-07-02 - Short Preview Card Rows Should Center
+
+Decision: Generated preview card rows should center and fill available width when the source site only provides two or three cards.
+
+Reason: Left-weighted rows make the generated site feel unfinished when a section has fewer than the maximum number of cards.
+
+Impact:
+
+- Care, facility, and suite card grids should use responsive centered widths for one, two, or three-card rows.
+- Mobile and tablet previews should collapse predictably without horizontal imbalance.
+- Replit UAT should check both desktop and mobile preview modes.
 
 ## 2026-07-01 - Root Sprint Docs
 

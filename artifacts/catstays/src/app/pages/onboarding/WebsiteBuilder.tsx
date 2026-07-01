@@ -582,28 +582,34 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
       </div>
 
       {/* 12. CUSTOM SECTIONS */}
-      {(data.customSections || []).map((section: any, i: number) => (
-        <div key={i} className={`px-6 md:px-12 py-16 md:py-24 ${i % 2 === 0 ? 'bg-white' : ''}`} style={{ backgroundColor: i % 2 === 0 ? 'white' : data.backgroundColor || '#F8F7F5' }}>
-          <div className="max-w-6xl mx-auto">
-            <div className={`grid md:grid-cols-2 gap-12 md:gap-16 items-center ${section.media ? '' : 'md:grid-cols-1'}`}>
-              <div className={section.media ? '' : 'text-center mx-auto max-w-3xl'}>
-                <div className={`w-16 h-0.5 mb-6 ${section.media ? '' : 'mx-auto'}`} style={{ backgroundColor: data.accentColor || '#C46A3A' }}></div>
-                <h2 className="text-3xl md:text-4xl font-bold mb-8" style={{ color: data.primaryColor || '#0A1128', fontFamily: getHeadingFontClass(data.headingFont || data.typography || 'playfair') }}>
-                  {section.heading}
-                </h2>
-                <p className="text-base md:text-lg leading-relaxed text-gray-600 whitespace-pre-line" style={{ fontFamily: getBodyFontClass(data.bodyFont || 'inter') }}>
-                  {section.description}
-                </p>
-              </div>
-              {section.media && (
-                <div className="h-64 md:h-96 rounded-2xl overflow-hidden shadow-2xl">
-                  <img src={section.media} alt={section.heading} className="w-full h-full object-cover" />
+      {(data.customSections || []).map((section: any, i: number) => {
+        const heading = section.heading || section.title;
+        const description = section.description || section.text || section.content;
+        const media = section.media || section.image || section.images?.[0];
+
+        return (
+          <div key={section.id || i} className={`px-6 md:px-12 py-16 md:py-24 ${i % 2 === 0 ? 'bg-white' : ''}`} style={{ backgroundColor: i % 2 === 0 ? 'white' : data.backgroundColor || '#F8F7F5' }}>
+            <div className="max-w-6xl mx-auto">
+              <div className={`grid md:grid-cols-2 gap-12 md:gap-16 items-center ${media ? '' : 'md:grid-cols-1'}`}>
+                <div className={media ? '' : 'text-center mx-auto max-w-3xl'}>
+                  <div className={`w-16 h-0.5 mb-6 ${media ? '' : 'mx-auto'}`} style={{ backgroundColor: data.accentColor || '#C46A3A' }}></div>
+                  <h2 className="text-3xl md:text-4xl font-bold mb-8" style={{ color: data.primaryColor || '#0A1128', fontFamily: getHeadingFontClass(data.headingFont || data.typography || 'playfair') }}>
+                    {heading}
+                  </h2>
+                  <p className="text-base md:text-lg leading-relaxed text-gray-600 whitespace-pre-line" style={{ fontFamily: getBodyFontClass(data.bodyFont || 'inter') }}>
+                    {description}
+                  </p>
                 </div>
-              )}
+                {media && (
+                  <div className="h-64 md:h-96 rounded-2xl overflow-hidden shadow-2xl">
+                    <img src={media} alt={heading} className="w-full h-full object-cover" />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
 
       {/* 13. LOCATION - Map placeholder */}
       <div className="px-6 md:px-12 py-16 md:py-24 bg-white">

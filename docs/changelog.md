@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-07-02
+
+- Improved website import coverage so CatStays captures more source-site pages, images, Q&A content, and extra owner-site sections before generating preview templates.
+- Added importer rules to keep logos/wordmarks out of hero, gallery, suite, room, and service photography, with safe image fallbacks for unusable or broken source images.
+- Added imported source sections and FAQ output to generated one-page previews so pages such as grooming, health care, HBOT, PEMF, collaborations, and Q&A have a place in the preview and builder data.
+- Centered short preview card rows for care, facility, and suite sections when there are only one, two, or three cards.
+- Added imported demo slug routes such as `/demo/fancyfelines`, `/demo/fancyfelines/dashboard`, and `/demo/fancyfelines/client` while preserving legacy Deloraine routes.
+
 ## 2026-07-01
 
 - Set Replit public app URL values `CATSTAYS_APP_URL` and `VITE_PUBLIC_APP_URL` to `https://catstays.app` so Supabase confirmation links prefer the live app URL.
