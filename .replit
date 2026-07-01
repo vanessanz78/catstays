@@ -28,6 +28,8 @@ timeoutMs = 20000
 [userenv]
 
 [userenv.shared]
+CATSTAYS_APP_URL = "https://catstays.app"
+VITE_PUBLIC_APP_URL = "https://catstays.app"
 VITE_SUPABASE_URL = "https://iwyoezwqorddkmqnjbif.supabase.co"
 VITE_SUPABASE_ANON_KEY = "sb_publishable_Y4Hwj84ljj86Lfec3xkUkg_TSsfZKG7"
 STRIPE_API_KEY = "$STRIPE_SECRET_KEY"
