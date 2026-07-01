@@ -27,6 +27,18 @@ Impact:
 - The Replit Database panel is not the source of this duplicate-email state for the publish/provisioning path.
 - If confirmation links point to a development URL, verify Supabase Auth URL Configuration and Replit environment values such as `CATSTAYS_APP_URL` and `VITE_PUBLIC_APP_URL`.
 
+## 2026-07-01 - Replit App URL For Auth Redirects
+
+Decision: Set `CATSTAYS_APP_URL` and `VITE_PUBLIC_APP_URL` to `https://catstays.app` in `.replit` and document them in `docs/CATSTAYS_REPLIT_SECRETS.md`.
+
+Reason: Supabase confirmation links can inherit a development preview origin when the public app URL is not explicitly configured. The publish route already prefers `CATSTAYS_APP_URL`, and the frontend uses `VITE_PUBLIC_APP_URL` for public app links.
+
+Impact:
+
+- Replit must pull `main` and republish/restart for the new public app URL values to take effect.
+- Supabase Auth URL Configuration must allow the live CatStays confirmation URL.
+- Future Replit setup notes now include the public URL values alongside existing Supabase and payment settings.
+
 ## 2026-07-01 - Publish-Step Duplicate Email Handling
 
 Decision: Treat duplicate signup/provisioning email errors as Publish-step errors instead of account-step resets.
@@ -43,4 +55,3 @@ Impact:
 
 - Whether to add a formal root-level Architect Update file for CatStays.
 - Whether the client-side publish handler should also be hardened so no future account/provisioning error can force a step-1 reset.
-- Whether production Replit should explicitly set `CATSTAYS_APP_URL` and `VITE_PUBLIC_APP_URL` to the live CatStays URL for email confirmation redirects.
