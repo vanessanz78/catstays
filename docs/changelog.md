@@ -2,6 +2,7 @@
 
 ## 2026-07-01
 
+- Added root-level `CURRENT_SPRINT.md` and `DECISION_LOG.md` so future Codex chats have a stable sprint handoff entry point.
 - Fixed the onboarding publish flow for duplicate signup emails so the Publish step shows an inline error instead of looping users back to step 1.
 
 ## 2026-06-12
