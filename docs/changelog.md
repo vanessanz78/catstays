@@ -2,6 +2,7 @@
 
 ## 2026-07-02
 
+- Updated onboarding import mapping so the cattery setup Location field uses the imported full address, and manual/Google address edits keep the stored address in sync.
 - Improved website import coverage so CatStays captures more source-site pages, images, Q&A content, and extra owner-site sections before generating preview templates.
 - Added importer rules to keep logos/wordmarks out of hero, gallery, suite, room, and service photography, with safe image fallbacks for unusable or broken source images.
 - Added imported source sections and FAQ output to generated one-page previews so pages such as grooming, health care, HBOT, PEMF, collaborations, and Q&A have a place in the preview and builder data.

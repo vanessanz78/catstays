@@ -27,6 +27,7 @@ Older project notes mention a 7-step onboarding flow. That should be treated as 
 - Website URL import entry point exists.
 - Website import now captures more source-site pages before preview generation, including same-origin links and sitemap pages within a bounded crawl budget.
 - Imported owner-site pages can become services, FAQs, source content blocks, and editable custom sections in the one-page preview.
+- Imported cattery setup data now prefers the full source-site address for Location, and Google/manual address edits update the saved address value.
 - Generated previews filter likely logos/wordmarks out of hero/header/gallery photos and fall back safely when a source image is broken or unusable.
 - Imported demo URLs can use the imported business slug, such as `/demo/fancyfelines`, instead of always using `/demo/deloraine`.
 - Guided setup exists for catteries with no current website.

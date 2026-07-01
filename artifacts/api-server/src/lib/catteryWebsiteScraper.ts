@@ -1676,14 +1676,26 @@ function extractReadableBundleText(bundle: string): string[] {
 
 function extractAddress(root: ReturnType<typeof parse>, text: string): string {
   const addressTag = cleanText(root.querySelector('address')?.text ?? '');
-  if (addressTag) return addressTag;
+  if (addressTag) return cleanAddressMatch(addressTag);
   const labeledAddress = cleanText(
     text.match(/Address:\s*([\s\S]{10,160}?)(?:Primary Contact|Alternate Contact|Phone|Email|Opening Hours|Please note)/i)?.[1] ?? '',
   );
-  if (labeledAddress) return labeledAddress;
+  if (labeledAddress) return cleanAddressMatch(labeledAddress);
   const streetMatch =
-    text.match(/\b\d{1,5}\s+[A-Z][A-Za-z0-9' -]{2,80}(?:Street|St|Road|Rd|Avenue|Ave|Drive|Dr|Lane|Ln|Way),?\s+[A-Z][A-Za-z' -]{2,80}(?:,\s*[A-Z][A-Za-z' -]{2,80})?/);
-  return cleanText(streetMatch?.[0] ?? '');
+    text.match(
+      /\b\d{1,5}\s+[A-Z][A-Za-zÀ-ÖØ-öø-ÿĀ-ſ0-9' -]{2,80}\s(?:Street|St|Road|Rd|Avenue|Ave|Drive|Dr|Lane|Ln|Way),?\s+[A-Z][A-Za-zÀ-ÖØ-öø-ÿĀ-ſ' -]{2,80}(?:,\s*[A-Z][A-Za-zÀ-ÖØ-öø-ÿĀ-ſ' -]{2,80})?(?:,\s*\d{4})?(?:,\s*(?:New Zealand|NZ))?/,
+    ) ||
+    text.match(
+      /\b[A-Z][A-Za-zÀ-ÖØ-öø-ÿĀ-ſ' -]{2,80}\s(?:Street|St|Road|Rd|Avenue|Ave|Drive|Dr|Lane|Ln|Way),?\s+[A-Z][A-Za-zÀ-ÖØ-öø-ÿĀ-ſ' -]{2,80}(?:,\s*[A-Z][A-Za-zÀ-ÖØ-öø-ÿĀ-ſ' -]{2,80})?(?:,\s*\d{4})?(?:,\s*(?:New Zealand|NZ))?/,
+    );
+  return cleanAddressMatch(streetMatch?.[0] ?? '');
+}
+
+function cleanAddressMatch(address: string): string {
+  const cleaned = cleanText(address);
+  if (!cleaned) return '';
+  const countryBounded = cleaned.match(/^(.*?\b(?:New Zealand|NZ)\b)/i)?.[1] || cleaned;
+  return cleanText(countryBounded.replace(/,\s*$/, ''));
 }
 
 function extractPhone(text: string): string {

@@ -2,6 +2,19 @@
 
 Last updated: 2026-07-02
 
+## 2026-07-02 - Onboarding Location Uses Full Address
+
+Decision: The cattery setup Location field should use the imported full address when one is available, and manual or Google-complete address edits should update the stored address value too.
+
+Reason: FancyFelines UAT showed the Location field falling back to `fancyfelines`, which is a business/host-style value, even though the source site has a real Whareora Road address. Location should support Google-style complete addresses for downstream maps, contact details, and builder data.
+
+Impact:
+
+- Import normalization prefers the scraped address before city, host, or business-name fallbacks.
+- Preview import records carry the contact address back into the onboarding Location field.
+- Manual Location edits write through to the stored address so autocomplete selections do not leave stale contact data behind.
+- UAT should verify imported sites with road addresses, including macrons such as `Whangārei`, populate the setup address cleanly.
+
 ## 2026-07-02 - Import Source Site Before Preview Generation
 
 Decision: Treat website import as a source-site capture step before template generation.

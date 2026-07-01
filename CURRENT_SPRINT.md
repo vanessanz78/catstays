@@ -29,17 +29,19 @@ Stabilise CatStays onboarding publish and imported website preview quality, with
 - Imported preview templates now filter likely logos/wordmarks out of hero, gallery, room, and service imagery. Logos can still be stored as logos, but they must not be selected as top/header photography.
 - Imported preview templates now show source-page sections, include FAQs in navigation/footer/chatbot knowledge, use fallback imagery for broken source images, and center short card rows such as three care cards or two suite cards.
 - Demo routes now support imported slugs such as `/demo/fancyfelines`, `/demo/fancyfelines/dashboard`, and `/demo/fancyfelines/client` while preserving the legacy Deloraine routes.
+- The onboarding cattery setup Location field now prefers the imported full address over a city/business slug, and manual/Google address edits update the stored address as well as the visible location.
 - No root-level Architect Update exists yet.
 
 ## Next Actions
 
 1. Pull `main` into Replit and republish/restart so the latest import and app URL changes are active.
 2. UAT importing `https://fancyfelines.nz` and confirm the demo URL updates to `/demo/fancyfelines`.
-3. Confirm generated previews do not use the FancyFelines logo/wordmark as hero/header photography and do not show broken image boxes.
-4. Confirm the Care Approach and Boarding Options card rows are centered and responsive when there are only three or two cards.
-5. Confirm Professional Cat Grooming, Q&A/FAQs, collaborations, health care, HBOT, PEMF, and other source-site pages appear as appropriate one-page sections or FAQs, and that FAQs are available to the chatbot/footer.
-6. Re-run publish UAT with both existing and fresh Auth emails: existing emails should stay on Publish with an inline error; fresh emails should complete provisioning.
-7. Confirm email confirmation redirect URLs still point to the live CatStays URL. If links open a development/auth URL, verify Supabase Auth URL Configuration and additional redirect URLs.
+3. Confirm the first cattery setup page fills Location with the imported address, for example the FancyFelines Whareora Road address, not `fancyfelines` or the business name.
+4. Confirm generated previews do not use the FancyFelines logo/wordmark as hero/header photography and do not show broken image boxes.
+5. Confirm the Care Approach and Boarding Options card rows are centered and responsive when there are only three or two cards.
+6. Confirm Professional Cat Grooming, Q&A/FAQs, collaborations, health care, HBOT, PEMF, and other source-site pages appear as appropriate one-page sections or FAQs, and that FAQs are available to the chatbot/footer.
+7. Re-run publish UAT with both existing and fresh Auth emails: existing emails should stay on Publish with an inline error; fresh emails should complete provisioning.
+8. Confirm email confirmation redirect URLs still point to the live CatStays URL. If links open a development/auth URL, verify Supabase Auth URL Configuration and additional redirect URLs.
 
 ## Decisions This Sprint
 
@@ -50,6 +52,7 @@ Stabilise CatStays onboarding publish and imported website preview quality, with
 - Treat the owner website import as a source-site capture step before template generation: crawl/capture relevant pages and images, then map that indexed content into the one-page preview.
 - Do not use owner logos, wordmarks, favicons, or brand-only graphics as hero/header/gallery photos in generated previews.
 - When source content exceeds the default template sections, add editable one-page sections instead of dropping the content.
+- Treat the imported full address as the onboarding Location value when available; do not fall back to a business name, slug, or host-derived value if an address was extracted.
 
 ## Risks Or Blockers
 

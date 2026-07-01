@@ -909,6 +909,8 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
   const fallbackPhone = isDeloraineSource ? fallbackDeloraineScrape.phone || '' : '';
   const fallbackEmail = isDeloraineSource ? fallbackDeloraineScrape.email || '' : '';
   const fallbackAddress = isDeloraineSource ? fallbackDeloraineScrape.address || '' : '';
+  const importedAddress = stringValue(settings.address) || scrape.address || fallbackAddress;
+  const importedLocation = importedAddress || stringValue(settings.location) || scrape.city || '';
   const fallbackFaqs = isDeloraineSource ? fallbackDeloraineScrape.faqs : genericFaqs(businessName);
   const reviews = scrape.reviews?.length
     ? scrape.reviews
@@ -951,7 +953,7 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
     businessName,
     sourceUrl: scrape.sourceUrl,
     sourceHost: scrape.sourceHost,
-    location: stringValue(settings.location) || scrape.city || '',
+    location: importedLocation,
     subdomain: slugify(businessName),
     primaryColor: stringValue(settings.primaryColor) || '#0A1128',
     accentColor: stringValue(settings.accentColor) || '#C46A3A',
@@ -968,7 +970,7 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
       'A purpose-built cat boarding facility focused on comfort, calm, and personal care.',
     phone: stringValue(settings.phone) || scrape.phone || fallbackPhone,
     email: stringValue(settings.email) || scrape.email || fallbackEmail,
-    address: stringValue(settings.address) || scrape.address || fallbackAddress,
+    address: importedAddress,
     pricePerNight: pricePerNight(rooms),
     pricePerCat: pricePerNight(rooms),
     selectedTemplate: scrape.sourceUrl ? 'original' : 'conversion-focus',

@@ -1356,7 +1356,7 @@ export function OnboardingWizard() {
                       id="location"
                       placeholder="Start typing your address..."
                       value={data.location}
-                      onChange={(value) => setData({ ...data, location: value, address: data.address || value })}
+                      onChange={(value) => setData({ ...data, location: value, address: value })}
                       className="rounded-xl h-12 text-lg"
                     />
                     <p className="text-xs text-forest/60 mt-2">

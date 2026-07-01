@@ -333,6 +333,7 @@ export function dataFromPreviewRecord(
   currentData: Record<string, any> = {},
 ): Record<string, any> {
   const normalized = record.normalizedPreviewData;
+  const importedAddress = record.contact.address || normalized.address || currentData.address || '';
   const selectedTemplate = normalizePreviewTemplateId(templateId);
   const updatedRecord: PreviewImportRecord = {
     ...record,
@@ -355,11 +356,11 @@ export function dataFromPreviewRecord(
     sourceUrl: record.source.url,
     sourceHost: record.source.host,
     businessName: record.identity.businessName,
-    location: record.identity.location,
+    location: importedAddress || record.identity.location,
     subdomain: currentData.subdomain || record.identity.subdomain,
     phone: record.contact.phone || currentData.phone,
     email: record.contact.email || currentData.email,
-    address: record.contact.address || currentData.address,
+    address: importedAddress,
   }, currentData);
 }
 
