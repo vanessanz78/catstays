@@ -14,6 +14,19 @@ Impact:
 - Durable sprint state is stored in GitHub rather than conversation history.
 - Replit handoffs and UAT reminders can be recovered without searching old chats.
 
+## 2026-07-01 - Supabase Auth User Is Duplicate-Email Source
+
+Decision: Treat Supabase Authentication > Users, not OAuth Apps, public customer tables, or Replit Database, as the source of truth for signup email uniqueness.
+
+Reason: CatStays signup/publish calls Supabase Auth. Email/password identities are stored in the Supabase Auth schema and surfaced in Authentication > Users. OAuth Apps only controls whether the project acts as an OAuth provider for third-party apps; an empty OAuth Apps list does not mean email signup users have been deleted. Empty public tables such as `customers` also do not remove Auth users.
+
+Impact:
+
+- UAT that needs a truly fresh signup email must delete the email from Authentication > Users or use a new email alias.
+- If an Auth user still exists, the corrected publish flow should show an inline duplicate-email error on the Publish step rather than returning to step 1.
+- The Replit Database panel is not the source of this duplicate-email state for the publish/provisioning path.
+- If confirmation links point to a development URL, verify Supabase Auth URL Configuration and Replit environment values such as `CATSTAYS_APP_URL` and `VITE_PUBLIC_APP_URL`.
+
 ## 2026-07-01 - Publish-Step Duplicate Email Handling
 
 Decision: Treat duplicate signup/provisioning email errors as Publish-step errors instead of account-step resets.
@@ -30,3 +43,4 @@ Impact:
 
 - Whether to add a formal root-level Architect Update file for CatStays.
 - Whether the client-side publish handler should also be hardened so no future account/provisioning error can force a step-1 reset.
+- Whether production Replit should explicitly set `CATSTAYS_APP_URL` and `VITE_PUBLIC_APP_URL` to the live CatStays URL for email confirmation redirects.
