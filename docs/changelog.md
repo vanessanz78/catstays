@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-07-01
+
+- Fixed the onboarding publish flow for duplicate signup emails so the Publish step shows an inline error instead of looping users back to step 1.
+
 ## 2026-06-12
 
 - Added a UAT test plan for published Replit builds.

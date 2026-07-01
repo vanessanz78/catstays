@@ -252,14 +252,14 @@ router.post('/cattery/provision', async (req: Request, res: Response) => {
     if (signupError) {
       const message = signupError.message || 'Could not create account.';
       const alreadyRegistered = message.toLowerCase().includes('already');
-      res.status(alreadyRegistered ? 409 : 400).json({ error: alreadyRegistered ? 'An account with this email already exists. Please sign in instead.' : message });
+      res.status(alreadyRegistered ? 409 : 400).json({ error: alreadyRegistered ? 'This email is already registered. Please sign in instead.' : message });
       return;
     }
 
     const user = signupData.user;
     const identities = user?.identities ?? [];
     if (!user?.id || identities.length === 0) {
-      res.status(409).json({ error: 'An account with this email already exists. Please sign in instead.' });
+      res.status(409).json({ error: 'This email is already registered. Please sign in instead.' });
       return;
     }
 

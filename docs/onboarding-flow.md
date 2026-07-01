@@ -1,6 +1,6 @@
 # Onboarding Flow
 
-Last reviewed: 2026-06-12
+Last reviewed: 2026-07-01
 
 ## Purpose
 
@@ -30,6 +30,7 @@ Older project notes mention a 7-step onboarding flow. That should be treated as 
 - Room setup and booking rules exist.
 - Plan selection exists.
 - Publish-time tenant provisioning exists.
+- Duplicate signup/provisioning email errors now stay on the Publish step so owners do not lose context by looping back to step 1.
 - Data import prototype exists.
 
 ## Current Gaps
