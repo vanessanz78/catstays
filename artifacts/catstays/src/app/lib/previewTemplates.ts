@@ -461,6 +461,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const whyChooseBlock = libraryBlock(contentLibrary, 'why-choose-us');
   const facilitiesBlock = libraryBlock(contentLibrary, 'facilities');
   const dailyCareBlock = libraryBlock(contentLibrary, 'daily-care');
+  const ownerBlock = libraryBlock(contentLibrary, 'owner-story');
   const locationBlock = libraryBlock(contentLibrary, 'location');
   const sourceSections = sourceContentSections(contentLibrary);
   const logoImage = stringFrom(data.logoImage, normalizedRecord.logoImage, record?.media.logoImage);
@@ -474,16 +475,16 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const editedGalleryImages = Array.isArray(data.galleryImages) ? data.galleryImages : undefined;
   const galleryImages = uniqueStrings([
     ...(editedGalleryImages ?? [
-      ...(record?.media.images ?? []),
       ...(record?.media.galleryImages ?? []).map((image) => image.url),
       ...libraryGalleryImages.map((image) => image.url),
+      ...(record?.media.images ?? []),
     ]),
     data.facilitiesImage,
     data.aboutImage,
     data.ownerData?.image,
     heroImage,
   ]).filter((image) => isUsableGalleryImage(image, logoImage));
-  const fallbackImages = ensureImageCount(galleryImages, heroImage);
+  const sectionImages = ensureImageCount(galleryImages, heroImage);
   const usedImages = new Set<string>();
   rememberImage(usedImages, heroImage);
   const editedHighlights = Array.isArray(data.whyChooseUsFeatures) ? data.whyChooseUsFeatures : undefined;
@@ -512,6 +513,13 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const editedFaqs = Array.isArray(data.faqs) ? data.faqs : undefined;
   const faqs = (editedFaqs ?? normalizedRecord.faqData?.faqs ?? data.faqData?.faqs ?? record?.faqs ?? libraryItemsToFaqs(libraryFaqs) ?? []).filter(Boolean);
   const ownerData = data.ownerData ?? normalizedRecord.ownerData ?? {};
+  const ownerTitle = stringFrom(ownerData.title, ownerBlock?.title, `Meet the people behind ${businessName}`);
+  const ownerText = contentStringFrom(ownerData.text, ownerData.description, ownerBlock?.text);
+  const ownerImage = uniqueStrings([
+    ownerData.image,
+    normalizedRecord.ownerData?.image,
+    ownerBlock?.images?.[0]?.url,
+  ]).filter((image) => isUsableGalleryImage(image, logoImage))[0] || '';
   const commitmentData = data.commitmentData ?? normalizedRecord.commitmentData ?? {};
   const locationData = data.locationData ?? data.contactData?.locationDetails ?? normalizedRecord.locationData ?? normalizedRecord.contactData?.locationDetails ?? {};
   const socialLinks = {
@@ -587,9 +595,9 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       data.aboutImage,
       normalizedRecord.aboutImage,
       normalizedRecord.aboutData?.image,
-      fallbackImages.find((image) => image !== heroImage),
+      sectionImages.find((image) => image !== heroImage),
     ],
-    fallbackImages,
+    sectionImages,
   );
   const facilityImage = pickUniqueImage(
     usedImages,
@@ -597,19 +605,9 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       data.facilitiesImage,
       facilitiesBlock?.images?.[0]?.url,
       normalizedRecord.facilitiesData?.facilitiesImage,
-      fallbackImages[2],
+      sectionImages[2],
     ],
-    fallbackImages,
-  );
-  const ownerImage = pickUniqueImage(
-    usedImages,
-    [
-      ownerData.image,
-      normalizedRecord.ownerData?.image,
-      fallbackImages[5],
-      fallbackImages[1],
-    ],
-    fallbackImages,
+    sectionImages,
   );
   const virtualTourUrl = embeddableVirtualTourUrl(
     stringFrom(locationData.virtualTourUrl, normalized.virtualTourUrl, data.virtualTourUrl, data.contactData?.virtualTourUrl),
@@ -691,8 +689,8 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     services: services.map((service: any, index: number) => ({
       image: pickUniqueImage(
         usedImages,
-        [service.image, fallbackImages[index + 3], fallbackImages[index]],
-        fallbackImages,
+        [service.image, sectionImages[index + 3], sectionImages[index]],
+        sectionImages,
       ),
       title: contentStringFrom(service.title, service.name, `Care service ${index + 1}`),
       text: contentStringFrom(service.description, service.text, 'Additional support available during the stay.'),
@@ -703,19 +701,19 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       text: primaryDescription,
       image: aboutImage,
     },
-    gallery: fallbackImages.filter((image) => !hasSeenImage(usedImages, image)).slice(0, 12).map((image, index) => ({
+    gallery: galleryImages.slice(0, 12).map((image, index) => ({
       image,
       caption: stringFrom(record?.media.galleryImages?.[index]?.caption, `${businessName} photo ${index + 1}`),
     })),
-    suites: editedRooms && editedRooms.length === 0 ? [] : ensureSuiteCount(rooms, fallbackImages, data.pricePerNight || normalized.pricePerNight, usedImages),
-    testimonials: ensureTestimonials(testimonials, businessName, fallbackImages, heroImage, data.testimonialImage),
+    suites: editedRooms && editedRooms.length === 0 ? [] : ensureSuiteCount(rooms, sectionImages, data.pricePerNight || normalized.pricePerNight, usedImages),
+    testimonials: ensureTestimonials(testimonials, businessName, sectionImages, heroImage, data.testimonialImage),
     faqs: faqs.map((faq: any) => ({
       question: stringFrom(faq.question),
       answer: stringFrom(faq.answer),
     })).filter((faq) => faq.question && faq.answer),
     owner: {
-      title: stringFrom(ownerData.title, `Meet the people behind ${businessName}`),
-      text: stringFrom(ownerData.text, ownerData.description, primaryDescription),
+      title: ownerTitle,
+      text: ownerText,
       image: ownerImage,
     },
     commitment: {
@@ -1130,7 +1128,7 @@ function imageFrom(...values: unknown[]): string {
     const image = stringFrom(value);
     if (/^https?:\/\//i.test(image) || /^data:image\//i.test(image)) return image;
   }
-  return 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=1200&h=900&fit=crop';
+  return '';
 }
 
 function embeddableVirtualTourUrl(rawUrl: string, sourceHost?: string): string {
@@ -1180,13 +1178,7 @@ function isUsableGalleryImage(image: string, logoImage?: string): boolean {
 }
 
 function ensureImageCount(images: string[], heroImage: string): string[] {
-  const fallback = [
-    heroImage,
-    'https://images.unsplash.com/photo-1543852786-1cf6624b9987?w=1200&h=900&fit=crop',
-    'https://images.unsplash.com/photo-1573865526739-10c1de0e0ef2?w=1200&h=900&fit=crop',
-    'https://images.unsplash.com/photo-1518791841217-8f162f1e1131?w=1200&h=900&fit=crop',
-  ];
-  return uniqueStrings([...images, ...fallback]);
+  return uniqueStrings([...images, heroImage]);
 }
 
 function normalizedImageKey(image: string) {

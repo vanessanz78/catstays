@@ -18,14 +18,6 @@ const deloraineAssets = [
 const deloraineVirtualTourEmbedUrl =
   'https://www.google.com/maps/embed?pb=!4v1585042151806!6m8!1m7!1sCAoSLEFGMVFpcE4yclY4ZXBnVTVJTlc4VkVoTEN2dmx5Wk45b201czhtZ3ZUbFpr!2m2!1d-35.72669200000001!2d174.355986!3f20.68!4f-14.75!5f0.4000000000000002';
 
-const genericCatAssets = [
-  'https://images.unsplash.com/photo-1770255860384-3359fd44b467?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1200',
-  'https://images.unsplash.com/photo-1636340629239-008219592d08?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1200',
-  'https://images.unsplash.com/photo-1672764788664-9f5844477a0f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=600',
-  'https://images.unsplash.com/photo-1574114908319-2efa632834d1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=600',
-  'https://images.unsplash.com/photo-1725419876939-f8f9987cf0d2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=600',
-];
-
 export type CatterySiteContentCategory =
   | 'hero'
   | 'navigation'
@@ -885,7 +877,7 @@ export const defaultDelorainePreviewData = buildPreviewDataFromScrape(fallbackDe
 export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): DelorainePreviewData {
   const settings = scrape.websiteSettings ?? {};
   const isDeloraineSource = isDeloraineScrape(scrape);
-  const fallbackAssets = isDeloraineSource ? deloraineAssets : genericCatAssets;
+  const fallbackAssets = isDeloraineSource ? deloraineAssets : [];
   const images = uniqueImages([
     scrape.heroImage,
     ...(scrape.images ?? []),
@@ -1098,15 +1090,12 @@ export function buildFallbackScrapeForUrl(rawUrl: string): ImportedCatteryScrape
     title: businessName,
     description: `${businessName} has been imported into CatStays as a starter preview. Add rooms, pricing, photos, and booking rules to finish setup.`,
     heading: businessName,
-    heroImage: genericCatAssets[0],
-    images: genericCatAssets,
-    galleryImages: genericCatAssets.map((url, index) => ({
-      url,
-      caption: `${businessName} preview ${index + 1}`,
-    })),
+    heroImage: '',
+    images: [],
+    galleryImages: [],
     highlights: genericHighlights(),
-    rooms: genericRooms(genericCatAssets),
-    services: genericServices(genericCatAssets),
+    rooms: genericRooms([]),
+    services: genericServices([]),
     faqs: genericFaqs(businessName),
     extractedFrom: {
       html: false,
@@ -1407,7 +1396,7 @@ function genericRooms(images: string[]): NonNullable<ImportedCatteryScrape['room
       price_per_night: 35,
       capacity: 1,
       amenities: ['Daily care', 'Comfort checks', 'Clean bedding'],
-      image: images[2] || genericCatAssets[2],
+      image: images[2] || '',
     },
     {
       name: 'Premium Suite',
@@ -1417,7 +1406,7 @@ function genericRooms(images: string[]): NonNullable<ImportedCatteryScrape['room
       price_per_night: 55,
       capacity: 2,
       amenities: ['Extra space', 'Photo updates', 'Enrichment time'],
-      image: images[3] || genericCatAssets[3],
+      image: images[3] || '',
     },
   ];
 }
@@ -1427,12 +1416,12 @@ function genericServices(images: string[]): NonNullable<ImportedCatteryScrape['s
     {
       title: 'Daily Photo Updates',
       description: 'Send owners reassuring updates from their cat during the stay.',
-      image: images[3] || genericCatAssets[3],
+      image: images[3] || '',
     },
     {
       title: 'Medication Support',
       description: 'Record medication instructions and make care notes easy for staff to follow.',
-      image: images[4] || genericCatAssets[4],
+      image: images[4] || '',
     },
   ];
 }

@@ -258,15 +258,8 @@ export function OnboardingWizard() {
     contentLibrary: null,
     sectionsOrder: [],
     
-    // Website Content - Preloaded defaults
-    galleryImages: [
-      'https://images.unsplash.com/photo-1574158622682-e40e69881006?w=800&h=800&fit=crop',
-      'https://images.unsplash.com/photo-1518791841217-8f162f1e1131?w=800&h=800&fit=crop',
-      'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=800&h=800&fit=crop',
-      'https://images.unsplash.com/photo-1548681528-6a5c45b66b42?w=800&h=800&fit=crop',
-      'https://images.unsplash.com/photo-1573865526739-10c1de0e0ef2?w=800&h=800&fit=crop',
-      'https://images.unsplash.com/photo-1519052537078-e6302a4968d4?w=800&h=800&fit=crop'
-    ],
+    // Website Content
+    galleryImages: [],
     testimonials: [
       { name: 'Sarah M.', text: 'Absolutely wonderful! My cat Whiskers loves it here.', rating: 5 },
       { name: 'James T.', text: 'Professional, caring, and spotlessly clean. Highly recommend!', rating: 5 },

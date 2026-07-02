@@ -246,7 +246,7 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
     throw new TypeError('NO_USEFUL_CONTENT');
   }
 
-  const owner = buildOwnerSection(scriptBundle, images, businessName);
+  const owner = buildOwnerSection(scriptBundle, images, businessName, supplementalPages, homeBodyText);
   const commitment = buildCommitmentSection(businessName, highlights, bodyText);
   const locationDetails = buildLocationDetails(businessName, address, city, virtualTourUrl);
   const sourceHost = parsedUrl.hostname.replace(/^www\./, '');
@@ -1942,24 +1942,62 @@ function extractReviewsFromPageText(text: string): CatteryScrapedReview[] {
   return reviews;
 }
 
-function buildOwnerSection(bundle: string, images: string[], businessName: string) {
+function buildOwnerSection(
+  bundle: string,
+  images: string[],
+  businessName: string,
+  supplementalPages: ScrapedPage[] = [],
+  homeBodyText = '',
+) {
   const texts = extractReadableBundleText(bundle);
-  const ownerTitle = firstText(texts, /Your Caring Hosts|About .*Vanessa|About .*Wilson|people behind/i);
-  const ownerText = texts
-    .filter((text) => /Paul|Vanessa|owner|host|family|farm|animals/i.test(text))
-    .filter((text) => text !== ownerTitle)
-    .slice(0, 3)
-    .join(' ');
+  const ownerPages = supplementalPages.filter((page) => /about|owner|team|people|story|behind|staff|who-we-are/i.test(`${page.url} ${page.title} ${page.heading}`));
+  const ownerTitle = cleanText(
+    ownerPages.find((page) => !isWeakSectionHeading(page.heading))?.heading ||
+      firstText(texts, /Your Caring Hosts|About .*Vanessa|About .*Wilson|people behind|owner|team/i),
+  );
+  const ownerText = buildOwnerStoryText([
+    ...ownerPages.map((page) => page.bodyText),
+    ...texts,
+    homeBodyText,
+  ]);
   const fallbackTitle = `Meet the people behind ${businessName}`;
+  const ownerImage = findOwnerImage(images, ownerPages, businessName, ownerText || ownerTitle);
   return {
-    title: !ownerText && !images.find((image) => /Paul|Vanessa|Wilson|owner/i.test(decodeURIComponent(image)))
-      ? fallbackTitle
-      : /behind home/i.test(ownerTitle)
-        ? fallbackTitle
-        : ownerTitle || fallbackTitle,
+    title: /behind home/i.test(ownerTitle) ? fallbackTitle : ownerTitle || fallbackTitle,
     text: ownerText,
-    image: images.find((image) => /Paul|Vanessa|Wilson|owner/i.test(decodeURIComponent(image))) || '',
+    image: ownerImage,
   };
+}
+
+function buildOwnerStoryText(sources: string[]) {
+  const ownerSentences = sources
+    .flatMap((source) => sentenceList(source))
+    .map((sentence) => cleanText(sentence))
+    .filter(Boolean)
+    .filter((sentence) => isOwnerStorySentence(sentence))
+    .filter((sentence) => !isNavigationOrGenericOwnerSentence(sentence));
+
+  return joinSentences(ownerSentences, 560);
+}
+
+function isOwnerStorySentence(sentence: string) {
+  return /owner|owned|operated|run by|founded|founder|family|host|team|people behind|our story|passion|experience|qualified|certified|groomer|grooming specialist|veterinary|Vanessa|Paul|Sarah|Casey|Wilson/i.test(sentence);
+}
+
+function isNavigationOrGenericOwnerSentence(sentence: string) {
+  return /top of page|bottom of page|use tab|menu|book now|contact us|pricing|open hours/i.test(sentence) ||
+    (!/owner|owned|operated|run by|founded|founder|family|host|team|people behind|our story|passion|experience|qualified|certified|groomer|grooming specialist|veterinary|Vanessa|Paul|Sarah|Casey|Wilson/i.test(sentence) &&
+      /boutique|cattery in|speciali[sz]ing|homestay style accommodation|providing/i.test(sentence));
+}
+
+function findOwnerImage(images: string[], ownerPages: ScrapedPage[], businessName: string, hasOwnerContent: string) {
+  const explicitOwnerImage = images.find((image) => /owner|team|people|staff|profile|host|Sarah|Casey|Vanessa|Paul|Wilson/i.test(decodeURIComponent(image)));
+  if (explicitOwnerImage && !isLikelyLogoImage(explicitOwnerImage, businessName)) return explicitOwnerImage;
+  if (!hasOwnerContent) return '';
+
+  return ownerPages
+    .flatMap((page) => page.images)
+    .find((image) => image && !isLikelyLogoImage(image, businessName) && !/logo|icon|favicon|placeholder/i.test(decodeURIComponent(image))) || '';
 }
 
 function buildCommitmentSection(

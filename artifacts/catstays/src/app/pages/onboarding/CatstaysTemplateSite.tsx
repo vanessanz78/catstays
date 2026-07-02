@@ -47,7 +47,6 @@ type PreviewNoticeKind = 'booking' | 'contact';
 
 const trustIcons = [ShieldCheck, HeartHandshake, Sparkles, CalendarCheck];
 const serviceIcons = [Scissors, Stethoscope, Zap, Car, Plane, ShieldCheck, HeartHandshake, CalendarCheck];
-const fallbackPreviewImage = 'https://images.unsplash.com/photo-1573865526739-10c1de0e0ef2?w=1200&h=900&fit=crop';
 const namedCareIcons = {
   Shield: ShieldCheck,
   Heart: HeartHandshake,
@@ -356,13 +355,13 @@ function FocusTemplate({
         <AboutSplit content={content} imageFirst onPreviewAnchorClick={onPreviewAnchorClick} />
         <FacilitiesDetailSection content={content} />
         <FeatureRow content={content} />
-        <OwnerStorySection content={content} />
-        <GalleryStrip content={content} />
         <SuitesGrid content={content} />
         <ServicesGrid content={content} />
         <SourceContentSections content={content} />
         <FaqSection content={content} />
+        <GalleryStrip content={content} />
         <ReviewsSection content={content} />
+        <OwnerStorySection content={content} />
         <LocationSection content={content} />
         <VirtualTourSection content={content} />
         <ContactFormSection content={content} onPreviewContactAction={onPreviewContactAction} />
@@ -593,17 +592,37 @@ function centeredGridClass(count: number, maxColumns: 3 | 4, spacing = 'mt-10 ga
     : `${base} max-w-[1180px] grid-cols-1 md:grid-cols-2 xl:grid-cols-3`;
 }
 
-function SafeImage({ src, alt, className, style }: { src?: string; alt: string; className?: string; style?: CSSProperties }) {
+function SafeImage({
+  src,
+  alt,
+  className,
+  style,
+  fallbackSrc = '',
+}: {
+  src?: string;
+  alt: string;
+  className?: string;
+  style?: CSSProperties;
+  fallbackSrc?: string;
+}) {
+  if (!src && !fallbackSrc) {
+    return <div aria-hidden="true" className={`${className ?? ''} bg-[#f8f5ef]`} style={style} />;
+  }
+
   return (
     <img
-      src={src || fallbackPreviewImage}
+      src={src || fallbackSrc}
       alt={alt}
       className={className}
       style={style}
       onError={(event) => {
         if (event.currentTarget.dataset.fallbackApplied) return;
         event.currentTarget.dataset.fallbackApplied = 'true';
-        event.currentTarget.src = fallbackPreviewImage;
+        if (!fallbackSrc) {
+          event.currentTarget.style.display = 'none';
+          return;
+        }
+        event.currentTarget.src = fallbackSrc;
       }}
     />
   );
@@ -615,6 +634,7 @@ function ShowcaseGalleryRail({ content }: { content: ReturnType<typeof buildCats
     .filter((item) => item.image !== content.hero.image)
     .slice(0, 8);
   const railImages = images.length >= 3 ? images : content.gallery.slice(0, 8);
+  if (!railImages.length) return null;
 
   const scrollRail = (direction: -1 | 1) => {
     railRef.current?.scrollBy({ left: direction * 420, behavior: 'smooth' });
@@ -639,7 +659,7 @@ function ShowcaseGalleryRail({ content }: { content: ReturnType<typeof buildCats
       <div ref={railRef} className="flex snap-x gap-5 overflow-x-auto px-6 pb-2 [scrollbar-width:thin]">
         {railImages.map((item, index) => (
           <figure key={`${item.image}-${index}`} className="min-w-[78vw] snap-start overflow-hidden bg-white shadow-sm sm:min-w-[46vw] lg:min-w-[31vw]">
-            <SafeImage src={item.image} alt="" className="h-[320px] w-full object-cover" />
+            <SafeImage src={item.image} alt="" className="h-[320px] w-full object-cover" fallbackSrc="" />
           </figure>
         ))}
       </div>
@@ -810,7 +830,7 @@ function GalleryStrip({ content }: { content: ReturnType<typeof buildCatstaysTem
       <div ref={railRef} className="flex snap-x gap-5 overflow-x-auto px-1 pb-3 [scrollbar-width:thin]">
         {images.map((item, index) => (
           <figure key={`${item.image}-${index}`} className="min-w-[82vw] snap-start overflow-hidden bg-white shadow-sm sm:min-w-[46vw] lg:min-w-[31vw]">
-            <SafeImage src={item.image} alt="" className="h-72 w-full object-cover" />
+            <SafeImage src={item.image} alt="" className="h-72 w-full object-cover" fallbackSrc="" />
           </figure>
         ))}
       </div>
@@ -981,16 +1001,20 @@ function FacilitiesDetailSection({ content }: { content: ReturnType<typeof build
 }
 
 function OwnerStorySection({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
-  if (!content.owner.text) return null;
+  const hasOwnerText = Boolean(content.owner.text);
+  const hasOwnerImage = Boolean(content.owner.image);
+  if (!hasOwnerText && !hasOwnerImage) return null;
 
   return (
-    <section id="owner" className="catstays-stack mx-auto grid max-w-[1400px] scroll-mt-28 gap-8 bg-white px-6 py-10 md:grid-cols-[0.9fr_1.1fr] md:items-center md:px-0 md:py-0">
-      <SafeImage src={content.owner.image} alt="" className="catstays-owner-image h-[360px] w-full rounded-md object-cover object-[50%_58%] sm:h-[420px] md:h-[460px] md:max-h-[500px] lg:h-[500px]" />
-      <div className="flex flex-col justify-center px-8 py-14 md:px-20">
+    <section id="owner" className={`catstays-stack mx-auto grid max-w-[1400px] scroll-mt-28 gap-8 bg-white px-6 py-10 md:items-center md:px-0 md:py-0 ${hasOwnerImage ? 'md:grid-cols-[0.9fr_1.1fr]' : 'justify-center'}`}>
+      {hasOwnerImage ? (
+        <SafeImage src={content.owner.image} alt="" className="catstays-owner-image h-[360px] w-full rounded-md object-cover object-[50%_58%] sm:h-[420px] md:h-[460px] md:max-h-[500px] lg:h-[500px]" fallbackSrc="" />
+      ) : null}
+      <div className={`flex flex-col justify-center px-8 py-14 md:px-20 ${hasOwnerImage ? '' : 'mx-auto max-w-3xl text-center'}`}>
         <p className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">The people behind the care</p>
         <h2 className="text-3xl leading-[1.12] md:text-5xl">{content.owner.title}</h2>
-        <div className="my-6 h-px w-14 bg-[#b58b4a]" />
-        <p className="text-base leading-8 text-[#333]">{content.owner.text}</p>
+        <div className={`my-6 h-px w-14 bg-[#b58b4a] ${hasOwnerImage ? '' : 'mx-auto'}`} />
+        {hasOwnerText ? <p className="text-base leading-8 text-[#333]">{content.owner.text}</p> : null}
       </div>
     </section>
   );

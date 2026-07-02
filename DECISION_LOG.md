@@ -2,6 +2,34 @@
 
 Last updated: 2026-07-02
 
+## 2026-07-02 - Owner Story Must Be Owner Specific
+
+Decision: The owner story section should only render owner/team/story content that was extracted from the source site or entered by the owner.
+
+Reason: FancyFelines UAT showed the owner section displaying the general business/About description even though the Website Builder owner story field was empty. That made the page look filled in while the editable source of truth was missing.
+
+Impact:
+
+- Owner extraction should prefer About/Owner/Team-style pages and sentences that mention owner, team, founder, family, host, experience, qualification, or known owner names.
+- The owner section must not fall back to the general About/business description.
+- The owner section must not use stock/filler image fallbacks.
+- If no owner-specific text or image is available, the generated preview should hide the owner section until the owner enters real content.
+- UAT should confirm the left editor and right preview stay aligned if the owner section is shown near the bottom of the page.
+
+## 2026-07-02 - Galleries Use Real Imported Photos Only
+
+Decision: Generated galleries should use captured owner-site photos, including photos already used elsewhere on the page, and should not be padded with stock/filler images.
+
+Reason: FancyFelines UAT showed the gallery using stock photos and hiding some real captured photos because the generic no-repeat image rule removed images that were already used in other sections. For galleries, reuse is acceptable and better than fake imagery.
+
+Impact:
+
+- The no-repeat image rule applies to separate page sections, not gallery coverage.
+- Gallery images should come from imported/stored owner-site media or owner-edited builder media.
+- Broken gallery images should fail neutral rather than swapping in stock photos.
+- The scrape import should attempt to copy captured image URLs into the CatStays Supabase `catstays-media` bucket before the preview data is saved.
+- UAT should confirm reimported FancyFelines gallery images use CatStays/Supabase-owned URLs where storage is configured.
+
 ## 2026-07-02 - Builder Sections Must Match Visual Page Sections
 
 Decision: The top Why Choose story, Purpose-built accommodation/facilities section, and lower Care Approach card row must be stored and edited as separate builder sections.
@@ -75,15 +103,15 @@ Impact:
 
 ## 2026-07-02 - Logos Are Not Header Photos
 
-Decision: Do not use owner logos, wordmarks, favicons, or brand-only graphics as hero/header/gallery photography in generated previews.
+Decision: Do not use owner logos, wordmarks, favicons, brand-only graphics, or stock/filler photography as hero/header/gallery photography in generated previews.
 
-Reason: FancyFelines UAT showed a logo-style wordmark being selected as the main visual, which made the preview look broken and unlike a real cattery website. Logos may be stored as logos, but hero/header imagery should be actual photography or safe fallback imagery.
+Reason: FancyFelines UAT showed a logo-style wordmark and stock-looking photos being selected as visual content, which made the preview look broken and unlike the real cattery website. Logos may be stored as logos, but hero/header/gallery imagery should be actual captured or owner-provided photography.
 
 Impact:
 
 - Import logic filters likely logos/wordmarks out of hero, gallery, suite, room, and service image selection.
-- Broken or unusable image URLs should fail soft to a safe fallback instead of rendering empty boxes.
-- UAT should check that generated previews use real cattery/site imagery where available and never rely on a logo as the top visual.
+- Broken or unusable image URLs should fail neutral instead of rendering broken boxes or stock/filler photos.
+- UAT should check that generated previews use real cattery/site imagery where available and never rely on a logo or stock image as the top visual.
 
 ## 2026-07-02 - Short Preview Card Rows Should Center
 

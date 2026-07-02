@@ -1172,14 +1172,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
               </Button>
             </div>
 
-            {(Array.isArray(data.galleryImages) ? data.galleryImages : [
-              'https://images.unsplash.com/photo-1574158622682-e40e69881006?w=800&h=800&fit=crop',
-              'https://images.unsplash.com/photo-1518791841217-8f162f1e1131?w=800&h=800&fit=crop',
-              'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=800&h=800&fit=crop',
-              'https://images.unsplash.com/photo-1548681528-6a5c45b66b42?w=800&h=800&fit=crop',
-              'https://images.unsplash.com/photo-1573865526739-10c1de0e0ef2?w=800&h=800&fit=crop',
-              'https://images.unsplash.com/photo-1519052537078-e6302a4968d4?w=800&h=800&fit=crop'
-            ]).map((img: string, index: number) => (
+            {(Array.isArray(data.galleryImages) ? data.galleryImages : []).map((img: string, index: number) => (
               <div key={index} className="flex gap-2 items-start">
                 <div className="flex-1">
                   <ImageUpload

@@ -4,7 +4,7 @@
 
 - Updated onboarding import mapping so the cattery setup Location field uses the imported full address, and manual/Google address edits keep the stored address in sync.
 - Improved website import coverage so CatStays captures more source-site pages, images, Q&A content, and extra owner-site sections before generating preview templates.
-- Added importer rules to keep logos/wordmarks out of hero, gallery, suite, room, and service photography, with safe image fallbacks for unusable or broken source images.
+- Added importer rules to keep logos/wordmarks and stock/filler photos out of hero, gallery, suite, room, and service photography, with neutral empty image areas for unusable or broken source images.
 - Added imported source sections and FAQ output to generated one-page previews so pages such as grooming, health care, HBOT, PEMF, collaborations, and Q&A have a place in the preview and builder data.
 - Centered short preview card rows for care, facility, and suite sections when there are only one, two, or three cards.
 - Added imported demo slug routes such as `/demo/fancyfelines`, `/demo/fancyfelines/dashboard`, and `/demo/fancyfelines/client` while preserving legacy Deloraine routes.
@@ -15,6 +15,8 @@
 - Removed the duplicate Purpose-built accommodation card row so care cards only render and edit in the Care Approach section.
 - Reordered Website Builder sections so Boarding Options appears after the care/facilities content, matching the generated preview scroll order.
 - Added editable suite bullet points to Boarding Options and made suite card rows center for short rows or scroll horizontally when more than three suites exist.
+- Copied scraped owner-site image URLs into CatStays-owned Supabase Storage during website import when storage is configured, and stopped gallery generation from excluding real photos just because they were already used elsewhere.
+- Tightened owner story generation so it only renders real owner/team/story content and no longer borrows generic About copy or stock imagery.
 - Hardened the Publish handler so duplicate-account conflicts stay on the Publish step with the inline error instead of resetting to step 1.
 
 ## 2026-07-01

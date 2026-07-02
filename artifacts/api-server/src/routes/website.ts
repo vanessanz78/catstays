@@ -1,12 +1,25 @@
 import { Router, type IRouter } from 'express';
 import { randomUUID } from 'crypto';
 import { createClient } from '@supabase/supabase-js';
-import { scrapeCatteryWebsite } from '../lib/catteryWebsiteScraper';
+import { scrapeCatteryWebsite, type CatteryWebsiteScrapeResult } from '../lib/catteryWebsiteScraper';
 
 const router: IRouter = Router();
 const WEBSITE_MEDIA_BUCKET = 'catstays-media';
 const MAX_REMOTE_IMAGE_BYTES = 8 * 1024 * 1024;
+const MAX_SCRAPE_IMAGE_COPIES = 24;
 const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+type StorageServiceClient = NonNullable<ReturnType<typeof createStorageServiceClient>>;
+
+class ImageCopyError extends Error {
+  status: number;
+  detail?: string;
+
+  constructor(status: number, code: string, detail?: string) {
+    super(code);
+    this.status = status;
+    this.detail = detail;
+  }
+}
 
 function readEnvValue(...keys: string[]) {
   for (const key of keys) {
@@ -31,7 +44,9 @@ router.post('/website/scrape', async (req, res) => {
   }
 
   try {
-    const result = await scrapeCatteryWebsite(url);
+    const scraped = await scrapeCatteryWebsite(url);
+    const serviceClient = createStorageServiceClient();
+    const result = serviceClient ? await copyScrapeImagesToStorage(scraped, serviceClient) : scraped;
     res.json(result);
   } catch (err) {
     const msg = (err as Error).message;
@@ -80,78 +95,12 @@ router.post('/website/copy-image', async (req, res) => {
     return;
   }
 
-  let remoteUrl: URL;
   try {
-    remoteUrl = parseRemoteImageUrl(imageUrl);
+    const copied = await copyRemoteImageToStorage(serviceClient, imageUrl);
+    res.json(copied);
   } catch (error) {
-    res.status(400).json({ error: (error as Error).message });
-    return;
-  }
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
-
-  try {
-    const response = await fetch(remoteUrl.href, {
-      headers: {
-        'User-Agent': 'CatStaysImageImporter/1.0',
-        Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
-      },
-      signal: controller.signal,
-    });
-
-    if (!response.ok) {
-      res.status(422).json({ error: `IMAGE_FETCH_FAILED_${response.status}` });
-      return;
-    }
-
-    const contentType = contentTypeFromResponse(response);
-    if (!SUPPORTED_IMAGE_TYPES.includes(contentType)) {
-      res.status(415).json({ error: 'UNSUPPORTED_IMAGE_TYPE' });
-      return;
-    }
-
-    const contentLength = Number(response.headers.get('content-length') || 0);
-    if (contentLength > MAX_REMOTE_IMAGE_BYTES) {
-      res.status(413).json({ error: 'IMAGE_TOO_LARGE' });
-      return;
-    }
-
-    const buffer = Buffer.from(await response.arrayBuffer());
-    if (!buffer.byteLength || buffer.byteLength > MAX_REMOTE_IMAGE_BYTES) {
-      res.status(buffer.byteLength ? 413 : 422).json({ error: buffer.byteLength ? 'IMAGE_TOO_LARGE' : 'EMPTY_IMAGE' });
-      return;
-    }
-
-    await ensureWebsiteMediaBucket(serviceClient);
-
-    const extension = extensionForImageType(contentType);
-    const path = `website-imports/${new Date().toISOString().slice(0, 10)}/${randomUUID()}.${extension}`;
-    const { error: uploadError } = await serviceClient.storage
-      .from(WEBSITE_MEDIA_BUCKET)
-      .upload(path, buffer, {
-        contentType,
-        cacheControl: '31536000',
-        upsert: false,
-      });
-
-    if (uploadError) {
-      res.status(502).json({ error: 'IMAGE_UPLOAD_FAILED', detail: uploadError.message });
-      return;
-    }
-
-    const { data } = serviceClient.storage.from(WEBSITE_MEDIA_BUCKET).getPublicUrl(path);
-    res.json({
-      url: data.publicUrl,
-      path,
-      sourceUrl: remoteUrl.href,
-      owned: true,
-    });
-  } catch (error) {
-    const message = (error as Error).name === 'AbortError' ? 'IMAGE_FETCH_TIMEOUT' : 'IMAGE_COPY_FAILED';
-    res.status(422).json({ error: message, detail: (error as Error).message });
-  } finally {
-    clearTimeout(timeout);
+    const failure = imageCopyErrorResponse(error);
+    res.status(failure.status).json(failure.body);
   }
 });
 
@@ -245,6 +194,133 @@ router.post('/website/chat', async (req, res) => {
   }
 });
 
+async function copyScrapeImagesToStorage(result: CatteryWebsiteScrapeResult, serviceClient: StorageServiceClient): Promise<CatteryWebsiteScrapeResult> {
+  const imageUrls = collectScrapeImageUrls(result).slice(0, MAX_SCRAPE_IMAGE_COPIES);
+  if (!imageUrls.length) return result;
+
+  const replacements = new Map<string, string>();
+  try {
+    await ensureWebsiteMediaBucket(serviceClient);
+  } catch {
+    return result;
+  }
+
+  for (const imageUrl of imageUrls) {
+    try {
+      const copied = await copyRemoteImageToStorage(serviceClient, imageUrl, false);
+      replacements.set(imageUrl, copied.url);
+    } catch {
+      // Keep the rest of the import usable if a single owner-site image blocks hotlinking.
+    }
+  }
+
+  if (!replacements.size) return result;
+  return replaceStoredImageReferences(result, replacements) as CatteryWebsiteScrapeResult;
+}
+
+async function copyRemoteImageToStorage(serviceClient: StorageServiceClient, imageUrl: unknown, ensureBucket = true) {
+  let remoteUrl: URL;
+  try {
+    remoteUrl = parseRemoteImageUrl(imageUrl);
+  } catch (error) {
+    throw new ImageCopyError(400, (error as Error).message);
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+
+  try {
+    const response = await fetch(remoteUrl.href, {
+      headers: {
+        'User-Agent': 'CatStaysImageImporter/1.0',
+        Accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+      },
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new ImageCopyError(422, `IMAGE_FETCH_FAILED_${response.status}`);
+    }
+
+    const contentType = contentTypeFromResponse(response);
+    if (!SUPPORTED_IMAGE_TYPES.includes(contentType)) {
+      throw new ImageCopyError(415, 'UNSUPPORTED_IMAGE_TYPE');
+    }
+
+    const contentLength = Number(response.headers.get('content-length') || 0);
+    if (contentLength > MAX_REMOTE_IMAGE_BYTES) {
+      throw new ImageCopyError(413, 'IMAGE_TOO_LARGE');
+    }
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (!buffer.byteLength) {
+      throw new ImageCopyError(422, 'EMPTY_IMAGE');
+    }
+    if (buffer.byteLength > MAX_REMOTE_IMAGE_BYTES) {
+      throw new ImageCopyError(413, 'IMAGE_TOO_LARGE');
+    }
+
+    if (ensureBucket) await ensureWebsiteMediaBucket(serviceClient);
+
+    const extension = extensionForImageType(contentType);
+    const path = `website-imports/${new Date().toISOString().slice(0, 10)}/${randomUUID()}.${extension}`;
+    const { error: uploadError } = await serviceClient.storage
+      .from(WEBSITE_MEDIA_BUCKET)
+      .upload(path, buffer, {
+        contentType,
+        cacheControl: '31536000',
+        upsert: false,
+      });
+
+    if (uploadError) {
+      throw new ImageCopyError(502, 'IMAGE_UPLOAD_FAILED', uploadError.message);
+    }
+
+    return {
+      url: publicWebsiteImageUrl(serviceClient, path, contentType),
+      path,
+      sourceUrl: remoteUrl.href,
+      owned: true,
+    };
+  } catch (error) {
+    if (error instanceof ImageCopyError) throw error;
+    const message = (error as Error).name === 'AbortError' ? 'IMAGE_FETCH_TIMEOUT' : 'IMAGE_COPY_FAILED';
+    throw new ImageCopyError(422, message, (error as Error).message);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function imageCopyErrorResponse(error: unknown) {
+  if (error instanceof ImageCopyError) {
+    return {
+      status: error.status,
+      body: error.detail ? { error: error.message, detail: error.detail } : { error: error.message },
+    };
+  }
+
+  return {
+    status: 422,
+    body: { error: 'IMAGE_COPY_FAILED', detail: (error as Error).message },
+  };
+}
+
+function publicWebsiteImageUrl(serviceClient: StorageServiceClient, path: string, contentType: string) {
+  if (contentType === 'image/gif') {
+    const { data } = serviceClient.storage.from(WEBSITE_MEDIA_BUCKET).getPublicUrl(path);
+    return data.publicUrl;
+  }
+
+  const { data } = serviceClient.storage.from(WEBSITE_MEDIA_BUCKET).getPublicUrl(path, {
+    transform: {
+      width: 1600,
+      quality: 82,
+      resize: 'contain',
+    },
+  });
+  return data.publicUrl;
+}
+
 function createStorageServiceClient() {
   if (!supabaseUrl || !supabaseServiceKey) return null;
   return createClient(supabaseUrl, supabaseServiceKey, {
@@ -280,6 +356,83 @@ function isBlockedRemoteHost(hostname: string) {
     /^192\.168\./.test(host) ||
     /^169\.254\./.test(host) ||
     /^172\.(1[6-9]|2\d|3[01])\./.test(host)
+  );
+}
+
+function collectScrapeImageUrls(value: unknown, urls = new Set<string>()): string[] {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (isCopyableScrapeImageUrl(trimmed)) urls.add(trimmed);
+    return Array.from(urls);
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) collectScrapeImageUrls(item, urls);
+    return Array.from(urls);
+  }
+
+  if (value && typeof value === 'object') {
+    for (const item of Object.values(value as Record<string, unknown>)) {
+      collectScrapeImageUrls(item, urls);
+    }
+  }
+
+  return Array.from(urls);
+}
+
+function isCopyableScrapeImageUrl(rawUrl: string) {
+  if (!rawUrl || /^data:/i.test(rawUrl)) return false;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    return false;
+  }
+
+  if (!['http:', 'https:'].includes(parsed.protocol)) return false;
+  if (isBlockedRemoteHost(parsed.hostname) || isStoredWebsiteImageUrl(parsed)) return false;
+
+  const urlText = `${parsed.hostname}${parsed.pathname}${parsed.search}`;
+  const decoded = safeDecodeURIComponent(urlText).toLowerCase();
+  if (/\.svg(?:$|[?#/])|favicon|apple-touch-icon/i.test(decoded)) return false;
+  if (/\.(?:jpe?g|png|webp|gif)(?:$|[?#/])/.test(decoded)) return true;
+  return /static\.wixstatic\.com|squarespace-cdn\.com|cloudinary\.com|wp-content|uploads|\/media\/|\/images?\//i.test(decoded);
+}
+
+function safeDecodeURIComponent(value: string) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function isStoredWebsiteImageUrl(parsedUrl: URL) {
+  if (!supabaseUrl) return false;
+
+  try {
+    const storageHost = new URL(supabaseUrl).hostname;
+    return (
+      parsedUrl.hostname === storageHost &&
+      (parsedUrl.pathname.includes('/storage/v1/') || parsedUrl.pathname.includes('/render/image/')) &&
+      parsedUrl.pathname.includes(`/${WEBSITE_MEDIA_BUCKET}/`)
+    );
+  } catch {
+    return false;
+  }
+}
+
+function replaceStoredImageReferences(value: unknown, replacements: Map<string, string>): unknown {
+  if (typeof value === 'string') return replacements.get(value) ?? value;
+  if (Array.isArray(value)) return value.map((item) => replaceStoredImageReferences(item, replacements));
+  if (!value || typeof value !== 'object') return value;
+
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).map(([key, item]) => [
+      key,
+      replaceStoredImageReferences(item, replacements),
+    ]),
   );
 }
 
