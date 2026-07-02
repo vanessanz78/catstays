@@ -3,7 +3,7 @@
 Date: 2026-07-02
 Branch: `codex/catstays-import-builder-section-split-20260702`
 
-Normal `git push` from the local Codex sparse checkout is blocked because the local machine has no usable GitHub credential in shell/git. The completed implementation is present locally as four clean commits on `main`, ahead of `origin/main`, and a compressed patch artifact remains under the local Codex outputs folder.
+Normal `git push` from the local Codex sparse checkout is blocked because the local machine has no usable GitHub credential in shell/git. The completed implementation is present locally as five clean commits on `main`, ahead of `origin/main`, and a compressed patch artifact remains under the local Codex outputs folder.
 
 ## Local Commits
 
@@ -11,6 +11,7 @@ Normal `git push` from the local Codex sparse checkout is blocked because the lo
 - `8e710c7 Use imported address for onboarding location`
 - `cd45a79 Persist website builder hero edits`
 - `8bb2e0d Separate imported builder sections`
+- `10233c9 Keep duplicate publish errors on publish step`
 
 ## Exact Local Patch Artifact
 
@@ -26,9 +27,16 @@ Compressed/base64 copy:
 /Users/vanessa/Documents/Codex/2026-07-01/git-2/outputs/2026-07-02-catstays-import-preview-coverage.patch.gz.b64
 ```
 
-Patch size: 208,804 bytes. Compressed/base64 size: 63,721 bytes.
+Patch size: 178,908 bytes. Compressed/base64 size: 53,805 bytes.
 
 ## What Was Implemented
+
+### Publish Duplicate Email Loop
+
+- Supabase duplicate-account conflicts now stay on the Publish step and throw into the existing inline Publish error display.
+- The client Publish handler no longer calls `setStep(1)` for a 409 account conflict.
+- Missing required account details before publish can still send the owner back to step 1, which is intentional because the form is incomplete.
+- Duplicate email state comes from Supabase Authentication > Users, not OAuth Apps, public `customers` rows, or Replit Database.
 
 ### Import Preview Coverage
 
@@ -77,6 +85,7 @@ Patch size: 208,804 bytes. Compressed/base64 size: 63,721 bytes.
 ## Verification Completed Locally
 
 - `git diff --check` passed.
+- Targeted source searches confirmed the duplicate-account Publish path no longer calls `setStep(1)`.
 - Targeted source searches found no remaining source usage of `content.whyChoose.items`.
 - Targeted source searches found no remaining fallback from facility features to generic imported highlights.
 - Targeted source searches found no source hits for the imported `top of page` boilerplate, only documentation notes.
@@ -94,5 +103,5 @@ From Replit, the patch file must first be supplied or copied into the Replit wor
 
 ## Follow-Up Needed
 
-- Once GitHub shell credentials are restored, push the four local commits or apply the patch in Replit and commit/push from there.
+- Once GitHub shell credentials are restored, push the five local commits or apply the patch in Replit and commit/push from there.
 - After the source code is on GitHub, open/refresh the PR and run UAT against Replit/live preview.
