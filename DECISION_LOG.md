@@ -2,6 +2,21 @@
 
 Last updated: 2026-07-02
 
+## 2026-07-02 - Builder Sections Must Match Visual Page Sections
+
+Decision: The top Why Choose story, Purpose-built accommodation/facilities section, and lower Care Approach card row must be stored and edited as separate builder sections.
+
+Reason: FancyFelines UAT showed one shared `whyChoose`/feature data source appearing in multiple visual areas. Editing the card row could look like it belonged under Purpose-built accommodation, and imported navigation text could become body copy.
+
+Impact:
+
+- The builder exposes editable eyebrow, heading, and body copy fields for the top Why Choose story.
+- The Purpose-built accommodation section has its own editable eyebrow, heading, body, image, and true facility feature list.
+- The Care Approach card row has its own editable eyebrow, heading, body, and cards.
+- Generated previews should not fall back from empty facility features to general care cards.
+- Imported navigation boilerplate such as `top of page Home About...` should be stripped before it reaches section/card copy.
+- UAT should verify the left editor order matches the page scroll order and that changing one section does not unexpectedly alter another.
+
 ## 2026-07-02 - Builder Images And Hero Edits Persist
 
 Decision: Website builder image URLs, hero eyebrow text, CTA choices, and hero image crop settings are autosaved builder state and must persist across template/design changes.

@@ -33,6 +33,8 @@ Older project notes mention a 7-step onboarding flow. That should be treated as 
 - Website builder hero controls include editable eyebrow text, primary/secondary CTA controls with a `None` option, and saved hero image X/Y/Zoom settings visible on hover in the generated preview.
 - Pasted image URLs are routed through the CatStays API so they can be copied into the `catstays-media` Supabase Storage bucket before publish instead of relying on the source website forever.
 - Builder state is autosaved locally and into Supabase website settings, and template changes should preserve owner-edited copy, images, buttons, and crop settings.
+- Builder controls now separate visually distinct sections: the top Why Choose story, Purpose-built accommodation/facilities, and the lower Care Approach cards each have their own editable text fields.
+- Imported navigation/menu boilerplate is stripped from generated section and card copy so `top of page Home About...` text should not appear in previews.
 - Guided setup exists for catteries with no current website.
 - Website builder preview exists.
 - Room setup and booking rules exist.
@@ -51,6 +53,7 @@ Older project notes mention a 7-step onboarding flow. That should be treated as 
 - Data import needs validated sample files and mapping review.
 - Import UAT must keep expanding across varied cattery sites so CatStays handles more than the original Deloraine structure.
 - The website builder still needs a fuller editor review for imported custom sections, source-page ordering, and chatbot knowledge controls.
+- UAT still needs to verify the new section split across multiple imported cattery sites, especially sites with few cards or extra care/service pages.
 - Replit UAT must confirm the deployed API has `SUPABASE_SERVICE_ROLE_KEY` and can copy remote image URLs into Supabase Storage through `/api/website/copy-image`.
 
 ## Target Experience

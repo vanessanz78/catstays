@@ -355,8 +355,8 @@ function FocusTemplate({
         </section>
 
         <AboutSplit content={content} imageFirst onPreviewAnchorClick={onPreviewAnchorClick} />
-        <FeatureRow content={content} />
         <FacilitiesDetailSection content={content} />
+        <FeatureRow content={content} />
         <OwnerStorySection content={content} />
         <GalleryStrip content={content} />
         <SuitesGrid content={content} />
@@ -399,8 +399,8 @@ function EditorialTemplate({
 }) {
   const sections = [
     { id: 'about', title: content.about.title, text: content.about.text, image: content.about.image, eyebrow: `About ${content.business.name}` },
-    { id: 'care', title: content.whyChoose.title, text: content.whyChoose.text, image: content.gallery[1]?.image || content.hero.image, eyebrow: 'Why choose us' },
-    { id: 'facilities', title: content.facilities.title, text: content.facilities.text, image: content.facilities.image, eyebrow: 'Premium accommodation' },
+    { id: 'why-choose', title: content.whyChoose.title, text: content.whyChoose.text, image: content.gallery[1]?.image || content.hero.image, eyebrow: content.whyChoose.eyebrow },
+    { id: 'facilities', title: content.facilities.title, text: content.facilities.text, image: content.facilities.image, eyebrow: content.facilities.eyebrow },
   ];
 
   return (
@@ -453,8 +453,8 @@ function EditorialTemplate({
           </section>
         ))}
 
-        <FeatureRow content={content} />
         <FacilitiesDetailSection content={content} />
+        <FeatureRow content={content} />
         <SuitesGrid content={content} compact />
         <ServicesGrid content={content} />
         <SourceContentSections content={content} />
@@ -535,8 +535,8 @@ function ShowcaseTemplate({
         <ShowcaseGalleryRail content={content} />
 
         <AboutSplit content={content} onPreviewAnchorClick={onPreviewAnchorClick} />
-        <FeatureRow content={content} />
         <FacilitiesDetailSection content={content} />
+        <FeatureRow content={content} />
         <SuitesGrid content={content} />
         <ServicesGrid content={content} />
         <SourceContentSections content={content} />
@@ -554,14 +554,14 @@ function ShowcaseTemplate({
 }
 
 function FeatureRow({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
-  const features = content.whyChoose.items.slice(0, 4);
+  const features = content.careApproach.items.slice(0, 4);
 
   return (
     <section id="care" className="scroll-mt-28 bg-white px-6 py-16 text-center">
       <div className="mx-auto max-w-[1400px]">
-        <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Care Approach</p>
-        <h2 className="mx-auto max-w-3xl text-3xl leading-tight md:text-5xl">{content.sectionHeadings.care}</h2>
-        {content.whyChoose.text ? <p className="mx-auto mt-5 max-w-4xl text-base leading-7 text-[#444]">{content.whyChoose.text}</p> : null}
+        <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">{content.careApproach.eyebrow}</p>
+        <h2 className="mx-auto max-w-3xl text-3xl leading-tight md:text-5xl">{content.careApproach.title}</h2>
+        {content.careApproach.text ? <p className="mx-auto mt-5 max-w-4xl text-base leading-7 text-[#444]">{content.careApproach.text}</p> : null}
         {features.length ? <div className={centeredGridClass(features.length, 4)}>
           {features.map((feature, index) => {
             const Icon = careIconFor(feature.icon, index);
@@ -964,7 +964,7 @@ function FacilitiesDetailSection({ content }: { content: ReturnType<typeof build
         <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
           <SafeImage src={content.facilities.image} alt="" className="catstays-template-section-image h-[420px] w-full rounded-md object-cover shadow-sm md:h-[500px]" />
           <div>
-            <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Facilities</p>
+            <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">{content.facilities.eyebrow}</p>
             <h2 className="text-3xl leading-tight md:text-5xl">{content.facilities.title}</h2>
             <p className="mt-5 max-w-3xl text-base leading-7 text-[#444]">{content.facilities.text}</p>
           </div>

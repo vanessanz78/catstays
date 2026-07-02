@@ -33,6 +33,8 @@ Stabilise CatStays onboarding publish and imported website preview quality, with
 - Website builder hero edits now include the editable eyebrow text, primary/secondary CTA text and anchor links with a `None` option, and saved hero image position/zoom controls.
 - Linked image URLs should be copied into CatStays-owned Supabase Storage through `/api/website/copy-image` and the `catstays-media` bucket, rather than relying on the original owner website URL long term.
 - Builder edits should persist automatically through local onboarding autosave, Supabase `website_settings`, and template switches; switching templates must not overwrite owner-edited copy, images, CTA choices, or crop settings with the original import defaults.
+- Website builder section controls now separate the top Why Choose story, Purpose-built accommodation/facilities, and lower Care Approach card row so those sections no longer reuse the same copy/cards.
+- Imported navigation menu text such as `top of page Home About...` should be stripped before it is used as section or card copy.
 - No root-level Architect Update exists yet.
 
 ## Next Actions
@@ -47,6 +49,7 @@ Stabilise CatStays onboarding publish and imported website preview quality, with
 8. Confirm email confirmation redirect URLs still point to the live CatStays URL. If links open a development/auth URL, verify Supabase Auth URL Configuration and additional redirect URLs.
 9. UAT Website Builder hero edits: edit `A home away from home`, hide one CTA using `None`, change CTA anchors, hover the hero preview image to adjust X/Y/Zoom, switch templates, and confirm the text/buttons/crop persist.
 10. UAT linked image import: paste a remote image URL, confirm it is copied to a CatStays/Supabase Storage URL, and confirm publishing does not depend on the original website image URL.
+11. UAT section editor order and copy: confirm Why Choose story, Purpose-built accommodation, and Care Approach cards each have editable eyebrow/heading/body/card controls and no longer show imported navigation-menu scraps.
 
 ## Decisions This Sprint
 
@@ -60,6 +63,7 @@ Stabilise CatStays onboarding publish and imported website preview quality, with
 - Treat the imported full address as the onboarding Location value when available; do not fall back to a business name, slug, or host-derived value if an address was extracted.
 - Treat linked owner-site images as temporary source URLs only. Before publish, CatStays should copy them to owned Supabase Storage and store the owned URL in builder data.
 - Treat website builder fields as autosaved state. There should not be a separate Save button requirement for ordinary copy, image, CTA, or template/color edits.
+- Treat visually separate page sections as separate builder data, even when they start with similar imported copy, so editing one section does not silently change another.
 
 ## Risks Or Blockers
 

@@ -108,6 +108,12 @@ export interface CatstaysTemplateContent {
     icon?: string;
   }>;
   whyChoose: {
+    eyebrow: string;
+    title: string;
+    text: string;
+  };
+  careApproach: {
+    eyebrow: string;
     title: string;
     text: string;
     items: Array<{
@@ -117,6 +123,7 @@ export interface CatstaysTemplateContent {
     }>;
   };
   facilities: {
+    eyebrow: string;
     title: string;
     text: string;
     image: string;
@@ -519,7 +526,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     record?.normalizedPreviewData?.hours,
     'By appointment',
   );
-  const primaryDescription = stringFrom(
+  const primaryDescription = contentStringFrom(
     data.aboutText,
     normalized.aboutText,
     record?.content.aboutText,
@@ -527,13 +534,13 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     'A calm, caring cat boarding experience designed around comfort, routine, and reassurance.',
   );
   const mappedHighlights = highlights.map((feature: any) => ({
-    title: stringFrom(feature.title, feature.name),
-    text: stringFrom(feature.description, feature.text),
+    title: contentStringFrom(feature.title, feature.name),
+    text: contentStringFrom(feature.description, feature.text),
     icon: stringFrom(feature.icon),
   }));
   const mappedServices = services.map((service: any) => ({
-    title: stringFrom(service.title, service.name),
-    text: stringFrom(service.description, service.text),
+    title: contentStringFrom(service.title, service.name),
+    text: contentStringFrom(service.description, service.text),
     icon: stringFrom(service.icon),
   }));
   const featureItems = editedHighlights
@@ -543,8 +550,8 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     ? featureItems
     : ensureFeatureCount(
         (whyChooseBlock?.items?.length ? whyChooseBlock.items : featureItems).map((item: any) => ({
-          title: stringFrom(item.title, item.name),
-          text: stringFrom(item.text, item.description),
+          title: contentStringFrom(item.title, item.name),
+          text: contentStringFrom(item.text, item.description),
           icon: stringFrom(item.icon),
         })),
         featureItems,
@@ -552,20 +559,20 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const editedFacilityItems = Array.isArray(data.facilityFeatures) ? data.facilityFeatures : undefined;
   const mappedFacilityItems = editedFacilityItems
     ? editedFacilityItems.map((item: any) => ({
-        title: stringFrom(item.title, item.name),
-        text: stringFrom(item.description, item.text),
+        title: contentStringFrom(item.title, item.name),
+        text: contentStringFrom(item.description, item.text),
         icon: stringFrom(item.icon),
       }))
     : [
         ...(facilitiesBlock?.items ?? []).map((item: any) => ({
-          title: stringFrom(item.title, item.name),
-          text: stringFrom(item.text, item.description),
+          title: contentStringFrom(item.title, item.name),
+          text: contentStringFrom(item.text, item.description),
           icon: stringFrom(item.icon),
         })),
         dailyCareBlock
           ? {
-              title: stringFrom(dailyCareBlock.title, 'Daily Care Routine'),
-              text: stringFrom(dailyCareBlock.text),
+              title: contentStringFrom(dailyCareBlock.title, 'Daily Care Routine'),
+              text: contentStringFrom(dailyCareBlock.text),
               icon: 'Clock',
             }
           : null,
@@ -615,6 +622,12 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const heroImagePositionX = clampNumber(data.heroImageObjectPositionX, 0, 100, 50);
   const heroImagePositionY = clampNumber(data.heroImageObjectPositionY, 0, 100, 50);
   const heroImageScale = clampNumber(data.heroImageScale, 100, 180, 100);
+  const whyChooseTitle = contentStringFrom(data.whyChooseUsHeading, whyChooseBlock?.title, `Why choose ${businessName}`);
+  const whyChooseText = contentStringFrom(data.whyChooseUsText, whyChooseBlock?.text, primaryDescription);
+  const careApproachTitle = contentStringFrom(data.careApproachHeading, normalizedRecord.careApproachHeading, data.whyChooseUsHeading, whyChooseBlock?.title, `Why choose ${businessName}`);
+  const careApproachText = contentStringFrom(data.careApproachText, normalizedRecord.careApproachText, data.whyChooseUsText, whyChooseBlock?.text, primaryDescription);
+  const facilitiesTitle = contentStringFrom(data.facilitiesHeading, facilitiesBlock?.title, 'Our Facilities');
+  const facilitiesText = contentStringFrom(data.facilitiesText, facilitiesBlock?.text, 'Comfortable, secure spaces designed around daily cat care, quiet routines, and peace of mind.');
 
   return {
     business: {
@@ -648,8 +661,8 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       bodyFont: stringFrom(data.bodyFont, normalizedRecord.bodyFont, data.subheadingFont, normalizedRecord.subheadingFont, 'inter'),
     },
     sectionHeadings: {
-      care: stringFrom(data.whyChooseUsHeading, whyChooseBlock?.title, `Why choose ${businessName}`),
-      facilities: stringFrom(data.facilitiesHeading, facilitiesBlock?.title, 'Our Facilities'),
+      care: careApproachTitle,
+      facilities: facilitiesTitle,
       suites: stringFrom(data.suitesHeading, 'Beautiful suites for every kind of cat'),
       services: stringFrom(data.additionalServicesHeading, 'Extra care when your cat needs it'),
       gallery: stringFrom(data.galleryHeading, 'A closer look at the stay'),
@@ -658,15 +671,22 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     },
     features: featureItems,
     whyChoose: {
-      title: stringFrom(data.whyChooseUsHeading, whyChooseBlock?.title, `Why choose ${businessName}`),
-      text: stringFrom(data.whyChooseUsText, whyChooseBlock?.text, primaryDescription),
+      eyebrow: contentStringFrom(data.whyChooseEyebrow, normalizedRecord.whyChooseEyebrow, normalizedRecord.whyChooseUsData?.whyChooseEyebrow, 'Why choose us'),
+      title: whyChooseTitle,
+      text: whyChooseText,
+    },
+    careApproach: {
+      eyebrow: contentStringFrom(data.careApproachEyebrow, normalizedRecord.careApproachEyebrow, normalizedRecord.whyChooseUsData?.careApproachEyebrow, 'Care Approach'),
+      title: careApproachTitle,
+      text: careApproachText,
       items: whyChooseItems,
     },
     facilities: {
-      title: stringFrom(data.facilitiesHeading, facilitiesBlock?.title, 'Our Facilities'),
-      text: stringFrom(data.facilitiesText, facilitiesBlock?.text, 'Comfortable, secure spaces designed around daily cat care, quiet routines, and peace of mind.'),
+      eyebrow: contentStringFrom(data.facilitiesEyebrow, normalizedRecord.facilitiesEyebrow, normalizedRecord.facilitiesData?.facilitiesEyebrow, 'Premium accommodation'),
+      title: facilitiesTitle,
+      text: facilitiesText,
       image: facilityImage,
-      items: facilityItems.length || editedFacilityItems ? facilityItems : featureItems.slice(0, 4),
+      items: facilityItems,
     },
     services: services.map((service: any, index: number) => ({
       image: pickUniqueImage(
@@ -674,8 +694,8 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
         [service.image, fallbackImages[index + 3], fallbackImages[index]],
         fallbackImages,
       ),
-      title: stringFrom(service.title, service.name, `Care service ${index + 1}`),
-      text: stringFrom(service.description, service.text, 'Additional support available during the stay.'),
+      title: contentStringFrom(service.title, service.name, `Care service ${index + 1}`),
+      text: contentStringFrom(service.description, service.text, 'Additional support available during the stay.'),
       price: stringFrom(service.price),
     })),
     about: {
@@ -781,6 +801,8 @@ function sourceContentSections(library: CatterySiteContentLibrary) {
   const coreCategories = new Set([
     'hero',
     'why-choose-us',
+    'facilities',
+    'daily-care',
     'rooms',
     'services',
     'gallery',
@@ -899,17 +921,17 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
 
   const textFrom = (key: string, ...importedSources: unknown[]) => (
     preferImportedCollections
-      ? stringFrom(...importedSources, cleanData[key], fallback[key])
-      : stringFrom(cleanData[key], ...importedSources, fallback[key])
+      ? contentStringFrom(...importedSources, cleanData[key], fallback[key])
+      : contentStringFrom(cleanData[key], ...importedSources, fallback[key])
   );
 
   const editableTextFrom = (key: string, ...importedSources: unknown[]) => {
-    if (!preferImportedCollections && typeof cleanData[key] === 'string') return cleanData[key].trim();
+    if (!preferImportedCollections && typeof cleanData[key] === 'string') return cleanImportedCopy(cleanData[key]);
 
-    const importedValue = stringFrom(...importedSources);
+    const importedValue = contentStringFrom(...importedSources);
     if (preferImportedCollections && importedValue) return importedValue;
-    if (typeof cleanData[key] === 'string') return cleanData[key].trim();
-    return stringFrom(cleanData[key], ...importedSources, fallback[key]);
+    if (typeof cleanData[key] === 'string') return cleanImportedCopy(cleanData[key]);
+    return contentStringFrom(cleanData[key], ...importedSources, fallback[key]);
   };
 
   const imageFieldFrom = (key: string, ...importedSources: unknown[]) => (
@@ -919,36 +941,36 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
   );
 
   const mapItemsToFeatures = (items: any[] = []) => items.map((item) => ({
-    title: stringFrom(item.title, item.name),
-    description: stringFrom(item.description, item.text),
+    title: contentStringFrom(item.title, item.name),
+    description: contentStringFrom(item.description, item.text),
     icon: stringFrom(item.icon),
   })).filter((item) => item.title || item.description);
 
   const mapItemsToSuites = (items: any[] = []) => items.map((item) => ({
-    name: stringFrom(item.name, item.title),
-    description: stringFrom(item.description, item.text),
+    name: contentStringFrom(item.name, item.title),
+    description: contentStringFrom(item.description, item.text),
     price: stringFrom(item.price),
     image: stringFrom(item.image),
     amenities: Array.isArray(item.amenities) ? item.amenities : Array.isArray(item.features) ? item.features : [],
   })).filter((item) => item.name || item.description || item.image);
 
   const mapItemsToServices = (items: any[] = []) => items.map((item) => ({
-    title: stringFrom(item.title, item.name),
-    description: stringFrom(item.description, item.text),
+    title: contentStringFrom(item.title, item.name),
+    description: contentStringFrom(item.description, item.text),
     price: stringFrom(item.price),
     image: stringFrom(item.image),
   })).filter((item) => item.title || item.description || item.image);
 
   const mapItemsToReviews = (items: any[] = []) => items.map((item) => ({
-    name: stringFrom(item.name, item.title, item.author),
-    text: stringFrom(item.text, item.quote, item.description),
+    name: contentStringFrom(item.name, item.title, item.author),
+    text: contentStringFrom(item.text, item.quote, item.description),
     rating: typeof item.rating === 'number' ? item.rating : 5,
-    location: stringFrom(item.location, item.meta),
+    location: contentStringFrom(item.location, item.meta),
   })).filter((item) => item.name || item.text);
 
   const mapItemsToFaqs = (items: any[] = []) => items.map((item) => ({
-    question: stringFrom(item.question, item.title),
-    answer: stringFrom(item.answer, item.text, item.description),
+    question: contentStringFrom(item.question, item.title),
+    answer: contentStringFrom(item.answer, item.text, item.description),
   })).filter((item) => item.question && item.answer);
 
   const mapImagesToUrls = (items: any[] = []) => items.map((item) => stringFrom(item.url, item.image, item)).filter(Boolean);
@@ -966,8 +988,12 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
     heroPrimaryCtaHref: editableTextFrom('heroPrimaryCtaHref', heroLinks[0]?.url, '#suites'),
     heroSecondaryCtaText: editableTextFrom('heroSecondaryCtaText', heroLinks[1]?.label, 'Our Care Approach'),
     heroSecondaryCtaHref: editableTextFrom('heroSecondaryCtaHref', heroLinks[1]?.url, '#care'),
+    whyChooseEyebrow: textFrom('whyChooseEyebrow', normalized.whyChooseEyebrow, normalized.whyChooseUsData?.whyChooseEyebrow),
     whyChooseUsHeading: textFrom('whyChooseUsHeading', normalized.whyChooseUsData?.whyChooseUsHeading, normalized.whyChooseUsData?.heading, block('why-choose-us')?.title),
     whyChooseUsText: textFrom('whyChooseUsText', normalized.whyChooseUsData?.whyChooseUsText, normalized.whyChooseUsData?.text, block('why-choose-us')?.text),
+    careApproachEyebrow: textFrom('careApproachEyebrow', normalized.careApproachEyebrow, normalized.whyChooseUsData?.careApproachEyebrow),
+    careApproachHeading: textFrom('careApproachHeading', normalized.careApproachHeading, normalized.whyChooseUsData?.careApproachHeading, normalized.whyChooseUsData?.whyChooseUsHeading, block('why-choose-us')?.title),
+    careApproachText: textFrom('careApproachText', normalized.careApproachText, normalized.whyChooseUsData?.careApproachText, normalized.whyChooseUsData?.whyChooseUsText, normalized.whyChooseUsData?.text, block('why-choose-us')?.text),
     aboutHeading: textFrom('aboutHeading', normalized.aboutHeading, normalized.aboutData?.heading, block('hero')?.title),
     aboutText: textFrom('aboutText', normalized.aboutText, normalized.aboutData?.text, block('hero')?.text),
     aboutImage: imageFieldFrom(
@@ -980,6 +1006,7 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
       blockImages('facilities')[0]?.url,
     ),
     facilitiesHeading: textFrom('facilitiesHeading', normalized.facilitiesData?.facilitiesHeading, normalized.facilitiesData?.heading, block('facilities')?.title),
+    facilitiesEyebrow: textFrom('facilitiesEyebrow', normalized.facilitiesEyebrow, normalized.facilitiesData?.facilitiesEyebrow),
     facilitiesText: textFrom('facilitiesText', normalized.facilitiesData?.facilitiesText, normalized.facilitiesData?.text, block('facilities')?.text),
     facilitiesImage: imageFieldFrom('facilitiesImage', normalized.facilitiesData?.facilitiesImage, normalized.facilitiesData?.image, blockImages('facilities')[0]?.url),
     suitesHeading: textFrom('suitesHeading', normalized.suitesData?.suitesHeading, normalized.suitesData?.heading, block('rooms')?.title),
@@ -1062,9 +1089,34 @@ function stringFrom(...values: unknown[]): string {
   return '';
 }
 
+function contentStringFrom(...values: unknown[]): string {
+  for (const value of values) {
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+    if (typeof value !== 'string') continue;
+    const cleaned = cleanImportedCopy(value);
+    if (cleaned) return cleaned;
+  }
+  return '';
+}
+
 function editableString(value: unknown, ...fallbackValues: unknown[]): string {
   if (typeof value === 'string') return value.trim();
   return stringFrom(...fallbackValues);
+}
+
+function cleanImportedCopy(value: string): string {
+  const withoutMenuTrails = value
+    .replace(/\btop of page\b(?:[\s,;/|&-]+(?:home|about|accomodation|accommodation|homestay|fees|feline|health|care|hyperbaric|oxygen|pulsed|electric|magnetic|field|therapy|pemf|hbot|integrative|gallery|professional|cat|grooming|rates|more|contact|suites|facilities|services|booking|book|faq|q|a|use|tab|navigate|through|menu|items)){3,}/gi, ' ')
+    .replace(/\bHome\s+About\s+(?:Accomodation|Accommodation)\b[\s\S]{0,500}?\b(?:More|Contact|Grooming Rates)\b/gi, ' ')
+    .replace(/\bUse tab to navigate through the menu items\.?/gi, ' ')
+    .replace(/\bbottom of page\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const lower = withoutMenuTrails.toLowerCase();
+  if (!withoutMenuTrails || /^(home|about|contact|gallery|more|top of page|bottom of page)$/i.test(withoutMenuTrails)) return '';
+  if (/^top of page\b/.test(lower)) return '';
+  return withoutMenuTrails;
 }
 
 function clampNumber(value: unknown, min: number, max: number, fallback: number): number {

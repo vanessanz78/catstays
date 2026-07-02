@@ -1592,7 +1592,16 @@ function buildWebsiteSettings(input: {
     location: [input.city, input.country].filter(Boolean).join(', '),
     sourceUrl: input.bookingUrl,
     whyChooseUsData: {
+      whyChooseEyebrow: 'Why choose us',
       whyChooseUsHeading: `Why choose ${input.businessName}`,
+      whyChooseUsText:
+        input.description ||
+        'Personal, calm care designed around the way cats feel safest.',
+      careApproachEyebrow: 'Care Approach',
+      careApproachHeading: `Why choose ${input.businessName}`,
+      careApproachText:
+        input.description ||
+        'Personal, calm care designed around the way cats feel safest.',
       whyChooseUsFeatures: input.highlights.map((highlight, index) => ({
         icon: ['Shield', 'Heart', 'Home'][index] ?? 'Star',
         title: highlight.title,
@@ -1600,15 +1609,12 @@ function buildWebsiteSettings(input: {
       })),
     },
     facilitiesData: {
+      facilitiesEyebrow: 'Premium accommodation',
       facilitiesHeading: 'Purpose-built cat accommodation',
       facilitiesText:
         input.highlights[0]?.description ||
         'Safe, calm boarding facilities designed specifically for cats.',
       facilitiesImage: input.images.find((image) => /building|facility|indoor|communal/i.test(decodeURIComponent(image))) || input.heroImage,
-      facilityFeatures: input.highlights.map((highlight) => ({
-        title: highlight.title,
-        description: highlight.description,
-      })),
     },
     suitesData: {
       suitesHeading: 'Boarding options',
@@ -2176,6 +2182,7 @@ function cleanText(value: string): string {
 function stripNavigationBoilerplate(value: string): string {
   return value
     .replace(/\btop of page\b[\s\S]{0,700}?\bUse tab to navigate through the menu items\.?/gi, ' ')
+    .replace(/\btop of page\b(?:[\s,;/|&-]+(?:home|about|accomodation|accommodation|homestay|fees|feline|health|care|hyperbaric|oxygen|pulsed|electric|magnetic|field|therapy|pemf|hbot|integrative|gallery|professional|cat|grooming|rates|more|contact|suites|facilities|services|booking|book|faq|q|a|use|tab|navigate|through|menu|items)){3,}/gi, ' ')
     .replace(/\bHome\s+About\s+(?:Accomodation|Accommodation)[\s\S]{0,500}?\bMore\b/gi, ' ')
     .replace(/\bRing or text for an appointment\b/gi, ' ')
     .replace(/\bbottom of page\b/gi, ' ');

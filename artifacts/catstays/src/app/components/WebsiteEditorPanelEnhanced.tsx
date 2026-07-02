@@ -9,7 +9,7 @@ import { ImageUpload } from './ImageUpload';
 
 /**
  * Website Editor Panel - Sections ordered to match the generated preview (top to bottom)
- * Order: Hero -> About -> Care Approach -> Facilities -> Owner Story -> Gallery -> Suites -> Services -> Reviews -> Contact -> Footer -> Chatbot
+ * Order: Hero -> About -> Why Choose story -> Facilities -> Care Approach -> Owner Story -> Gallery -> Suites -> Services -> Reviews -> Contact -> Footer -> Chatbot
  */
 
 interface WebsiteEditorPanelEnhancedProps {
@@ -23,7 +23,8 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const sectionTitles = {
     hero: 'Home / Hero',
-    care: data.whyChooseUsHeading || 'Care Approach',
+    care: data.whyChooseUsHeading || 'Why Choose Story',
+    careApproach: data.careApproachHeading || 'Care Approach',
     about: data.aboutHeading || 'About',
     facilities: data.facilitiesHeading || 'Facilities',
     suites: data.suitesHeading || 'Suites / Rooms',
@@ -91,6 +92,169 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       <option value="#virtual-tour">Virtual tour</option>
       <option value="#contact">Contact</option>
     </select>
+  );
+
+  const defaultCareFeatures = [
+    { icon: 'Shield', title: 'Licensed & Insured', description: 'Fully certified cattery' },
+    { icon: 'Heart', title: 'Loving Care', description: 'Individual attention daily' },
+    { icon: 'Award', title: '15+ Years Experience', description: 'Trusted by thousands' },
+  ];
+  const careFeatures = data.whyChooseUsFeatures || defaultCareFeatures;
+
+  const setCareFeature = (index: number, updates: Record<string, any>) => {
+    const newFeatures = [...careFeatures];
+    newFeatures[index] = { ...newFeatures[index], ...updates };
+    setData({ ...data, whyChooseUsFeatures: newFeatures });
+  };
+
+  const removeCareFeature = (index: number) => {
+    setData({ ...data, whyChooseUsFeatures: careFeatures.filter((_: any, i: number) => i !== index) });
+  };
+
+  const addCareFeature = () => {
+    const newFeatures = [...careFeatures, { icon: 'Shield', title: '', description: '', isNew: true }];
+    setData({ ...data, whyChooseUsFeatures: newFeatures });
+    toggleExpanded(`why-choose-${newFeatures.length - 1}`);
+  };
+
+  const renderCarePointEditor = () => (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <Label>Care Points</Label>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={addCareFeature}
+          className="text-xs h-7"
+        >
+          <Plus className="w-3 h-3 mr-1" />
+          Add Feature
+        </Button>
+      </div>
+
+      {careFeatures.map((feature: any, index: number) => {
+        const isExpanded = expandedItems[`why-choose-${index}`] || feature.isNew;
+        const isComplete = feature.title && feature.description;
+
+        return (
+          <div key={index} className="border rounded-lg bg-gray-50">
+            {!isExpanded ? (
+              <div className="flex items-center justify-between p-3">
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <span className="text-sm font-medium text-gray-700">
+                    {feature.title || `Feature ${index + 1}`}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => toggleExpanded(`why-choose-${index}`)}
+                    className="h-7 w-7 p-0"
+                  >
+                    <ChevronDown className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => removeCareFeature(index)}
+                    className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3 p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">Feature {index + 1}</span>
+                  <div className="flex items-center gap-1">
+                    {feature.isNew && isComplete && (
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setCareFeature(index, { isNew: false });
+                          toggleExpanded(`why-choose-${index}`);
+                        }}
+                        className="h-7 text-xs bg-green-600 hover:bg-green-700"
+                      >
+                        <Check className="w-3 h-3 mr-1" />
+                        Save
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => toggleExpanded(`why-choose-${index}`)}
+                      className="h-7 w-7 p-0"
+                    >
+                      <ChevronUp className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => removeCareFeature(index)}
+                      className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs">Icon</Label>
+                  {renderIconSelect(feature.icon || 'Shield', (value) => setCareFeature(index, { icon: value }))}
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs">Title</Label>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleAIClick(`whyChooseUsFeature${index}Title`)}
+                      disabled={isRegenerating}
+                      className="text-xs h-6"
+                    >
+                      <Wand2 className="w-3 h-3 mr-1" />
+                      AI
+                    </Button>
+                  </div>
+                  <Input
+                    value={feature.title || ''}
+                    onChange={(e) => setCareFeature(index, { title: e.target.value })}
+                    placeholder="Feature title"
+                    className="h-9 rounded-lg text-sm"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs">Description</Label>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleAIClick(`whyChooseUsFeature${index}Description`)}
+                      disabled={isRegenerating}
+                      className="text-xs h-6"
+                    >
+                      <Wand2 className="w-3 h-3 mr-1" />
+                      AI
+                    </Button>
+                  </div>
+                  <Input
+                    value={feature.description || ''}
+                    onChange={(e) => setCareFeature(index, { description: e.target.value })}
+                    placeholder="Feature description"
+                    className="h-9 rounded-lg text-sm"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
 
   return (
@@ -223,12 +387,22 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
         </AccordionContent>
       </AccordionItem>
 
-      {/* 2. CARE APPROACH SECTION */}
+      {/* 2. WHY CHOOSE STORY SECTION */}
       <AccordionItem value="why-choose-us" className="order-3 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
           <span className="font-semibold">{sectionTitles.care}</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
+          <div className="space-y-2">
+            <Label>Section Eyebrow</Label>
+            <Input
+              value={data.whyChooseEyebrow ?? 'Why choose us'}
+              onChange={(e) => setData({ ...data, whyChooseEyebrow: e.target.value })}
+              placeholder="Why choose us"
+              className="rounded-lg"
+            />
+          </div>
+
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label>Section Heading</Label>
@@ -251,194 +425,27 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
             />
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label>Care Points</Label>
+              <Label>Section Copy</Label>
               <Button
                 size="sm"
-                variant="outline"
-                onClick={() => {
-                  const newFeatures = [...(data.whyChooseUsFeatures || [
-                    { icon: 'Shield', title: 'Licensed & Insured', description: 'Fully certified cattery' },
-                    { icon: 'Heart', title: 'Loving Care', description: 'Individual attention daily' },
-                    { icon: 'Award', title: '15+ Years Experience', description: 'Trusted by thousands' }
-                  ]), { icon: 'Shield', title: '', description: '', isNew: true }];
-                  setData({ ...data, whyChooseUsFeatures: newFeatures });
-                  toggleExpanded(`why-choose-${newFeatures.length - 1}`);
-                }}
+                variant="ghost"
+                onClick={() => handleAIClick('whyChooseUsText')}
+                disabled={isRegenerating}
                 className="text-xs h-7"
               >
-                <Plus className="w-3 h-3 mr-1" />
-                Add Feature
+                <Wand2 className="w-3 h-3 mr-1" />
+                AI
               </Button>
             </div>
-
-            {(data.whyChooseUsFeatures || [
-              { icon: 'Shield', title: 'Licensed & Insured', description: 'Fully certified cattery' },
-              { icon: 'Heart', title: 'Loving Care', description: 'Individual attention daily' },
-              { icon: 'Award', title: '15+ Years Experience', description: 'Trusted by thousands' }
-            ]).map((feature: any, index: number) => {
-              const isExpanded = expandedItems[`why-choose-${index}`] || feature.isNew;
-              const isComplete = feature.title && feature.description;
-
-              return (
-                <div key={index} className="border rounded-lg bg-gray-50">
-                  {!isExpanded ? (
-                    <div className="flex items-center justify-between p-3">
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <span className="text-sm font-medium text-gray-700">
-                          {feature.title || `Feature ${index + 1}`}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => toggleExpanded(`why-choose-${index}`)}
-                          className="h-7 w-7 p-0"
-                        >
-                          <ChevronDown className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            const newFeatures = (data.whyChooseUsFeatures || [
-                              { icon: 'Shield', title: 'Licensed & Insured', description: 'Fully certified cattery' },
-                              { icon: 'Heart', title: 'Loving Care', description: 'Individual attention daily' },
-                              { icon: 'Award', title: '15+ Years Experience', description: 'Trusted by thousands' }
-                            ]).filter((_: any, i: number) => i !== index);
-                            setData({ ...data, whyChooseUsFeatures: newFeatures });
-                          }}
-                          className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-700">Feature {index + 1}</span>
-                        <div className="flex items-center gap-1">
-                          {feature.isNew && isComplete && (
-                            <Button
-                              size="sm"
-                              onClick={() => {
-                                const newFeatures = [...(data.whyChooseUsFeatures || [])];
-                                newFeatures[index] = { ...newFeatures[index], isNew: false };
-                                setData({ ...data, whyChooseUsFeatures: newFeatures });
-                                toggleExpanded(`why-choose-${index}`);
-                              }}
-                              className="h-7 text-xs bg-green-600 hover:bg-green-700"
-                            >
-                              <Check className="w-3 h-3 mr-1" />
-                              Save
-                            </Button>
-                          )}
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => toggleExpanded(`why-choose-${index}`)}
-                            className="h-7 w-7 p-0"
-                          >
-                            <ChevronUp className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              const newFeatures = (data.whyChooseUsFeatures || [
-                                { icon: 'Shield', title: 'Licensed & Insured', description: 'Fully certified cattery' },
-                                { icon: 'Heart', title: 'Loving Care', description: 'Individual attention daily' },
-                                { icon: 'Award', title: '15+ Years Experience', description: 'Trusted by thousands' }
-                              ]).filter((_: any, i: number) => i !== index);
-                              setData({ ...data, whyChooseUsFeatures: newFeatures });
-                            }}
-                            className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label className="text-xs">Icon</Label>
-                        {renderIconSelect(feature.icon || 'Shield', (value) => {
-                          const newFeatures = [...(data.whyChooseUsFeatures || [
-                            { icon: 'Shield', title: 'Licensed & Insured', description: 'Fully certified cattery' },
-                            { icon: 'Heart', title: 'Loving Care', description: 'Individual attention daily' },
-                            { icon: 'Award', title: '15+ Years Experience', description: 'Trusted by thousands' }
-                          ])];
-                          newFeatures[index] = { ...newFeatures[index], icon: value };
-                          setData({ ...data, whyChooseUsFeatures: newFeatures });
-                        })}
-                      </div>
-
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-xs">Title</Label>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleAIClick(`whyChooseUsFeature${index}Title`)}
-                            disabled={isRegenerating}
-                            className="text-xs h-6"
-                          >
-                            <Wand2 className="w-3 h-3 mr-1" />
-                            AI
-                          </Button>
-                        </div>
-                        <Input
-                          value={feature.title || ''}
-                          onChange={(e) => {
-                            const newFeatures = [...(data.whyChooseUsFeatures || [
-                              { icon: 'Shield', title: 'Licensed & Insured', description: 'Fully certified cattery' },
-                              { icon: 'Heart', title: 'Loving Care', description: 'Individual attention daily' },
-                              { icon: 'Award', title: '15+ Years Experience', description: 'Trusted by thousands' }
-                            ])];
-                            newFeatures[index] = { ...newFeatures[index], title: e.target.value };
-                            setData({ ...data, whyChooseUsFeatures: newFeatures });
-                          }}
-                          placeholder="Feature title"
-                          className="h-9 rounded-lg text-sm"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-xs">Description</Label>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleAIClick(`whyChooseUsFeature${index}Description`)}
-                            disabled={isRegenerating}
-                            className="text-xs h-6"
-                          >
-                            <Wand2 className="w-3 h-3 mr-1" />
-                            AI
-                          </Button>
-                        </div>
-                        <Input
-                          value={feature.description || ''}
-                          onChange={(e) => {
-                            const newFeatures = [...(data.whyChooseUsFeatures || [
-                              { icon: 'Shield', title: 'Licensed & Insured', description: 'Fully certified cattery' },
-                              { icon: 'Heart', title: 'Loving Care', description: 'Individual attention daily' },
-                              { icon: 'Award', title: '15+ Years Experience', description: 'Trusted by thousands' }
-                            ])];
-                            newFeatures[index] = { ...newFeatures[index], description: e.target.value };
-                            setData({ ...data, whyChooseUsFeatures: newFeatures });
-                          }}
-                          placeholder="Feature description"
-                          className="h-9 rounded-lg text-sm"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+            <Textarea
+              value={data.whyChooseUsText || ''}
+              onChange={(e) => setData({ ...data, whyChooseUsText: e.target.value })}
+              placeholder="Tell visitors why this cattery is a good fit"
+              className="rounded-lg"
+              rows={4}
+            />
           </div>
         </AccordionContent>
       </AccordionItem>
@@ -508,6 +515,16 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
           <span className="font-semibold">{sectionTitles.facilities}</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
+          <div className="space-y-2">
+            <Label>Section Eyebrow</Label>
+            <Input
+              value={data.facilitiesEyebrow ?? 'Premium accommodation'}
+              onChange={(e) => setData({ ...data, facilitiesEyebrow: e.target.value })}
+              placeholder="Premium accommodation"
+              className="rounded-lg"
+            />
+          </div>
+
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label>Facilities Heading</Label>
@@ -714,8 +731,73 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
         </AccordionContent>
       </AccordionItem>
 
-      {/* 5. SUITES SECTION */}
-      <AccordionItem value="our-suites" className="order-7 border rounded-xl px-4 bg-white">
+      {/* 5. CARE APPROACH CARDS */}
+      <AccordionItem value="care-approach" className="order-5 border rounded-xl px-4 bg-white">
+        <AccordionTrigger className="hover:no-underline py-4">
+          <span className="font-semibold">{sectionTitles.careApproach}</span>
+        </AccordionTrigger>
+        <AccordionContent className="space-y-4 pb-4">
+          <div className="space-y-2">
+            <Label>Section Eyebrow</Label>
+            <Input
+              value={data.careApproachEyebrow ?? 'Care Approach'}
+              onChange={(e) => setData({ ...data, careApproachEyebrow: e.target.value })}
+              placeholder="Care Approach"
+              className="rounded-lg"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Section Heading</Label>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => handleAIClick('careApproachHeading')}
+                disabled={isRegenerating}
+                className="text-xs h-7"
+              >
+                <Wand2 className="w-3 h-3 mr-1" />
+                AI
+              </Button>
+            </div>
+            <Input
+              value={data.careApproachHeading || data.whyChooseUsHeading || 'Why choose us'}
+              onChange={(e) => setData({ ...data, careApproachHeading: e.target.value })}
+              placeholder="Why choose us"
+              className="rounded-lg"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Section Copy</Label>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => handleAIClick('careApproachText')}
+                disabled={isRegenerating}
+                className="text-xs h-7"
+              >
+                <Wand2 className="w-3 h-3 mr-1" />
+                AI
+              </Button>
+            </div>
+            <Textarea
+              value={data.careApproachText ?? data.whyChooseUsText ?? ''}
+              onChange={(e) => setData({ ...data, careApproachText: e.target.value })}
+              placeholder="Describe the care approach these cards support"
+              className="rounded-lg"
+              rows={4}
+            />
+          </div>
+
+          {renderCarePointEditor()}
+        </AccordionContent>
+      </AccordionItem>
+
+      {/* 6. SUITES SECTION */}
+      <AccordionItem value="our-suites" className="order-8 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
           <span className="font-semibold">{sectionTitles.suites}</span>
         </AccordionTrigger>
@@ -937,7 +1019,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       </AccordionItem>
 
       {/* 6. EXTRA CARE / SERVICES SECTION */}
-      <AccordionItem value="additional-services" className="order-8 border rounded-xl px-4 bg-white">
+      <AccordionItem value="additional-services" className="order-9 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
           <span className="font-semibold">{sectionTitles.services}</span>
         </AccordionTrigger>
@@ -1140,7 +1222,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       </AccordionItem>
 
       {/* 7. GALLERY SECTION */}
-      <AccordionItem value="gallery" className="order-6 border rounded-xl px-4 bg-white">
+      <AccordionItem value="gallery" className="order-7 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
           <span className="font-semibold">{sectionTitles.gallery}</span>
         </AccordionTrigger>
@@ -1221,7 +1303,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       </AccordionItem>
 
       {/* 8. REVIEWS SECTION */}
-      <AccordionItem value="testimonials" className="order-9 border rounded-xl px-4 bg-white">
+      <AccordionItem value="testimonials" className="order-10 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
           <span className="font-semibold">{sectionTitles.reviews}</span>
         </AccordionTrigger>
@@ -1353,7 +1435,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       </AccordionItem>
 
       {/* 9. CHATBOT FAQ KNOWLEDGE */}
-      <AccordionItem value="faq" className="order-[14] border rounded-xl px-4 bg-white">
+      <AccordionItem value="faq" className="order-[15] border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
           <span className="font-semibold">{sectionTitles.faq}</span>
         </AccordionTrigger>
@@ -1477,7 +1559,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       </AccordionItem>
 
       {/* 10. OWNER STORY SECTION */}
-      <AccordionItem value="owner-story" className="order-5 border rounded-xl px-4 bg-white">
+      <AccordionItem value="owner-story" className="order-6 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
           <span className="font-semibold">{sectionTitles.owner}</span>
         </AccordionTrigger>
@@ -1536,7 +1618,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       </AccordionItem>
 
       {/* 11. CONTACT / LOCATION SECTION */}
-      <AccordionItem value="contact" className="order-10 border rounded-xl px-4 bg-white">
+      <AccordionItem value="contact" className="order-11 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
           <span className="font-semibold">{sectionTitles.contact}</span>
         </AccordionTrigger>
@@ -1585,7 +1667,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       </AccordionItem>
 
       {/* 12. CUSTOM SECTIONS */}
-      <AccordionItem value="custom-sections" className="order-11 border rounded-xl px-4 bg-white">
+      <AccordionItem value="custom-sections" className="order-12 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
           <span className="font-semibold">{sectionTitles.custom}</span>
         </AccordionTrigger>
@@ -1771,7 +1853,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       </AccordionItem>
 
       {/* 13. SOCIAL MEDIA */}
-      <AccordionItem value="social-media" className="order-12 border rounded-xl px-4 bg-white">
+      <AccordionItem value="social-media" className="order-13 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
           <span className="font-semibold">{sectionTitles.social}</span>
         </AccordionTrigger>
@@ -1831,7 +1913,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       </AccordionItem>
 
       {/* 14. FOOTER */}
-      <AccordionItem value="footer" className="order-[13] border rounded-xl px-4 bg-white">
+      <AccordionItem value="footer" className="order-[14] border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
           <span className="font-semibold">{sectionTitles.footer}</span>
         </AccordionTrigger>

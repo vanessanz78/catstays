@@ -11,6 +11,7 @@
 - Added Website Builder hero eyebrow editing, CTA link `None` options, template-rendered primary/secondary hero buttons, and hover X/Y/Zoom controls for hero image positioning.
 - Preserved owner-edited builder copy, image choices, CTA choices, and hero image crop settings across template switches and Supabase `website_settings` save/load.
 - Added a repository-backed `/api/website/copy-image` route and `catstays-media` Supabase Storage bucket definition so pasted image URLs can be copied to CatStays-owned storage instead of being treated as durable hot-links.
+- Split Website Builder controls for the top Why Choose story, Purpose-built accommodation/facilities, and Care Approach card row, with imported navigation-menu boilerplate stripped from generated copy.
 
 ## 2026-07-01
 

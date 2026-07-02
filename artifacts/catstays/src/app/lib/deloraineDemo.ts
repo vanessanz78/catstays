@@ -980,7 +980,18 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
     subheadingFont: 'inter',
     typography: 'playfair',
     whyChooseUsData: {
+      whyChooseEyebrow: 'Why choose us',
       whyChooseUsHeading: `Why choose ${businessName}`,
+      whyChooseUsText:
+        scrape.description ||
+        settings.aboutText ||
+        'Personal, calm care designed around the way cats feel safest.',
+      careApproachEyebrow: 'Care Approach',
+      careApproachHeading: `Why choose ${businessName}`,
+      careApproachText:
+        scrape.description ||
+        settings.aboutText ||
+        'Personal, calm care designed around the way cats feel safest.',
       whyChooseUsFeatures: highlights.map((highlight, index) => ({
         icon: ['Shield', 'Heart', 'Home'][index] ?? 'Star',
         title: highlight.title,
@@ -988,15 +999,12 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
       })),
     },
     facilitiesData: {
+      facilitiesEyebrow: 'Premium accommodation',
       facilitiesHeading: 'Purpose-built cat accommodation',
       facilitiesText:
         highlights[0]?.description ||
         'Comfortable cat boarding facilities designed around safety, routine, and calm.',
       facilitiesImage: imageByName(images, /building|facility|indoor|communal/i) || images[0],
-      facilityFeatures: highlights.map((highlight) => ({
-        title: highlight.title,
-        description: highlight.description,
-      })),
     },
     suitesData: {
       suitesHeading: 'Boarding options',
