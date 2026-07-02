@@ -19,6 +19,7 @@ Stabilise CatStays onboarding publish and imported website preview quality, with
 - CatStays uses GitHub as the durable source of truth.
 - Project startup docs live in `docs/README.md` and `docs/project-operating-system.md`.
 - On 2026-07-01, the duplicate-email publish loop was fixed in `artifacts/api-server/src/routes/cattery.ts`.
+- On 2026-07-02, the client Publish handler was also hardened so a 409 account conflict no longer forces step 1 before the Publish-step error display can show the message.
 - The fix changes duplicate signup/provisioning email errors so the Publish step can show an inline error instead of sending the user back to step 1.
 - Duplicate email detection comes from Supabase Auth users (`auth.users` / Authentication > Users), not OAuth Apps and not the public `customers` table.
 - Replit's database module may exist in the workspace, but the publish/provisioning route uses Supabase Auth and Supabase tables, not the Replit Postgres database.
@@ -55,6 +56,7 @@ Stabilise CatStays onboarding publish and imported website preview quality, with
 
 - Add root-level sprint and decision documents so future Codex chats have a stable project entry point.
 - Treat duplicate-email publish failures as Publish-step errors rather than account-step resets.
+- Do not call `setStep(1)` from the Publish handler for duplicate-account provisioning conflicts; keep the owner on Publish with the inline error.
 - Treat Supabase Authentication > Users as the source of truth for signup email uniqueness.
 - Pin Replit public app URL values to `https://catstays.app` for confirmation email redirects.
 - Treat the owner website import as a source-site capture step before template generation: crawl/capture relevant pages and images, then map that indexed content into the one-page preview.

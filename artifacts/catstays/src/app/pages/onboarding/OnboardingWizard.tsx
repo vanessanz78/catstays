@@ -1034,8 +1034,6 @@ export function OnboardingWizard() {
           if (response.status === 409 && message.toLowerCase().includes('account')) {
             setCreateAccountError(message);
             setAccountCreated(false);
-            setStep(1);
-            return;
           }
           throw new Error(message);
         }

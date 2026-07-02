@@ -123,7 +123,7 @@ Impact:
 
 Decision: Treat duplicate signup/provisioning email errors as Publish-step errors instead of account-step resets.
 
-Reason: Returning an API error containing the phrase `account` caused the onboarding client to send the user back to step 1. Rewording duplicate-email provisioning errors lets the existing Publish-step error display handle the issue inline.
+Reason: Returning an API error containing the phrase `account` caused the onboarding client to send the user back to step 1. Rewording duplicate-email provisioning errors and removing the Publish handler's `setStep(1)` conflict branch lets the existing Publish-step error display handle the issue inline.
 
 Impact:
 
@@ -134,4 +134,3 @@ Impact:
 ## Open Decisions
 
 - Whether to add a formal root-level Architect Update file for CatStays.
-- Whether the client-side publish handler should also be hardened so no future account/provisioning error can force a step-1 reset.
