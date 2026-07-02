@@ -4,7 +4,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
-import { Wand2, Plus, X, ChevronDown, ChevronUp, Check } from 'lucide-react';
+import { Wand2, Plus, X, ChevronDown, ChevronUp, Check, GripVertical } from 'lucide-react';
 import { ImageUpload } from './ImageUpload';
 
 /**
@@ -21,6 +21,7 @@ interface WebsiteEditorPanelEnhancedProps {
 
 export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRegenerating }: WebsiteEditorPanelEnhancedProps) {
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
+  const [draggingServiceIndex, setDraggingServiceIndex] = useState<number | null>(null);
   const sectionTitles = {
     hero: 'Home / Hero',
     care: data.whyChooseUsHeading || 'Why Choose Story',
@@ -66,6 +67,12 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       <option value="Star">⭐ Star (Quality)</option>
       <option value="Clock">🕐 Clock (24/7 Care)</option>
       <option value="Camera">📷 Camera (Photo Updates)</option>
+      <option value="Scissors">✂️ Scissors (Grooming)</option>
+      <option value="Stethoscope">🩺 Stethoscope (Health Care)</option>
+      <option value="Zap">⚡ Zap (Energy / Therapy)</option>
+      <option value="Car">🚗 Car (Transport)</option>
+      <option value="Plane">✈️ Plane (Airport)</option>
+      <option value="CalendarCheck">📅 Calendar (Bookings)</option>
       <option value="Home">🏠 Home (Comfortable)</option>
       <option value="Users">👥 Users (Family Run)</option>
       <option value="CheckCircle">✓ Check (Verified)</option>
@@ -134,6 +141,36 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       features: bulletPoints,
       amenities: bulletPoints,
     });
+  };
+
+  const defaultAdditionalServices = [
+    { icon: 'Heart', title: 'Extra Comfort Check', price: '$8/day', description: 'Additional wellbeing check during the stay' },
+    { icon: 'Stethoscope', title: 'Medication Administration', price: '$10/day', description: 'Careful medication management' },
+    { icon: 'Heart', title: 'Special Diet', price: '$15/day', description: 'Custom meal preparation' },
+    { icon: 'Clock', title: 'Extended Playtime', price: '$20/day', description: 'Extra one-on-one attention' },
+  ];
+  const additionalServices = Array.isArray(data.additionalServices) ? data.additionalServices : defaultAdditionalServices;
+
+  const setAdditionalServices = (services: any[]) => {
+    setData({ ...data, additionalServices: services });
+  };
+
+  const setAdditionalService = (index: number, updates: Record<string, any>) => {
+    const newServices = [...additionalServices];
+    newServices[index] = { ...(newServices[index] || {}), ...updates };
+    setAdditionalServices(newServices);
+  };
+
+  const removeAdditionalService = (index: number) => {
+    setAdditionalServices(additionalServices.filter((_: any, i: number) => i !== index));
+  };
+
+  const moveAdditionalService = (fromIndex: number | null, toIndex: number) => {
+    if (fromIndex === null || fromIndex === toIndex || !additionalServices[fromIndex]) return;
+    const newServices = [...additionalServices];
+    const [moved] = newServices.splice(fromIndex, 1);
+    newServices.splice(toIndex, 0, moved);
+    setAdditionalServices(newServices);
   };
 
   const renderCarePointEditor = () => (
@@ -931,6 +968,16 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-2">
+            <Label>Section Eyebrow</Label>
+            <Input
+              value={data.additionalServicesEyebrow ?? 'Additional Services'}
+              onChange={(e) => setData({ ...data, additionalServicesEyebrow: e.target.value })}
+              placeholder="Additional Services"
+              className="rounded-lg"
+            />
+          </div>
+
+          <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label>Section Heading</Label>
               <Button
@@ -959,8 +1006,8 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
                 size="sm"
                 variant="outline"
                 onClick={() => {
-                  const newServices = [...(data.additionalServices || []), { title: '', description: '', price: '', isNew: true }];
-                  setData({ ...data, additionalServices: newServices });
+                  const newServices = [...additionalServices, { icon: 'Heart', title: '', description: '', price: '', isNew: true }];
+                  setAdditionalServices(newServices);
                   toggleExpanded(`additional-${newServices.length - 1}`);
                 }}
                 className="text-xs h-7"
@@ -970,20 +1017,34 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
               </Button>
             </div>
 
-            {(Array.isArray(data.additionalServices) ? data.additionalServices : [
-              { title: 'Extra Comfort Check', price: '$8/day', description: 'Additional wellbeing check during the stay' },
-              { title: 'Medication Administration', price: '$10/day', description: 'Careful medication management' },
-              { title: 'Special Diet', price: '$15/day', description: 'Custom meal preparation' },
-              { title: 'Extended Playtime', price: '$20/day', description: 'Extra one-on-one attention' }
-            ]).map((service: any, index: number) => {
+            {additionalServices.map((service: any, index: number) => {
               const isExpanded = expandedItems[`additional-${index}`] || service.isNew;
               const isComplete = service.title && service.description;
 
               return (
-                <div key={index} className="border rounded-lg bg-gray-50">
+                <div
+                  key={index}
+                  draggable={!isExpanded}
+                  onDragStart={(event) => {
+                    setDraggingServiceIndex(index);
+                    event.dataTransfer.effectAllowed = 'move';
+                  }}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = 'move';
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    moveAdditionalService(draggingServiceIndex, index);
+                    setDraggingServiceIndex(null);
+                  }}
+                  onDragEnd={() => setDraggingServiceIndex(null)}
+                  className={`border rounded-lg bg-gray-50 ${draggingServiceIndex === index ? 'opacity-60' : ''}`}
+                >
                   {!isExpanded ? (
                     <div className="flex items-center justify-between p-3">
                       <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <GripVertical className="h-4 w-4 flex-shrink-0 cursor-grab text-gray-400" />
                         <span className="text-sm font-medium text-gray-700">
                           {service.title || `Service ${index + 1}`}
                         </span>
@@ -1000,10 +1061,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => {
-                            const newServices = (data.additionalServices || []).filter((_: any, i: number) => i !== index);
-                            setData({ ...data, additionalServices: newServices });
-                          }}
+                          onClick={() => removeAdditionalService(index)}
                           className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
                         >
                           <X className="w-4 h-4" />
@@ -1019,9 +1077,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
                             <Button
                               size="sm"
                               onClick={() => {
-                                const newServices = [...(data.additionalServices || [])];
-                                newServices[index] = { ...newServices[index], isNew: false };
-                                setData({ ...data, additionalServices: newServices });
+                                setAdditionalService(index, { isNew: false });
                                 toggleExpanded(`additional-${index}`);
                               }}
                               className="h-7 text-xs bg-green-600 hover:bg-green-700"
@@ -1041,15 +1097,17 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => {
-                              const newServices = (data.additionalServices || []).filter((_: any, i: number) => i !== index);
-                              setData({ ...data, additionalServices: newServices });
-                            }}
+                            onClick={() => removeAdditionalService(index)}
                             className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
                           >
                             <X className="w-4 h-4" />
                           </Button>
                         </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-xs">Icon</Label>
+                        {renderIconSelect(service.icon || 'Heart', (value) => setAdditionalService(index, { icon: value }))}
                       </div>
 
                       <div className="space-y-2">
@@ -1068,11 +1126,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
                         </div>
                         <Input
                           value={service.title || ''}
-                          onChange={(e) => {
-                            const newServices = [...(data.additionalServices || [])];
-                            newServices[index] = { ...newServices[index], title: e.target.value };
-                            setData({ ...data, additionalServices: newServices });
-                          }}
+                          onChange={(e) => setAdditionalService(index, { title: e.target.value })}
                           placeholder="e.g., Extra Comfort Check"
                           className="h-9 rounded-lg text-sm"
                         />
@@ -1094,11 +1148,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
                         </div>
                         <Textarea
                           value={service.description || ''}
-                          onChange={(e) => {
-                            const newServices = [...(data.additionalServices || [])];
-                            newServices[index] = { ...newServices[index], description: e.target.value };
-                            setData({ ...data, additionalServices: newServices });
-                          }}
+                          onChange={(e) => setAdditionalService(index, { description: e.target.value })}
                           placeholder="Service description"
                           className="rounded-lg text-sm"
                           rows={3}
@@ -1109,11 +1159,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
                         <Label className="text-xs">Price (Optional)</Label>
                         <Input
                           value={service.price || ''}
-                          onChange={(e) => {
-                            const newServices = [...(data.additionalServices || [])];
-                            newServices[index] = { ...newServices[index], price: e.target.value };
-                            setData({ ...data, additionalServices: newServices });
-                          }}
+                          onChange={(e) => setAdditionalService(index, { price: e.target.value })}
                           placeholder="e.g., $25"
                           className="h-9 rounded-lg text-sm"
                         />

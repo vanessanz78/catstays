@@ -17,6 +17,7 @@
 - Added editable suite bullet points to Boarding Options and made suite card rows center for short rows or scroll horizontally when more than three suites exist.
 - Copied scraped owner-site image URLs into CatStays-owned Supabase Storage during website import when storage is configured, and stopped gallery generation from excluding real photos just because they were already used elsewhere.
 - Tightened owner story generation so it only renders real owner/team/story content and no longer borrows generic About copy or stock imagery.
+- Tightened Care Services import/editor behavior so service descriptions reject navigation boilerplate, prices stay separate, the `Additional Services` eyebrow and icons are editable, and service cards can be reordered in the builder.
 - Hardened the Publish handler so duplicate-account conflicts stay on the Publish step with the inline error instead of resetting to step 1.
 
 ## 2026-07-01

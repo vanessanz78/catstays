@@ -102,6 +102,9 @@ export interface CatstaysTemplateContent {
     reviews: string;
     contact: string;
   };
+  sectionEyebrows: {
+    services: string;
+  };
   features: Array<{
     title: string;
     text: string;
@@ -138,6 +141,7 @@ export interface CatstaysTemplateContent {
     title: string;
     text: string;
     price: string;
+    icon?: string;
   }>;
   about: {
     title: string;
@@ -667,6 +671,9 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       reviews: stringFrom(data.testimonialsHeading, 'Trusted by cat families'),
       contact: stringFrom(data.contactHeading, 'Send us a message'),
     },
+    sectionEyebrows: {
+      services: stringFrom(data.additionalServicesEyebrow, normalizedRecord.additionalServicesEyebrow, normalizedRecord.servicesData?.servicesEyebrow, 'Additional Services'),
+    },
     features: featureItems,
     whyChoose: {
       eyebrow: contentStringFrom(data.whyChooseEyebrow, normalizedRecord.whyChooseEyebrow, normalizedRecord.whyChooseUsData?.whyChooseEyebrow, 'Why choose us'),
@@ -693,9 +700,10 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
         sectionImages,
       ),
       title: contentStringFrom(service.title, service.name, `Care service ${index + 1}`),
-      text: contentStringFrom(service.description, service.text, 'Additional support available during the stay.'),
+      text: contentStringFrom(service.description, service.text),
       price: stringFrom(service.price),
-    })),
+      icon: stringFrom(service.icon),
+    })).filter((service) => service.title || service.text || service.price),
     about: {
       title: stringFrom(data.aboutHeading, normalized.aboutHeading, record?.content.aboutHeading, `About ${businessName}`),
       text: primaryDescription,
@@ -847,7 +855,21 @@ function libraryItemsToServices(items: ReturnType<typeof libraryItems>) {
     description: item.text || '',
     price: item.price,
     image: item.image,
+    icon: item.icon,
   }));
+}
+
+function normalizeEditableServices(items: unknown): Array<{ title: string; description: string; price: string; image: string; icon: string }> {
+  if (!Array.isArray(items)) return [];
+  return items
+    .map((item: any) => ({
+      title: contentStringFrom(item?.title, item?.name),
+      description: contentStringFrom(item?.description, item?.text),
+      price: stringFrom(item?.price),
+      image: stringFrom(item?.image),
+      icon: stringFrom(item?.icon),
+    }))
+    .filter((item) => item.title || item.description || item.price || item.image);
 }
 
 function libraryItemsToReviews(items: ReturnType<typeof libraryItems>) {
@@ -957,6 +979,7 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
     description: contentStringFrom(item.description, item.text),
     price: stringFrom(item.price),
     image: stringFrom(item.image),
+    icon: stringFrom(item.icon),
   })).filter((item) => item.title || item.description || item.image);
 
   const mapItemsToReviews = (items: any[] = []) => items.map((item) => ({
@@ -1008,6 +1031,7 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
     facilitiesText: textFrom('facilitiesText', normalized.facilitiesData?.facilitiesText, normalized.facilitiesData?.text, block('facilities')?.text),
     facilitiesImage: imageFieldFrom('facilitiesImage', normalized.facilitiesData?.facilitiesImage, normalized.facilitiesData?.image, blockImages('facilities')[0]?.url),
     suitesHeading: textFrom('suitesHeading', normalized.suitesData?.suitesHeading, normalized.suitesData?.heading, block('rooms')?.title),
+    additionalServicesEyebrow: textFrom('additionalServicesEyebrow', normalized.servicesData?.servicesEyebrow, normalized.servicesData?.eyebrow, block('services')?.eyebrow),
     additionalServicesHeading: textFrom('additionalServicesHeading', normalized.servicesData?.servicesHeading, normalized.servicesData?.heading, block('services')?.title),
     galleryHeading: textFrom('galleryHeading', normalized.galleryData?.galleryHeading, normalized.galleryData?.heading, block('gallery')?.title),
     testimonialsHeading: textFrom('testimonialsHeading', normalized.testimonialsData?.testimonialsHeading, normalized.testimonialsData?.heading, block('reviews')?.title),
@@ -1045,12 +1069,12 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
     ),
     roomTypes: arrayFrom('roomTypes'),
     pricingRates: arrayFrom('pricingRates'),
-    additionalServices: arrayFrom(
+    additionalServices: normalizeEditableServices(arrayFrom(
       'additionalServices',
-      normalized.servicesData?.services,
+      normalizeEditableServices(normalized.servicesData?.services),
       mapItemsToServices(blockItems('services')),
       mapItemsToServices(record?.services ?? []),
-    ),
+    )),
     discounts: arrayFrom('discounts'),
     blockOutDates: arrayFrom('blockOutDates'),
     galleryImages: arrayFrom(
@@ -1103,7 +1127,7 @@ function editableString(value: unknown, ...fallbackValues: unknown[]): string {
 }
 
 function cleanImportedCopy(value: string): string {
-  const withoutMenuTrails = value
+  const withoutMenuTrails = stripTopOfPageMenuTrail(value)
     .replace(/\btop of page\b(?:[\s,;/|&-]+(?:home|about|accomodation|accommodation|homestay|fees|feline|health|care|hyperbaric|oxygen|pulsed|electric|magnetic|field|therapy|pemf|hbot|integrative|gallery|professional|cat|grooming|rates|more|contact|suites|facilities|services|booking|book|faq|q|a|use|tab|navigate|through|menu|items)){3,}/gi, ' ')
     .replace(/\bHome\s+About\s+(?:Accomodation|Accommodation)\b[\s\S]{0,500}?\b(?:More|Contact|Grooming Rates)\b/gi, ' ')
     .replace(/\bUse tab to navigate through the menu items\.?/gi, ' ')
@@ -1114,7 +1138,94 @@ function cleanImportedCopy(value: string): string {
   const lower = withoutMenuTrails.toLowerCase();
   if (!withoutMenuTrails || /^(home|about|contact|gallery|more|top of page|bottom of page)$/i.test(withoutMenuTrails)) return '';
   if (/^top of page\b/.test(lower)) return '';
+  if (looksLikeNavigationCopy(withoutMenuTrails)) return '';
   return withoutMenuTrails;
+}
+
+function stripTopOfPageMenuTrail(value: string): string {
+  return value.replace(/\btop of page\b[\s\S]{0,650}/gi, (match) => {
+    const words = match.toLowerCase().split(/[^a-z]+/).filter(Boolean);
+    const navWords = new Set([
+      'top',
+      'page',
+      'home',
+      'about',
+      'accomodation',
+      'accommodation',
+      'homestay',
+      'fees',
+      'feline',
+      'health',
+      'care',
+      'hyperbaric',
+      'oxygen',
+      'pulsed',
+      'electric',
+      'magnetic',
+      'field',
+      'therapy',
+      'pemf',
+      'hbot',
+      'integrative',
+      'gallery',
+      'professional',
+      'cat',
+      'grooming',
+      'rates',
+      'more',
+      'contact',
+      'booking',
+      'book',
+      'faq',
+      'use',
+      'tab',
+      'navigate',
+      'menu',
+      'items',
+    ]);
+    const navCount = words.filter((word) => navWords.has(word)).length;
+    return navCount >= 8 ? ' ' : match;
+  });
+}
+
+function looksLikeNavigationCopy(value: string): boolean {
+  const words = value.toLowerCase().split(/[^a-z]+/).filter(Boolean);
+  if (words.length < 6) return false;
+  const navWords = new Set([
+    'top',
+    'page',
+    'home',
+    'about',
+    'accomodation',
+    'accommodation',
+    'homestay',
+    'fees',
+    'feline',
+    'health',
+    'care',
+    'hyperbaric',
+    'oxygen',
+    'pulsed',
+    'electric',
+    'magnetic',
+    'field',
+    'therapy',
+    'pemf',
+    'hbot',
+    'integrative',
+    'gallery',
+    'professional',
+    'cat',
+    'grooming',
+    'rates',
+    'more',
+    'contact',
+    'booking',
+    'book',
+    'faq',
+  ]);
+  const navCount = words.filter((word) => navWords.has(word)).length;
+  return navCount >= 8 && navCount / words.length > 0.65;
 }
 
 function clampNumber(value: unknown, min: number, max: number, fallback: number): number {

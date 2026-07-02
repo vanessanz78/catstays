@@ -53,6 +53,7 @@ export interface CatteryScrapedService {
   description: string;
   price?: string;
   image?: string;
+  icon?: string;
 }
 
 export interface CatteryScrapedReview {
@@ -1002,12 +1003,19 @@ function buildServices(
   const fallbackImagePool = images.filter((image) => !isLikelyLogoImage(image) && !/icon|building|facility/i.test(decodeURIComponent(image)));
   const matches = [...bundle.matchAll(/name:"([^"]{3,80})",price:"([^"]{1,80})",description:"([^"]{20,420})"/g)];
   const services = matches
-    .map((match) => ({
-      title: cleanText(match[1]),
-      price: cleanText(match[2]),
-      description: cleanText(match[3]),
-      image: serviceImage(match[1], images),
-    }))
+    .map((match, index) => {
+      const title = cleanText(match[1]);
+      const description = cleanServiceDescription(match[3]);
+      if (!title || !description) return null;
+      return {
+        title,
+        price: cleanText(match[2]),
+        description,
+        image: serviceImage(match[1], images),
+        icon: serviceIconName(title, index),
+      };
+    })
+    .filter((service): service is CatteryScrapedService => Boolean(service))
     .filter((service) => !/professional grooming/i.test(service.title));
 
   if (services.length) return services.slice(0, 12);
@@ -1043,26 +1051,18 @@ function buildServices(
       description: firstSentenceMatching(serviceSources.gallery, /text letting me know|happy and settled|well looked after/i),
     },
   ]
+    .map((service) => ({
+      ...service,
+      description: cleanServiceDescription(service.description),
+    }))
     .filter((service) => service.description)
     .map((service, index) => ({
       ...service,
       image: fallbackImagePool[index] || fallbackImagePool[0] || images[index + 1] || images[0],
+      icon: serviceIconName(service.title, index),
     }));
 
-  return fallbackServices.length
-    ? fallbackServices.slice(0, 6)
-    : [
-        {
-          title: 'Cat boarding',
-          description: 'Comfortable accommodation and daily care for cats.',
-          image: fallbackImagePool[0] || images[0],
-        },
-        {
-          title: 'Photo updates',
-          description: 'Friendly updates for families while cats are staying.',
-          image: fallbackImagePool[1] || fallbackImagePool[0] || images[1] || images[0],
-        },
-      ];
+  return fallbackServices.slice(0, 6);
 }
 
 function buildServicesFromPages(pages: ScrapedPage[], fallbackImages: string[]): CatteryScrapedService[] {
@@ -1077,7 +1077,7 @@ function buildServicesFromPages(pages: ScrapedPage[], fallbackImages: string[]):
     servicePages
       .map((page, index) => {
         const title = normalizePageTitle(page);
-        const description = summarizePrimaryContent(page.bodyText) || firstContentExcerpt(page.bodyText, 360);
+        const description = cleanServiceDescription(summarizePrimaryContent(page.bodyText) || firstContentExcerpt(page.bodyText, 360));
         if (!title || !description) return null;
         const image =
           curateImageUrls(page.images).find((candidate) => !isLikelyLogoImage(candidate, title)) ||
@@ -1089,10 +1089,18 @@ function buildServicesFromPages(pages: ScrapedPage[], fallbackImages: string[]):
           description,
           price: extractPriceLabel(page.bodyText),
           image,
+          icon: serviceIconName(title, index),
         };
       })
       .filter((service): service is CatteryScrapedService => Boolean(service)),
   );
+}
+
+function cleanServiceDescription(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  const text = cleanText(value);
+  if (isWeakDescription(text) || looksLikeNavigationCopy(text)) return '';
+  return text;
 }
 
 function buildHighlights(
@@ -1304,6 +1312,7 @@ function titleFromUrl(url: string): string {
 
 function firstContentExcerpt(text: string, maxChars: number): string {
   const cleaned = stripNavigationBoilerplate(text);
+  if (looksLikeNavigationCopy(cleaned)) return '';
   const sentences = sentenceList(cleaned)
     .filter((sentence) => sentence.length > 12)
     .filter((sentence) => !/^(home|about|contact|gallery|more|bottom of page|top of page)$/i.test(sentence))
@@ -1417,6 +1426,7 @@ function buildSiteContentLibrary(input: {
         text: service.description,
         price: service.price,
         image: service.image,
+        icon: service.icon,
       })),
     },
     {
@@ -1621,11 +1631,13 @@ function buildWebsiteSettings(input: {
       suites: roomCards,
     },
     servicesData: {
+      servicesEyebrow: 'Additional Services',
       servicesHeading: 'Care services',
       services: input.services.slice(0, 12).map((service, index) => ({
-        icon: ['Heart', 'Camera', 'Clock', 'Shield'][index] ?? 'Star',
+        icon: service.icon || serviceIconName(service.title, index),
         title: service.title,
-        description: service.price ? `${service.description} ${service.price}.` : service.description,
+        description: service.description,
+        price: service.price,
         image: service.image || input.images[index + 2] || input.heroImage,
       })),
     },
@@ -1861,7 +1873,64 @@ function summarizePrimaryContent(text: string): string {
 function isWeakDescription(value: string): boolean {
   const text = cleanText(value);
   if (!text || text.length < 20) return true;
+  if (looksLikeNavigationCopy(text)) return true;
   return /^(gallery|booking form|contact details|open hours|pricing|home|page not found)$/i.test(text);
+}
+
+function looksLikeNavigationCopy(value: string): boolean {
+  const text = cleanText(value);
+  if (!text) return true;
+  if (/^top of page\b/i.test(text)) return true;
+  if (/\bUse tab to navigate through the menu items\b/i.test(text)) return true;
+  const words = text.toLowerCase().split(/[^a-z]+/).filter(Boolean);
+  if (words.length < 6) return false;
+  const navWords = new Set([
+    'top',
+    'page',
+    'home',
+    'about',
+    'accomodation',
+    'accommodation',
+    'homestay',
+    'fees',
+    'feline',
+    'health',
+    'care',
+    'hyperbaric',
+    'oxygen',
+    'pulsed',
+    'electric',
+    'magnetic',
+    'field',
+    'therapy',
+    'pemf',
+    'hbot',
+    'integrative',
+    'gallery',
+    'professional',
+    'cat',
+    'grooming',
+    'rates',
+    'more',
+    'contact',
+    'booking',
+    'book',
+    'faq',
+  ]);
+  const navCount = words.filter((word) => navWords.has(word)).length;
+  return navCount >= 8 && navCount / words.length > 0.65;
+}
+
+function serviceIconName(title: string, index: number): string {
+  if (/brush|groom|matting|coat|fur/i.test(title)) return 'Scissors';
+  if (/medicine|medical|vet|health|oxygen|hbot|therapy|pemf/i.test(title)) return 'Stethoscope';
+  if (/electric|heat|blanket|warming/i.test(title)) return 'Zap';
+  if (/airport|flight/i.test(title)) return 'Plane';
+  if (/pickup|drop|transport|delivery/i.test(title)) return 'Car';
+  if (/photo|update|gallery/i.test(title)) return 'Camera';
+  if (/feed|diet|water|meal/i.test(title)) return 'Heart';
+  if (/hour|time|daily|room service/i.test(title)) return 'Clock';
+  return ['Scissors', 'Stethoscope', 'Zap', 'Car', 'Plane', 'Shield', 'Heart', 'Clock'][index % 8] || 'Star';
 }
 
 function sentenceList(text: string): string[] {
@@ -2218,12 +2287,58 @@ function cleanText(value: string): string {
 }
 
 function stripNavigationBoilerplate(value: string): string {
-  return value
+  return stripTopOfPageMenuTrail(value)
     .replace(/\btop of page\b[\s\S]{0,700}?\bUse tab to navigate through the menu items\.?/gi, ' ')
     .replace(/\btop of page\b(?:[\s,;/|&-]+(?:home|about|accomodation|accommodation|homestay|fees|feline|health|care|hyperbaric|oxygen|pulsed|electric|magnetic|field|therapy|pemf|hbot|integrative|gallery|professional|cat|grooming|rates|more|contact|suites|facilities|services|booking|book|faq|q|a|use|tab|navigate|through|menu|items)){3,}/gi, ' ')
     .replace(/\bHome\s+About\s+(?:Accomodation|Accommodation)[\s\S]{0,500}?\bMore\b/gi, ' ')
     .replace(/\bRing or text for an appointment\b/gi, ' ')
     .replace(/\bbottom of page\b/gi, ' ');
+}
+
+function stripTopOfPageMenuTrail(value: string): string {
+  return value.replace(/\btop of page\b[\s\S]{0,650}/gi, (match) => {
+    const words = match.toLowerCase().split(/[^a-z]+/).filter(Boolean);
+    const navWords = new Set([
+      'top',
+      'page',
+      'home',
+      'about',
+      'accomodation',
+      'accommodation',
+      'homestay',
+      'fees',
+      'feline',
+      'health',
+      'care',
+      'hyperbaric',
+      'oxygen',
+      'pulsed',
+      'electric',
+      'magnetic',
+      'field',
+      'therapy',
+      'pemf',
+      'hbot',
+      'integrative',
+      'gallery',
+      'professional',
+      'cat',
+      'grooming',
+      'rates',
+      'more',
+      'contact',
+      'booking',
+      'book',
+      'faq',
+      'use',
+      'tab',
+      'navigate',
+      'menu',
+      'items',
+    ]);
+    const navCount = words.filter((word) => navWords.has(word)).length;
+    return navCount >= 8 ? ' ' : match;
+  });
 }
 
 function decodeEntities(value: string): string {

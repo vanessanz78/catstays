@@ -50,14 +50,21 @@ const serviceIcons = [Scissors, Stethoscope, Zap, Car, Plane, ShieldCheck, Heart
 const namedCareIcons = {
   Shield: ShieldCheck,
   Heart: HeartHandshake,
+  HeartHandshake,
   Award,
   Star,
   Clock,
+  CalendarCheck,
   Camera,
   Home,
   Users,
   CheckCircle,
   Sparkles,
+  Scissors,
+  Stethoscope,
+  Zap,
+  Car,
+  Plane,
 };
 
 export function CatstaysTemplateSite({
@@ -850,7 +857,7 @@ function ServicesGrid({ content }: { content: ReturnType<typeof buildCatstaysTem
     <section id="services" className="mx-auto max-w-[1400px] scroll-mt-28 px-6 py-16">
       <div className="mb-10 flex flex-col gap-5 text-center sm:flex-row sm:items-end sm:justify-between sm:text-left">
         <div>
-          <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Additional Services</p>
+          <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">{content.sectionEyebrows.services}</p>
           <h2 className="max-w-3xl text-3xl leading-tight md:text-5xl">{content.sectionHeadings.services}</h2>
         </div>
         <div className="flex justify-center gap-2">
@@ -864,7 +871,7 @@ function ServicesGrid({ content }: { content: ReturnType<typeof buildCatstaysTem
       </div>
       <div ref={railRef} className="flex snap-x gap-5 overflow-x-auto px-1 pb-3 [scrollbar-width:thin]">
         {content.services.map((service, index) => {
-          const Icon = serviceIconFor(service.title, index);
+          const Icon = serviceIconFor(service.title, index, service.icon);
           return (
           <article key={service.title} className="flex min-w-[82vw] snap-start flex-col border border-[#222]/10 bg-white p-7 shadow-sm sm:min-w-[420px] lg:min-w-[460px]">
               <div className="mb-6 grid h-14 w-14 place-items-center rounded-full bg-[#f8f5ef] text-[#8c5b32]">
@@ -872,7 +879,7 @@ function ServicesGrid({ content }: { content: ReturnType<typeof buildCatstaysTem
               </div>
               <h3 className="font-serif text-2xl leading-tight">{service.title}</h3>
               {service.price ? <p className="mt-2 text-sm font-bold text-[#8c5b32]">{service.price}</p> : null}
-              <p className="mt-4 text-sm leading-6 text-[#444]">{service.text}</p>
+              {service.text ? <p className="mt-4 text-sm leading-6 text-[#444]">{service.text}</p> : null}
             </article>
           );
         })}
@@ -1182,7 +1189,9 @@ function ContactFormSection({
   );
 }
 
-function serviceIconFor(title: string, index: number) {
+function serviceIconFor(title: string, index: number, icon?: string) {
+  const ExplicitIcon = icon ? namedCareIcons[icon as keyof typeof namedCareIcons] : null;
+  if (ExplicitIcon) return ExplicitIcon;
   const normalized = title.toLowerCase();
   if (normalized.includes('brush') || normalized.includes('groom')) return Scissors;
   if (normalized.includes('medicine') || normalized.includes('vet')) return Stethoscope;

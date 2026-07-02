@@ -2,6 +2,21 @@
 
 Last updated: 2026-07-02
 
+## 2026-07-02 - Care Services Use Real Service Copy
+
+Decision: Care Services cards should be generated from real imported service, rates, grooming, health-care, or related source-page content, with editable eyebrow, heading, icon, title, description, price, and order.
+
+Reason: FancyFelines UAT showed service cards in the correct visual location, but their descriptions repeated navigation text such as `top of page Home About...` instead of meaningful service content.
+
+Impact:
+
+- Navigation/menu boilerplate must be stripped or rejected before service descriptions are saved.
+- Service prices should remain separate from descriptions so the Website Builder amount field controls the preview amount cleanly.
+- Service icons must be editable in the Website Builder and reflected in the live preview.
+- Service cards should be reorderable from the builder so owners can prioritize services without deleting/recreating cards.
+- If a real service has no usable description, the preview may show its title/price without invented filler copy.
+- UAT should confirm the Care Services row remains horizontally scrollable while showing clean imported service content.
+
 ## 2026-07-02 - Owner Story Must Be Owner Specific
 
 Decision: The owner story section should only render owner/team/story content that was extracted from the source site or entered by the owner.

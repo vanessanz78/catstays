@@ -43,6 +43,8 @@ Stabilise CatStays onboarding publish and imported website preview quality, with
 - Gallery generation now uses real imported/stored owner-site photos only, can reuse photos that already appear elsewhere on the page, and no longer pads the gallery with stock/filler cat images.
 - Owner story generation now only shows owner/team/story content when it was actually extracted or edited. It no longer falls back to the general About/business description or a stock image.
 - Imported navigation menu text such as `top of page Home About...` should be stripped before it is used as section or card copy.
+- Care Services now expose the `Additional Services` eyebrow, service heading, service icon, name, description, and price as editable builder fields. Service cards can be reordered from the collapsed card list, and generated previews no longer invent fallback service descriptions.
+- Imported service cards should be built from real service/rates/grooming/health-care source pages. Navigation-only excerpts must be rejected rather than saved as repeated card copy.
 - No root-level Architect Update exists yet.
 
 ## Next Actions
@@ -59,6 +61,7 @@ Stabilise CatStays onboarding publish and imported website preview quality, with
 10. UAT linked image import: paste a remote image URL, confirm it is copied to a CatStays/Supabase Storage URL, and confirm publishing does not depend on the original website image URL.
 11. UAT section editor order and copy: confirm Why Choose story, Purpose-built accommodation, Care Approach cards, and Boarding Options appear in the same order as the preview; Purpose-built should no longer show duplicate care-card controls; Boarding Options should expose editable bullet points.
 12. UAT owner story and gallery: reimport `https://fancyfelines.nz`, confirm the owner section is either real owner/story content or hidden, and confirm the gallery uses only captured CatStays/Supabase-owned source photos with no stock/filler images.
+13. UAT Care Services: confirm `Additional Services` eyebrow is editable, service icons are editable and reflected in preview, service cards can be drag-reordered, prices remain separate from descriptions, and no service description contains navigation text such as `top of page Home About...`.
 
 ## Decisions This Sprint
 
@@ -78,6 +81,7 @@ Stabilise CatStays onboarding publish and imported website preview quality, with
 - Treat owner story content as owner-specific. Do not fill the owner section with generic About copy.
 - Treat galleries as a place where previously used real photos may be reused; the no-repeat image rule is for distinct page sections, not gallery coverage.
 - Do not use stock/filler photography as a fallback in generated previews. Missing or blocked images should fail neutral until real imported/uploaded images are available.
+- Treat Care Services as real imported service content only. Service cards may show title/price without invented copy, but must not be filled with navigation boilerplate or generic placeholder descriptions.
 
 ## Risks Or Blockers
 
