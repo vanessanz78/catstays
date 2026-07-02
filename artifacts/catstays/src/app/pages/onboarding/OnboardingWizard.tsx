@@ -183,6 +183,70 @@ function offlinePublishMessage(message: string) {
   return message;
 }
 
+const ONBOARDING_STORAGE_KEY = 'catstays_onboarding';
+const ACCOUNT_STORAGE_KEY = 'catstays_account';
+
+function readStoredJson<T>(key: string): T | null {
+  if (typeof window === 'undefined') return null;
+  const raw = localStorage.getItem(key);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
+
+function isPublishedCheckpoint(value: any) {
+  if (!value) return false;
+  const storedStep = Number(value.step || 0);
+  return (
+    storedStep >= 8 ||
+    value.publishStatus === 'published' ||
+    Boolean(value.catteryId || value.data?.publishedCatteryId)
+  );
+}
+
+function saveOnboardingProgress({
+  step,
+  data,
+  accountCreated,
+  publishStatus,
+  catteryId,
+}: {
+  step: number;
+  data: any;
+  accountCreated: boolean;
+  publishStatus?: string;
+  catteryId?: string | null;
+}) {
+  if (typeof window === 'undefined') return;
+  const existing = readStoredJson<any>(ONBOARDING_STORAGE_KEY) || {};
+
+  if (isPublishedCheckpoint(existing) && step < 8) {
+    return;
+  }
+
+  localStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify({
+    ...existing,
+    step,
+    data,
+    accountCreated,
+    publishStatus: publishStatus ?? existing.publishStatus,
+    catteryId: catteryId ?? existing.catteryId,
+    updatedAt: new Date().toISOString(),
+  }));
+}
+
+function isPublishedAccount(account: any) {
+  return Boolean(
+    account?.catteryId ||
+    account?.status === 'confirmation_sent' ||
+    account?.status === 'published' ||
+    account?.status === 'confirmed'
+  );
+}
+
 export function OnboardingWizard() {
   const navigate = useNavigate();
   const { cattery, refreshCattery } = useAuth();
@@ -451,10 +515,38 @@ export function OnboardingWizard() {
       status: 'draft',
     };
     setAccountCreated(true);
-    localStorage.setItem('catstays_account', JSON.stringify(draftAccount));
-    localStorage.setItem('catstays_onboarding', JSON.stringify({ step: 2, data, accountCreated: true }));
+    localStorage.setItem(ACCOUNT_STORAGE_KEY, JSON.stringify(draftAccount));
+    saveOnboardingProgress({ step: 2, data, accountCreated: true });
     setIsSaving(false);
     setStep(2);
+  };
+
+  const handleContinueFromAccountReady = () => {
+    const account = readStoredJson<any>(ACCOUNT_STORAGE_KEY);
+    const saved = readStoredJson<any>(ONBOARDING_STORAGE_KEY);
+
+    if (isPublishedAccount(account) || isPublishedCheckpoint(saved)) {
+      const savedData = saved?.data || data;
+      const nextData = {
+        ...savedData,
+        emailConfirmed: Boolean(savedData.emailConfirmed || account?.emailConfirmed),
+        publishedCatteryId: savedData.publishedCatteryId || account?.catteryId,
+        subdomain: savedData.subdomain || account?.slug || data.subdomain,
+      };
+      setData(nextData);
+      setAccountCreated(true);
+      saveOnboardingProgress({
+        step: 8,
+        data: nextData,
+        accountCreated: true,
+        publishStatus: 'published',
+        catteryId: nextData.publishedCatteryId || account?.catteryId || null,
+      });
+      setStep(8);
+      return;
+    }
+
+    handleNext();
   };
 
   const handleImportWebsite = async () => {
@@ -499,7 +591,7 @@ export function OnboardingWizard() {
   const handleSaveProgress = async () => {
     setIsSaving(true);
     // Always save locally for resilience
-    localStorage.setItem('catstays_onboarding', JSON.stringify({ step, data, accountCreated }));
+    saveOnboardingProgress({ step, data, accountCreated });
 
     // Save cattery profile + website settings to Supabase if logged in
     if (cattery?.id) {
@@ -696,15 +788,19 @@ export function OnboardingWizard() {
   // Load saved progress and signup data on mount
   useEffect(() => {
     // Load saved account
-    const accountData = localStorage.getItem('catstays_account');
-    if (accountData) {
-      try {
-        const account = JSON.parse(accountData);
-        setAccountCreated(true);
-        setData(prev => ({ ...prev, name: account.name, email: account.email }));
-      } catch (e) {
-        console.error('Failed to load account data');
-      }
+    const account = readStoredJson<any>(ACCOUNT_STORAGE_KEY);
+    const accountWasPublished = isPublishedAccount(account);
+    if (account) {
+      setAccountCreated(true);
+      setData(prev => ({
+        ...prev,
+        name: account.name || prev.name,
+        email: account.email || prev.email,
+        businessName: account.businessName || prev.businessName,
+        subdomain: account.slug || prev.subdomain,
+        emailConfirmed: Boolean(account.emailConfirmed),
+        publishedCatteryId: account.catteryId || prev.publishedCatteryId,
+      }));
     }
 
     // Load signup data from modal (legacy)
@@ -722,38 +818,43 @@ export function OnboardingWizard() {
     }
 
     // Load saved onboarding progress
-    const saved = localStorage.getItem('catstays_onboarding');
+    const saved = readStoredJson<any>(ONBOARDING_STORAGE_KEY);
     if (saved) {
-      try {
-        const { step: savedStep, data: savedData, accountCreated: savedAccountCreated } = JSON.parse(saved);
-        setStep(savedStep);
-        setData(savedData);
-        if (savedAccountCreated) setAccountCreated(savedAccountCreated);
-      } catch (e) {
-        console.error('Failed to load saved progress');
-      }
+      const savedStep = Number(saved.step || 1);
+      const restoredStep = accountWasPublished && savedStep < 8 ? 8 : savedStep;
+      const restoredData = {
+        ...(saved.data || {}),
+        emailConfirmed: Boolean(saved.data?.emailConfirmed || account?.emailConfirmed),
+        publishedCatteryId: saved.data?.publishedCatteryId || account?.catteryId,
+        subdomain: saved.data?.subdomain || account?.slug || '',
+      };
+      setStep(restoredStep);
+      setData(restoredData);
+      if (saved.accountCreated || accountWasPublished) setAccountCreated(true);
+    } else if (accountWasPublished) {
+      setStep(8);
     }
   }, []);
 
   // Keep local progress synced so returning owners land on the correct step.
   useEffect(() => {
-    if (!accountCreated && step <= 1) return;
-    localStorage.setItem('catstays_onboarding', JSON.stringify({
+    if (step <= 1) return;
+    saveOnboardingProgress({
       step,
       data,
       accountCreated,
-    }));
+    });
   }, [step, data, accountCreated]);
 
   // Auto-save on unmount (when leaving the page)
   useEffect(() => {
     return () => {
       if (step > 1 && accountCreated) {
-        localStorage.setItem('catstays_onboarding', JSON.stringify({ 
-          step, 
-          data, 
-          accountCreated 
-        }));
+        saveOnboardingProgress({
+          step,
+          data,
+          accountCreated,
+        });
       }
     };
   }, [step, data, accountCreated]);
@@ -999,7 +1100,7 @@ export function OnboardingWizard() {
     const nextData = applyPreviewTemplate(data, template);
     setData(nextData);
     setShowTemplateSelection(false);
-    localStorage.setItem('catstays_onboarding', JSON.stringify({ step, data: nextData, accountCreated }));
+    saveOnboardingProgress({ step, data: nextData, accountCreated });
     setStep(Math.min(step + 1, totalSteps));
   };
 
@@ -1010,16 +1111,18 @@ export function OnboardingWizard() {
     try {
       let activeCatteryId = cattery?.id ?? null;
       const liveData = markPreviewSelectionLive(data);
+      let publishedSlug = liveData.subdomain;
+      let emailConfirmationRedirectUrl = '';
       setData(liveData);
 
       if (!activeCatteryId) {
         if (!liveData.name || !liveData.email || !liveData.password || (liveData.password || '').length < 8) {
-          setCreateAccountError('Please complete your account details before publishing.');
-          setStep(1);
+          setPaymentError('Please complete the account name, email, and password from the first step before publishing. Your setup is still saved.');
+          saveOnboardingProgress({ step: 7, data: liveData, accountCreated: true });
           return;
         }
 
-        localStorage.setItem('catstays_onboarding', JSON.stringify({ step, data: liveData, accountCreated: true }));
+        saveOnboardingProgress({ step: 7, data: liveData, accountCreated: true });
 
         const response = await fetch('/api/cattery/provision', {
           method: 'POST',
@@ -1032,6 +1135,8 @@ export function OnboardingWizard() {
           error?: string;
           catteryId?: string;
           slug?: string;
+          emailConfirmationSent?: boolean;
+          emailConfirmationRedirectUrl?: string;
         } = {};
 
         try {
@@ -1044,17 +1149,15 @@ export function OnboardingWizard() {
           const message = payload.error || publishErrorMessage(response.status, rawPayload);
           if (response.status === 409 && message.toLowerCase().includes('account')) {
             setCreateAccountError(message);
-            setAccountCreated(false);
           }
           throw new Error(message);
         }
 
         activeCatteryId = payload.catteryId || null;
-        if (payload.slug && payload.slug !== data.subdomain) {
-          setData((prev: any) => ({ ...prev, subdomain: payload.slug }));
-        }
+        publishedSlug = payload.slug || liveData.subdomain;
+        emailConfirmationRedirectUrl = payload.emailConfirmationRedirectUrl || '';
 
-        localStorage.setItem('catstays_account', JSON.stringify({
+        localStorage.setItem(ACCOUNT_STORAGE_KEY, JSON.stringify({
           name: liveData.name,
           email: liveData.email,
           businessName: liveData.businessName,
@@ -1110,13 +1213,26 @@ export function OnboardingWizard() {
         await refreshCattery();
       }
 
-      localStorage.setItem('catstays_onboarding', JSON.stringify({
+      const publishedData = {
+        ...liveData,
+        subdomain: publishedSlug,
+        publishedCatteryId: activeCatteryId,
+        publishStatus: 'published',
+        emailConfirmationSent: true,
+        emailConfirmationRedirectUrl,
+        selectedPlan,
+      };
+
+      saveOnboardingProgress({
         step: 8,
-        data: liveData,
+        data: publishedData,
         accountCreated: true,
-      }));
+        publishStatus: 'published',
+        catteryId: activeCatteryId,
+      });
 
       // Move to success screen
+      setData(publishedData);
       setStep(8);
     } catch (error) {
       const message = error instanceof Error
@@ -1377,7 +1493,7 @@ export function OnboardingWizard() {
                     </div>
 
                     <Button
-                      onClick={handleNext}
+                      onClick={handleContinueFromAccountReady}
                       size="lg"
                       className="w-full bg-[#C46A3A] hover:bg-[#A85A30] text-white rounded-xl py-7 text-lg shadow-lg"
                     >
@@ -2037,11 +2153,13 @@ export function OnboardingWizard() {
             onGoToWebsite={() => window.open(`https://${data.subdomain}.catstays.app`, '_blank', 'noopener,noreferrer')}
             onContinueToDataImport={() => {
               setStep(9);
-              localStorage.setItem('catstays_onboarding', JSON.stringify({
+              saveOnboardingProgress({
                 step: 9,
                 data,
                 accountCreated,
-              }));
+                publishStatus: 'published',
+                catteryId: data.publishedCatteryId || null,
+              });
             }}
             businessData={data}
             subscriptionTier={selectedPlan}

@@ -27,6 +27,7 @@ function resolvePublicAppUrl() {
 }
 
 const PUBLIC_APP_URL = resolvePublicAppUrl();
+const CONFIRM_EMAIL_REDIRECT_URL = `${PUBLIC_APP_URL}/confirm-email`;
 const supabaseUrl = readEnvValue('VITE_SUPABASE_URL');
 const supabaseAnonKey = readEnvValue('VITE_SUPABASE_ANON_KEY');
 const supabaseServiceKey = readEnvValue('SUPABASE_SERVICE_ROLE_KEY');
@@ -288,7 +289,7 @@ router.post('/cattery/provision', async (req: Request, res: Response) => {
           full_name: ownerName,
           business_name: businessName,
         },
-        emailRedirectTo: `${PUBLIC_APP_URL}/confirm-email`,
+        emailRedirectTo: CONFIRM_EMAIL_REDIRECT_URL,
       },
     });
 
@@ -377,6 +378,7 @@ router.post('/cattery/provision', async (req: Request, res: Response) => {
       catteryId: cattery.id,
       slug: requestedSlug,
       emailConfirmationSent: true,
+      emailConfirmationRedirectUrl: CONFIRM_EMAIL_REDIRECT_URL,
     });
   } catch (err: unknown) {
     console.error('[cattery/provision]', err);

@@ -21,6 +21,7 @@
 - Added editable review and FAQ eyebrows/headings, kept imported review/FAQ lists instead of placeholder fallbacks, added show/hide controls for website display, and filtered repeated navigation-style FAQ answers.
 - Added editable footer quick links with section-anchor selection, included FAQs in generated footer links when available, and made footer hours mirror Contact / Location hours.
 - Hardened the Publish handler so duplicate-account conflicts stay on the Publish step with the inline error instead of resetting to step 1.
+- Hardened post-publish onboarding state so a successfully provisioned but unconfirmed Supabase Auth user is restored to the Success step instead of the Account step, and frontend confirmation URLs no longer fall back to localhost.
 
 ## 2026-07-01
 

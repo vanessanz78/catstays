@@ -21,6 +21,7 @@ Stabilise CatStays onboarding publish and imported website preview quality, with
 - On 2026-07-01, the duplicate-email publish loop was fixed in `artifacts/api-server/src/routes/cattery.ts`.
 - On 2026-07-02, the client Publish handler was also hardened so a 409 account conflict no longer forces step 1 before the Publish-step error display can show the message.
 - The fix changes duplicate signup/provisioning email errors so the Publish step can show an inline error instead of sending the user back to step 1.
+- On 2026-07-02 UAT with `kiaora@vanessa.nz` showed the fresh-email publish path still created a Supabase Auth user and sent the confirmation email, but returned the owner to the Account step. The latest local fix treats published-but-unconfirmed users as a Success-step checkpoint and prevents Account-step autosave from overwriting that checkpoint.
 - Duplicate email detection comes from Supabase Auth users (`auth.users` / Authentication > Users), not OAuth Apps and not the public `customers` table.
 - Replit's database module may exist in the workspace, but the publish/provisioning route uses Supabase Auth and Supabase tables, not the Replit Postgres database.
 - `.replit` now sets `CATSTAYS_APP_URL` and `VITE_PUBLIC_APP_URL` to `https://catstays.app` so confirmation URLs prefer the live app URL instead of a Replit development preview origin.
@@ -59,8 +60,8 @@ Stabilise CatStays onboarding publish and imported website preview quality, with
 4. Confirm generated previews do not use the FancyFelines logo/wordmark as hero/header photography and do not show broken image boxes.
 5. Confirm the Care Approach and Boarding Options card rows are centered and responsive when there are only three or two cards, and confirm Boarding Options becomes a horizontal scroll rail when more than three suites exist.
 6. Confirm Professional Cat Grooming, Q&A/FAQs, collaborations, health care, HBOT, PEMF, and other source-site pages appear as appropriate one-page sections or FAQs, and that FAQs are available to the chatbot/footer.
-7. Re-run publish UAT with both existing and fresh Auth emails: existing emails should stay on Publish with an inline error; fresh emails should complete provisioning.
-8. Confirm email confirmation redirect URLs still point to the live CatStays URL. If links open a development/auth URL, verify Supabase Auth URL Configuration and additional redirect URLs.
+7. Re-run publish UAT with both existing and fresh Auth emails: existing emails should stay on Publish with an inline error; fresh emails should complete provisioning and land on Success, not Account.
+8. Confirm email confirmation redirect URLs point to `https://catstays.app/confirm-email`, not `http://localhost:3000`. If links open a development/auth URL, verify Supabase Auth URL Configuration and additional redirect URLs.
 9. UAT Website Builder hero edits: edit `A home away from home`, hide one CTA using `None`, change CTA anchors, hover the hero preview image to adjust X/Y/Zoom, switch templates, and confirm the text/buttons/crop persist.
 10. UAT linked image import: paste a remote image URL, confirm it is copied to a CatStays/Supabase Storage URL, and confirm publishing does not depend on the original website image URL.
 11. UAT section editor order and copy: confirm Why Choose story, Purpose-built accommodation, Care Approach cards, and Boarding Options appear in the same order as the preview; Purpose-built should no longer show duplicate care-card controls; Boarding Options should expose editable bullet points.
@@ -75,6 +76,7 @@ Stabilise CatStays onboarding publish and imported website preview quality, with
 - Add root-level sprint and decision documents so future Codex chats have a stable project entry point.
 - Treat duplicate-email publish failures as Publish-step errors rather than account-step resets.
 - Do not call `setStep(1)` from the Publish handler for duplicate-account provisioning conflicts; keep the owner on Publish with the inline error.
+- Treat successful publish as the durable onboarding checkpoint even while Supabase email confirmation is pending; do not let the Account step overwrite a published Success state.
 - Treat Supabase Authentication > Users as the source of truth for signup email uniqueness.
 - Pin Replit public app URL values to `https://catstays.app` for confirmation email redirects.
 - Treat the owner website import as a source-site capture step before template generation: crawl/capture relevant pages and images, then map that indexed content into the one-page preview.

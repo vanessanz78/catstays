@@ -205,6 +205,20 @@ Impact:
 - Setup context is preserved.
 - Replit UAT should confirm both duplicate-email and fresh-email publish paths.
 
+## 2026-07-02 - Published But Unconfirmed Accounts Stay On Success
+
+Decision: Treat a successful publish/provision response as the durable onboarding checkpoint even when Supabase email confirmation is still pending.
+
+Reason: Fresh-email UAT showed Supabase Authentication created the user and sent a confirmation email, but the owner was sent back to the Account step. That state is not an OAuth duplicate. It is a valid Supabase Auth user waiting for confirmation, so the setup must restore the Success step and preserve the completed cattery data instead of restarting the wizard.
+
+Impact:
+
+- The Publish handler no longer sends owners back to step 1 when account details are missing at publish time; it stays on Publish with an inline message.
+- A saved published checkpoint cannot be overwritten by the account-ready screen.
+- The Account-ready continue action returns published owners to Success when a cattery id, published checkpoint, or confirmation-pending account is already stored.
+- Frontend-generated confirmation URLs ignore localhost/dev origins and fall back to `https://catstays.app/confirm-email`.
+- Supabase Auth URL Configuration still needs to keep Site URL and additional redirects pointed at the live CatStays confirmation route.
+
 ## Open Decisions
 
 - Whether to add a formal root-level Architect Update file for CatStays.
