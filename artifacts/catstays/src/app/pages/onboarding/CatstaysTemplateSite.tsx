@@ -932,8 +932,8 @@ function FaqSection({ content }: { content: ReturnType<typeof buildCatstaysTempl
   return (
     <section id="faqs" className="scroll-mt-28 bg-white px-6 py-16">
       <div className="mx-auto max-w-[1100px]">
-        <p className="mb-3 text-center text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Questions and answers</p>
-        <h2 className="text-center text-3xl leading-tight md:text-5xl">Helpful things to know</h2>
+        <p className="mb-3 text-center text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">{content.sectionEyebrows.faqs}</p>
+        <h2 className="text-center text-3xl leading-tight md:text-5xl">{content.sectionHeadings.faqs}</h2>
         <div className="mt-10 grid gap-4">
           {content.faqs.slice(0, 10).map((faq) => (
             <article key={faq.question} className="rounded-md border border-[#222]/10 bg-[#f8f5ef] p-5 shadow-sm">
@@ -961,7 +961,7 @@ function ReviewsSection({ content }: { content: ReturnType<typeof buildCatstaysT
       <div className="mx-auto max-w-[1400px]">
         <div className="mb-10 flex flex-col gap-5 text-center sm:flex-row sm:items-end sm:justify-between sm:text-left">
           <div>
-            <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Reviews</p>
+            <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">{content.sectionEyebrows.reviews}</p>
             <h2 className="text-3xl leading-tight md:text-5xl">{content.sectionHeadings.reviews}</h2>
           </div>
           <div className="flex justify-center gap-2">
@@ -1424,7 +1424,6 @@ function TemplateFooter({
   onPreviewAnchorClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
 }) {
   const linkClass = `block underline-offset-4 hover:underline ${dark ? 'text-white/75 hover:text-white' : 'text-[#444] hover:text-[#222]'}`;
-  const virtualTourUrl = embeddableVirtualTourUrl(content.locationDetails.virtualTourUrl, content.contentLibrary.sourceHost);
   const socialLinkClass = `inline-flex h-9 w-9 items-center justify-center rounded-full border transition ${dark ? 'border-white/15 text-white/75 hover:border-white/40 hover:text-white' : 'border-[#222]/10 text-[#444] hover:border-[#222]/30 hover:text-[#222]'}`;
 
   return (
@@ -1438,20 +1437,9 @@ function TemplateFooter({
         <div>
           <h4 className="mb-4 text-xs font-bold uppercase tracking-[0.16em]">Quick Links</h4>
           <nav className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-            <a href="#home" onClick={onPreviewAnchorClick} className={linkClass}>Home</a>
-            <a href="#about" onClick={onPreviewAnchorClick} className={linkClass}>About</a>
-            <a href="#care" onClick={onPreviewAnchorClick} className={linkClass}>Care</a>
-            <a href="#facilities" onClick={onPreviewAnchorClick} className={linkClass}>Facilities</a>
-            <a href="#suites" onClick={onPreviewAnchorClick} className={linkClass}>Rooms</a>
-            <a href="#services" onClick={onPreviewAnchorClick} className={linkClass}>Extra Care</a>
-            <a href="#gallery" onClick={onPreviewAnchorClick} className={linkClass}>Gallery</a>
-            <a href="#reviews" onClick={onPreviewAnchorClick} className={linkClass}>Reviews</a>
-            {content.customSections.map((section) => (
-              <a key={section.id} href={`#${section.id}`} onClick={onPreviewAnchorClick} className={linkClass}>{section.title}</a>
+            {content.footer.links.map((link) => (
+              <a key={`${link.label}-${link.href}`} href={link.href} onClick={onPreviewAnchorClick} className={linkClass}>{link.label}</a>
             ))}
-            {content.faqs.length ? <a href="#faqs" onClick={onPreviewAnchorClick} className={linkClass}>FAQs</a> : null}
-            <a href="#location" onClick={onPreviewAnchorClick} className={linkClass}>Location</a>
-            {virtualTourUrl ? <a href="#virtual-tour" onClick={onPreviewAnchorClick} className={linkClass}>Virtual Tour</a> : null}
           </nav>
         </div>
         <div>

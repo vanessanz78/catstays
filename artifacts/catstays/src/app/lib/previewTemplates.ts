@@ -100,10 +100,13 @@ export interface CatstaysTemplateContent {
     services: string;
     gallery: string;
     reviews: string;
+    faqs: string;
     contact: string;
   };
   sectionEyebrows: {
     services: string;
+    reviews: string;
+    faqs: string;
   };
   features: Array<{
     title: string;
@@ -164,6 +167,7 @@ export interface CatstaysTemplateContent {
     author: string;
     image: string;
     location: string;
+    rating: number;
   }>;
   faqs: Array<{
     question: string;
@@ -208,6 +212,10 @@ export interface CatstaysTemplateContent {
     hours: string;
     facebook: string;
     instagram: string;
+    links: Array<{
+      label: string;
+      href: string;
+    }>;
   };
   contentLibrary: CatterySiteContentLibrary;
 }
@@ -504,18 +512,22 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const services = (editedServices ?? (record?.services?.length ? record.services : libraryServices.length ? libraryItemsToServices(libraryServices) : normalizedServices)).filter(Boolean);
   const editedTestimonials = Array.isArray(data.testimonials) ? data.testimonials : undefined;
   const testimonials = ensureReviewFallback(
-    (
-      editedTestimonials ??
-      normalizedRecord.testimonialsData?.testimonials ??
-      data.testimonialsData?.testimonials ??
-      libraryItemsToReviews(libraryReviews) ??
-      []
-    ).filter(Boolean),
+    normalizeEditableReviews(
+      (
+        editedTestimonials ??
+        normalizedRecord.testimonialsData?.testimonials ??
+        data.testimonialsData?.testimonials ??
+        libraryItemsToReviews(libraryReviews) ??
+        []
+      ).filter(Boolean),
+    ),
     businessName,
     stringFrom(record?.source.host, normalized.sourceHost, data.sourceHost),
   );
   const editedFaqs = Array.isArray(data.faqs) ? data.faqs : undefined;
-  const faqs = (editedFaqs ?? normalizedRecord.faqData?.faqs ?? data.faqData?.faqs ?? record?.faqs ?? libraryItemsToFaqs(libraryFaqs) ?? []).filter(Boolean);
+  const faqs = normalizeEditableFaqs(
+    (editedFaqs ?? normalizedRecord.faqData?.faqs ?? data.faqData?.faqs ?? record?.faqs ?? libraryItemsToFaqs(libraryFaqs) ?? []).filter(Boolean),
+  );
   const ownerData = data.ownerData ?? normalizedRecord.ownerData ?? {};
   const ownerTitle = stringFrom(ownerData.title, ownerBlock?.title, `Meet the people behind ${businessName}`);
   const ownerText = contentStringFrom(ownerData.text, ownerData.description, ownerBlock?.text);
@@ -531,8 +543,8 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     ...((data.socialLinks ?? {}) as Record<string, unknown>),
   };
   const hours = stringFrom(
-    data.hours,
     data.contactData?.hours,
+    data.hours,
     normalizedRecord.hours,
     normalizedRecord.contactData?.hours,
     record?.normalizedPreviewData?.hours,
@@ -631,6 +643,46 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const facilitiesTitle = contentStringFrom(data.facilitiesHeading, facilitiesBlock?.title, 'Our Facilities');
   const facilitiesText = contentStringFrom(data.facilitiesText, facilitiesBlock?.text, 'Comfortable, secure spaces designed around daily cat care, quiet routines, and peace of mind.');
 
+  const customSections = (Array.isArray(data.customSections) && data.customSections.length ? data.customSections : sourceSections)
+    .map((section: any) => ({
+      id: slugify(stringFrom(section.id, section.title, section.heading, 'source-section')),
+      title: stringFrom(section.title, section.heading),
+      text: stringFrom(section.text, section.description, section.content),
+      items: Array.isArray(section.items)
+        ? section.items
+            .map((item: any) => ({
+              title: stringFrom(item.title, item.name),
+              text: stringFrom(item.text, item.description, item.answer),
+            }))
+            .filter((item: any) => item.title || item.text)
+        : [],
+      images: uniqueStrings([
+        section.media,
+        ...(Array.isArray(section.images) ? section.images.map((image: any) => stringFrom(image.url, image.image, image)) : []),
+      ])
+        .filter((image: string) => isUsableGalleryImage(image, logoImage))
+        .slice(0, 6),
+    }))
+    .filter((section) => section.title && section.text)
+    .slice(0, 8);
+  const footerLinks = normalizeFooterLinks(
+    Array.isArray(data.footerLinks) && data.footerLinks.length
+      ? data.footerLinks
+      : defaultFooterLinks({
+          hasAbout: Boolean(primaryDescription || aboutImage),
+          hasCare: Boolean(careApproachTitle || whyChooseItems.length),
+          hasFacilities: Boolean(facilitiesTitle || facilityImage),
+          hasSuites: Boolean(rooms.length || (editedRooms?.length ?? 0)),
+          hasServices: Boolean(services.length),
+          hasGallery: Boolean(galleryImages.length),
+          hasReviews: Boolean(testimonials.some((review) => review.showOnWebsite !== false)),
+          hasFaqs: Boolean(faqs.some((faq) => faq.showOnWebsite !== false)),
+          hasLocation: Boolean(locationData || data.address || normalized.address),
+          hasVirtualTour: Boolean(virtualTourUrl),
+          customSections,
+        }),
+  );
+
   return {
     business: {
       name: businessName,
@@ -669,10 +721,13 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       services: stringFrom(data.additionalServicesHeading, 'Extra care when your cat needs it'),
       gallery: stringFrom(data.galleryHeading, 'A closer look at the stay'),
       reviews: stringFrom(data.testimonialsHeading, 'Trusted by cat families'),
+      faqs: stringFrom(data.faqHeading, 'Frequently Asked Questions'),
       contact: stringFrom(data.contactHeading, 'Send us a message'),
     },
     sectionEyebrows: {
       services: stringFrom(data.additionalServicesEyebrow, normalizedRecord.additionalServicesEyebrow, normalizedRecord.servicesData?.servicesEyebrow, 'Additional Services'),
+      reviews: stringFrom(data.testimonialsEyebrow, normalizedRecord.testimonialsEyebrow, normalizedRecord.testimonialsData?.testimonialsEyebrow, 'Reviews'),
+      faqs: stringFrom(data.faqEyebrow, normalizedRecord.faqEyebrow, normalizedRecord.faqData?.faqEyebrow, 'Questions and answers'),
     },
     features: featureItems,
     whyChoose: {
@@ -714,11 +769,14 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       caption: stringFrom(record?.media.galleryImages?.[index]?.caption, `${businessName} photo ${index + 1}`),
     })),
     suites: editedRooms && editedRooms.length === 0 ? [] : ensureSuiteCount(rooms, sectionImages, data.pricePerNight || normalized.pricePerNight, usedImages),
-    testimonials: ensureTestimonials(testimonials, businessName, sectionImages, heroImage, data.testimonialImage),
-    faqs: faqs.map((faq: any) => ({
-      question: stringFrom(faq.question),
-      answer: stringFrom(faq.answer),
-    })).filter((faq) => faq.question && faq.answer),
+    testimonials: ensureTestimonials(testimonials.filter((review) => review.showOnWebsite !== false), businessName, sectionImages, heroImage, data.testimonialImage),
+    faqs: faqs
+      .filter((faq) => faq.showOnWebsite !== false)
+      .map((faq: any) => ({
+        question: stringFrom(faq.question),
+        answer: stringFrom(faq.answer),
+      }))
+      .filter((faq) => faq.question && faq.answer),
     owner: {
       title: ownerTitle,
       text: ownerText,
@@ -741,28 +799,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       directions: stringFrom(locationData.directions, locationBlock?.items?.[0]?.text, data.location, normalized.location),
       virtualTourUrl,
     },
-    customSections: (Array.isArray(data.customSections) && data.customSections.length ? data.customSections : sourceSections)
-      .map((section: any) => ({
-        id: slugify(stringFrom(section.id, section.title, section.heading, 'source-section')),
-        title: stringFrom(section.title, section.heading),
-        text: stringFrom(section.text, section.description, section.content),
-        items: Array.isArray(section.items)
-          ? section.items
-              .map((item: any) => ({
-                title: stringFrom(item.title, item.name),
-                text: stringFrom(item.text, item.description, item.answer),
-              }))
-              .filter((item: any) => item.title || item.text)
-          : [],
-        images: uniqueStrings([
-          section.media,
-          ...(Array.isArray(section.images) ? section.images.map((image: any) => stringFrom(image.url, image.image, image)) : []),
-        ])
-          .filter((image: string) => isUsableGalleryImage(image, logoImage))
-          .slice(0, 6),
-      }))
-      .filter((section) => section.title && section.text)
-      .slice(0, 8),
+    customSections,
     booking: {
       text: stringFrom(data.bookingText, "Check availability and secure your cat's holiday today."),
       bannerText: stringFrom(data.bookingBannerText, "Check availability and secure your cat's stay today."),
@@ -776,6 +813,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       hours,
       facebook: stringFrom(data.facebookUrl, socialLinks.facebook),
       instagram: stringFrom(data.instagramUrl, socialLinks.instagram),
+      links: footerLinks,
     },
     contentLibrary,
   };
@@ -870,6 +908,119 @@ function normalizeEditableServices(items: unknown): Array<{ title: string; descr
       icon: stringFrom(item?.icon),
     }))
     .filter((item) => item.title || item.description || item.price || item.image);
+}
+
+function normalizeEditableReviews(items: unknown): Array<{ name: string; text: string; rating: number; location: string; image: string; showOnWebsite: boolean }> {
+  if (!Array.isArray(items)) return [];
+  const seen = new Set<string>();
+  return items
+    .map((item: any) => {
+      const name = contentStringFrom(item?.name, item?.author, item?.customer, item?.title);
+      const text = contentStringFrom(item?.text, item?.quote, item?.description);
+      const rating = clampNumber(item?.rating, 1, 5, 5);
+      const location = contentStringFrom(item?.location, item?.meta);
+      const image = stringFrom(item?.image);
+      const showOnWebsite = item?.showOnWebsite !== false && item?.hiddenOnWebsite !== true && item?.websiteHidden !== true;
+      return { name, text, rating, location, image, showOnWebsite };
+    })
+    .filter((item) => item.name || item.text)
+    .filter((item) => {
+      const key = `${item.name.toLowerCase()}-${item.text.toLowerCase().slice(0, 100)}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+function normalizeEditableFaqs(items: unknown): Array<{ question: string; answer: string; showOnWebsite: boolean }> {
+  if (!Array.isArray(items)) return [];
+  const seenQuestions = new Set<string>();
+  const seenAnswers = new Set<string>();
+  return items
+    .map((item: any) => {
+      const question = contentStringFrom(item?.question, item?.title);
+      const answer = contentStringFrom(item?.answer, item?.text, item?.description);
+      const showOnWebsite = item?.showOnWebsite !== false && item?.hiddenOnWebsite !== true && item?.websiteHidden !== true;
+      return { question, answer, showOnWebsite };
+    })
+    .filter((item) => item.question && item.answer && !looksLikeNavigationCopy(item.answer))
+    .filter((item) => {
+      const questionKey = item.question.toLowerCase();
+      const answerKey = item.answer.toLowerCase();
+      if (seenQuestions.has(questionKey)) return false;
+      if (answerKey.length > 60 && seenAnswers.has(answerKey)) return false;
+      seenQuestions.add(questionKey);
+      if (answerKey.length > 60) seenAnswers.add(answerKey);
+      return true;
+    });
+}
+
+function normalizeFooterLinks(items: unknown): Array<{ label: string; href: string }> {
+  if (!Array.isArray(items)) return [];
+  const seen = new Set<string>();
+  return items
+    .map((item: any) => ({
+      label: contentStringFrom(item?.label, item?.title, item?.name),
+      href: normalizeFooterHref(stringFrom(item?.href, item?.anchor, item?.url)),
+    }))
+    .filter((item) => item.label && item.href)
+    .filter((item) => {
+      const key = `${item.label.toLowerCase()}-${item.href.toLowerCase()}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, 16);
+}
+
+function normalizeFooterHref(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  if (trimmed.startsWith('#')) return trimmed;
+  if (/^[a-z0-9-]+$/i.test(trimmed)) return `#${trimmed}`;
+  return '';
+}
+
+function defaultFooterLinks({
+  hasAbout,
+  hasCare,
+  hasFacilities,
+  hasSuites,
+  hasServices,
+  hasGallery,
+  hasReviews,
+  hasFaqs,
+  hasLocation,
+  hasVirtualTour,
+  customSections,
+}: {
+  hasAbout: boolean;
+  hasCare: boolean;
+  hasFacilities: boolean;
+  hasSuites: boolean;
+  hasServices: boolean;
+  hasGallery: boolean;
+  hasReviews: boolean;
+  hasFaqs: boolean;
+  hasLocation: boolean;
+  hasVirtualTour: boolean;
+  customSections: Array<{ id: string; title: string }>;
+}) {
+  return [
+    { label: 'Home', href: '#home' },
+    hasAbout ? { label: 'About', href: '#about' } : null,
+    hasCare ? { label: 'Care', href: '#care' } : null,
+    hasFacilities ? { label: 'Facilities', href: '#facilities' } : null,
+    hasSuites ? { label: 'Suites', href: '#suites' } : null,
+    hasServices ? { label: 'Extra Care', href: '#services' } : null,
+    hasGallery ? { label: 'Gallery', href: '#gallery' } : null,
+    hasReviews ? { label: 'Reviews', href: '#reviews' } : null,
+    ...customSections.map((section) => ({ label: section.title, href: `#${section.id}` })),
+    hasFaqs ? { label: 'FAQs', href: '#faqs' } : null,
+    hasLocation ? { label: 'Location', href: '#location' } : null,
+    hasVirtualTour ? { label: 'Virtual Tour', href: '#virtual-tour' } : null,
+    { label: 'Contact', href: '#contact' },
+  ].filter(Boolean);
 }
 
 function libraryItemsToReviews(items: ReturnType<typeof libraryItems>) {
@@ -1034,7 +1185,9 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
     additionalServicesEyebrow: textFrom('additionalServicesEyebrow', normalized.servicesData?.servicesEyebrow, normalized.servicesData?.eyebrow, block('services')?.eyebrow),
     additionalServicesHeading: textFrom('additionalServicesHeading', normalized.servicesData?.servicesHeading, normalized.servicesData?.heading, block('services')?.title),
     galleryHeading: textFrom('galleryHeading', normalized.galleryData?.galleryHeading, normalized.galleryData?.heading, block('gallery')?.title),
+    testimonialsEyebrow: textFrom('testimonialsEyebrow', normalized.testimonialsData?.testimonialsEyebrow, normalized.testimonialsData?.eyebrow, block('reviews')?.eyebrow),
     testimonialsHeading: textFrom('testimonialsHeading', normalized.testimonialsData?.testimonialsHeading, normalized.testimonialsData?.heading, block('reviews')?.title),
+    faqEyebrow: textFrom('faqEyebrow', normalized.faqData?.faqEyebrow, normalized.faqData?.eyebrow, block('faqs')?.eyebrow),
     faqHeading: textFrom('faqHeading', normalized.faqData?.faqHeading, normalized.faqData?.heading, block('faqs')?.title),
     ownerData: cleanData.ownerData ?? normalized.ownerData ?? (ownerBlock ? { title: ownerBlock.title, text: ownerBlock.text, image: ownerBlock.images?.[0]?.url } : undefined),
     locationData: cleanData.locationData ?? normalized.locationData ?? (locationBlock ? {
@@ -1085,18 +1238,19 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
       mapImagesToUrls(record?.media.galleryImages ?? []),
       record?.media.images,
     ),
-    testimonials: arrayFrom(
+    testimonials: normalizeEditableReviews(arrayFrom(
       'testimonials',
       normalized.testimonialsData?.testimonials,
       mapItemsToReviews(blockItems('reviews')),
       mapItemsToReviews(record?.contentLibrary?.blocks.find((candidate) => candidate.category === 'reviews')?.items ?? []),
-    ),
-    faqs: arrayFrom(
+    )),
+    faqs: normalizeEditableFaqs(arrayFrom(
       'faqs',
       normalized.faqData?.faqs,
       mapItemsToFaqs(blockItems('faqs')),
       record?.faqs,
-    ),
+    )),
+    footerLinks: normalizeFooterLinks(arrayFrom('footerLinks', normalized.footerLinks)),
     customSections: arrayFrom('customSections', sourceContentSections(contentLibrary)),
   };
 }
@@ -1399,19 +1553,13 @@ function ensureTestimonials(
       author: stringFrom(testimonial.name, testimonial.author, testimonial.customer, 'Guest family'),
       image: imageFrom(testimonial.image, index === 0 ? testimonialImage : undefined, images[index + 4], images[index], heroImage),
       location: stringFrom(testimonial.location),
+      rating: clampNumber(testimonial.rating, 1, 5, 5),
     }))
     .filter((testimonial) => testimonial.quote);
 
   if (mapped.length) return mapped.slice(0, 10);
 
-  return [
-    {
-      quote: "I built this because I needed it, and now I wouldn't run my cattery without it.",
-      author: 'Vanessa',
-      image: imageFrom(testimonialImage, images[3], heroImage),
-      location: businessName,
-    },
-  ];
+  return [];
 }
 
 function hostFromUrl(rawUrl: string) {

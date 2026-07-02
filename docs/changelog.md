@@ -18,6 +18,8 @@
 - Copied scraped owner-site image URLs into CatStays-owned Supabase Storage during website import when storage is configured, and stopped gallery generation from excluding real photos just because they were already used elsewhere.
 - Tightened owner story generation so it only renders real owner/team/story content and no longer borrows generic About copy or stock imagery.
 - Tightened Care Services import/editor behavior so service descriptions reject navigation boilerplate, prices stay separate, the `Additional Services` eyebrow and icons are editable, and service cards can be reordered in the builder.
+- Added editable review and FAQ eyebrows/headings, kept imported review/FAQ lists instead of placeholder fallbacks, added show/hide controls for website display, and filtered repeated navigation-style FAQ answers.
+- Added editable footer quick links with section-anchor selection, included FAQs in generated footer links when available, and made footer hours mirror Contact / Location hours.
 - Hardened the Publish handler so duplicate-account conflicts stay on the Publish step with the inline error instead of resetting to step 1.
 
 ## 2026-07-01

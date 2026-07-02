@@ -45,6 +45,10 @@ Stabilise CatStays onboarding publish and imported website preview quality, with
 - Imported navigation menu text such as `top of page Home About...` should be stripped before it is used as section or card copy.
 - Care Services now expose the `Additional Services` eyebrow, service heading, service icon, name, description, and price as editable builder fields. Service cards can be reordered from the collapsed card list, and generated previews no longer invent fallback service descriptions.
 - Imported service cards should be built from real service/rates/grooming/health-care source pages. Navigation-only excerpts must be rejected rather than saved as repeated card copy.
+- Reviews now expose editable eyebrow and heading fields, keep all imported reviews instead of collapsing to one fallback testimonial, and support per-review show/hide state for website display.
+- FAQ/Q&A imports now merge explicit FAQ pages, Q&A/question pages, and extracted source FAQ content; navigation boilerplate and repeated answers are rejected before FAQs are shown in the builder, website, footer, or chatbot knowledge.
+- Footer quick links are editable builder data with add/delete controls and section anchor selection. Generated footer links include FAQs when FAQ content exists and render from the saved link list instead of hardcoded labels.
+- Footer hours now mirror the Contact / Location hours saved in builder data, so edited operating hours can appear in both the contact section and the footer.
 - No root-level Architect Update exists yet.
 
 ## Next Actions
@@ -62,6 +66,9 @@ Stabilise CatStays onboarding publish and imported website preview quality, with
 11. UAT section editor order and copy: confirm Why Choose story, Purpose-built accommodation, Care Approach cards, and Boarding Options appear in the same order as the preview; Purpose-built should no longer show duplicate care-card controls; Boarding Options should expose editable bullet points.
 12. UAT owner story and gallery: reimport `https://fancyfelines.nz`, confirm the owner section is either real owner/story content or hidden, and confirm the gallery uses only captured CatStays/Supabase-owned source photos with no stock/filler images.
 13. UAT Care Services: confirm `Additional Services` eyebrow is editable, service icons are editable and reflected in preview, service cards can be drag-reordered, prices remain separate from descriptions, and no service description contains navigation text such as `top of page Home About...`.
+14. UAT Reviews: confirm all imported source reviews appear in Website Builder, the `Reviews` eyebrow and `Trusted cat care` heading are editable, and hiding a review removes it from the website carousel without deleting it from builder data.
+15. UAT FAQs: confirm Q&A/FAQ/question source pages populate the FAQ editor, footer quick links include FAQs, visible FAQs are available to the chatbot, and repeated navigation-style answers are not shown.
+16. UAT Footer: add and delete a quick link, select a real page section from the dropdown, confirm the footer link anchors correctly, and confirm footer hours match the Contact / Location hours after editing.
 
 ## Decisions This Sprint
 
@@ -82,6 +89,8 @@ Stabilise CatStays onboarding publish and imported website preview quality, with
 - Treat galleries as a place where previously used real photos may be reused; the no-repeat image rule is for distinct page sections, not gallery coverage.
 - Do not use stock/filler photography as a fallback in generated previews. Missing or blocked images should fail neutral until real imported/uploaded images are available.
 - Treat Care Services as real imported service content only. Service cards may show title/price without invented copy, but must not be filled with navigation boilerplate or generic placeholder descriptions.
+- Treat reviews and FAQs as editable imported content lists, not single template placeholders. Dashboard-approved reviews should eventually feed the same show/hide website display path.
+- Treat footer links and footer hours as generated defaults that become saved builder state once edited; links must point to real sections and hours must mirror Contact / Location data.
 
 ## Risks Or Blockers
 

@@ -2,6 +2,22 @@
 
 Last updated: 2026-07-02
 
+## 2026-07-02 - Reviews, FAQs, And Footer Are Editable Content
+
+Decision: Reviews, FAQs, footer quick links, and footer hours are editable builder content derived from imported source data and saved owner edits.
+
+Reason: FancyFelines UAT showed only one review, repeated FAQ/navigation copy, footer links without add/select controls, and stale footer hours even after Contact / Location hours were edited.
+
+Impact:
+
+- Import should collect all usable reviews/testimonials, not replace them with a single generic testimonial.
+- Each review can be shown or hidden on the website without deleting it from builder data; future dashboard review approvals should feed this same visibility path.
+- Q&A, FAQ, frequently asked questions, and questions pages should map to the FAQ editor, website FAQ section, footer quick links, and chatbot knowledge.
+- FAQ answers must reject repeated navigation/menu text and duplicated boilerplate.
+- Footer quick links should be generated from real page sections, then editable with add/delete controls and an anchor selector.
+- Footer hours should mirror Contact / Location hours so owners do not need to edit the same hours in two places.
+- UAT should confirm the footer FAQ link, chatbot FAQ answers, show/hide review toggles, and edited hours all survive template switches.
+
 ## 2026-07-02 - Care Services Use Real Service Copy
 
 Decision: Care Services cards should be generated from real imported service, rates, grooming, health-care, or related source-page content, with editable eyebrow, heading, icon, title, description, price, and order.

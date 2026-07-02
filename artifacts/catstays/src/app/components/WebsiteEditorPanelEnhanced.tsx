@@ -95,6 +95,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       <option value="#services">Extra care / services</option>
       <option value="#gallery">Gallery</option>
       <option value="#reviews">Reviews</option>
+      <option value="#faqs">FAQs</option>
       <option value="#location">Location</option>
       <option value="#virtual-tour">Virtual tour</option>
       <option value="#contact">Contact</option>
@@ -171,6 +172,36 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
     const [moved] = newServices.splice(fromIndex, 1);
     newServices.splice(toIndex, 0, moved);
     setAdditionalServices(newServices);
+  };
+
+  const generatedFooterLinks: any[] = [
+    { label: 'Home', href: '#home' },
+    data.aboutHeading || data.aboutText ? { label: 'About', href: '#about' } : null,
+    data.careApproachHeading || data.whyChooseUsHeading ? { label: 'Care', href: '#care' } : null,
+    data.facilitiesHeading || data.facilitiesImage ? { label: 'Facilities', href: '#facilities' } : null,
+    Array.isArray(data.suites) && data.suites.length ? { label: 'Suites', href: '#suites' } : null,
+    Array.isArray(data.additionalServices) && data.additionalServices.length ? { label: 'Extra Care', href: '#services' } : null,
+    Array.isArray(data.galleryImages) && data.galleryImages.length ? { label: 'Gallery', href: '#gallery' } : null,
+    Array.isArray(data.testimonials) && data.testimonials.some((review: any) => review?.showOnWebsite !== false) ? { label: 'Reviews', href: '#reviews' } : null,
+    ...(Array.isArray(data.customSections)
+      ? data.customSections
+          .filter((section: any) => section?.heading || section?.title)
+          .map((section: any) => ({
+            label: section.heading || section.title,
+            href: `#${String(section.id || section.heading || section.title || 'section').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}`,
+          }))
+      : []),
+    Array.isArray(data.faqs) && data.faqs.some((faq: any) => faq?.showOnWebsite !== false) ? { label: 'FAQs', href: '#faqs' } : null,
+    { label: 'Location', href: '#location' },
+    data.virtualTourUrl || data.locationData?.virtualTourUrl ? { label: 'Virtual Tour', href: '#virtual-tour' } : null,
+    { label: 'Contact', href: '#contact' },
+  ].filter(Boolean);
+  const footerLinks: any[] = Array.isArray(data.footerLinks) && data.footerLinks.length ? data.footerLinks : generatedFooterLinks;
+
+  const setFooterLink = (index: number, updates: Record<string, string>) => {
+    const links = [...footerLinks];
+    links[index] = { ...(links[index] || {}), ...updates };
+    setData({ ...data, footerLinks: links });
   };
 
   const renderCarePointEditor = () => (
@@ -1254,6 +1285,16 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-2">
+            <Label>Section Eyebrow</Label>
+            <Input
+              value={data.testimonialsEyebrow || 'Reviews'}
+              onChange={(e) => setData({ ...data, testimonialsEyebrow: e.target.value })}
+              placeholder="Reviews"
+              className="rounded-lg"
+            />
+          </div>
+
+          <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label>Section Heading</Label>
               <Button
@@ -1292,11 +1333,13 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
               </Button>
             </div>
 
-            {(Array.isArray(data.testimonials) ? data.testimonials : [
-              { name: 'Sarah M.', text: 'Absolutely wonderful! My cat Whiskers loves it here.', rating: 5 },
-              { name: 'James T.', text: 'Professional, caring, and spotlessly clean. Highly recommend!', rating: 5 },
-              { name: 'Emma L.', text: 'I travel worry-free knowing my cats are in great hands.', rating: 5 }
-            ]).map((testimonial: any, index: number) => (
+            {(Array.isArray(data.testimonials) ? data.testimonials : []).length === 0 ? (
+              <p className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-600">
+                No reviews captured yet.
+              </p>
+            ) : null}
+
+            {(Array.isArray(data.testimonials) ? data.testimonials : []).map((testimonial: any, index: number) => (
               <div key={index} className="border rounded-lg p-4 space-y-3 bg-gray-50">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-gray-700">Testimonial {index + 1}</span>
@@ -1312,6 +1355,20 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
                     <X className="w-4 h-4" />
                   </Button>
                 </div>
+
+                <label className="flex items-center gap-2 text-xs font-medium text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={testimonial.showOnWebsite !== false}
+                    onChange={(e) => {
+                      const testimonials = [...(data.testimonials || [])];
+                      testimonials[index] = { ...testimonials[index], showOnWebsite: e.target.checked };
+                      setData({ ...data, testimonials });
+                    }}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  Show on website
+                </label>
 
                 <div className="space-y-2">
                   <Label className="text-xs">Customer Name</Label>
@@ -1386,6 +1443,16 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-2">
+            <Label>Section Eyebrow</Label>
+            <Input
+              value={data.faqEyebrow || 'Questions and answers'}
+              onChange={(e) => setData({ ...data, faqEyebrow: e.target.value })}
+              placeholder="Questions and answers"
+              className="rounded-lg"
+            />
+          </div>
+
+          <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label>Section Heading</Label>
               <Button
@@ -1424,11 +1491,13 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
               </Button>
             </div>
 
-            {(Array.isArray(data.faqs) ? data.faqs : [
-              { question: 'What are your check-in times?', answer: 'Check-in is between 9 AM - 12 PM, and check-out is 3 PM - 6 PM.' },
-              { question: 'Do you require vaccinations?', answer: 'Yes, all cats must be up-to-date on vaccinations for everyone\'s safety.' },
-              { question: 'Can I visit my cat during their stay?', answer: 'We recommend letting cats settle in, but video updates are sent daily.' }
-            ]).map((faq: any, index: number) => (
+            {(Array.isArray(data.faqs) ? data.faqs : []).length === 0 ? (
+              <p className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-600">
+                No FAQs captured yet.
+              </p>
+            ) : null}
+
+            {(Array.isArray(data.faqs) ? data.faqs : []).map((faq: any, index: number) => (
               <div key={index} className="border rounded-lg p-4 space-y-3 bg-gray-50">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-gray-700">Question {index + 1}</span>
@@ -1444,6 +1513,20 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
                     <X className="w-4 h-4" />
                   </Button>
                 </div>
+
+                <label className="flex items-center gap-2 text-xs font-medium text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={faq.showOnWebsite !== false}
+                    onChange={(e) => {
+                      const faqs = [...(data.faqs || [])];
+                      faqs[index] = { ...faqs[index], showOnWebsite: e.target.checked };
+                      setData({ ...data, faqs });
+                    }}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  Show on website and chatbot
+                </label>
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -1602,7 +1685,11 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
             <Label>Hours of Operation</Label>
             <Textarea
               value={data.hours || ''}
-              onChange={(e) => setData({ ...data, hours: e.target.value })}
+              onChange={(e) => setData({
+                ...data,
+                hours: e.target.value,
+                contactData: { ...(data.contactData || {}), hours: e.target.value },
+              })}
               placeholder="Mon-Fri: 9am-6pm&#10;Sat-Sun: 10am-4pm"
               className="rounded-lg"
               rows={3}
@@ -1868,12 +1955,48 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
           </p>
 
           <div className="space-y-2">
-            <Label>Quick Links</Label>
-            <div className="flex flex-wrap gap-2">
-              {['Home', 'About', 'Care', 'Facilities', 'Suites', 'Gallery', 'Reviews', 'Location', data.virtualTourUrl ? 'Virtual Tour' : '', 'Contact'].filter(Boolean).map((label) => (
-                <span key={label} className="rounded-full border border-[#C46A3A]/30 bg-[#F8F7F5] px-3 py-1 text-xs font-semibold text-[#0A1128]">
-                  {label}
-                </span>
+            <div className="flex items-center justify-between">
+              <Label>Quick Links</Label>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setData({
+                  ...data,
+                  footerLinks: [...footerLinks, { label: '', href: '#home' }],
+                })}
+                className="text-xs h-7"
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                Add Link
+              </Button>
+            </div>
+            <div className="space-y-3">
+              {footerLinks.map((link: any, index: number) => (
+                <div key={`${link.label}-${link.href}-${index}`} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                  <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Label</Label>
+                      <Input
+                        value={link.label || ''}
+                        onChange={(e) => setFooterLink(index, { label: e.target.value })}
+                        placeholder="FAQs"
+                        className="h-9 rounded-lg text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Section</Label>
+                      {renderAnchorSelect(link.href || '#home', (value) => setFooterLink(index, { href: value }))}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setData({ ...data, footerLinks: footerLinks.filter((_: any, i: number) => i !== index) })}
+                      className="h-9 w-9 p-0 text-red-500 hover:text-red-700"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
               ))}
             </div>
           </div>

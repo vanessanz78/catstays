@@ -1162,14 +1162,11 @@ function buildFaqs(bundle: string, supplementalPages: ScrapedPage[], searchableT
     .filter((faq) => faq.question && faq.answer);
 
   const explicitFaqs = uniqueByQuestion([...templateMatches, ...stringMatches]).slice(0, 20);
-  if (explicitFaqs.length) return explicitFaqs;
-
   const pageFaqs = uniqueByQuestion(
     supplementalPages
-      .filter((page) => /q-a|faq|question/i.test(`${page.url} ${page.title} ${page.heading}`))
-      .flatMap((page) => extractFaqsFromText(page.bodyText)),
+      .filter((page) => /q-a|q-and-a|q\s*&\s*a|faq|frequently-asked|question/i.test(`${page.url} ${page.title} ${page.heading}`))
+      .flatMap((page) => extractFaqsFromText(`${page.heading} ${page.bodyText}`)),
   ).slice(0, 20);
-  if (pageFaqs.length) return pageFaqs;
 
   const vaccinationText = pageText(supplementalPages, /vaccination/i);
   const hoursText = pageText(supplementalPages, /open-hours|contact-hours|hours/i);
@@ -1177,7 +1174,7 @@ function buildFaqs(bundle: string, supplementalPages: ScrapedPage[], searchableT
   const termsText = pageText(supplementalPages, /terms|conditions/i);
   const homeText = searchableText;
 
-  return uniqueByQuestion(
+  const fallbackFaqs = uniqueByQuestion(
     [
       {
         question: 'What vaccinations are required?',
@@ -1222,6 +1219,8 @@ function buildFaqs(bundle: string, supplementalPages: ScrapedPage[], searchableT
     ]
       .filter((faq) => faq.answer),
   ).slice(0, 12);
+
+  return uniqueByQuestion([...explicitFaqs, ...pageFaqs, ...fallbackFaqs]).slice(0, 20);
 }
 
 function extractFaqsFromText(text: string): Array<{ question: string; answer: string }> {
@@ -1235,7 +1234,8 @@ function extractFaqsFromText(text: string): Array<{ question: string; answer: st
       const answer = firstContentExcerpt(cleaned.slice(answerStart, answerEnd), 420);
       return { question, answer };
     })
-    .filter((faq) => faq.question && faq.answer && !/navigation|menu|top of page/i.test(faq.question));
+    .filter((faq) => faq.question && faq.answer && !/navigation|menu|top of page/i.test(faq.question))
+    .filter((faq) => !looksLikeNavigationCopy(faq.answer));
 }
 
 function buildSourcePageBlocks(pages: ScrapedPage[], businessName: string): CatterySiteContentBlock[] {
@@ -1276,7 +1276,7 @@ function buildSourcePageBlocks(pages: ScrapedPage[], businessName: string): Catt
 
 function sourcePageCategory(page: ScrapedPage): string {
   const haystack = `${page.url} ${page.title} ${page.heading}`.toLowerCase();
-  if (/q-a|faq|question/.test(haystack)) return 'faqs';
+  if (/q-a|q-and-a|q\s*&\s*a|faq|frequently-asked|question/.test(haystack)) return 'faqs';
   if (/gallery|photo|portfolio/.test(haystack)) return 'gallery';
   if (/contact|location|hours?/.test(haystack)) return 'contact';
   if (/groom/.test(haystack)) return 'grooming';
@@ -1646,9 +1646,12 @@ function buildWebsiteSettings(input: {
       galleryImages: curatedGalleryImages,
     },
     faqData: {
+      faqEyebrow: 'Questions and answers',
+      faqHeading: 'Frequently Asked Questions',
       faqs: input.faqs,
     },
     testimonialsData: {
+      testimonialsEyebrow: 'Reviews',
       testimonialsHeading: 'Guest reviews',
       testimonials: input.reviews,
     },
@@ -1663,6 +1666,7 @@ function buildWebsiteSettings(input: {
       virtualTourUrl: input.virtualTourUrl,
       locationDetails: input.locationDetails,
     },
+    footerLinks: buildFooterLinks(input),
     roomTypes: input.rooms.map((room) => ({
       name: room.name,
       numberOfRooms: '1',
@@ -1678,6 +1682,30 @@ function buildWebsiteSettings(input: {
         discountValue: '',
       })),
   };
+}
+
+function buildFooterLinks(input: {
+  rooms: CatteryScrapedRoom[];
+  services: CatteryScrapedService[];
+  galleryImages: Array<{ url: string; caption: string }>;
+  reviews: CatteryScrapedReview[];
+  faqs: Array<{ question: string; answer: string }>;
+  virtualTourUrl: string;
+}) {
+  return [
+    { label: 'Home', href: '#home' },
+    { label: 'About', href: '#about' },
+    { label: 'Care', href: '#care' },
+    { label: 'Facilities', href: '#facilities' },
+    input.rooms.length ? { label: 'Suites', href: '#suites' } : null,
+    input.services.length ? { label: 'Extra Care', href: '#services' } : null,
+    input.galleryImages.length ? { label: 'Gallery', href: '#gallery' } : null,
+    input.reviews.length ? { label: 'Reviews', href: '#reviews' } : null,
+    input.faqs.length ? { label: 'FAQs', href: '#faqs' } : null,
+    { label: 'Location', href: '#location' },
+    input.virtualTourUrl ? { label: 'Virtual Tour', href: '#virtual-tour' } : null,
+    { label: 'Contact', href: '#contact' },
+  ].filter(Boolean);
 }
 
 function extractReadableBundleText(bundle: string): string[] {
@@ -1814,16 +1842,14 @@ function buildReviews(bundle: string, bodyText: string, supplementalPages: Scrap
     })
     .filter((review) => review.name && review.text && !/Vanessa|Paul/i.test(review.name));
 
-  if (reviews.length) return uniqueByReview(reviews).slice(0, 8);
-
-  const galleryText = pageText(supplementalPages, /gallery|review|testimonial/i);
+  const galleryText = pageText(supplementalPages, /gallery|review|testimonial|recommendation/i);
   const galleryReviews = extractReviewsFromPageText(galleryText);
-  if (galleryReviews.length) return uniqueByReview(galleryReviews).slice(0, 8);
 
+  const fallbackReviews: CatteryScrapedReview[] = [];
   if (/review\/widgetJs|revelationpets\.com\?s=review/i.test(`${bundle} ${bodyText}`)) {
-    return REVELATION_PETS_REVIEW_FALLBACKS;
+    fallbackReviews.push(...REVELATION_PETS_REVIEW_FALLBACKS);
   }
-  return [];
+  return uniqueByReview([...reviews, ...galleryReviews, ...fallbackReviews]).slice(0, 12);
 }
 
 function buildSiteDescription(
@@ -2246,10 +2272,14 @@ function uniqueByTitle(items: Array<{ title: string; description: string }>) {
 
 function uniqueByQuestion(items: Array<{ question: string; answer: string }>) {
   const seen = new Set<string>();
+  const seenAnswers = new Set<string>();
   return items.filter((item) => {
     const key = item.question.toLowerCase();
+    const answerKey = cleanText(item.answer).toLowerCase();
     if (seen.has(key)) return false;
+    if (answerKey.length > 60 && seenAnswers.has(answerKey)) return false;
     seen.add(key);
+    if (answerKey.length > 60) seenAnswers.add(answerKey);
     return true;
   });
 }
