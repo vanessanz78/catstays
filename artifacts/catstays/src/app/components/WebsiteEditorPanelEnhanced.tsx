@@ -48,6 +48,10 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
     setExpandedItems(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
+  const heroImagePositionX = numberWithFallback(data.heroImageObjectPositionX, 50);
+  const heroImagePositionY = numberWithFallback(data.heroImageObjectPositionY, 50);
+  const heroImageScale = numberWithFallback(data.heroImageScale, 100);
+
   // Helper to render icon options
   const renderIconSelect = (value: string, onChange: (value: string) => void, className?: string) => (
     <select
@@ -74,6 +78,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       onChange={(e) => onChange(e.target.value)}
       className="w-full h-10 px-3 rounded-lg border border-gray-300"
     >
+      <option value="">None</option>
       <option value="#booking">Booking strip</option>
       <option value="#about">About</option>
       <option value="#care">Care approach</option>
@@ -96,6 +101,16 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
           <span className="font-semibold">{sectionTitles.hero}</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
+          <div className="space-y-2">
+            <Label>Hero Eyebrow</Label>
+            <Input
+              value={data.heroEyebrow ?? 'A home away from home'}
+              onChange={(e) => setData({ ...data, heroEyebrow: e.target.value })}
+              placeholder="A home away from home"
+              className="rounded-lg"
+            />
+          </div>
+
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label>Hero Heading</Label>
@@ -144,14 +159,44 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
           <ImageUpload
             label="Hero Image"
             value={data.heroImage || ''}
-            onChange={(url) => setData({ ...data, heroImage: url })}
+            onChange={(url, meta) => setData({
+              ...data,
+              heroImage: url,
+              heroImageOwned: meta?.owned ?? data.heroImageOwned,
+              heroImageSourceUrl: meta?.sourceUrl ?? data.heroImageSourceUrl,
+              heroImageStoragePath: meta?.storagePath ?? data.heroImageStoragePath,
+            })}
           />
+
+          <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+            <HeroImageControl
+              label="Horizontal"
+              value={heroImagePositionX}
+              min={0}
+              max={100}
+              onChange={(value) => setData({ ...data, heroImageObjectPositionX: value })}
+            />
+            <HeroImageControl
+              label="Vertical"
+              value={heroImagePositionY}
+              min={0}
+              max={100}
+              onChange={(value) => setData({ ...data, heroImageObjectPositionY: value })}
+            />
+            <HeroImageControl
+              label="Zoom"
+              value={heroImageScale}
+              min={100}
+              max={180}
+              onChange={(value) => setData({ ...data, heroImageScale: value })}
+            />
+          </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Primary Button Text</Label>
               <Input
-                value={data.heroPrimaryCtaText || 'Discover Our Suites'}
+                value={data.heroPrimaryCtaText ?? 'Discover Our Suites'}
                 onChange={(e) => setData({ ...data, heroPrimaryCtaText: e.target.value })}
                 placeholder="Discover Our Suites"
                 className="rounded-lg"
@@ -159,12 +204,12 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
             </div>
             <div className="space-y-2">
               <Label>Primary Button Link</Label>
-              {renderAnchorSelect(data.heroPrimaryCtaHref || '#suites', (value) => setData({ ...data, heroPrimaryCtaHref: value }))}
+              {renderAnchorSelect(data.heroPrimaryCtaHref ?? '#suites', (value) => setData({ ...data, heroPrimaryCtaHref: value }))}
             </div>
             <div className="space-y-2">
               <Label>Secondary Button Text</Label>
               <Input
-                value={data.heroSecondaryCtaText || 'Our Care Approach'}
+                value={data.heroSecondaryCtaText ?? 'Our Care Approach'}
                 onChange={(e) => setData({ ...data, heroSecondaryCtaText: e.target.value })}
                 placeholder="Our Care Approach"
                 className="rounded-lg"
@@ -172,7 +217,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
             </div>
             <div className="space-y-2">
               <Label>Secondary Button Link</Label>
-              {renderAnchorSelect(data.heroSecondaryCtaHref || '#care', (value) => setData({ ...data, heroSecondaryCtaHref: value }))}
+              {renderAnchorSelect(data.heroSecondaryCtaHref ?? '#care', (value) => setData({ ...data, heroSecondaryCtaHref: value }))}
             </div>
           </div>
         </AccordionContent>
@@ -1819,5 +1864,41 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
         </AccordionContent>
       </AccordionItem>
     </Accordion>
+  );
+}
+
+function numberWithFallback(value: unknown, fallback: number) {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function HeroImageControl({
+  label,
+  value,
+  min,
+  max,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 flex items-center justify-between text-xs font-semibold text-gray-600">
+        <span>{label}</span>
+        <span>{value}</span>
+      </span>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        value={value}
+        onChange={(event) => onChange(Number(event.currentTarget.value))}
+        className="w-full accent-[#C46A3A]"
+      />
+    </label>
   );
 }

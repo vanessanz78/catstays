@@ -30,6 +30,9 @@ Stabilise CatStays onboarding publish and imported website preview quality, with
 - Imported preview templates now show source-page sections, include FAQs in navigation/footer/chatbot knowledge, use fallback imagery for broken source images, and center short card rows such as three care cards or two suite cards.
 - Demo routes now support imported slugs such as `/demo/fancyfelines`, `/demo/fancyfelines/dashboard`, and `/demo/fancyfelines/client` while preserving the legacy Deloraine routes.
 - The onboarding cattery setup Location field now prefers the imported full address over a city/business slug, and manual/Google address edits update the stored address as well as the visible location.
+- Website builder hero edits now include the editable eyebrow text, primary/secondary CTA text and anchor links with a `None` option, and saved hero image position/zoom controls.
+- Linked image URLs should be copied into CatStays-owned Supabase Storage through `/api/website/copy-image` and the `catstays-media` bucket, rather than relying on the original owner website URL long term.
+- Builder edits should persist automatically through local onboarding autosave, Supabase `website_settings`, and template switches; switching templates must not overwrite owner-edited copy, images, CTA choices, or crop settings with the original import defaults.
 - No root-level Architect Update exists yet.
 
 ## Next Actions
@@ -42,6 +45,8 @@ Stabilise CatStays onboarding publish and imported website preview quality, with
 6. Confirm Professional Cat Grooming, Q&A/FAQs, collaborations, health care, HBOT, PEMF, and other source-site pages appear as appropriate one-page sections or FAQs, and that FAQs are available to the chatbot/footer.
 7. Re-run publish UAT with both existing and fresh Auth emails: existing emails should stay on Publish with an inline error; fresh emails should complete provisioning.
 8. Confirm email confirmation redirect URLs still point to the live CatStays URL. If links open a development/auth URL, verify Supabase Auth URL Configuration and additional redirect URLs.
+9. UAT Website Builder hero edits: edit `A home away from home`, hide one CTA using `None`, change CTA anchors, hover the hero preview image to adjust X/Y/Zoom, switch templates, and confirm the text/buttons/crop persist.
+10. UAT linked image import: paste a remote image URL, confirm it is copied to a CatStays/Supabase Storage URL, and confirm publishing does not depend on the original website image URL.
 
 ## Decisions This Sprint
 
@@ -53,6 +58,8 @@ Stabilise CatStays onboarding publish and imported website preview quality, with
 - Do not use owner logos, wordmarks, favicons, or brand-only graphics as hero/header/gallery photos in generated previews.
 - When source content exceeds the default template sections, add editable one-page sections instead of dropping the content.
 - Treat the imported full address as the onboarding Location value when available; do not fall back to a business name, slug, or host-derived value if an address was extracted.
+- Treat linked owner-site images as temporary source URLs only. Before publish, CatStays should copy them to owned Supabase Storage and store the owned URL in builder data.
+- Treat website builder fields as autosaved state. There should not be a separate Save button requirement for ordinary copy, image, CTA, or template/color edits.
 
 ## Risks Or Blockers
 
@@ -61,6 +68,8 @@ Stabilise CatStays onboarding publish and imported website preview quality, with
 - Replit UAT is still required before considering the publish-loop and imported-preview fixes fully verified.
 - Supabase Auth URL Configuration must allow the live CatStays confirmation URL.
 - Some third-party websites may block images or hide content behind client-side rendering; CatStays should fail soft with captured source sections and safe image fallbacks rather than showing broken preview boxes.
+- The existing Supabase Edge Function used by `ImageUpload` is not present in this repo snapshot. Replit UAT should confirm the new repository-backed `/api/website/copy-image` route is reachable in the deployed environment and that the `SUPABASE_SERVICE_ROLE_KEY` secret is available to the API server.
+- If the remote image copy route is unavailable, pasted image URLs are rejected with a message to try another URL or upload a file; the builder should not silently save fragile hot-linked images.
 
 ## Local Cleanup Notes
 

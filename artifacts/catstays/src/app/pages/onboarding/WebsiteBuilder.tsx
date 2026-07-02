@@ -260,7 +260,14 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
       );
     }
 
-    return <CatstaysTemplateSite data={data} templateId={template} embedded />;
+    return (
+      <CatstaysTemplateSite
+        data={data}
+        templateId={template}
+        embedded
+        onDataChange={(updates) => setData({ ...data, ...updates })}
+      />
+    );
   };
 
   // TEMPLATE 1: Boutique Luxury - Large hero, elegant serif headings, minimal layout, ALL 14 SECTIONS

@@ -8,6 +8,9 @@
 - Added imported source sections and FAQ output to generated one-page previews so pages such as grooming, health care, HBOT, PEMF, collaborations, and Q&A have a place in the preview and builder data.
 - Centered short preview card rows for care, facility, and suite sections when there are only one, two, or three cards.
 - Added imported demo slug routes such as `/demo/fancyfelines`, `/demo/fancyfelines/dashboard`, and `/demo/fancyfelines/client` while preserving legacy Deloraine routes.
+- Added Website Builder hero eyebrow editing, CTA link `None` options, template-rendered primary/secondary hero buttons, and hover X/Y/Zoom controls for hero image positioning.
+- Preserved owner-edited builder copy, image choices, CTA choices, and hero image crop settings across template switches and Supabase `website_settings` save/load.
+- Added a repository-backed `/api/website/copy-image` route and `catstays-media` Supabase Storage bucket definition so pasted image URLs can be copied to CatStays-owned storage instead of being treated as durable hot-links.
 
 ## 2026-07-01
 

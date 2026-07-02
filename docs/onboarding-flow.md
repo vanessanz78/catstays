@@ -30,6 +30,9 @@ Older project notes mention a 7-step onboarding flow. That should be treated as 
 - Imported cattery setup data now prefers the full source-site address for Location, and Google/manual address edits update the saved address value.
 - Generated previews filter likely logos/wordmarks out of hero/header/gallery photos and fall back safely when a source image is broken or unusable.
 - Imported demo URLs can use the imported business slug, such as `/demo/fancyfelines`, instead of always using `/demo/deloraine`.
+- Website builder hero controls include editable eyebrow text, primary/secondary CTA controls with a `None` option, and saved hero image X/Y/Zoom settings visible on hover in the generated preview.
+- Pasted image URLs are routed through the CatStays API so they can be copied into the `catstays-media` Supabase Storage bucket before publish instead of relying on the source website forever.
+- Builder state is autosaved locally and into Supabase website settings, and template changes should preserve owner-edited copy, images, buttons, and crop settings.
 - Guided setup exists for catteries with no current website.
 - Website builder preview exists.
 - Room setup and booking rules exist.
@@ -48,6 +51,7 @@ Older project notes mention a 7-step onboarding flow. That should be treated as 
 - Data import needs validated sample files and mapping review.
 - Import UAT must keep expanding across varied cattery sites so CatStays handles more than the original Deloraine structure.
 - The website builder still needs a fuller editor review for imported custom sections, source-page ordering, and chatbot knowledge controls.
+- Replit UAT must confirm the deployed API has `SUPABASE_SERVICE_ROLE_KEY` and can copy remote image URLs into Supabase Storage through `/api/website/copy-image`.
 
 ## Target Experience
 

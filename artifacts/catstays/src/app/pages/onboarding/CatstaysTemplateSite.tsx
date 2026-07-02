@@ -39,6 +39,7 @@ interface CatstaysTemplateSiteProps {
   templateId?: PreviewTemplateId | string | null;
   embedded?: boolean;
   previewDevice?: PreviewDevice;
+  onDataChange?: (updates: Record<string, any>) => void;
 }
 
 type PreviewDevice = 'mobile' | 'tablet' | 'desktop';
@@ -66,6 +67,7 @@ export function CatstaysTemplateSite({
   templateId,
   embedded = false,
   previewDevice = 'desktop',
+  onDataChange,
 }: CatstaysTemplateSiteProps) {
   const template = normalizePreviewTemplateId(templateId || data.selectedTemplate || 'conversion-focus');
   const content = buildCatstaysTemplateContent(data);
@@ -97,12 +99,12 @@ export function CatstaysTemplateSite({
   };
 
   if (template === 'editorial-guide') {
-    return <EditorialTemplate content={content} embedded={embedded} previewDevice={previewDevice} onPreviewAnchorClick={handlePreviewAnchorClick} onPreviewBookingAction={handlePreviewBookingAction} onPreviewBookingInteraction={handlePreviewBookingInteraction} onPreviewContactAction={handlePreviewContactAction} previewNoticeKind={previewNoticeKind} onDismissPreviewNotice={() => setPreviewNoticeKind(null)} />;
+    return <EditorialTemplate content={content} embedded={embedded} previewDevice={previewDevice} onDataChange={onDataChange} onPreviewAnchorClick={handlePreviewAnchorClick} onPreviewBookingAction={handlePreviewBookingAction} onPreviewBookingInteraction={handlePreviewBookingInteraction} onPreviewContactAction={handlePreviewContactAction} previewNoticeKind={previewNoticeKind} onDismissPreviewNotice={() => setPreviewNoticeKind(null)} />;
   }
   if (template === 'modern-showcase') {
-    return <ShowcaseTemplate content={content} embedded={embedded} previewDevice={previewDevice} onPreviewAnchorClick={handlePreviewAnchorClick} onPreviewBookingAction={handlePreviewBookingAction} onPreviewBookingInteraction={handlePreviewBookingInteraction} onPreviewContactAction={handlePreviewContactAction} previewNoticeKind={previewNoticeKind} onDismissPreviewNotice={() => setPreviewNoticeKind(null)} />;
+    return <ShowcaseTemplate content={content} embedded={embedded} previewDevice={previewDevice} onDataChange={onDataChange} onPreviewAnchorClick={handlePreviewAnchorClick} onPreviewBookingAction={handlePreviewBookingAction} onPreviewBookingInteraction={handlePreviewBookingInteraction} onPreviewContactAction={handlePreviewContactAction} previewNoticeKind={previewNoticeKind} onDismissPreviewNotice={() => setPreviewNoticeKind(null)} />;
   }
-  return <FocusTemplate content={content} embedded={embedded} previewDevice={previewDevice} onPreviewAnchorClick={handlePreviewAnchorClick} onPreviewBookingAction={handlePreviewBookingAction} onPreviewBookingInteraction={handlePreviewBookingInteraction} onPreviewContactAction={handlePreviewContactAction} previewNoticeKind={previewNoticeKind} onDismissPreviewNotice={() => setPreviewNoticeKind(null)} />;
+  return <FocusTemplate content={content} embedded={embedded} previewDevice={previewDevice} onDataChange={onDataChange} onPreviewAnchorClick={handlePreviewAnchorClick} onPreviewBookingAction={handlePreviewBookingAction} onPreviewBookingInteraction={handlePreviewBookingInteraction} onPreviewContactAction={handlePreviewContactAction} previewNoticeKind={previewNoticeKind} onDismissPreviewNotice={() => setPreviewNoticeKind(null)} />;
 }
 
 function templateRootStyle(content: ReturnType<typeof buildCatstaysTemplateContent>): CSSProperties {
@@ -131,6 +133,90 @@ function fontFamilyFor(font: string, role: 'heading' | 'body') {
   };
 
   return fonts[font] || (role === 'heading' ? fonts.playfair : fonts.inter);
+}
+
+function heroImageStyle(content: ReturnType<typeof buildCatstaysTemplateContent>): CSSProperties {
+  const scale = content.hero.imageScale / 100;
+  return {
+    objectPosition: content.hero.imagePosition,
+    transform: scale === 1 ? undefined : `scale(${scale})`,
+    transformOrigin: content.hero.imagePosition,
+  };
+}
+
+function EditableHeroImage({
+  content,
+  embedded,
+  onDataChange,
+  className,
+  imageClassName = 'h-full w-full object-cover',
+}: {
+  content: ReturnType<typeof buildCatstaysTemplateContent>;
+  embedded: boolean;
+  onDataChange?: (updates: Record<string, any>) => void;
+  className?: string;
+  imageClassName?: string;
+}) {
+  return (
+    <div className={`group relative overflow-hidden ${className || ''}`}>
+      <SafeImage src={content.hero.image} alt="" className={imageClassName} style={heroImageStyle(content)} />
+      {embedded && onDataChange ? (
+        <div className="absolute bottom-3 left-3 right-3 z-20 rounded-md bg-white/90 p-3 text-[#0A1128] opacity-0 shadow-lg backdrop-blur-sm transition-opacity group-hover:opacity-100">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <HeroImageSlider
+              label="X"
+              value={content.hero.imagePositionX}
+              min={0}
+              max={100}
+              onChange={(value) => onDataChange({ heroImageObjectPositionX: value })}
+            />
+            <HeroImageSlider
+              label="Y"
+              value={content.hero.imagePositionY}
+              min={0}
+              max={100}
+              onChange={(value) => onDataChange({ heroImageObjectPositionY: value })}
+            />
+            <HeroImageSlider
+              label="Zoom"
+              value={content.hero.imageScale}
+              min={100}
+              max={180}
+              onChange={(value) => onDataChange({ heroImageScale: value })}
+            />
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function HeroImageSlider({
+  label,
+  value,
+  min,
+  max,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label className="block text-[11px] font-bold uppercase tracking-[0.12em]">
+      <span className="mb-1 block">{label}</span>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        value={value}
+        onChange={(event) => onChange(Number(event.currentTarget.value))}
+        className="w-full accent-[#C46A3A]"
+      />
+    </label>
+  );
 }
 
 function TemplateHeader({
@@ -183,6 +269,7 @@ function FocusTemplate({
   content,
   embedded,
   previewDevice,
+  onDataChange,
   onPreviewAnchorClick,
   onPreviewBookingAction,
   onPreviewBookingInteraction,
@@ -193,6 +280,7 @@ function FocusTemplate({
   content: ReturnType<typeof buildCatstaysTemplateContent>;
   embedded: boolean;
   previewDevice: PreviewDevice;
+  onDataChange?: (updates: Record<string, any>) => void;
   onPreviewAnchorClick: (event: MouseEvent<HTMLAnchorElement>) => void;
   onPreviewBookingAction: (event: MouseEvent<HTMLElement>) => void;
   onPreviewBookingInteraction: () => void;
@@ -212,16 +300,28 @@ function FocusTemplate({
             <h2 className="max-w-xl text-4xl leading-[1.05] sm:text-5xl lg:text-6xl">{content.hero.heading}</h2>
             <div className="my-6 h-px w-14 bg-[#b58b4a]" />
             <p className="max-w-lg text-base leading-7 text-[#333]">{content.hero.text}</p>
-            <div className="mt-8 flex flex-wrap gap-4">
-              <a href={content.hero.primaryHref || '#suites'} onClick={onPreviewAnchorClick} className="rounded-md bg-[#0A1128] px-6 py-4 text-xs font-bold uppercase tracking-[0.1em] text-white">
-                {content.hero.primaryButton}
-              </a>
-              <a href={content.hero.secondaryHref || '#care'} onClick={onPreviewAnchorClick} className="rounded-md border border-[#0A1128]/45 px-6 py-4 text-xs font-bold uppercase tracking-[0.1em] text-[#0A1128]">
-                {content.hero.secondaryButton}
-              </a>
-            </div>
+            {content.hero.showPrimaryButton || content.hero.showSecondaryButton ? (
+              <div className="mt-8 flex flex-wrap gap-4">
+                {content.hero.showPrimaryButton ? (
+                  <a href={content.hero.primaryHref} onClick={onPreviewAnchorClick} className="rounded-md bg-[#0A1128] px-6 py-4 text-xs font-bold uppercase tracking-[0.1em] text-white">
+                    {content.hero.primaryButton}
+                  </a>
+                ) : null}
+                {content.hero.showSecondaryButton ? (
+                  <a href={content.hero.secondaryHref} onClick={onPreviewAnchorClick} className="rounded-md border border-[#0A1128]/45 px-6 py-4 text-xs font-bold uppercase tracking-[0.1em] text-[#0A1128]">
+                    {content.hero.secondaryButton}
+                  </a>
+                ) : null}
+              </div>
+            ) : null}
           </div>
-          <SafeImage src={content.hero.image} alt="" className="catstays-template-section-image h-[420px] w-full object-cover md:h-[620px]" />
+          <EditableHeroImage
+            content={content}
+            embedded={embedded}
+            onDataChange={onDataChange}
+            className="h-[420px] w-full md:h-[620px]"
+            imageClassName="catstays-template-section-image h-full w-full object-cover"
+          />
         </section>
 
         <section id="booking" className="relative z-10 mx-auto w-full max-w-[1400px] scroll-mt-28 px-6 md:-mt-16">
@@ -278,6 +378,7 @@ function EditorialTemplate({
   content,
   embedded,
   previewDevice,
+  onDataChange,
   onPreviewAnchorClick,
   onPreviewBookingAction,
   onPreviewBookingInteraction,
@@ -288,6 +389,7 @@ function EditorialTemplate({
   content: ReturnType<typeof buildCatstaysTemplateContent>;
   embedded: boolean;
   previewDevice: PreviewDevice;
+  onDataChange?: (updates: Record<string, any>) => void;
   onPreviewAnchorClick: (event: MouseEvent<HTMLAnchorElement>) => void;
   onPreviewBookingAction: (event: MouseEvent<HTMLElement>) => void;
   onPreviewBookingInteraction: () => void;
@@ -308,15 +410,32 @@ function EditorialTemplate({
       <PreviewBookingNotice kind={previewNoticeKind} onDismiss={onDismissPreviewNotice} />
       <main>
         <section id="home" className="catstays-stack mx-auto grid max-w-[1400px] scroll-mt-28 md:grid-cols-2">
-          <SafeImage src={content.hero.image} alt="" className="catstays-template-section-image h-[420px] w-full object-cover md:h-[560px]" />
+          <EditableHeroImage
+            content={content}
+            embedded={embedded}
+            onDataChange={onDataChange}
+            className="h-[420px] w-full md:h-[560px]"
+            imageClassName="catstays-template-section-image h-full w-full object-cover"
+          />
           <div className="flex flex-col justify-center bg-white px-8 py-14 md:px-20">
             <p className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">{content.hero.eyebrow}</p>
             <h2 className="text-4xl leading-[1.08] md:text-6xl">{content.hero.heading}</h2>
             <div className="my-6 h-px w-14 bg-[#b58b4a]" />
             <p className="max-w-lg text-base leading-7">{content.hero.text}</p>
-            <a href="#booking" onClick={onPreviewAnchorClick} className="catstays-mobile-full mt-8 w-max rounded-md bg-[#0A1128] px-6 py-4 text-center text-xs font-bold uppercase tracking-[0.1em] text-white">
-              Book Now
-            </a>
+            {content.hero.showPrimaryButton || content.hero.showSecondaryButton ? (
+              <div className="mt-8 flex flex-wrap gap-4">
+                {content.hero.showPrimaryButton ? (
+                  <a href={content.hero.primaryHref} onClick={onPreviewAnchorClick} className="catstays-mobile-full w-max rounded-md bg-[#0A1128] px-6 py-4 text-center text-xs font-bold uppercase tracking-[0.1em] text-white">
+                    {content.hero.primaryButton}
+                  </a>
+                ) : null}
+                {content.hero.showSecondaryButton ? (
+                  <a href={content.hero.secondaryHref} onClick={onPreviewAnchorClick} className="catstays-mobile-full w-max rounded-md border border-[#0A1128]/45 px-6 py-4 text-center text-xs font-bold uppercase tracking-[0.1em] text-[#0A1128]">
+                    {content.hero.secondaryButton}
+                  </a>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </section>
 
@@ -357,6 +476,7 @@ function ShowcaseTemplate({
   content,
   embedded,
   previewDevice,
+  onDataChange,
   onPreviewAnchorClick,
   onPreviewBookingAction,
   onPreviewBookingInteraction,
@@ -367,6 +487,7 @@ function ShowcaseTemplate({
   content: ReturnType<typeof buildCatstaysTemplateContent>;
   embedded: boolean;
   previewDevice: PreviewDevice;
+  onDataChange?: (updates: Record<string, any>) => void;
   onPreviewAnchorClick: (event: MouseEvent<HTMLAnchorElement>) => void;
   onPreviewBookingAction: (event: MouseEvent<HTMLElement>) => void;
   onPreviewBookingInteraction: () => void;
@@ -381,15 +502,32 @@ function ShowcaseTemplate({
       <PreviewBookingNotice kind={previewNoticeKind} onDismiss={onDismissPreviewNotice} />
       <main>
         <section id="home" className="relative min-h-[620px] scroll-mt-28 overflow-hidden">
-          <SafeImage src={content.hero.image} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          <EditableHeroImage
+            content={content}
+            embedded={embedded}
+            onDataChange={onDataChange}
+            className="absolute inset-0 h-full w-full"
+            imageClassName="h-full w-full object-cover"
+          />
           <div className="absolute inset-0 bg-black/45" />
           <div className="relative mx-auto flex min-h-[620px] max-w-[1400px] flex-col justify-end px-6 pb-16 text-white md:pb-24">
             <p className="mb-5 text-xs font-bold uppercase tracking-[0.24em] text-white/75">{content.hero.eyebrow}</p>
             <h2 className="max-w-4xl text-5xl leading-[1.02] md:text-7xl">{content.hero.heading}</h2>
             <p className="mt-6 max-w-2xl text-lg leading-8 text-white/90">{content.hero.text}</p>
-            <a href="#booking" onClick={onPreviewAnchorClick} className="catstays-mobile-full mt-8 w-max rounded-md bg-white px-7 py-4 text-center text-xs font-bold uppercase tracking-[0.1em] text-[#0A1128]">
-              {content.hero.button}
-            </a>
+            {content.hero.showPrimaryButton || content.hero.showSecondaryButton ? (
+              <div className="mt-8 flex flex-wrap gap-4">
+                {content.hero.showPrimaryButton ? (
+                  <a href={content.hero.primaryHref} onClick={onPreviewAnchorClick} className="catstays-mobile-full w-max rounded-md bg-white px-7 py-4 text-center text-xs font-bold uppercase tracking-[0.1em] text-[#0A1128]">
+                    {content.hero.primaryButton}
+                  </a>
+                ) : null}
+                {content.hero.showSecondaryButton ? (
+                  <a href={content.hero.secondaryHref} onClick={onPreviewAnchorClick} className="catstays-mobile-full w-max rounded-md border border-white/70 px-7 py-4 text-center text-xs font-bold uppercase tracking-[0.1em] text-white">
+                    {content.hero.secondaryButton}
+                  </a>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </section>
 
@@ -456,12 +594,13 @@ function centeredGridClass(count: number, maxColumns: 3 | 4, spacing = 'mt-10 ga
     : `${base} max-w-[1180px] grid-cols-1 md:grid-cols-2 xl:grid-cols-3`;
 }
 
-function SafeImage({ src, alt, className }: { src?: string; alt: string; className?: string }) {
+function SafeImage({ src, alt, className, style }: { src?: string; alt: string; className?: string; style?: CSSProperties }) {
   return (
     <img
       src={src || fallbackPreviewImage}
       alt={alt}
       className={className}
+      style={style}
       onError={(event) => {
         if (event.currentTarget.dataset.fallbackApplied) return;
         event.currentTarget.dataset.fallbackApplied = 'true';

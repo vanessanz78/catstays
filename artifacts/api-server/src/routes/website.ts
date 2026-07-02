@@ -1,7 +1,26 @@
 import { Router, type IRouter } from 'express';
+import { randomUUID } from 'crypto';
+import { createClient } from '@supabase/supabase-js';
 import { scrapeCatteryWebsite } from '../lib/catteryWebsiteScraper';
 
 const router: IRouter = Router();
+const WEBSITE_MEDIA_BUCKET = 'catstays-media';
+const MAX_REMOTE_IMAGE_BYTES = 8 * 1024 * 1024;
+const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
+function readEnvValue(...keys: string[]) {
+  for (const key of keys) {
+    const raw = process.env[key];
+    if (!raw) continue;
+    const value = raw.trim();
+    if (!value || /^\$[A-Z0-9_]+$/i.test(value)) continue;
+    return value;
+  }
+  return undefined;
+}
+
+const supabaseUrl = readEnvValue('VITE_SUPABASE_URL');
+const supabaseServiceKey = readEnvValue('SUPABASE_SERVICE_ROLE_KEY');
 
 router.post('/website/scrape', async (req, res) => {
   const { url } = req.body as { url?: string };
@@ -49,6 +68,90 @@ router.post('/website/scrape', async (req, res) => {
       });
     }
     return;
+  }
+});
+
+router.post('/website/copy-image', async (req, res) => {
+  const { imageUrl } = req.body as { imageUrl?: string };
+  const serviceClient = createStorageServiceClient();
+
+  if (!serviceClient) {
+    res.status(503).json({ error: 'SUPABASE_STORAGE_NOT_CONFIGURED' });
+    return;
+  }
+
+  let remoteUrl: URL;
+  try {
+    remoteUrl = parseRemoteImageUrl(imageUrl);
+  } catch (error) {
+    res.status(400).json({ error: (error as Error).message });
+    return;
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+
+  try {
+    const response = await fetch(remoteUrl.href, {
+      headers: {
+        'User-Agent': 'CatStaysImageImporter/1.0',
+        Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+      },
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      res.status(422).json({ error: `IMAGE_FETCH_FAILED_${response.status}` });
+      return;
+    }
+
+    const contentType = contentTypeFromResponse(response);
+    if (!SUPPORTED_IMAGE_TYPES.includes(contentType)) {
+      res.status(415).json({ error: 'UNSUPPORTED_IMAGE_TYPE' });
+      return;
+    }
+
+    const contentLength = Number(response.headers.get('content-length') || 0);
+    if (contentLength > MAX_REMOTE_IMAGE_BYTES) {
+      res.status(413).json({ error: 'IMAGE_TOO_LARGE' });
+      return;
+    }
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    if (!buffer.byteLength || buffer.byteLength > MAX_REMOTE_IMAGE_BYTES) {
+      res.status(buffer.byteLength ? 413 : 422).json({ error: buffer.byteLength ? 'IMAGE_TOO_LARGE' : 'EMPTY_IMAGE' });
+      return;
+    }
+
+    await ensureWebsiteMediaBucket(serviceClient);
+
+    const extension = extensionForImageType(contentType);
+    const path = `website-imports/${new Date().toISOString().slice(0, 10)}/${randomUUID()}.${extension}`;
+    const { error: uploadError } = await serviceClient.storage
+      .from(WEBSITE_MEDIA_BUCKET)
+      .upload(path, buffer, {
+        contentType,
+        cacheControl: '31536000',
+        upsert: false,
+      });
+
+    if (uploadError) {
+      res.status(502).json({ error: 'IMAGE_UPLOAD_FAILED', detail: uploadError.message });
+      return;
+    }
+
+    const { data } = serviceClient.storage.from(WEBSITE_MEDIA_BUCKET).getPublicUrl(path);
+    res.json({
+      url: data.publicUrl,
+      path,
+      sourceUrl: remoteUrl.href,
+      owned: true,
+    });
+  } catch (error) {
+    const message = (error as Error).name === 'AbortError' ? 'IMAGE_FETCH_TIMEOUT' : 'IMAGE_COPY_FAILED';
+    res.status(422).json({ error: message, detail: (error as Error).message });
+  } finally {
+    clearTimeout(timeout);
   }
 });
 
@@ -141,6 +244,67 @@ router.post('/website/chat', async (req, res) => {
     res.status(502).json({ error: 'OPENAI_CHAT_ERROR', detail: (error as Error).message });
   }
 });
+
+function createStorageServiceClient() {
+  if (!supabaseUrl || !supabaseServiceKey) return null;
+  return createClient(supabaseUrl, supabaseServiceKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}
+
+function parseRemoteImageUrl(rawUrl: unknown) {
+  if (!rawUrl || typeof rawUrl !== 'string') throw new Error('IMAGE_URL_REQUIRED');
+
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl.trim());
+  } catch {
+    throw new Error('INVALID_IMAGE_URL');
+  }
+
+  if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('UNSUPPORTED_IMAGE_URL');
+  if (isBlockedRemoteHost(parsed.hostname)) throw new Error('IMAGE_URL_NOT_ACCESSIBLE');
+  return parsed;
+}
+
+function isBlockedRemoteHost(hostname: string) {
+  const host = hostname.toLowerCase();
+  return (
+    host === 'localhost' ||
+    host.endsWith('.localhost') ||
+    host.endsWith('.local') ||
+    host === '0.0.0.0' ||
+    host === '::1' ||
+    /^127\./.test(host) ||
+    /^10\./.test(host) ||
+    /^192\.168\./.test(host) ||
+    /^169\.254\./.test(host) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(host)
+  );
+}
+
+function contentTypeFromResponse(response: { headers: { get(name: string): string | null } }) {
+  return (response.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+}
+
+function extensionForImageType(contentType: string) {
+  if (contentType === 'image/png') return 'png';
+  if (contentType === 'image/webp') return 'webp';
+  if (contentType === 'image/gif') return 'gif';
+  return 'jpg';
+}
+
+async function ensureWebsiteMediaBucket(serviceClient: ReturnType<typeof createClient>) {
+  const { error } = await serviceClient.storage.createBucket(WEBSITE_MEDIA_BUCKET, {
+    public: true,
+    allowedMimeTypes: SUPPORTED_IMAGE_TYPES,
+    fileSizeLimit: MAX_REMOTE_IMAGE_BYTES,
+  });
+
+  if (error && !/already exists|duplicate|resource already exists/i.test(error.message)) {
+    throw error;
+  }
+}
 
 function buildCompactKnowledge(knowledge: unknown) {
   if (!knowledge || typeof knowledge !== 'object') return {};

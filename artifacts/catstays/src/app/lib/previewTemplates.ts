@@ -78,6 +78,12 @@ export interface CatstaysTemplateContent {
     primaryHref: string;
     secondaryButton: string;
     secondaryHref: string;
+    showPrimaryButton: boolean;
+    showSecondaryButton: boolean;
+    imagePosition: string;
+    imagePositionX: number;
+    imagePositionY: number;
+    imageScale: number;
   };
   theme: {
     primaryColor: string;
@@ -335,6 +341,7 @@ export function dataFromPreviewRecord(
   const normalized = record.normalizedPreviewData;
   const importedAddress = record.contact.address || normalized.address || currentData.address || '';
   const selectedTemplate = normalizePreviewTemplateId(templateId);
+  const shouldPreferImportedCollections = !currentData.importComplete && !currentData.previewImportRecordId;
   const updatedRecord: PreviewImportRecord = {
     ...record,
     status: 'in_progress',
@@ -343,10 +350,10 @@ export function dataFromPreviewRecord(
   savePreviewImportRecord(updatedRecord);
 
   return withOnboardingCollections({
-    ...currentData,
     ...normalized,
+    ...currentData,
     ...templateStyle(selectedTemplate),
-    __preferImportedCollections: true,
+    __preferImportedCollections: shouldPreferImportedCollections,
     selectedTemplate,
     previewImportRecord: updatedRecord,
     previewImportRecordId: record.id,
@@ -601,6 +608,13 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     stringFrom(locationData.virtualTourUrl, normalized.virtualTourUrl, data.virtualTourUrl, data.contactData?.virtualTourUrl),
     contentLibrary.sourceHost,
   );
+  const heroPrimaryButton = editableString(data.heroPrimaryCtaText, normalizedRecord.heroPrimaryCtaText, heroLinks[0]?.label, 'Discover Our Suites');
+  const heroPrimaryHref = editableString(data.heroPrimaryCtaHref, normalizedRecord.heroPrimaryCtaHref, heroLinks[0]?.url, '#suites');
+  const heroSecondaryButton = editableString(data.heroSecondaryCtaText, normalizedRecord.heroSecondaryCtaText, heroLinks[1]?.label, 'Our Care Approach');
+  const heroSecondaryHref = editableString(data.heroSecondaryCtaHref, normalizedRecord.heroSecondaryCtaHref, heroLinks[1]?.url, '#care');
+  const heroImagePositionX = clampNumber(data.heroImageObjectPositionX, 0, 100, 50);
+  const heroImagePositionY = clampNumber(data.heroImageObjectPositionY, 0, 100, 50);
+  const heroImageScale = clampNumber(data.heroImageScale, 100, 180, 100);
 
   return {
     business: {
@@ -609,15 +623,21 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       location: stringFrom(data.location, normalized.location, record?.identity.location),
     },
     hero: {
-      eyebrow: stringFrom(data.heroEyebrow, 'A home away from home'),
+      eyebrow: editableString(data.heroEyebrow, normalizedRecord.heroEyebrow, 'A home away from home'),
       heading: stringFrom(data.heroHeading, normalized.heroHeading, record?.content.heroHeading, `Welcome to ${businessName}`),
       text: stringFrom(data.heroSubheading, normalized.heroSubheading, record?.content.heroSubheading, primaryDescription),
       image: heroImage,
-      button: stringFrom(data.ctaText, data.heroPrimaryCtaText, heroLinks[0]?.label, 'Book Now'),
-      primaryButton: stringFrom(data.heroPrimaryCtaText, heroLinks[0]?.label, 'Discover Our Suites'),
-      primaryHref: stringFrom(data.heroPrimaryCtaHref, heroLinks[0]?.url, '#suites'),
-      secondaryButton: stringFrom(data.heroSecondaryCtaText, heroLinks[1]?.label, 'Our Care Approach'),
-      secondaryHref: stringFrom(data.heroSecondaryCtaHref, heroLinks[1]?.url, '#care'),
+      button: stringFrom(data.ctaText, heroPrimaryButton, heroLinks[0]?.label, 'Book Now'),
+      primaryButton: heroPrimaryButton,
+      primaryHref: heroPrimaryHref,
+      secondaryButton: heroSecondaryButton,
+      secondaryHref: heroSecondaryHref,
+      showPrimaryButton: Boolean(heroPrimaryButton && heroPrimaryHref),
+      showSecondaryButton: Boolean(heroSecondaryButton && heroSecondaryHref),
+      imagePosition: `${heroImagePositionX}% ${heroImagePositionY}%`,
+      imagePositionX: heroImagePositionX,
+      imagePositionY: heroImagePositionY,
+      imageScale: heroImageScale,
     },
     theme: {
       primaryColor: stringFrom(data.primaryColor, normalizedRecord.primaryColor, '#0A1128'),
@@ -883,6 +903,15 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
       : stringFrom(cleanData[key], ...importedSources, fallback[key])
   );
 
+  const editableTextFrom = (key: string, ...importedSources: unknown[]) => {
+    if (!preferImportedCollections && typeof cleanData[key] === 'string') return cleanData[key].trim();
+
+    const importedValue = stringFrom(...importedSources);
+    if (preferImportedCollections && importedValue) return importedValue;
+    if (typeof cleanData[key] === 'string') return cleanData[key].trim();
+    return stringFrom(cleanData[key], ...importedSources, fallback[key]);
+  };
+
   const imageFieldFrom = (key: string, ...importedSources: unknown[]) => (
     preferImportedCollections
       ? stringFrom(...importedSources, cleanData[key], fallback[key])
@@ -932,10 +961,11 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
 
   return {
     ...cleanData,
-    heroPrimaryCtaText: textFrom('heroPrimaryCtaText', heroLinks[0]?.label, cleanData.ctaText, 'Discover Our Suites'),
-    heroPrimaryCtaHref: textFrom('heroPrimaryCtaHref', heroLinks[0]?.url, '#suites'),
-    heroSecondaryCtaText: textFrom('heroSecondaryCtaText', heroLinks[1]?.label, 'Our Care Approach'),
-    heroSecondaryCtaHref: textFrom('heroSecondaryCtaHref', heroLinks[1]?.url, '#care'),
+    heroEyebrow: editableTextFrom('heroEyebrow', normalized.heroEyebrow, 'A home away from home'),
+    heroPrimaryCtaText: editableTextFrom('heroPrimaryCtaText', heroLinks[0]?.label, cleanData.ctaText, 'Discover Our Suites'),
+    heroPrimaryCtaHref: editableTextFrom('heroPrimaryCtaHref', heroLinks[0]?.url, '#suites'),
+    heroSecondaryCtaText: editableTextFrom('heroSecondaryCtaText', heroLinks[1]?.label, 'Our Care Approach'),
+    heroSecondaryCtaHref: editableTextFrom('heroSecondaryCtaHref', heroLinks[1]?.url, '#care'),
     whyChooseUsHeading: textFrom('whyChooseUsHeading', normalized.whyChooseUsData?.whyChooseUsHeading, normalized.whyChooseUsData?.heading, block('why-choose-us')?.title),
     whyChooseUsText: textFrom('whyChooseUsText', normalized.whyChooseUsData?.whyChooseUsText, normalized.whyChooseUsData?.text, block('why-choose-us')?.text),
     aboutHeading: textFrom('aboutHeading', normalized.aboutHeading, normalized.aboutData?.heading, block('hero')?.title),
@@ -1030,6 +1060,17 @@ function stringFrom(...values: unknown[]): string {
     if (trimmed) return trimmed;
   }
   return '';
+}
+
+function editableString(value: unknown, ...fallbackValues: unknown[]): string {
+  if (typeof value === 'string') return value.trim();
+  return stringFrom(...fallbackValues);
+}
+
+function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, parsed));
 }
 
 function imageFrom(...values: unknown[]): string {

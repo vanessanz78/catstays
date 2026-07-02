@@ -2,6 +2,21 @@
 
 Last updated: 2026-07-02
 
+## 2026-07-02 - Builder Images And Hero Edits Persist
+
+Decision: Website builder image URLs, hero eyebrow text, CTA choices, and hero image crop settings are autosaved builder state and must persist across template/design changes.
+
+Reason: FancyFelines UAT showed that owners need to change images and copy while comparing templates, and those edits should not disappear because there is no explicit Save button. Owner-site image links are also fragile because CatStays may replace the original website.
+
+Impact:
+
+- Linked image URLs should be copied into CatStays-owned Supabase Storage before they are treated as durable website assets.
+- The hero eyebrow (`A home away from home`) is editable in Home / Hero.
+- Primary and secondary hero CTAs have editable text plus anchor dropdowns with `None` to hide either button.
+- Hero image X/Y/Zoom settings are saved and reused by generated templates.
+- Template switching should preserve owner edits and only change template styling/layout.
+- UAT should verify the `/api/website/copy-image` route can write to the `catstays-media` Supabase bucket in Replit.
+
 ## 2026-07-02 - Onboarding Location Uses Full Address
 
 Decision: The cattery setup Location field should use the imported full address when one is available, and manual or Google-complete address edits should update the stored address value too.
