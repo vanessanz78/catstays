@@ -1,0 +1,479 @@
+From 2ed7efc9cfc7417e15261ec18f8cf1926f8eaec0 Mon Sep 17 00:00:00 2001
+From: Vanessa <vanessa@Vanessas-MacBook-Air.local>
+Date: Thu, 2 Jul 2026 20:50:12 +1200
+Subject: [PATCH] Keep publish success after email confirmation
+
+---
+ CURRENT_SPRINT.md                             |   6 +-
+ DECISION_LOG.md                               |  14 ++
+ artifacts/api-server/src/routes/cattery.ts    |   4 +-
+ .../app/pages/onboarding/OnboardingWizard.tsx | 206 ++++++++++++++----
+ artifacts/catstays/src/utils/appUrl.ts        |  20 +-
+ docs/changelog.md                             |   1 +
+ 6 files changed, 196 insertions(+), 55 deletions(-)
+
+diff --git a/CURRENT_SPRINT.md b/CURRENT_SPRINT.md
+index 50b8d86..df5b5b0 100644
+--- a/CURRENT_SPRINT.md
++++ b/CURRENT_SPRINT.md
+@@ -21,6 +21,7 @@ Stabilise CatStays onboarding publish and imported website preview quality, with
+ - On 2026-07-01, the duplicate-email publish loop was fixed in `artifacts/api-server/src/routes/cattery.ts`.
+ - On 2026-07-02, the client Publish handler was also hardened so a 409 account conflict no longer forces step 1 before the Publish-step error display can show the message.
+ - The fix changes duplicate signup/provisioning email errors so the Publish step can show an inline error instead of sending the user back to step 1.
++- On 2026-07-02 UAT with `kiaora@vanessa.nz` showed the fresh-email publish path still created a Supabase Auth user and sent the confirmation email, but returned the owner to the Account step. The latest local fix treats published-but-unconfirmed users as a Success-step checkpoint and prevents Account-step autosave from overwriting that checkpoint.
+ - Duplicate email detection comes from Supabase Auth users (`auth.users` / Authentication > Users), not OAuth Apps and not the public `customers` table.
+ - Replit's database module may exist in the workspace, but the publish/provisioning route uses Supabase Auth and Supabase tables, not the Replit Postgres database.
+ - `.replit` now sets `CATSTAYS_APP_URL` and `VITE_PUBLIC_APP_URL` to `https://catstays.app` so confirmation URLs prefer the live app URL instead of a Replit development preview origin.
+@@ -59,8 +60,8 @@ Stabilise CatStays onboarding publish and imported website preview quality, with
+ 4. Confirm generated previews do not use the FancyFelines logo/wordmark as hero/header photography and do not show broken image boxes.
+ 5. Confirm the Care Approach and Boarding Options card rows are centered and responsive when there are only three or two cards, and confirm Boarding Options becomes a horizontal scroll rail when more than three suites exist.
+ 6. Confirm Professional Cat Grooming, Q&A/FAQs, collaborations, health care, HBOT, PEMF, and other source-site pages appear as appropriate one-page sections or FAQs, and that FAQs are available to the chatbot/footer.
+-7. Re-run publish UAT with both existing and fresh Auth emails: existing emails should stay on Publish with an inline error; fresh emails should complete provisioning.
+-8. Confirm email confirmation redirect URLs still point to the live CatStays URL. If links open a development/auth URL, verify Supabase Auth URL Configuration and additional redirect URLs.
++7. Re-run publish UAT with both existing and fresh Auth emails: existing emails should stay on Publish with an inline error; fresh emails should complete provisioning and land on Success, not Account.
++8. Confirm email confirmation redirect URLs point to `https://catstays.app/confirm-email`, not `http://localhost:3000`. If links open a development/auth URL, verify Supabase Auth URL Configuration and additional redirect URLs.
+ 9. UAT Website Builder hero edits: edit `A home away from home`, hide one CTA using `None`, change CTA anchors, hover the hero preview image to adjust X/Y/Zoom, switch templates, and confirm the text/buttons/crop persist.
+ 10. UAT linked image import: paste a remote image URL, confirm it is copied to a CatStays/Supabase Storage URL, and confirm publishing does not depend on the original website image URL.
+ 11. UAT section editor order and copy: confirm Why Choose story, Purpose-built accommodation, Care Approach cards, and Boarding Options appear in the same order as the preview; Purpose-built should no longer show duplicate care-card controls; Boarding Options should expose editable bullet points.
+@@ -75,6 +76,7 @@ Stabilise CatStays onboarding publish and imported website preview quality, with
+ - Add root-level sprint and decision documents so future Codex chats have a stable project entry point.
+ - Treat duplicate-email publish failures as Publish-step errors rather than account-step resets.
+ - Do not call `setStep(1)` from the Publish handler for duplicate-account provisioning conflicts; keep the owner on Publish with the inline error.
++- Treat successful publish as the durable onboarding checkpoint even while Supabase email confirmation is pending; do not let the Account step overwrite a published Success state.
+ - Treat Supabase Authentication > Users as the source of truth for signup email uniqueness.
+ - Pin Replit public app URL values to `https://catstays.app` for confirmation email redirects.
+ - Treat the owner website import as a source-site capture step before template generation: crawl/capture relevant pages and images, then map that indexed content into the one-page preview.
+diff --git a/DECISION_LOG.md b/DECISION_LOG.md
+index 30b48e3..fc29c8f 100644
+--- a/DECISION_LOG.md
++++ b/DECISION_LOG.md
+@@ -205,6 +205,20 @@ Impact:
+ - Setup context is preserved.
+ - Replit UAT should confirm both duplicate-email and fresh-email publish paths.
+ 
++## 2026-07-02 - Published But Unconfirmed Accounts Stay On Success
++
++Decision: Treat a successful publish/provision response as the durable onboarding checkpoint even when Supabase email confirmation is still pending.
++
++Reason: Fresh-email UAT showed Supabase Authentication created the user and sent a confirmation email, but the owner was sent back to the Account step. That state is not an OAuth duplicate. It is a valid Supabase Auth user waiting for confirmation, so the setup must restore the Success step and preserve the completed cattery data instead of restarting the wizard.
++
++Impact:
++
++- The Publish handler no longer sends owners back to step 1 when account details are missing at publish time; it stays on Publish with an inline message.
++- A saved published checkpoint cannot be overwritten by the account-ready screen.
++- The Account-ready continue action returns published owners to Success when a cattery id, published checkpoint, or confirmation-pending account is already stored.
++- Frontend-generated confirmation URLs ignore localhost/dev origins and fall back to `https://catstays.app/confirm-email`.
++- Supabase Auth URL Configuration still needs to keep Site URL and additional redirects pointed at the live CatStays confirmation route.
++
+ ## Open Decisions
+ 
+ - Whether to add a formal root-level Architect Update file for CatStays.
+diff --git a/artifacts/api-server/src/routes/cattery.ts b/artifacts/api-server/src/routes/cattery.ts
+index 8c8c81a..6ad84e2 100644
+--- a/artifacts/api-server/src/routes/cattery.ts
++++ b/artifacts/api-server/src/routes/cattery.ts
+@@ -27,6 +27,7 @@ function resolvePublicAppUrl() {
+ }
+ 
+ const PUBLIC_APP_URL = resolvePublicAppUrl();
++const CONFIRM_EMAIL_REDIRECT_URL = `${PUBLIC_APP_URL}/confirm-email`;
+ const supabaseUrl = readEnvValue('VITE_SUPABASE_URL');
+ const supabaseAnonKey = readEnvValue('VITE_SUPABASE_ANON_KEY');
+ const supabaseServiceKey = readEnvValue('SUPABASE_SERVICE_ROLE_KEY');
+@@ -288,7 +289,7 @@ router.post('/cattery/provision', async (req: Request, res: Response) => {
+           full_name: ownerName,
+           business_name: businessName,
+         },
+-        emailRedirectTo: `${PUBLIC_APP_URL}/confirm-email`,
++        emailRedirectTo: CONFIRM_EMAIL_REDIRECT_URL,
+       },
+     });
+ 
+@@ -377,6 +378,7 @@ router.post('/cattery/provision', async (req: Request, res: Response) => {
+       catteryId: cattery.id,
+       slug: requestedSlug,
+       emailConfirmationSent: true,
++      emailConfirmationRedirectUrl: CONFIRM_EMAIL_REDIRECT_URL,
+     });
+   } catch (err: unknown) {
+     console.error('[cattery/provision]', err);
+diff --git a/artifacts/catstays/src/app/pages/onboarding/OnboardingWizard.tsx b/artifacts/catstays/src/app/pages/onboarding/OnboardingWizard.tsx
+index cf925fc..b665426 100644
+--- a/artifacts/catstays/src/app/pages/onboarding/OnboardingWizard.tsx
++++ b/artifacts/catstays/src/app/pages/onboarding/OnboardingWizard.tsx
+@@ -183,6 +183,70 @@ function offlinePublishMessage(message: string) {
+   return message;
+ }
+ 
++const ONBOARDING_STORAGE_KEY = 'catstays_onboarding';
++const ACCOUNT_STORAGE_KEY = 'catstays_account';
++
++function readStoredJson<T>(key: string): T | null {
++  if (typeof window === 'undefined') return null;
++  const raw = localStorage.getItem(key);
++  if (!raw) return null;
++  try {
++    return JSON.parse(raw) as T;
++  } catch {
++    return null;
++  }
++}
++
++function isPublishedCheckpoint(value: any) {
++  if (!value) return false;
++  const storedStep = Number(value.step || 0);
++  return (
++    storedStep >= 8 ||
++    value.publishStatus === 'published' ||
++    Boolean(value.catteryId || value.data?.publishedCatteryId)
++  );
++}
++
++function saveOnboardingProgress({
++  step,
++  data,
++  accountCreated,
++  publishStatus,
++  catteryId,
++}: {
++  step: number;
++  data: any;
++  accountCreated: boolean;
++  publishStatus?: string;
++  catteryId?: string | null;
++}) {
++  if (typeof window === 'undefined') return;
++  const existing = readStoredJson<any>(ONBOARDING_STORAGE_KEY) || {};
++
++  if (isPublishedCheckpoint(existing) && step < 8) {
++    return;
++  }
++
++  localStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify({
++    ...existing,
++    step,
++    data,
++    accountCreated,
++    publishStatus: publishStatus ?? existing.publishStatus,
++    catteryId: catteryId ?? existing.catteryId,
++    updatedAt: new Date().toISOString(),
++  }));
++}
++
++function isPublishedAccount(account: any) {
++  return Boolean(
++    account?.catteryId ||
++    account?.status === 'confirmation_sent' ||
++    account?.status === 'published' ||
++    account?.status === 'confirmed'
++  );
++}
++
+ export function OnboardingWizard() {
+   const navigate = useNavigate();
+   const { cattery, refreshCattery } = useAuth();
+@@ -451,12 +515,40 @@ export function OnboardingWizard() {
+       status: 'draft',
+     };
+     setAccountCreated(true);
+-    localStorage.setItem('catstays_account', JSON.stringify(draftAccount));
+-    localStorage.setItem('catstays_onboarding', JSON.stringify({ step: 2, data, accountCreated: true }));
++    localStorage.setItem(ACCOUNT_STORAGE_KEY, JSON.stringify(draftAccount));
++    saveOnboardingProgress({ step: 2, data, accountCreated: true });
+     setIsSaving(false);
+     setStep(2);
+   };
+ 
++  const handleContinueFromAccountReady = () => {
++    const account = readStoredJson<any>(ACCOUNT_STORAGE_KEY);
++    const saved = readStoredJson<any>(ONBOARDING_STORAGE_KEY);
++
++    if (isPublishedAccount(account) || isPublishedCheckpoint(saved)) {
++      const savedData = saved?.data || data;
++      const nextData = {
++        ...savedData,
++        emailConfirmed: Boolean(savedData.emailConfirmed || account?.emailConfirmed),
++        publishedCatteryId: savedData.publishedCatteryId || account?.catteryId,
++        subdomain: savedData.subdomain || account?.slug || data.subdomain,
++      };
++      setData(nextData);
++      setAccountCreated(true);
++      saveOnboardingProgress({
++        step: 8,
++        data: nextData,
++        accountCreated: true,
++        publishStatus: 'published',
++        catteryId: nextData.publishedCatteryId || account?.catteryId || null,
++      });
++      setStep(8);
++      return;
++    }
++
++    handleNext();
++  };
++
+   const handleImportWebsite = async () => {
+     setData(prev => ({ ...prev, isImporting: true, importError: '' }));
+ 
+@@ -499,7 +591,7 @@ export function OnboardingWizard() {
+   const handleSaveProgress = async () => {
+     setIsSaving(true);
+     // Always save locally for resilience
+-    localStorage.setItem('catstays_onboarding', JSON.stringify({ step, data, accountCreated }));
++    saveOnboardingProgress({ step, data, accountCreated });
+ 
+     // Save cattery profile + website settings to Supabase if logged in
+     if (cattery?.id) {
+@@ -696,15 +788,19 @@ export function OnboardingWizard() {
+   // Load saved progress and signup data on mount
+   useEffect(() => {
+     // Load saved account
+-    const accountData = localStorage.getItem('catstays_account');
+-    if (accountData) {
+-      try {
+-        const account = JSON.parse(accountData);
+-        setAccountCreated(true);
+-        setData(prev => ({ ...prev, name: account.name, email: account.email }));
+-      } catch (e) {
+-        console.error('Failed to load account data');
+-      }
++    const account = readStoredJson<any>(ACCOUNT_STORAGE_KEY);
++    const accountWasPublished = isPublishedAccount(account);
++    if (account) {
++      setAccountCreated(true);
++      setData(prev => ({
++        ...prev,
++        name: account.name || prev.name,
++        email: account.email || prev.email,
++        businessName: account.businessName || prev.businessName,
++        subdomain: account.slug || prev.subdomain,
++        emailConfirmed: Boolean(account.emailConfirmed),
++        publishedCatteryId: account.catteryId || prev.publishedCatteryId,
++      }));
+     }
+ 
+     // Load signup data from modal (legacy)
+@@ -722,38 +818,43 @@ export function OnboardingWizard() {
+     }
+ 
+     // Load saved onboarding progress
+-    const saved = localStorage.getItem('catstays_onboarding');
++    const saved = readStoredJson<any>(ONBOARDING_STORAGE_KEY);
+     if (saved) {
+-      try {
+-        const { step: savedStep, data: savedData, accountCreated: savedAccountCreated } = JSON.parse(saved);
+-        setStep(savedStep);
+-        setData(savedData);
+-        if (savedAccountCreated) setAccountCreated(savedAccountCreated);
+-      } catch (e) {
+-        console.error('Failed to load saved progress');
+-      }
++      const savedStep = Number(saved.step || 1);
++      const restoredStep = accountWasPublished && savedStep < 8 ? 8 : savedStep;
++      const restoredData = {
++        ...(saved.data || {}),
++        emailConfirmed: Boolean(saved.data?.emailConfirmed || account?.emailConfirmed),
++        publishedCatteryId: saved.data?.publishedCatteryId || account?.catteryId,
++        subdomain: saved.data?.subdomain || account?.slug || '',
++      };
++      setStep(restoredStep);
++      setData(restoredData);
++      if (saved.accountCreated || accountWasPublished) setAccountCreated(true);
++    } else if (accountWasPublished) {
++      setStep(8);
+     }
+   }, []);
+ 
+   // Keep local progress synced so returning owners land on the correct step.
+   useEffect(() => {
+-    if (!accountCreated && step <= 1) return;
+-    localStorage.setItem('catstays_onboarding', JSON.stringify({
++    if (step <= 1) return;
++    saveOnboardingProgress({
+       step,
+       data,
+       accountCreated,
+-    }));
++    });
+   }, [step, data, accountCreated]);
+ 
+   // Auto-save on unmount (when leaving the page)
+   useEffect(() => {
+     return () => {
+       if (step > 1 && accountCreated) {
+-        localStorage.setItem('catstays_onboarding', JSON.stringify({ 
+-          step, 
+-          data, 
+-          accountCreated 
+-        }));
++        saveOnboardingProgress({
++          step,
++          data,
++          accountCreated,
++        });
+       }
+     };
+   }, [step, data, accountCreated]);
+@@ -999,7 +1100,7 @@ export function OnboardingWizard() {
+     const nextData = applyPreviewTemplate(data, template);
+     setData(nextData);
+     setShowTemplateSelection(false);
+-    localStorage.setItem('catstays_onboarding', JSON.stringify({ step, data: nextData, accountCreated }));
++    saveOnboardingProgress({ step, data: nextData, accountCreated });
+     setStep(Math.min(step + 1, totalSteps));
+   };
+ 
+@@ -1010,16 +1111,18 @@ export function OnboardingWizard() {
+     try {
+       let activeCatteryId = cattery?.id ?? null;
+       const liveData = markPreviewSelectionLive(data);
++      let publishedSlug = liveData.subdomain;
++      let emailConfirmationRedirectUrl = '';
+       setData(liveData);
+ 
+       if (!activeCatteryId) {
+         if (!liveData.name || !liveData.email || !liveData.password || (liveData.password || '').length < 8) {
+-          setCreateAccountError('Please complete your account details before publishing.');
+-          setStep(1);
++          setPaymentError('Please complete the account name, email, and password from the first step before publishing. Your setup is still saved.');
++          saveOnboardingProgress({ step: 7, data: liveData, accountCreated: true });
+           return;
+         }
+ 
+-        localStorage.setItem('catstays_onboarding', JSON.stringify({ step, data: liveData, accountCreated: true }));
++        saveOnboardingProgress({ step: 7, data: liveData, accountCreated: true });
+ 
+         const response = await fetch('/api/cattery/provision', {
+           method: 'POST',
+@@ -1032,6 +1135,8 @@ export function OnboardingWizard() {
+           error?: string;
+           catteryId?: string;
+           slug?: string;
++          emailConfirmationSent?: boolean;
++          emailConfirmationRedirectUrl?: string;
+         } = {};
+ 
+         try {
+@@ -1044,17 +1149,15 @@ export function OnboardingWizard() {
+           const message = payload.error || publishErrorMessage(response.status, rawPayload);
+           if (response.status === 409 && message.toLowerCase().includes('account')) {
+             setCreateAccountError(message);
+-            setAccountCreated(false);
+           }
+           throw new Error(message);
+         }
+ 
+         activeCatteryId = payload.catteryId || null;
+-        if (payload.slug && payload.slug !== data.subdomain) {
+-          setData((prev: any) => ({ ...prev, subdomain: payload.slug }));
+-        }
++        publishedSlug = payload.slug || liveData.subdomain;
++        emailConfirmationRedirectUrl = payload.emailConfirmationRedirectUrl || '';
+ 
+-        localStorage.setItem('catstays_account', JSON.stringify({
++        localStorage.setItem(ACCOUNT_STORAGE_KEY, JSON.stringify({
+           name: liveData.name,
+           email: liveData.email,
+           businessName: liveData.businessName,
+@@ -1110,13 +1213,26 @@ export function OnboardingWizard() {
+         await refreshCattery();
+       }
+ 
+-      localStorage.setItem('catstays_onboarding', JSON.stringify({
++      const publishedData = {
++        ...liveData,
++        subdomain: publishedSlug,
++        publishedCatteryId: activeCatteryId,
++        publishStatus: 'published',
++        emailConfirmationSent: true,
++        emailConfirmationRedirectUrl,
++        selectedPlan,
++      };
++
++      saveOnboardingProgress({
+         step: 8,
+-        data: liveData,
++        data: publishedData,
+         accountCreated: true,
+-      }));
++        publishStatus: 'published',
++        catteryId: activeCatteryId,
++      });
+ 
+       // Move to success screen
++      setData(publishedData);
+       setStep(8);
+     } catch (error) {
+       const message = error instanceof Error
+@@ -1377,7 +1493,7 @@ export function OnboardingWizard() {
+                     </div>
+ 
+                     <Button
+-                      onClick={handleNext}
++                      onClick={handleContinueFromAccountReady}
+                       size="lg"
+                       className="w-full bg-[#C46A3A] hover:bg-[#A85A30] text-white rounded-xl py-7 text-lg shadow-lg"
+                     >
+@@ -2037,11 +2153,13 @@ export function OnboardingWizard() {
+             onGoToWebsite={() => window.open(`https://${data.subdomain}.catstays.app`, '_blank', 'noopener,noreferrer')}
+             onContinueToDataImport={() => {
+               setStep(9);
+-              localStorage.setItem('catstays_onboarding', JSON.stringify({
++              saveOnboardingProgress({
+                 step: 9,
+                 data,
+                 accountCreated,
+-              }));
++                publishStatus: 'published',
++                catteryId: data.publishedCatteryId || null,
++              });
+             }}
+             businessData={data}
+             subscriptionTier={selectedPlan}
+diff --git a/artifacts/catstays/src/utils/appUrl.ts b/artifacts/catstays/src/utils/appUrl.ts
+index 3dc995c..0394d3e 100644
+--- a/artifacts/catstays/src/utils/appUrl.ts
++++ b/artifacts/catstays/src/utils/appUrl.ts
+@@ -12,16 +12,20 @@ function trimTrailingSlash(value: string) {
+   return value.replace(/\/$/, '');
+ }
+ 
++function usablePublicUrl(value: string | undefined) {
++  if (!value || value.trim().length === 0) return null;
++  const trimmed = value.trim();
++  if (isPlaceholderValue(trimmed) || isLocalhostUrl(trimmed)) return null;
++  return trimTrailingSlash(trimmed);
++}
++
+ export function getPublicAppUrl() {
+-  if (configuredAppUrl && configuredAppUrl.trim().length > 0) {
+-    const trimmed = configuredAppUrl.trim();
+-    if (!isPlaceholderValue(trimmed) && !isLocalhostUrl(trimmed)) {
+-      return trimTrailingSlash(trimmed);
+-    }
+-  }
++  const configured = usablePublicUrl(configuredAppUrl);
++  if (configured) return configured;
+ 
+-  if (typeof window !== 'undefined' && window.location?.origin) {
+-    return trimTrailingSlash(window.location.origin);
++  if (typeof window !== 'undefined') {
++    const origin = usablePublicUrl(window.location?.origin);
++    if (origin) return origin;
+   }
+ 
+   return 'https://catstays.app';
+diff --git a/docs/changelog.md b/docs/changelog.md
+index 7594a0d..a3aa0c3 100644
+--- a/docs/changelog.md
++++ b/docs/changelog.md
+@@ -21,6 +21,7 @@
+ - Added editable review and FAQ eyebrows/headings, kept imported review/FAQ lists instead of placeholder fallbacks, added show/hide controls for website display, and filtered repeated navigation-style FAQ answers.
+ - Added editable footer quick links with section-anchor selection, included FAQs in generated footer links when available, and made footer hours mirror Contact / Location hours.
+ - Hardened the Publish handler so duplicate-account conflicts stay on the Publish step with the inline error instead of resetting to step 1.
++- Hardened post-publish onboarding state so a successfully provisioned but unconfirmed Supabase Auth user is restored to the Success step instead of the Account step, and frontend confirmation URLs no longer fall back to localhost.
+ 
+ ## 2026-07-01
+ 
+-- 
+2.39.5 (Apple Git-154)
