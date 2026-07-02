@@ -12,6 +12,9 @@
 - Preserved owner-edited builder copy, image choices, CTA choices, and hero image crop settings across template switches and Supabase `website_settings` save/load.
 - Added a repository-backed `/api/website/copy-image` route and `catstays-media` Supabase Storage bucket definition so pasted image URLs can be copied to CatStays-owned storage instead of being treated as durable hot-links.
 - Split Website Builder controls for the top Why Choose story, Purpose-built accommodation/facilities, and Care Approach card row, with imported navigation-menu boilerplate stripped from generated copy.
+- Removed the duplicate Purpose-built accommodation card row so care cards only render and edit in the Care Approach section.
+- Reordered Website Builder sections so Boarding Options appears after the care/facilities content, matching the generated preview scroll order.
+- Added editable suite bullet points to Boarding Options and made suite card rows center for short rows or scroll horizontally when more than three suites exist.
 - Hardened the Publish handler so duplicate-account conflicts stay on the Publish step with the inline error instead of resetting to step 1.
 
 ## 2026-07-01

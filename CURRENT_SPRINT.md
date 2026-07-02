@@ -35,6 +35,10 @@ Stabilise CatStays onboarding publish and imported website preview quality, with
 - Linked image URLs should be copied into CatStays-owned Supabase Storage through `/api/website/copy-image` and the `catstays-media` bucket, rather than relying on the original owner website URL long term.
 - Builder edits should persist automatically through local onboarding autosave, Supabase `website_settings`, and template switches; switching templates must not overwrite owner-edited copy, images, CTA choices, or crop settings with the original import defaults.
 - Website builder section controls now separate the top Why Choose story, Purpose-built accommodation/facilities, and lower Care Approach card row so those sections no longer reuse the same copy/cards.
+- Purpose-built accommodation now renders as its own image/text section only. The duplicated facility/card row was removed from both the preview and builder, so `Five-star private suites`, `No communal living`, and similar cards are edited only through the Care Approach card controls.
+- Website builder sections now place Suites / Boarding Options directly after the care/facilities content so the left editor follows the generated website's top-to-bottom scroll order.
+- Boarding Options suite cards now stay centered for short rows and switch to a horizontal scroll rail when more than three suite cards are present.
+- Suite cards now expose editable bullet points in the Website Builder, and pasted suite image URLs use the shared image copy flow before the stored URL is saved.
 - Imported navigation menu text such as `top of page Home About...` should be stripped before it is used as section or card copy.
 - No root-level Architect Update exists yet.
 
@@ -44,13 +48,13 @@ Stabilise CatStays onboarding publish and imported website preview quality, with
 2. UAT importing `https://fancyfelines.nz` and confirm the demo URL updates to `/demo/fancyfelines`.
 3. Confirm the first cattery setup page fills Location with the imported address, for example the FancyFelines Whareora Road address, not `fancyfelines` or the business name.
 4. Confirm generated previews do not use the FancyFelines logo/wordmark as hero/header photography and do not show broken image boxes.
-5. Confirm the Care Approach and Boarding Options card rows are centered and responsive when there are only three or two cards.
+5. Confirm the Care Approach and Boarding Options card rows are centered and responsive when there are only three or two cards, and confirm Boarding Options becomes a horizontal scroll rail when more than three suites exist.
 6. Confirm Professional Cat Grooming, Q&A/FAQs, collaborations, health care, HBOT, PEMF, and other source-site pages appear as appropriate one-page sections or FAQs, and that FAQs are available to the chatbot/footer.
 7. Re-run publish UAT with both existing and fresh Auth emails: existing emails should stay on Publish with an inline error; fresh emails should complete provisioning.
 8. Confirm email confirmation redirect URLs still point to the live CatStays URL. If links open a development/auth URL, verify Supabase Auth URL Configuration and additional redirect URLs.
 9. UAT Website Builder hero edits: edit `A home away from home`, hide one CTA using `None`, change CTA anchors, hover the hero preview image to adjust X/Y/Zoom, switch templates, and confirm the text/buttons/crop persist.
 10. UAT linked image import: paste a remote image URL, confirm it is copied to a CatStays/Supabase Storage URL, and confirm publishing does not depend on the original website image URL.
-11. UAT section editor order and copy: confirm Why Choose story, Purpose-built accommodation, and Care Approach cards each have editable eyebrow/heading/body/card controls and no longer show imported navigation-menu scraps.
+11. UAT section editor order and copy: confirm Why Choose story, Purpose-built accommodation, Care Approach cards, and Boarding Options appear in the same order as the preview; Purpose-built should no longer show duplicate care-card controls; Boarding Options should expose editable bullet points.
 
 ## Decisions This Sprint
 
@@ -66,6 +70,7 @@ Stabilise CatStays onboarding publish and imported website preview quality, with
 - Treat linked owner-site images as temporary source URLs only. Before publish, CatStays should copy them to owned Supabase Storage and store the owned URL in builder data.
 - Treat website builder fields as autosaved state. There should not be a separate Save button requirement for ordinary copy, image, CTA, or template/color edits.
 - Treat visually separate page sections as separate builder data, even when they start with similar imported copy, so editing one section does not silently change another.
+- Treat Purpose-built accommodation as an image/text section, not a second card grid. Card-style selling points belong under Care Approach, and suite bullet points belong under Boarding Options.
 
 ## Risks Or Blockers
 

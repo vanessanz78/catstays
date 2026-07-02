@@ -46,7 +46,6 @@ type PreviewDevice = 'mobile' | 'tablet' | 'desktop';
 type PreviewNoticeKind = 'booking' | 'contact';
 
 const trustIcons = [ShieldCheck, HeartHandshake, Sparkles, CalendarCheck];
-const facilityIcons = [ShieldCheck, Sparkles, Camera, Clock, HeartHandshake, CalendarCheck];
 const serviceIcons = [Scissors, Stethoscope, Zap, Car, Plane, ShieldCheck, HeartHandshake, CalendarCheck];
 const fallbackPreviewImage = 'https://images.unsplash.com/photo-1573865526739-10c1de0e0ef2?w=1200&h=900&fit=crop';
 const namedCareIcons = {
@@ -675,32 +674,39 @@ function AboutSplit({
 
 function SuitesGrid({ content, compact = false }: { content: ReturnType<typeof buildCatstaysTemplateContent>; compact?: boolean }) {
   const [activeSuite, setActiveSuite] = useState<(ReturnType<typeof buildCatstaysTemplateContent>['suites'][number]) | null>(null);
+  const useScrollableRail = content.suites.length > 3;
+  const suitesLayoutClass = useScrollableRail
+    ? 'mt-10 flex snap-x gap-6 overflow-x-auto px-1 pb-4 [scrollbar-width:thin]'
+    : centeredGridClass(content.suites.length, 3, 'mt-10 gap-8');
+  const suiteCardClass = useScrollableRail
+    ? 'min-w-[82vw] snap-start sm:min-w-[360px] lg:min-w-[380px]'
+    : '';
 
   return (
     <section id="suites" className={`mx-auto max-w-[1400px] scroll-mt-28 px-6 text-center ${compact ? 'py-14' : 'py-20'}`}>
       <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Our Suites</p>
       <h2 className="text-3xl leading-tight md:text-5xl">{content.sectionHeadings.suites}</h2>
       <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-[#444]">Spacious, serene and stylish suites designed for your cat's comfort.</p>
-      <div className={centeredGridClass(content.suites.length, 3)}>
+      <div className={suitesLayoutClass}>
         {content.suites.map((suite) => (
-          <article key={suite.title} className="flex w-full overflow-hidden rounded-md border border-[#222]/10 bg-white text-left shadow-sm">
+          <article key={suite.title} className={`flex w-full overflow-hidden rounded-md border border-[#222]/10 bg-white text-left shadow-sm ${suiteCardClass}`}>
             <div className="flex w-full flex-col">
-            <SafeImage src={suite.image} alt="" className="h-56 w-full object-cover" />
-            <div className="flex flex-1 flex-col p-5 text-center">
-              <h3 className="mb-3 text-sm font-bold uppercase tracking-[0.08em]">{suite.title}</h3>
-              {suite.price ? <p className="mb-3 text-sm font-bold text-[#8c5b32]">{suite.price}</p> : null}
-              <p className="text-sm leading-6 text-[#444]">{suite.text}</p>
-              {suite.features.length ? (
-                <ul className="mt-4 space-y-2 text-left text-xs leading-5 text-[#555]">
-                  {suite.features.slice(0, 4).map((feature) => (
-                    <li key={feature}>- {feature}</li>
-                  ))}
-                </ul>
-              ) : null}
-              <button type="button" onClick={() => setActiveSuite(suite)} className="mx-auto mt-auto rounded-md border border-[#0A1128]/20 bg-[#0A1128] px-5 py-3 text-xs font-bold uppercase tracking-[0.12em] text-white">
-                View Suite
-              </button>
-            </div>
+              <SafeImage src={suite.image} alt="" className="h-56 w-full object-cover" />
+              <div className="flex flex-1 flex-col p-5 text-center">
+                <h3 className="mb-3 text-sm font-bold uppercase tracking-[0.08em]">{suite.title}</h3>
+                {suite.price ? <p className="mb-3 text-sm font-bold text-[#8c5b32]">{suite.price}</p> : null}
+                <p className="text-sm leading-6 text-[#444]">{suite.text}</p>
+                {suite.features.length ? (
+                  <ul className="mt-4 space-y-2 text-left text-xs leading-5 text-[#555]">
+                    {suite.features.slice(0, 4).map((feature) => (
+                      <li key={feature}>- {feature}</li>
+                    ))}
+                  </ul>
+                ) : null}
+                <button type="button" onClick={() => setActiveSuite(suite)} className="mx-auto mt-auto rounded-md border border-[#0A1128]/20 bg-[#0A1128] px-5 py-3 text-xs font-bold uppercase tracking-[0.12em] text-white">
+                  View Suite
+                </button>
+              </div>
             </div>
           </article>
         ))}
@@ -956,7 +962,7 @@ function ReviewsSection({ content }: { content: ReturnType<typeof buildCatstaysT
 }
 
 function FacilitiesDetailSection({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
-  if (!content.facilities.items.length) return null;
+  if (!content.facilities.title && !content.facilities.text && !content.facilities.image) return null;
 
   return (
     <section id="facilities" className="scroll-mt-28 bg-white px-6 py-16">
@@ -968,18 +974,6 @@ function FacilitiesDetailSection({ content }: { content: ReturnType<typeof build
             <h2 className="text-3xl leading-tight md:text-5xl">{content.facilities.title}</h2>
             <p className="mt-5 max-w-3xl text-base leading-7 text-[#444]">{content.facilities.text}</p>
           </div>
-        </div>
-        <div className={centeredGridClass(content.facilities.items.length, 3, 'mt-8 gap-5')}>
-          {content.facilities.items.map((item, index) => {
-            const Icon = facilityIcons[index % facilityIcons.length] || ShieldCheck;
-            return (
-              <article key={item.title} className="rounded-md border border-[#222]/10 bg-[#f8f5ef] p-5">
-                <Icon className="mb-4 h-6 w-6 text-[#8c5b32]" />
-                <h3 className="font-serif text-xl leading-tight">{item.title}</h3>
-                <p className="mt-3 text-sm leading-6 text-[#444]">{item.text}</p>
-              </article>
-            );
-          })}
         </div>
       </div>
     </section>

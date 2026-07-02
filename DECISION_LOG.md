@@ -11,11 +11,26 @@ Reason: FancyFelines UAT showed one shared `whyChoose`/feature data source appea
 Impact:
 
 - The builder exposes editable eyebrow, heading, and body copy fields for the top Why Choose story.
-- The Purpose-built accommodation section has its own editable eyebrow, heading, body, image, and true facility feature list.
+- The Purpose-built accommodation section has its own editable eyebrow, heading, body, and image.
 - The Care Approach card row has its own editable eyebrow, heading, body, and cards.
-- Generated previews should not fall back from empty facility features to general care cards.
+- Purpose-built accommodation should render as an image/text section, not a second card grid.
+- Generated previews should not fall back from empty facility features to general care cards, and the builder should not show duplicate card controls under Purpose-built.
 - Imported navigation boilerplate such as `top of page Home About...` should be stripped before it reaches section/card copy.
 - UAT should verify the left editor order matches the page scroll order and that changing one section does not unexpectedly alter another.
+
+## 2026-07-02 - Boarding Options Own Suite Details
+
+Decision: Suite names, prices, descriptions, images, and bullet points belong in the Boarding Options editor section, and that editor section should appear where Boarding Options appears in the live preview.
+
+Reason: FancyFelines UAT showed the page preview reaching Boarding Options before the left editor reached Suites, and suite bullet points such as daily care, comfort checks, photo updates, and enrichment time were visible on the page but not editable.
+
+Impact:
+
+- Suites / Boarding Options is ordered after the care/facilities content in the builder.
+- Each suite exposes editable bullet points as well as name, description, price, and image.
+- Short suite rows should center; rows with more than three suites should use a horizontal scroll rail.
+- Linked suite images use the same CatStays-owned image copy flow as other builder images.
+- UAT should confirm template switching preserves edited suite images and bullet points.
 
 ## 2026-07-02 - Builder Images And Hero Edits Persist
 

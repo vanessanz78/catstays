@@ -9,7 +9,7 @@ import { ImageUpload } from './ImageUpload';
 
 /**
  * Website Editor Panel - Sections ordered to match the generated preview (top to bottom)
- * Order: Hero -> About -> Why Choose story -> Facilities -> Care Approach -> Owner Story -> Gallery -> Suites -> Services -> Reviews -> Contact -> Footer -> Chatbot
+ * Order: Hero -> About -> Why Choose story -> Facilities -> Care Approach -> Suites -> Services -> Source sections -> FAQ -> Gallery -> Reviews -> Owner Story -> Contact -> Footer -> Social
  */
 
 interface WebsiteEditorPanelEnhancedProps {
@@ -115,6 +115,25 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
     const newFeatures = [...careFeatures, { icon: 'Shield', title: '', description: '', isNew: true }];
     setData({ ...data, whyChooseUsFeatures: newFeatures });
     toggleExpanded(`why-choose-${newFeatures.length - 1}`);
+  };
+
+  const getSuiteBulletPoints = (suite: any) => {
+    if (Array.isArray(suite?.features)) return suite.features;
+    if (Array.isArray(suite?.amenities)) return suite.amenities;
+    return [];
+  };
+
+  const setSuiteAt = (index: number, updates: Record<string, any>) => {
+    const newSuites = [...(data.suites || [])];
+    newSuites[index] = { ...(newSuites[index] || {}), ...updates };
+    setData({ ...data, suites: newSuites });
+  };
+
+  const setSuiteBulletPoints = (index: number, bulletPoints: string[]) => {
+    setSuiteAt(index, {
+      features: bulletPoints,
+      amenities: bulletPoints,
+    });
   };
 
   const renderCarePointEditor = () => (
@@ -575,159 +594,6 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
             value={data.facilitiesImage || ''}
             onChange={(url) => setData({ ...data, facilitiesImage: url })}
           />
-
-          <div className="space-y-4 mt-4">
-            <div className="flex items-center justify-between">
-              <Label>Facility Features</Label>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  const newFeatures = [...(data.facilityFeatures || []), { title: '', description: '', isNew: true }];
-                  setData({ ...data, facilityFeatures: newFeatures });
-                  toggleExpanded(`facility-${newFeatures.length - 1}`);
-                }}
-                className="text-xs h-7"
-              >
-                <Plus className="w-3 h-3 mr-1" />
-                Add Feature
-              </Button>
-            </div>
-
-            {(data.facilityFeatures || []).map((feature: any, index: number) => {
-              const isExpanded = expandedItems[`facility-${index}`] || feature.isNew;
-              const isComplete = feature.title && feature.description;
-
-              return (
-                <div key={index} className="border rounded-lg bg-gray-50">
-                  {!isExpanded ? (
-                    <div className="flex items-center justify-between p-3">
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <span className="text-sm font-medium text-gray-700">
-                          {feature.title || `Feature ${index + 1}`}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => toggleExpanded(`facility-${index}`)}
-                          className="h-7 w-7 p-0"
-                        >
-                          <ChevronDown className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            const newFeatures = (data.facilityFeatures || []).filter((_: any, i: number) => i !== index);
-                            setData({ ...data, facilityFeatures: newFeatures });
-                          }}
-                          className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-700">Feature {index + 1}</span>
-                        <div className="flex items-center gap-1">
-                          {feature.isNew && isComplete && (
-                            <Button
-                              size="sm"
-                              onClick={() => {
-                                const newFeatures = [...(data.facilityFeatures || [])];
-                                newFeatures[index] = { ...newFeatures[index], isNew: false };
-                                setData({ ...data, facilityFeatures: newFeatures });
-                                toggleExpanded(`facility-${index}`);
-                              }}
-                              className="h-7 text-xs bg-green-600 hover:bg-green-700"
-                            >
-                              <Check className="w-3 h-3 mr-1" />
-                              Save
-                            </Button>
-                          )}
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => toggleExpanded(`facility-${index}`)}
-                            className="h-7 w-7 p-0"
-                          >
-                            <ChevronUp className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              const newFeatures = (data.facilityFeatures || []).filter((_: any, i: number) => i !== index);
-                              setData({ ...data, facilityFeatures: newFeatures });
-                            }}
-                            className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-xs">Feature Title</Label>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleAIClick(`facilityFeature${index}Title`)}
-                            disabled={isRegenerating}
-                            className="text-xs h-6"
-                          >
-                            <Wand2 className="w-3 h-3 mr-1" />
-                            AI
-                          </Button>
-                        </div>
-                        <Input
-                          value={feature.title || ''}
-                          onChange={(e) => {
-                            const newFeatures = [...(data.facilityFeatures || [])];
-                            newFeatures[index] = { ...newFeatures[index], title: e.target.value };
-                            setData({ ...data, facilityFeatures: newFeatures });
-                          }}
-                          placeholder="e.g., Climate Control"
-                          className="h-9 rounded-lg text-sm"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-xs">Description</Label>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleAIClick(`facilityFeature${index}Description`)}
-                            disabled={isRegenerating}
-                            className="text-xs h-6"
-                          >
-                            <Wand2 className="w-3 h-3 mr-1" />
-                            AI
-                          </Button>
-                        </div>
-                        <Input
-                          value={feature.description || ''}
-                          onChange={(e) => {
-                            const newFeatures = [...(data.facilityFeatures || [])];
-                            newFeatures[index] = { ...newFeatures[index], description: e.target.value };
-                            setData({ ...data, facilityFeatures: newFeatures });
-                          }}
-                          placeholder="Feature description"
-                          className="h-9 rounded-lg text-sm"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
         </AccordionContent>
       </AccordionItem>
 
@@ -797,7 +663,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       </AccordionItem>
 
       {/* 6. SUITES SECTION */}
-      <AccordionItem value="our-suites" className="order-8 border rounded-xl px-4 bg-white">
+      <AccordionItem value="our-suites" className="order-6 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
           <span className="font-semibold">{sectionTitles.suites}</span>
         </AccordionTrigger>
@@ -831,7 +697,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
                 size="sm"
                 variant="outline"
                 onClick={() => {
-                  const newSuites = [...(data.suites || []), { name: '', description: '', price: '', image: '', isNew: true }];
+                  const newSuites = [...(data.suites || []), { name: '', description: '', price: '', image: '', features: [], amenities: [], isNew: true }];
                   setData({ ...data, suites: newSuites });
                   toggleExpanded(`suite-${newSuites.length - 1}`);
                 }}
@@ -845,6 +711,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
             {(data.suites || []).map((suite: any, index: number) => {
               const isExpanded = expandedItems[`suite-${index}`] || suite.isNew;
               const isComplete = suite.name && suite.description;
+              const suiteBulletPoints = getSuiteBulletPoints(suite);
 
               return (
                 <div key={index} className="border rounded-lg bg-gray-50">
@@ -950,9 +817,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
                         <Input
                           value={suite.name || ''}
                           onChange={(e) => {
-                            const newSuites = [...(data.suites || [])];
-                            newSuites[index] = { ...newSuites[index], name: e.target.value };
-                            setData({ ...data, suites: newSuites });
+                            setSuiteAt(index, { name: e.target.value });
                           }}
                           placeholder="e.g., Standard Suite"
                           className="h-9 rounded-lg text-sm"
@@ -976,9 +841,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
                         <Textarea
                           value={suite.description || ''}
                           onChange={(e) => {
-                            const newSuites = [...(data.suites || [])];
-                            newSuites[index] = { ...newSuites[index], description: e.target.value };
-                            setData({ ...data, suites: newSuites });
+                            setSuiteAt(index, { description: e.target.value });
                           }}
                           placeholder="Suite description"
                           className="rounded-lg text-sm"
@@ -991,9 +854,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
                         <Input
                           value={suite.price || ''}
                           onChange={(e) => {
-                            const newSuites = [...(data.suites || [])];
-                            newSuites[index] = { ...newSuites[index], price: e.target.value };
-                            setData({ ...data, suites: newSuites });
+                            setSuiteAt(index, { price: e.target.value });
                           }}
                           placeholder="e.g., $50/night"
                           className="h-9 rounded-lg text-sm"
@@ -1003,12 +864,57 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
                       <ImageUpload
                         label="Suite Image"
                         value={suite.image || ''}
-                        onChange={(url) => {
-                          const newSuites = [...(data.suites || [])];
-                          newSuites[index] = { ...newSuites[index], image: url };
-                          setData({ ...data, suites: newSuites });
+                        onChange={(url, meta) => {
+                          setSuiteAt(index, {
+                            image: url,
+                            imageOwned: meta?.owned,
+                            imageSourceUrl: meta?.sourceUrl,
+                            imageStoragePath: meta?.storagePath,
+                          });
                         }}
                       />
+
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs">Bullet Points</Label>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setSuiteBulletPoints(index, [...suiteBulletPoints, ''])}
+                            className="h-7 text-xs"
+                          >
+                            <Plus className="w-3 h-3 mr-1" />
+                            Add Bullet
+                          </Button>
+                        </div>
+                        <div className="space-y-2">
+                          {suiteBulletPoints.map((feature: string, featureIndex: number) => (
+                            <div key={featureIndex} className="flex items-center gap-2">
+                              <Input
+                                value={feature || ''}
+                                onChange={(e) => {
+                                  const nextBulletPoints = [...suiteBulletPoints];
+                                  nextBulletPoints[featureIndex] = e.target.value;
+                                  setSuiteBulletPoints(index, nextBulletPoints);
+                                }}
+                                placeholder="e.g., Daily care"
+                                className="h-9 rounded-lg text-sm"
+                              />
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  const nextBulletPoints = suiteBulletPoints.filter((_: string, i: number) => i !== featureIndex);
+                                  setSuiteBulletPoints(index, nextBulletPoints);
+                                }}
+                                className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1018,8 +924,8 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
         </AccordionContent>
       </AccordionItem>
 
-      {/* 6. EXTRA CARE / SERVICES SECTION */}
-      <AccordionItem value="additional-services" className="order-9 border rounded-xl px-4 bg-white">
+      {/* 7. EXTRA CARE / SERVICES SECTION */}
+      <AccordionItem value="additional-services" className="order-7 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
           <span className="font-semibold">{sectionTitles.services}</span>
         </AccordionTrigger>
@@ -1221,8 +1127,8 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
         </AccordionContent>
       </AccordionItem>
 
-      {/* 7. GALLERY SECTION */}
-      <AccordionItem value="gallery" className="order-7 border rounded-xl px-4 bg-white">
+      {/* 10. GALLERY SECTION */}
+      <AccordionItem value="gallery" className="order-10 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
           <span className="font-semibold">{sectionTitles.gallery}</span>
         </AccordionTrigger>
@@ -1302,8 +1208,8 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
         </AccordionContent>
       </AccordionItem>
 
-      {/* 8. REVIEWS SECTION */}
-      <AccordionItem value="testimonials" className="order-10 border rounded-xl px-4 bg-white">
+      {/* 11. REVIEWS SECTION */}
+      <AccordionItem value="testimonials" className="order-11 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
           <span className="font-semibold">{sectionTitles.reviews}</span>
         </AccordionTrigger>
@@ -1435,7 +1341,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       </AccordionItem>
 
       {/* 9. CHATBOT FAQ KNOWLEDGE */}
-      <AccordionItem value="faq" className="order-[15] border rounded-xl px-4 bg-white">
+      <AccordionItem value="faq" className="order-[9] border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
           <span className="font-semibold">{sectionTitles.faq}</span>
         </AccordionTrigger>
@@ -1558,8 +1464,8 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
         </AccordionContent>
       </AccordionItem>
 
-      {/* 10. OWNER STORY SECTION */}
-      <AccordionItem value="owner-story" className="order-6 border rounded-xl px-4 bg-white">
+      {/* 12. OWNER STORY SECTION */}
+      <AccordionItem value="owner-story" className="order-12 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
           <span className="font-semibold">{sectionTitles.owner}</span>
         </AccordionTrigger>
@@ -1617,8 +1523,8 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
         </AccordionContent>
       </AccordionItem>
 
-      {/* 11. CONTACT / LOCATION SECTION */}
-      <AccordionItem value="contact" className="order-11 border rounded-xl px-4 bg-white">
+      {/* 13. CONTACT / LOCATION SECTION */}
+      <AccordionItem value="contact" className="order-13 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
           <span className="font-semibold">{sectionTitles.contact}</span>
         </AccordionTrigger>
@@ -1666,8 +1572,8 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
         </AccordionContent>
       </AccordionItem>
 
-      {/* 12. CUSTOM SECTIONS */}
-      <AccordionItem value="custom-sections" className="order-12 border rounded-xl px-4 bg-white">
+      {/* 8. CUSTOM SECTIONS */}
+      <AccordionItem value="custom-sections" className="order-8 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
           <span className="font-semibold">{sectionTitles.custom}</span>
         </AccordionTrigger>
@@ -1852,8 +1758,8 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
         </AccordionContent>
       </AccordionItem>
 
-      {/* 13. SOCIAL MEDIA */}
-      <AccordionItem value="social-media" className="order-13 border rounded-xl px-4 bg-white">
+      {/* 15. SOCIAL MEDIA */}
+      <AccordionItem value="social-media" className="order-[15] border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
           <span className="font-semibold">{sectionTitles.social}</span>
         </AccordionTrigger>
