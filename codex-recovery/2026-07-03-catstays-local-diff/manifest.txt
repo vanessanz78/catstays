@@ -1,0 +1,6 @@
+bytes=46444
+chars=24771
+chunks=5
+head=645e19faa2adb770cc2cb6ebc085769507b01fcf
+base=aec94b0d606c433f379831c0f7aceecff2967264
+format=lzma-xz-zero-context-git-diff
