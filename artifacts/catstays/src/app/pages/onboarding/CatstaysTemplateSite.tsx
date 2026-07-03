@@ -559,7 +559,19 @@ function ShowcaseTemplate({
 }
 
 function FeatureRow({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
-  const features = content.careApproach.items.slice(0, 4);
+  const railRef = useRef<HTMLDivElement | null>(null);
+  const features = content.careApproach.items;
+  const useCarousel = features.length > 3;
+  const layoutClass = useCarousel
+    ? 'mt-10 flex snap-x gap-6 overflow-x-auto px-1 pb-4 [scrollbar-width:thin]'
+    : centeredGridClass(features.length, 3);
+  const cardClass = useCarousel
+    ? 'flex min-w-[82vw] snap-start flex-col sm:min-w-[360px] lg:min-w-[380px]'
+    : 'w-full';
+
+  const scrollRail = (direction: -1 | 1) => {
+    railRef.current?.scrollBy({ left: direction * 420, behavior: 'smooth' });
+  };
 
   return (
     <section id="care" className="scroll-mt-28 bg-white px-6 py-16 text-center">
@@ -567,11 +579,21 @@ function FeatureRow({ content }: { content: ReturnType<typeof buildCatstaysTempl
         <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">{content.careApproach.eyebrow}</p>
         <h2 className="mx-auto max-w-3xl text-3xl leading-tight md:text-5xl">{content.careApproach.title}</h2>
         {content.careApproach.text ? <p className="mx-auto mt-5 max-w-4xl text-base leading-7 text-[#444]">{content.careApproach.text}</p> : null}
-        {features.length ? <div className={centeredGridClass(features.length, 4)}>
+        {useCarousel ? (
+          <div className="mt-8 flex justify-center gap-2">
+            <button type="button" onClick={() => scrollRail(-1)} className="grid h-10 w-10 place-items-center rounded-full border border-[#222]/15 bg-white text-[#222] shadow-sm">
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <button type="button" onClick={() => scrollRail(1)} className="grid h-10 w-10 place-items-center rounded-full border border-[#222]/15 bg-white text-[#222] shadow-sm">
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </div>
+        ) : null}
+        {features.length ? <div ref={railRef} className={layoutClass}>
           {features.map((feature, index) => {
             const Icon = careIconFor(feature.icon, index);
             return (
-              <div key={feature.title} className="w-full bg-[#f8f5ef] p-7 shadow-sm">
+              <div key={`${feature.title}-${index}`} className={`${cardClass} bg-[#f8f5ef] p-7 shadow-sm`}>
                 <Icon className="mx-auto mb-5 h-7 w-7 text-[#8c7b63]" />
                 <h3 className="mb-3 text-xl">{feature.title}</h3>
                 <p className="text-sm leading-6 text-[#444]">{feature.text}</p>
@@ -612,24 +634,27 @@ function SafeImage({
   style?: CSSProperties;
   fallbackSrc?: string;
 }) {
-  if (!src && !fallbackSrc) {
+  const [failedPrimary, setFailedPrimary] = useState(false);
+  const [failedFallback, setFailedFallback] = useState(false);
+  const primarySrc = src || '';
+  const activeSrc = primarySrc && !failedPrimary ? primarySrc : fallbackSrc;
+
+  if (!activeSrc || (activeSrc === fallbackSrc && failedFallback)) {
     return <div aria-hidden="true" className={`${className ?? ''} bg-[#f8f5ef]`} style={style} />;
   }
 
   return (
     <img
-      src={src || fallbackSrc}
+      src={activeSrc}
       alt={alt}
       className={className}
       style={style}
-      onError={(event) => {
-        if (event.currentTarget.dataset.fallbackApplied) return;
-        event.currentTarget.dataset.fallbackApplied = 'true';
-        if (!fallbackSrc) {
-          event.currentTarget.style.display = 'none';
+      onError={() => {
+        if (activeSrc === fallbackSrc) {
+          setFailedFallback(true);
           return;
         }
-        event.currentTarget.src = fallbackSrc;
+        setFailedPrimary(true);
       }}
     />
   );
@@ -849,6 +874,13 @@ function ServicesGrid({ content }: { content: ReturnType<typeof buildCatstaysTem
   const railRef = useRef<HTMLDivElement | null>(null);
   if (!content.services.length) return null;
 
+  const useCarousel = content.services.length > 3;
+  const layoutClass = useCarousel
+    ? 'flex snap-x gap-5 overflow-x-auto px-1 pb-3 [scrollbar-width:thin]'
+    : centeredGridClass(content.services.length, 3, 'gap-5');
+  const cardClass = useCarousel
+    ? 'min-w-[82vw] snap-start sm:min-w-[420px] lg:min-w-[460px]'
+    : 'w-full';
   const scrollRail = (direction: -1 | 1) => {
     railRef.current?.scrollBy({ left: direction * 460, behavior: 'smooth' });
   };
@@ -860,20 +892,20 @@ function ServicesGrid({ content }: { content: ReturnType<typeof buildCatstaysTem
           <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">{content.sectionEyebrows.services}</p>
           <h2 className="max-w-3xl text-3xl leading-tight md:text-5xl">{content.sectionHeadings.services}</h2>
         </div>
-        <div className="flex justify-center gap-2">
+        {useCarousel ? <div className="flex justify-center gap-2">
           <button type="button" onClick={() => scrollRail(-1)} className="grid h-10 w-10 place-items-center rounded-full border border-[#222]/15 bg-white text-[#222] shadow-sm">
             <ChevronLeft className="h-5 w-5" />
           </button>
           <button type="button" onClick={() => scrollRail(1)} className="grid h-10 w-10 place-items-center rounded-full border border-[#222]/15 bg-white text-[#222] shadow-sm">
             <ChevronRight className="h-5 w-5" />
           </button>
-        </div>
+        </div> : null}
       </div>
-      <div ref={railRef} className="flex snap-x gap-5 overflow-x-auto px-1 pb-3 [scrollbar-width:thin]">
+      <div ref={railRef} className={layoutClass}>
         {content.services.map((service, index) => {
           const Icon = serviceIconFor(service.title, index, service.icon);
           return (
-          <article key={service.title} className="flex min-w-[82vw] snap-start flex-col border border-[#222]/10 bg-white p-7 shadow-sm sm:min-w-[420px] lg:min-w-[460px]">
+          <article key={`${service.title}-${index}`} className={`flex ${cardClass} flex-col border border-[#222]/10 bg-white p-7 shadow-sm`}>
               <div className="mb-6 grid h-14 w-14 place-items-center rounded-full bg-[#f8f5ef] text-[#8c5b32]">
                 <Icon className="h-6 w-6" />
               </div>
@@ -952,6 +984,13 @@ function ReviewsSection({ content }: { content: ReturnType<typeof buildCatstaysT
   if (!content.testimonials.length) return null;
 
   const reviews = content.testimonials.slice(0, 10);
+  const useCarousel = reviews.length > 3;
+  const layoutClass = useCarousel
+    ? 'flex snap-x gap-5 overflow-x-auto px-1 pb-3 [scrollbar-width:thin]'
+    : centeredGridClass(reviews.length, 3, 'gap-5');
+  const cardClass = useCarousel
+    ? 'min-w-[82vw] snap-start sm:min-w-[420px] lg:min-w-[460px]'
+    : 'w-full';
   const scrollRail = (direction: -1 | 1) => {
     railRef.current?.scrollBy({ left: direction * 460, behavior: 'smooth' });
   };
@@ -964,18 +1003,18 @@ function ReviewsSection({ content }: { content: ReturnType<typeof buildCatstaysT
             <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">{content.sectionEyebrows.reviews}</p>
             <h2 className="text-3xl leading-tight md:text-5xl">{content.sectionHeadings.reviews}</h2>
           </div>
-          <div className="flex justify-center gap-2">
+          {useCarousel ? <div className="flex justify-center gap-2">
             <button type="button" onClick={() => scrollRail(-1)} className="grid h-10 w-10 place-items-center rounded-full border border-[#222]/15 bg-white text-[#222] shadow-sm">
               <ChevronLeft className="h-5 w-5" />
             </button>
             <button type="button" onClick={() => scrollRail(1)} className="grid h-10 w-10 place-items-center rounded-full border border-[#222]/15 bg-white text-[#222] shadow-sm">
               <ChevronRight className="h-5 w-5" />
             </button>
-          </div>
+          </div> : null}
         </div>
-        <div ref={railRef} className="flex snap-x gap-5 overflow-x-auto px-1 pb-3 [scrollbar-width:thin]">
-          {reviews.map((testimonial) => (
-            <article key={`${testimonial.author}-${testimonial.quote}`} className="min-w-[82vw] snap-start border border-[#222]/10 bg-[#f8f5ef] p-7 shadow-sm sm:min-w-[420px] lg:min-w-[460px]">
+        <div ref={railRef} className={layoutClass}>
+          {reviews.map((testimonial, index) => (
+            <article key={`${testimonial.author}-${testimonial.quote}-${index}`} className={`${cardClass} border border-[#222]/10 bg-[#f8f5ef] p-7 shadow-sm`}>
               <p className="text-3xl leading-none text-[#b58b4a]">"</p>
               <blockquote className="mt-3 text-base italic leading-7 text-[#333]">{testimonial.quote}</blockquote>
               <p className="mt-6 text-xs font-bold uppercase tracking-[0.14em]">{testimonial.author}</p>

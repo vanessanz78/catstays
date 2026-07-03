@@ -6,8 +6,8 @@ import { scrapeCatteryWebsite, type CatteryWebsiteScrapeResult } from '../lib/ca
 const router: IRouter = Router();
 const WEBSITE_MEDIA_BUCKET = 'catstays-media';
 const MAX_REMOTE_IMAGE_BYTES = 8 * 1024 * 1024;
-const MAX_SCRAPE_IMAGE_COPIES = 24;
-const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const MAX_SCRAPE_IMAGE_COPIES = 48;
+const SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/gif'];
 type StorageServiceClient = NonNullable<ReturnType<typeof createStorageServiceClient>>;
 
 class ImageCopyError extends Error {
@@ -306,7 +306,7 @@ function imageCopyErrorResponse(error: unknown) {
 }
 
 function publicWebsiteImageUrl(serviceClient: StorageServiceClient, path: string, contentType: string) {
-  if (contentType === 'image/gif') {
+  if (contentType === 'image/gif' || contentType === 'image/avif') {
     const { data } = serviceClient.storage.from(WEBSITE_MEDIA_BUCKET).getPublicUrl(path);
     return data.publicUrl;
   }
@@ -443,6 +443,7 @@ function contentTypeFromResponse(response: { headers: { get(name: string): strin
 function extensionForImageType(contentType: string) {
   if (contentType === 'image/png') return 'png';
   if (contentType === 'image/webp') return 'webp';
+  if (contentType === 'image/avif') return 'avif';
   if (contentType === 'image/gif') return 'gif';
   return 'jpg';
 }

@@ -1,6 +1,21 @@
 # Decision Log
 
-Last updated: 2026-07-02
+Last updated: 2026-07-03
+
+## 2026-07-03 - Imported Preview Must Fail Cleanly
+
+Decision: Imported previews must never expose broken image icons, logo-as-photo hero images, or navigation-menu text as visible website content.
+
+Reason: FancyFelines UAT on the live demo still showed a logo/wordmark-style header image, broken image boxes, left-weighted short card rows, and repeated `top of page Home About...` copy in page sections and cards.
+
+Impact:
+
+- Failed image URLs render as neutral empty media areas instead of browser broken-image icons.
+- Logo, wordmark, favicon, and placeholder-like image candidates are rejected for hero/header imagery.
+- Two- and three-card rows center on the page; sections with more than three cards use horizontal rails.
+- Scrape imports attempt to copy more owner-site images into CatStays-owned Supabase Storage, including AVIF files, so published pages are not dependent on the replaced source website.
+- User-facing generated copy must pass navigation-boilerplate cleaning before being saved into hero text, headings, suites, reviews, FAQs, footer summaries, or custom source-site sections.
+- UAT should reimport FancyFelines after Replit has pulled the GitHub changes, because previously published/demo pages can still show stale generated data until the import is rerun.
 
 ## 2026-07-02 - Reviews, FAQs, And Footer Are Editable Content
 

@@ -477,7 +477,8 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const locationBlock = libraryBlock(contentLibrary, 'location');
   const sourceSections = sourceContentSections(contentLibrary);
   const logoImage = stringFrom(data.logoImage, normalizedRecord.logoImage, record?.media.logoImage);
-  const heroImage = imageFrom(
+  const heroImage = heroImageFrom(
+    logoImage,
     data.heroImage,
     normalized.heroImage,
     record?.media.heroImage,
@@ -568,7 +569,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     icon: stringFrom(service.icon),
   }));
   const featureItems = editedHighlights
-    ? mappedHighlights.filter((feature) => feature.title || feature.text).slice(0, 4)
+    ? mappedHighlights.filter((feature) => feature.title || feature.text).slice(0, 8)
     : ensureFeatureCount(mappedHighlights, mappedServices);
   const whyChooseItems = editedHighlights
     ? featureItems
@@ -579,7 +580,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
           icon: stringFrom(item.icon),
         })),
         featureItems,
-      ).slice(0, 4);
+      ).slice(0, 8);
   const editedFacilityItems = Array.isArray(data.facilityFeatures) ? data.facilityFeatures : undefined;
   const mappedFacilityItems = editedFacilityItems
     ? editedFacilityItems.map((item: any) => ({
@@ -646,13 +647,13 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const customSections = (Array.isArray(data.customSections) && data.customSections.length ? data.customSections : sourceSections)
     .map((section: any) => ({
       id: slugify(stringFrom(section.id, section.title, section.heading, 'source-section')),
-      title: stringFrom(section.title, section.heading),
-      text: stringFrom(section.text, section.description, section.content),
+      title: contentStringFrom(section.title, section.heading),
+      text: contentStringFrom(section.text, section.description, section.content),
       items: Array.isArray(section.items)
         ? section.items
             .map((item: any) => ({
-              title: stringFrom(item.title, item.name),
-              text: stringFrom(item.text, item.description, item.answer),
+              title: contentStringFrom(item.title, item.name),
+              text: contentStringFrom(item.text, item.description, item.answer),
             }))
             .filter((item: any) => item.title || item.text)
         : [],
@@ -691,8 +692,8 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     },
     hero: {
       eyebrow: editableString(data.heroEyebrow, normalizedRecord.heroEyebrow, 'A home away from home'),
-      heading: stringFrom(data.heroHeading, normalized.heroHeading, record?.content.heroHeading, `Welcome to ${businessName}`),
-      text: stringFrom(data.heroSubheading, normalized.heroSubheading, record?.content.heroSubheading, primaryDescription),
+      heading: contentStringFrom(data.heroHeading, normalized.heroHeading, record?.content.heroHeading, `Welcome to ${businessName}`),
+      text: contentStringFrom(data.heroSubheading, normalized.heroSubheading, record?.content.heroSubheading, primaryDescription),
       image: heroImage,
       button: stringFrom(data.ctaText, heroPrimaryButton, heroLinks[0]?.label, 'Book Now'),
       primaryButton: heroPrimaryButton,
@@ -717,12 +718,12 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     sectionHeadings: {
       care: careApproachTitle,
       facilities: facilitiesTitle,
-      suites: stringFrom(data.suitesHeading, 'Beautiful suites for every kind of cat'),
-      services: stringFrom(data.additionalServicesHeading, 'Extra care when your cat needs it'),
-      gallery: stringFrom(data.galleryHeading, 'A closer look at the stay'),
-      reviews: stringFrom(data.testimonialsHeading, 'Trusted by cat families'),
-      faqs: stringFrom(data.faqHeading, 'Frequently Asked Questions'),
-      contact: stringFrom(data.contactHeading, 'Send us a message'),
+      suites: contentStringFrom(data.suitesHeading, 'Beautiful suites for every kind of cat'),
+      services: contentStringFrom(data.additionalServicesHeading, 'Extra care when your cat needs it'),
+      gallery: contentStringFrom(data.galleryHeading, 'A closer look at the stay'),
+      reviews: contentStringFrom(data.testimonialsHeading, 'Trusted by cat families'),
+      faqs: contentStringFrom(data.faqHeading, 'Frequently Asked Questions'),
+      contact: contentStringFrom(data.contactHeading, 'Send us a message'),
     },
     sectionEyebrows: {
       services: stringFrom(data.additionalServicesEyebrow, normalizedRecord.additionalServicesEyebrow, normalizedRecord.servicesData?.servicesEyebrow, 'Additional Services'),
@@ -760,7 +761,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       icon: stringFrom(service.icon),
     })).filter((service) => service.title || service.text || service.price),
     about: {
-      title: stringFrom(data.aboutHeading, normalized.aboutHeading, record?.content.aboutHeading, `About ${businessName}`),
+      title: contentStringFrom(data.aboutHeading, normalized.aboutHeading, record?.content.aboutHeading, `About ${businessName}`),
       text: primaryDescription,
       image: aboutImage,
     },
@@ -773,8 +774,8 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     faqs: faqs
       .filter((faq) => faq.showOnWebsite !== false)
       .map((faq: any) => ({
-        question: stringFrom(faq.question),
-        answer: stringFrom(faq.answer),
+        question: contentStringFrom(faq.question),
+        answer: contentStringFrom(faq.answer),
       }))
       .filter((faq) => faq.question && faq.answer),
     owner: {
@@ -806,7 +807,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       primaryCta: stringFrom(data.primaryCta, 'Check Availability'),
     },
     footer: {
-      about: stringFrom(data.footerAbout, primaryDescription),
+      about: contentStringFrom(data.footerAbout, primaryDescription),
       phone: stringFrom(data.phone, normalized.phone, record?.contact.phone),
       email: stringFrom(data.email, normalized.email, record?.contact.email),
       address: stringFrom(data.address, normalized.address, record?.contact.address),
@@ -863,13 +864,13 @@ function sourceContentSections(library: CatterySiteContentLibrary) {
     .filter((block) => !coreCategories.has(block.category))
     .map((block) => ({
       id: block.id,
-      title: block.title,
-      heading: block.title,
-      text: block.text || '',
-      description: block.text || '',
+      title: contentStringFrom(block.title),
+      heading: contentStringFrom(block.title),
+      text: contentStringFrom(block.text),
+      description: contentStringFrom(block.text),
       items: (block.items ?? []).map((item) => ({
-        title: item.title,
-        text: item.text || item.answer || '',
+        title: contentStringFrom(item.title),
+        text: contentStringFrom(item.text, item.answer),
       })),
       images: (block.images ?? []).map((image) => image.url).filter(Boolean),
       media: (block.images ?? [])[0]?.url || '',
@@ -1396,6 +1397,14 @@ function imageFrom(...values: unknown[]): string {
   return '';
 }
 
+function heroImageFrom(logoImage: string, ...values: unknown[]): string {
+  for (const value of values) {
+    const image = imageFrom(value);
+    if (image && isUsableGalleryImage(image, logoImage)) return image;
+  }
+  return '';
+}
+
 function embeddableVirtualTourUrl(rawUrl: string, sourceHost?: string): string {
   if (!rawUrl) return '';
   try {
@@ -1501,9 +1510,9 @@ function ensureFeatureCount(
     { title: 'Photo Updates', text: 'Owners can receive updates while their cats are away.' },
   ]
     .filter((feature) => feature.title || feature.text)
-    .slice(0, 4)
+    .slice(0, 8)
     .map((feature, index) => ({
-      title: feature.title || ['Fully Licensed', 'Premium Care', 'Daily Enrichment', 'Photo Updates'][index],
+      title: feature.title || ['Fully Licensed', 'Premium Care', 'Daily Enrichment', 'Photo Updates', 'Comfort Checks', 'Owner Updates', 'Calm Spaces', 'Personalised Care'][index] || 'Care feature',
       text: feature.text || 'A calm, professional cattery experience.',
     }));
 }
@@ -1519,7 +1528,7 @@ function ensureSuiteCount(rooms: any[], images: string[], fallbackPrice?: string
 
   return sourceRooms.map((room, index) => {
     const fallback = fallbackSuites[index % fallbackSuites.length];
-    const title = stringFrom(room.name, room.title, fallback.name);
+    const title = contentStringFrom(room.name, room.title, fallback.name);
     const price = stringFrom(room.price, fallbackPrice);
     const priceUnit = stringFrom(room.priceUnit);
     const priceLabel = price && priceUnit ? `${price} ${priceUnit}` : price;
@@ -1529,12 +1538,12 @@ function ensureSuiteCount(rooms: any[], images: string[], fallbackPrice?: string
         ? pickUniqueImage(usedImages, [isUsableGalleryImage(roomImage) ? roomImage : '', images[index + 1], images[index], images[0]], images)
         : imageFrom(isUsableGalleryImage(roomImage) ? roomImage : '', images[index + 1], images[index], images[0]),
       title,
-      text: stringFrom(room.description, priceLabel ? `${fallback.description} ${priceLabel}.` : fallback.description),
+      text: contentStringFrom(room.description, priceLabel ? `${fallback.description} ${priceLabel}.` : fallback.description),
       price: priceLabel,
       features: Array.isArray(room.amenities)
-        ? room.amenities.map((feature: unknown) => stringFrom(feature)).filter(Boolean).slice(0, 6)
+        ? room.amenities.map((feature: unknown) => contentStringFrom(feature)).filter(Boolean).slice(0, 8)
         : Array.isArray(room.features)
-          ? room.features.map((feature: unknown) => stringFrom(feature)).filter(Boolean).slice(0, 6)
+          ? room.features.map((feature: unknown) => contentStringFrom(feature)).filter(Boolean).slice(0, 8)
           : [],
     };
   });
@@ -1549,10 +1558,10 @@ function ensureTestimonials(
 ) {
   const mapped = testimonials
     .map((testimonial: any, index: number) => ({
-      quote: stringFrom(testimonial.text, testimonial.quote),
-      author: stringFrom(testimonial.name, testimonial.author, testimonial.customer, 'Guest family'),
+      quote: contentStringFrom(testimonial.text, testimonial.quote),
+      author: contentStringFrom(testimonial.name, testimonial.author, testimonial.customer, 'Guest family'),
       image: imageFrom(testimonial.image, index === 0 ? testimonialImage : undefined, images[index + 4], images[index], heroImage),
-      location: stringFrom(testimonial.location),
+      location: contentStringFrom(testimonial.location),
       rating: clampNumber(testimonial.rating, 1, 5, 5),
     }))
     .filter((testimonial) => testimonial.quote);

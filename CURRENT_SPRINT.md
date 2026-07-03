@@ -1,6 +1,6 @@
 # Current Sprint
 
-Last updated: 2026-07-02
+Last updated: 2026-07-03
 
 ## Goal
 
@@ -50,11 +50,14 @@ Stabilise CatStays onboarding publish and imported website preview quality, with
 - FAQ/Q&A imports now merge explicit FAQ pages, Q&A/question pages, and extracted source FAQ content; navigation boilerplate and repeated answers are rejected before FAQs are shown in the builder, website, footer, or chatbot knowledge.
 - Footer quick links are editable builder data with add/delete controls and section anchor selection. Generated footer links include FAQs when FAQ content exists and render from the saved link list instead of hardcoded labels.
 - Footer hours now mirror the Contact / Location hours saved in builder data, so edited operating hours can appear in both the contact section and the footer.
+- On 2026-07-03, preview rendering was hardened so failed image URLs render neutral placeholders instead of browser broken-image icons, logo/wordmark candidates are rejected for hero imagery, short card rows center by default, and Care/Services/Reviews switch to horizontal rails when they have more than three cards.
+- The scrape image copy pass now accepts AVIF owner-site images and attempts to copy up to 48 bounded source images into the CatStays Supabase `catstays-media` bucket before returning preview data.
+- User-facing imported copy now runs through the navigation-boilerplate cleaner for hero text, headings, suites, reviews, FAQs, footer summaries, and source-site custom sections so menu text such as `top of page Home About...` is rejected before display.
 - No root-level Architect Update exists yet.
 
 ## Next Actions
 
-1. Pull `main` into Replit and republish/restart so the latest import and app URL changes are active.
+1. Push the local CatStays import/rendering commits to GitHub, then pull `main` into Replit and republish/restart so the latest import and app URL changes are active.
 2. UAT importing `https://fancyfelines.nz` and confirm the demo URL updates to `/demo/fancyfelines`.
 3. Confirm the first cattery setup page fills Location with the imported address, for example the FancyFelines Whareora Road address, not `fancyfelines` or the business name.
 4. Confirm generated previews do not use the FancyFelines logo/wordmark as hero/header photography and do not show broken image boxes.
