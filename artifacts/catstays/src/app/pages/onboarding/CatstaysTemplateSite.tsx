@@ -39,32 +39,25 @@ interface CatstaysTemplateSiteProps {
   templateId?: PreviewTemplateId | string | null;
   embedded?: boolean;
   previewDevice?: PreviewDevice;
-  onDataChange?: (updates: Record<string, any>) => void;
 }
 
 type PreviewDevice = 'mobile' | 'tablet' | 'desktop';
 type PreviewNoticeKind = 'booking' | 'contact';
 
 const trustIcons = [ShieldCheck, HeartHandshake, Sparkles, CalendarCheck];
+const facilityIcons = [ShieldCheck, Sparkles, Camera, Clock, HeartHandshake, CalendarCheck];
 const serviceIcons = [Scissors, Stethoscope, Zap, Car, Plane, ShieldCheck, HeartHandshake, CalendarCheck];
 const namedCareIcons = {
   Shield: ShieldCheck,
   Heart: HeartHandshake,
-  HeartHandshake,
   Award,
   Star,
   Clock,
-  CalendarCheck,
   Camera,
   Home,
   Users,
   CheckCircle,
   Sparkles,
-  Scissors,
-  Stethoscope,
-  Zap,
-  Car,
-  Plane,
 };
 
 export function CatstaysTemplateSite({
@@ -72,7 +65,6 @@ export function CatstaysTemplateSite({
   templateId,
   embedded = false,
   previewDevice = 'desktop',
-  onDataChange,
 }: CatstaysTemplateSiteProps) {
   const template = normalizePreviewTemplateId(templateId || data.selectedTemplate || 'conversion-focus');
   const content = buildCatstaysTemplateContent(data);
@@ -104,12 +96,12 @@ export function CatstaysTemplateSite({
   };
 
   if (template === 'editorial-guide') {
-    return <EditorialTemplate content={content} embedded={embedded} previewDevice={previewDevice} onDataChange={onDataChange} onPreviewAnchorClick={handlePreviewAnchorClick} onPreviewBookingAction={handlePreviewBookingAction} onPreviewBookingInteraction={handlePreviewBookingInteraction} onPreviewContactAction={handlePreviewContactAction} previewNoticeKind={previewNoticeKind} onDismissPreviewNotice={() => setPreviewNoticeKind(null)} />;
+    return <EditorialTemplate content={content} embedded={embedded} previewDevice={previewDevice} onPreviewAnchorClick={handlePreviewAnchorClick} onPreviewBookingAction={handlePreviewBookingAction} onPreviewBookingInteraction={handlePreviewBookingInteraction} onPreviewContactAction={handlePreviewContactAction} previewNoticeKind={previewNoticeKind} onDismissPreviewNotice={() => setPreviewNoticeKind(null)} />;
   }
   if (template === 'modern-showcase') {
-    return <ShowcaseTemplate content={content} embedded={embedded} previewDevice={previewDevice} onDataChange={onDataChange} onPreviewAnchorClick={handlePreviewAnchorClick} onPreviewBookingAction={handlePreviewBookingAction} onPreviewBookingInteraction={handlePreviewBookingInteraction} onPreviewContactAction={handlePreviewContactAction} previewNoticeKind={previewNoticeKind} onDismissPreviewNotice={() => setPreviewNoticeKind(null)} />;
+    return <ShowcaseTemplate content={content} embedded={embedded} previewDevice={previewDevice} onPreviewAnchorClick={handlePreviewAnchorClick} onPreviewBookingAction={handlePreviewBookingAction} onPreviewBookingInteraction={handlePreviewBookingInteraction} onPreviewContactAction={handlePreviewContactAction} previewNoticeKind={previewNoticeKind} onDismissPreviewNotice={() => setPreviewNoticeKind(null)} />;
   }
-  return <FocusTemplate content={content} embedded={embedded} previewDevice={previewDevice} onDataChange={onDataChange} onPreviewAnchorClick={handlePreviewAnchorClick} onPreviewBookingAction={handlePreviewBookingAction} onPreviewBookingInteraction={handlePreviewBookingInteraction} onPreviewContactAction={handlePreviewContactAction} previewNoticeKind={previewNoticeKind} onDismissPreviewNotice={() => setPreviewNoticeKind(null)} />;
+  return <FocusTemplate content={content} embedded={embedded} previewDevice={previewDevice} onPreviewAnchorClick={handlePreviewAnchorClick} onPreviewBookingAction={handlePreviewBookingAction} onPreviewBookingInteraction={handlePreviewBookingInteraction} onPreviewContactAction={handlePreviewContactAction} previewNoticeKind={previewNoticeKind} onDismissPreviewNotice={() => setPreviewNoticeKind(null)} />;
 }
 
 function templateRootStyle(content: ReturnType<typeof buildCatstaysTemplateContent>): CSSProperties {
@@ -140,90 +132,6 @@ function fontFamilyFor(font: string, role: 'heading' | 'body') {
   return fonts[font] || (role === 'heading' ? fonts.playfair : fonts.inter);
 }
 
-function heroImageStyle(content: ReturnType<typeof buildCatstaysTemplateContent>): CSSProperties {
-  const scale = content.hero.imageScale / 100;
-  return {
-    objectPosition: content.hero.imagePosition,
-    transform: scale === 1 ? undefined : `scale(${scale})`,
-    transformOrigin: content.hero.imagePosition,
-  };
-}
-
-function EditableHeroImage({
-  content,
-  embedded,
-  onDataChange,
-  className,
-  imageClassName = 'h-full w-full object-cover',
-}: {
-  content: ReturnType<typeof buildCatstaysTemplateContent>;
-  embedded: boolean;
-  onDataChange?: (updates: Record<string, any>) => void;
-  className?: string;
-  imageClassName?: string;
-}) {
-  return (
-    <div className={`group relative overflow-hidden ${className || ''}`}>
-      <SafeImage src={content.hero.image} alt="" className={imageClassName} style={heroImageStyle(content)} />
-      {embedded && onDataChange ? (
-        <div className="absolute bottom-3 left-3 right-3 z-20 rounded-md bg-white/90 p-3 text-[#0A1128] opacity-0 shadow-lg backdrop-blur-sm transition-opacity group-hover:opacity-100">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <HeroImageSlider
-              label="X"
-              value={content.hero.imagePositionX}
-              min={0}
-              max={100}
-              onChange={(value) => onDataChange({ heroImageObjectPositionX: value })}
-            />
-            <HeroImageSlider
-              label="Y"
-              value={content.hero.imagePositionY}
-              min={0}
-              max={100}
-              onChange={(value) => onDataChange({ heroImageObjectPositionY: value })}
-            />
-            <HeroImageSlider
-              label="Zoom"
-              value={content.hero.imageScale}
-              min={100}
-              max={180}
-              onChange={(value) => onDataChange({ heroImageScale: value })}
-            />
-          </div>
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function HeroImageSlider({
-  label,
-  value,
-  min,
-  max,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  onChange: (value: number) => void;
-}) {
-  return (
-    <label className="block text-[11px] font-bold uppercase tracking-[0.12em]">
-      <span className="mb-1 block">{label}</span>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        value={value}
-        onChange={(event) => onChange(Number(event.currentTarget.value))}
-        className="w-full accent-[#C46A3A]"
-      />
-    </label>
-  );
-}
-
 function TemplateHeader({
   content,
   dark = false,
@@ -239,10 +147,7 @@ function TemplateHeader({
     ['Care', '#care'],
     ['Facilities', '#facilities'],
     ['Suites', '#suites'],
-    ['Services', '#services'],
-    ...content.customSections.slice(0, 4).map((section) => [section.title, `#${section.id}`]),
     ['Gallery', '#gallery'],
-    ...(content.faqs.length ? [['FAQs', '#faqs']] : []),
     ['Contact', '#contact'],
   ];
 
@@ -274,7 +179,6 @@ function FocusTemplate({
   content,
   embedded,
   previewDevice,
-  onDataChange,
   onPreviewAnchorClick,
   onPreviewBookingAction,
   onPreviewBookingInteraction,
@@ -285,7 +189,6 @@ function FocusTemplate({
   content: ReturnType<typeof buildCatstaysTemplateContent>;
   embedded: boolean;
   previewDevice: PreviewDevice;
-  onDataChange?: (updates: Record<string, any>) => void;
   onPreviewAnchorClick: (event: MouseEvent<HTMLAnchorElement>) => void;
   onPreviewBookingAction: (event: MouseEvent<HTMLElement>) => void;
   onPreviewBookingInteraction: () => void;
@@ -305,28 +208,16 @@ function FocusTemplate({
             <h2 className="max-w-xl text-4xl leading-[1.05] sm:text-5xl lg:text-6xl">{content.hero.heading}</h2>
             <div className="my-6 h-px w-14 bg-[#b58b4a]" />
             <p className="max-w-lg text-base leading-7 text-[#333]">{content.hero.text}</p>
-            {content.hero.showPrimaryButton || content.hero.showSecondaryButton ? (
-              <div className="mt-8 flex flex-wrap gap-4">
-                {content.hero.showPrimaryButton ? (
-                  <a href={content.hero.primaryHref} onClick={onPreviewAnchorClick} className="rounded-md bg-[#0A1128] px-6 py-4 text-xs font-bold uppercase tracking-[0.1em] text-white">
-                    {content.hero.primaryButton}
-                  </a>
-                ) : null}
-                {content.hero.showSecondaryButton ? (
-                  <a href={content.hero.secondaryHref} onClick={onPreviewAnchorClick} className="rounded-md border border-[#0A1128]/45 px-6 py-4 text-xs font-bold uppercase tracking-[0.1em] text-[#0A1128]">
-                    {content.hero.secondaryButton}
-                  </a>
-                ) : null}
-              </div>
-            ) : null}
+            <div className="mt-8 flex flex-wrap gap-4">
+              <a href={content.hero.primaryHref || '#suites'} onClick={onPreviewAnchorClick} className="rounded-md bg-[#0A1128] px-6 py-4 text-xs font-bold uppercase tracking-[0.1em] text-white">
+                {content.hero.primaryButton}
+              </a>
+              <a href={content.hero.secondaryHref || '#care'} onClick={onPreviewAnchorClick} className="rounded-md border border-[#0A1128]/45 px-6 py-4 text-xs font-bold uppercase tracking-[0.1em] text-[#0A1128]">
+                {content.hero.secondaryButton}
+              </a>
+            </div>
           </div>
-          <EditableHeroImage
-            content={content}
-            embedded={embedded}
-            onDataChange={onDataChange}
-            className="h-[420px] w-full md:h-[620px]"
-            imageClassName="catstays-template-section-image h-full w-full object-cover"
-          />
+          <img src={content.hero.image} alt="" className="catstays-template-section-image h-[420px] w-full object-cover md:h-[620px]" />
         </section>
 
         <section id="booking" className="relative z-10 mx-auto w-full max-w-[1400px] scroll-mt-28 px-6 md:-mt-16">
@@ -360,15 +251,13 @@ function FocusTemplate({
         </section>
 
         <AboutSplit content={content} imageFirst onPreviewAnchorClick={onPreviewAnchorClick} />
-        <FacilitiesDetailSection content={content} />
         <FeatureRow content={content} />
+        <FacilitiesDetailSection content={content} />
+        <OwnerStorySection content={content} />
+        <GalleryStrip content={content} />
         <SuitesGrid content={content} />
         <ServicesGrid content={content} />
-        <SourceContentSections content={content} />
-        <FaqSection content={content} />
-        <GalleryStrip content={content} />
         <ReviewsSection content={content} />
-        <OwnerStorySection content={content} />
         <LocationSection content={content} />
         <VirtualTourSection content={content} />
         <ContactFormSection content={content} onPreviewContactAction={onPreviewContactAction} />
@@ -383,7 +272,6 @@ function EditorialTemplate({
   content,
   embedded,
   previewDevice,
-  onDataChange,
   onPreviewAnchorClick,
   onPreviewBookingAction,
   onPreviewBookingInteraction,
@@ -394,7 +282,6 @@ function EditorialTemplate({
   content: ReturnType<typeof buildCatstaysTemplateContent>;
   embedded: boolean;
   previewDevice: PreviewDevice;
-  onDataChange?: (updates: Record<string, any>) => void;
   onPreviewAnchorClick: (event: MouseEvent<HTMLAnchorElement>) => void;
   onPreviewBookingAction: (event: MouseEvent<HTMLElement>) => void;
   onPreviewBookingInteraction: () => void;
@@ -404,8 +291,8 @@ function EditorialTemplate({
 }) {
   const sections = [
     { id: 'about', title: content.about.title, text: content.about.text, image: content.about.image, eyebrow: `About ${content.business.name}` },
-    { id: 'why-choose', title: content.whyChoose.title, text: content.whyChoose.text, image: content.gallery[1]?.image || content.hero.image, eyebrow: content.whyChoose.eyebrow },
-    { id: 'facilities', title: content.facilities.title, text: content.facilities.text, image: content.facilities.image, eyebrow: content.facilities.eyebrow },
+    { id: 'care', title: content.whyChoose.title, text: content.whyChoose.text, image: content.gallery[1]?.image || content.hero.image, eyebrow: 'Why choose us' },
+    { id: 'facilities', title: content.facilities.title, text: content.facilities.text, image: content.facilities.image, eyebrow: 'Premium accommodation' },
   ];
 
   return (
@@ -415,32 +302,15 @@ function EditorialTemplate({
       <PreviewBookingNotice kind={previewNoticeKind} onDismiss={onDismissPreviewNotice} />
       <main>
         <section id="home" className="catstays-stack mx-auto grid max-w-[1400px] scroll-mt-28 md:grid-cols-2">
-          <EditableHeroImage
-            content={content}
-            embedded={embedded}
-            onDataChange={onDataChange}
-            className="h-[420px] w-full md:h-[560px]"
-            imageClassName="catstays-template-section-image h-full w-full object-cover"
-          />
+          <img src={content.hero.image} alt="" className="catstays-template-section-image h-[420px] w-full object-cover md:h-[560px]" />
           <div className="flex flex-col justify-center bg-white px-8 py-14 md:px-20">
             <p className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">{content.hero.eyebrow}</p>
             <h2 className="text-4xl leading-[1.08] md:text-6xl">{content.hero.heading}</h2>
             <div className="my-6 h-px w-14 bg-[#b58b4a]" />
             <p className="max-w-lg text-base leading-7">{content.hero.text}</p>
-            {content.hero.showPrimaryButton || content.hero.showSecondaryButton ? (
-              <div className="mt-8 flex flex-wrap gap-4">
-                {content.hero.showPrimaryButton ? (
-                  <a href={content.hero.primaryHref} onClick={onPreviewAnchorClick} className="catstays-mobile-full w-max rounded-md bg-[#0A1128] px-6 py-4 text-center text-xs font-bold uppercase tracking-[0.1em] text-white">
-                    {content.hero.primaryButton}
-                  </a>
-                ) : null}
-                {content.hero.showSecondaryButton ? (
-                  <a href={content.hero.secondaryHref} onClick={onPreviewAnchorClick} className="catstays-mobile-full w-max rounded-md border border-[#0A1128]/45 px-6 py-4 text-center text-xs font-bold uppercase tracking-[0.1em] text-[#0A1128]">
-                    {content.hero.secondaryButton}
-                  </a>
-                ) : null}
-              </div>
-            ) : null}
+            <a href="#booking" onClick={onPreviewAnchorClick} className="catstays-mobile-full mt-8 w-max rounded-md bg-[#0A1128] px-6 py-4 text-center text-xs font-bold uppercase tracking-[0.1em] text-white">
+              Book Now
+            </a>
           </div>
         </section>
 
@@ -454,16 +324,14 @@ function EditorialTemplate({
               <div className="my-6 h-px w-14 bg-[#b58b4a]" />
               <p className="max-w-lg text-base leading-7">{section.text}</p>
             </div>
-            <SafeImage src={section.image} alt="" className="catstays-template-section-image h-full min-h-[420px] w-full object-cover md:min-h-[560px]" />
+            <img src={section.image} alt="" className="catstays-template-section-image h-full min-h-[420px] w-full object-cover md:min-h-[560px]" />
           </section>
         ))}
 
-        <FacilitiesDetailSection content={content} />
         <FeatureRow content={content} />
+        <FacilitiesDetailSection content={content} />
         <SuitesGrid content={content} compact />
         <ServicesGrid content={content} />
-        <SourceContentSections content={content} />
-        <FaqSection content={content} />
         <GalleryStrip content={content} />
         <ReviewsSection content={content} />
         <OwnerStorySection content={content} />
@@ -481,7 +349,6 @@ function ShowcaseTemplate({
   content,
   embedded,
   previewDevice,
-  onDataChange,
   onPreviewAnchorClick,
   onPreviewBookingAction,
   onPreviewBookingInteraction,
@@ -492,7 +359,6 @@ function ShowcaseTemplate({
   content: ReturnType<typeof buildCatstaysTemplateContent>;
   embedded: boolean;
   previewDevice: PreviewDevice;
-  onDataChange?: (updates: Record<string, any>) => void;
   onPreviewAnchorClick: (event: MouseEvent<HTMLAnchorElement>) => void;
   onPreviewBookingAction: (event: MouseEvent<HTMLElement>) => void;
   onPreviewBookingInteraction: () => void;
@@ -507,32 +373,15 @@ function ShowcaseTemplate({
       <PreviewBookingNotice kind={previewNoticeKind} onDismiss={onDismissPreviewNotice} />
       <main>
         <section id="home" className="relative min-h-[620px] scroll-mt-28 overflow-hidden">
-          <EditableHeroImage
-            content={content}
-            embedded={embedded}
-            onDataChange={onDataChange}
-            className="absolute inset-0 h-full w-full"
-            imageClassName="h-full w-full object-cover"
-          />
+          <img src={content.hero.image} alt="" className="absolute inset-0 h-full w-full object-cover" />
           <div className="absolute inset-0 bg-black/45" />
           <div className="relative mx-auto flex min-h-[620px] max-w-[1400px] flex-col justify-end px-6 pb-16 text-white md:pb-24">
             <p className="mb-5 text-xs font-bold uppercase tracking-[0.24em] text-white/75">{content.hero.eyebrow}</p>
             <h2 className="max-w-4xl text-5xl leading-[1.02] md:text-7xl">{content.hero.heading}</h2>
             <p className="mt-6 max-w-2xl text-lg leading-8 text-white/90">{content.hero.text}</p>
-            {content.hero.showPrimaryButton || content.hero.showSecondaryButton ? (
-              <div className="mt-8 flex flex-wrap gap-4">
-                {content.hero.showPrimaryButton ? (
-                  <a href={content.hero.primaryHref} onClick={onPreviewAnchorClick} className="catstays-mobile-full w-max rounded-md bg-white px-7 py-4 text-center text-xs font-bold uppercase tracking-[0.1em] text-[#0A1128]">
-                    {content.hero.primaryButton}
-                  </a>
-                ) : null}
-                {content.hero.showSecondaryButton ? (
-                  <a href={content.hero.secondaryHref} onClick={onPreviewAnchorClick} className="catstays-mobile-full w-max rounded-md border border-white/70 px-7 py-4 text-center text-xs font-bold uppercase tracking-[0.1em] text-white">
-                    {content.hero.secondaryButton}
-                  </a>
-                ) : null}
-              </div>
-            ) : null}
+            <a href="#booking" onClick={onPreviewAnchorClick} className="catstays-mobile-full mt-8 w-max rounded-md bg-white px-7 py-4 text-center text-xs font-bold uppercase tracking-[0.1em] text-[#0A1128]">
+              {content.hero.button}
+            </a>
           </div>
         </section>
 
@@ -540,12 +389,10 @@ function ShowcaseTemplate({
         <ShowcaseGalleryRail content={content} />
 
         <AboutSplit content={content} onPreviewAnchorClick={onPreviewAnchorClick} />
-        <FacilitiesDetailSection content={content} />
         <FeatureRow content={content} />
+        <FacilitiesDetailSection content={content} />
         <SuitesGrid content={content} />
         <ServicesGrid content={content} />
-        <SourceContentSections content={content} />
-        <FaqSection content={content} />
         <ReviewsSection content={content} />
         <OwnerStorySection content={content} />
         <LocationSection content={content} />
@@ -559,41 +406,19 @@ function ShowcaseTemplate({
 }
 
 function FeatureRow({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
-  const railRef = useRef<HTMLDivElement | null>(null);
-  const features = content.careApproach.items;
-  const useCarousel = features.length > 3;
-  const layoutClass = useCarousel
-    ? 'mt-10 flex snap-x gap-6 overflow-x-auto px-1 pb-4 [scrollbar-width:thin]'
-    : centeredGridClass(features.length, 3);
-  const cardClass = useCarousel
-    ? 'flex min-w-[82vw] snap-start flex-col sm:min-w-[360px] lg:min-w-[380px]'
-    : 'w-full';
-
-  const scrollRail = (direction: -1 | 1) => {
-    railRef.current?.scrollBy({ left: direction * 420, behavior: 'smooth' });
-  };
+  const features = content.whyChoose.items.slice(0, 4);
 
   return (
     <section id="care" className="scroll-mt-28 bg-white px-6 py-16 text-center">
       <div className="mx-auto max-w-[1400px]">
-        <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">{content.careApproach.eyebrow}</p>
-        <h2 className="mx-auto max-w-3xl text-3xl leading-tight md:text-5xl">{content.careApproach.title}</h2>
-        {content.careApproach.text ? <p className="mx-auto mt-5 max-w-4xl text-base leading-7 text-[#444]">{content.careApproach.text}</p> : null}
-        {useCarousel ? (
-          <div className="mt-8 flex justify-center gap-2">
-            <button type="button" onClick={() => scrollRail(-1)} className="grid h-10 w-10 place-items-center rounded-full border border-[#222]/15 bg-white text-[#222] shadow-sm">
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-            <button type="button" onClick={() => scrollRail(1)} className="grid h-10 w-10 place-items-center rounded-full border border-[#222]/15 bg-white text-[#222] shadow-sm">
-              <ChevronRight className="h-5 w-5" />
-            </button>
-          </div>
-        ) : null}
-        {features.length ? <div ref={railRef} className={layoutClass}>
+        <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Care Approach</p>
+        <h2 className="mx-auto max-w-3xl text-3xl leading-tight md:text-5xl">{content.sectionHeadings.care}</h2>
+        {content.whyChoose.text ? <p className="mx-auto mt-5 max-w-4xl text-base leading-7 text-[#444]">{content.whyChoose.text}</p> : null}
+        {features.length ? <div className="catstays-card-grid mt-10 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
           {features.map((feature, index) => {
             const Icon = careIconFor(feature.icon, index);
             return (
-              <div key={`${feature.title}-${index}`} className={`${cardClass} bg-[#f8f5ef] p-7 shadow-sm`}>
+              <div key={feature.title} className="bg-[#f8f5ef] p-7 shadow-sm">
                 <Icon className="mx-auto mb-5 h-7 w-7 text-[#8c7b63]" />
                 <h3 className="mb-3 text-xl">{feature.title}</h3>
                 <p className="text-sm leading-6 text-[#444]">{feature.text}</p>
@@ -611,62 +436,12 @@ function careIconFor(icon: string | undefined, index: number) {
   return trustIcons[index] || ShieldCheck;
 }
 
-function centeredGridClass(count: number, maxColumns: 3 | 4, spacing = 'mt-10 gap-6') {
-  const base = `catstays-card-grid mx-auto grid w-full justify-center ${spacing}`;
-  if (count <= 1) return `${base} max-w-[520px] grid-cols-1`;
-  if (count === 2) return `${base} max-w-[980px] grid-cols-1 md:grid-cols-2`;
-  if (count === 3) return `${base} max-w-[1180px] grid-cols-1 md:grid-cols-2 xl:grid-cols-3`;
-  return maxColumns === 4
-    ? `${base} max-w-[1400px] grid-cols-1 md:grid-cols-2 xl:grid-cols-4`
-    : `${base} max-w-[1180px] grid-cols-1 md:grid-cols-2 xl:grid-cols-3`;
-}
-
-function SafeImage({
-  src,
-  alt,
-  className,
-  style,
-  fallbackSrc = '',
-}: {
-  src?: string;
-  alt: string;
-  className?: string;
-  style?: CSSProperties;
-  fallbackSrc?: string;
-}) {
-  const [failedPrimary, setFailedPrimary] = useState(false);
-  const [failedFallback, setFailedFallback] = useState(false);
-  const primarySrc = src || '';
-  const activeSrc = primarySrc && !failedPrimary ? primarySrc : fallbackSrc;
-
-  if (!activeSrc || (activeSrc === fallbackSrc && failedFallback)) {
-    return <div aria-hidden="true" className={`${className ?? ''} bg-[#f8f5ef]`} style={style} />;
-  }
-
-  return (
-    <img
-      src={activeSrc}
-      alt={alt}
-      className={className}
-      style={style}
-      onError={() => {
-        if (activeSrc === fallbackSrc) {
-          setFailedFallback(true);
-          return;
-        }
-        setFailedPrimary(true);
-      }}
-    />
-  );
-}
-
 function ShowcaseGalleryRail({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
   const railRef = useRef<HTMLDivElement | null>(null);
   const images = content.gallery
     .filter((item) => item.image !== content.hero.image)
     .slice(0, 8);
   const railImages = images.length >= 3 ? images : content.gallery.slice(0, 8);
-  if (!railImages.length) return null;
 
   const scrollRail = (direction: -1 | 1) => {
     railRef.current?.scrollBy({ left: direction * 420, behavior: 'smooth' });
@@ -691,7 +466,7 @@ function ShowcaseGalleryRail({ content }: { content: ReturnType<typeof buildCats
       <div ref={railRef} className="flex snap-x gap-5 overflow-x-auto px-6 pb-2 [scrollbar-width:thin]">
         {railImages.map((item, index) => (
           <figure key={`${item.image}-${index}`} className="min-w-[78vw] snap-start overflow-hidden bg-white shadow-sm sm:min-w-[46vw] lg:min-w-[31vw]">
-            <SafeImage src={item.image} alt="" className="h-[320px] w-full object-cover" fallbackSrc="" />
+            <img src={item.image} alt="" className="h-[320px] w-full object-cover" />
           </figure>
         ))}
       </div>
@@ -710,7 +485,7 @@ function AboutSplit({
 }) {
   return (
     <section id="about" className="catstays-stack mx-auto grid max-w-[1400px] scroll-mt-28 md:grid-cols-2">
-      <SafeImage src={content.about.image} alt="" className={`catstays-template-section-image h-[460px] w-full object-cover ${imageFirst ? '' : 'md:order-2'}`} />
+      <img src={content.about.image} alt="" className={`catstays-template-section-image h-[460px] w-full object-cover ${imageFirst ? '' : 'md:order-2'}`} />
       <div className="flex flex-col justify-center bg-white px-8 py-14 md:px-20">
         <p className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-[#8c7b63]">About {content.business.name}</p>
         <h2 className="text-3xl leading-[1.12] md:text-5xl">{content.about.title}</h2>
@@ -726,39 +501,32 @@ function AboutSplit({
 
 function SuitesGrid({ content, compact = false }: { content: ReturnType<typeof buildCatstaysTemplateContent>; compact?: boolean }) {
   const [activeSuite, setActiveSuite] = useState<(ReturnType<typeof buildCatstaysTemplateContent>['suites'][number]) | null>(null);
-  const useScrollableRail = content.suites.length > 3;
-  const suitesLayoutClass = useScrollableRail
-    ? 'mt-10 flex snap-x gap-6 overflow-x-auto px-1 pb-4 [scrollbar-width:thin]'
-    : centeredGridClass(content.suites.length, 3, 'mt-10 gap-8');
-  const suiteCardClass = useScrollableRail
-    ? 'min-w-[82vw] snap-start sm:min-w-[360px] lg:min-w-[380px]'
-    : '';
 
   return (
     <section id="suites" className={`mx-auto max-w-[1400px] scroll-mt-28 px-6 text-center ${compact ? 'py-14' : 'py-20'}`}>
       <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Our Suites</p>
       <h2 className="text-3xl leading-tight md:text-5xl">{content.sectionHeadings.suites}</h2>
       <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-[#444]">Spacious, serene and stylish suites designed for your cat's comfort.</p>
-      <div className={suitesLayoutClass}>
+      <div className="catstays-card-grid mx-auto mt-10 grid max-w-[1120px] gap-6 md:grid-cols-2 xl:grid-cols-3">
         {content.suites.map((suite) => (
-          <article key={suite.title} className={`flex w-full overflow-hidden rounded-md border border-[#222]/10 bg-white text-left shadow-sm ${suiteCardClass}`}>
+          <article key={suite.title} className="flex overflow-hidden rounded-md border border-[#222]/10 bg-white text-left shadow-sm">
             <div className="flex w-full flex-col">
-              <SafeImage src={suite.image} alt="" className="h-56 w-full object-cover" />
-              <div className="flex flex-1 flex-col p-5 text-center">
-                <h3 className="mb-3 text-sm font-bold uppercase tracking-[0.08em]">{suite.title}</h3>
-                {suite.price ? <p className="mb-3 text-sm font-bold text-[#8c5b32]">{suite.price}</p> : null}
-                <p className="text-sm leading-6 text-[#444]">{suite.text}</p>
-                {suite.features.length ? (
-                  <ul className="mt-4 space-y-2 text-left text-xs leading-5 text-[#555]">
-                    {suite.features.slice(0, 4).map((feature) => (
-                      <li key={feature}>- {feature}</li>
-                    ))}
-                  </ul>
-                ) : null}
-                <button type="button" onClick={() => setActiveSuite(suite)} className="mx-auto mt-auto rounded-md border border-[#0A1128]/20 bg-[#0A1128] px-5 py-3 text-xs font-bold uppercase tracking-[0.12em] text-white">
-                  View Suite
-                </button>
-              </div>
+            <img src={suite.image} alt="" className="h-56 w-full object-cover" />
+            <div className="flex flex-1 flex-col p-5 text-center">
+              <h3 className="mb-3 text-sm font-bold uppercase tracking-[0.08em]">{suite.title}</h3>
+              {suite.price ? <p className="mb-3 text-sm font-bold text-[#8c5b32]">{suite.price}</p> : null}
+              <p className="text-sm leading-6 text-[#444]">{suite.text}</p>
+              {suite.features.length ? (
+                <ul className="mt-4 space-y-2 text-left text-xs leading-5 text-[#555]">
+                  {suite.features.slice(0, 4).map((feature) => (
+                    <li key={feature}>- {feature}</li>
+                  ))}
+                </ul>
+              ) : null}
+              <button type="button" onClick={() => setActiveSuite(suite)} className="mx-auto mt-auto rounded-md border border-[#0A1128]/20 bg-[#0A1128] px-5 py-3 text-xs font-bold uppercase tracking-[0.12em] text-white">
+                View Suite
+              </button>
+            </div>
             </div>
           </article>
         ))}
@@ -769,7 +537,7 @@ function SuitesGrid({ content, compact = false }: { content: ReturnType<typeof b
             <button type="button" onClick={() => setActiveSuite(null)} className="absolute right-4 top-4 z-10 grid h-10 w-10 place-items-center rounded-full bg-white/90 text-[#222] shadow">
               <X className="h-5 w-5" />
             </button>
-            <SafeImage src={activeSuite.image} alt="" className="h-72 w-full object-cover" />
+            <img src={activeSuite.image} alt="" className="h-72 w-full object-cover" />
             <div className="p-7 md:p-9">
               <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Suite Details</p>
               <h3 className="font-serif text-4xl leading-tight">{activeSuite.title}</h3>
@@ -862,7 +630,7 @@ function GalleryStrip({ content }: { content: ReturnType<typeof buildCatstaysTem
       <div ref={railRef} className="flex snap-x gap-5 overflow-x-auto px-1 pb-3 [scrollbar-width:thin]">
         {images.map((item, index) => (
           <figure key={`${item.image}-${index}`} className="min-w-[82vw] snap-start overflow-hidden bg-white shadow-sm sm:min-w-[46vw] lg:min-w-[31vw]">
-            <SafeImage src={item.image} alt="" className="h-72 w-full object-cover" fallbackSrc="" />
+            <img src={item.image} alt="" className="h-72 w-full object-cover" />
           </figure>
         ))}
       </div>
@@ -874,13 +642,6 @@ function ServicesGrid({ content }: { content: ReturnType<typeof buildCatstaysTem
   const railRef = useRef<HTMLDivElement | null>(null);
   if (!content.services.length) return null;
 
-  const useCarousel = content.services.length > 3;
-  const layoutClass = useCarousel
-    ? 'flex snap-x gap-5 overflow-x-auto px-1 pb-3 [scrollbar-width:thin]'
-    : centeredGridClass(content.services.length, 3, 'gap-5');
-  const cardClass = useCarousel
-    ? 'min-w-[82vw] snap-start sm:min-w-[420px] lg:min-w-[460px]'
-    : 'w-full';
   const scrollRail = (direction: -1 | 1) => {
     railRef.current?.scrollBy({ left: direction * 460, behavior: 'smooth' });
   };
@@ -889,125 +650,32 @@ function ServicesGrid({ content }: { content: ReturnType<typeof buildCatstaysTem
     <section id="services" className="mx-auto max-w-[1400px] scroll-mt-28 px-6 py-16">
       <div className="mb-10 flex flex-col gap-5 text-center sm:flex-row sm:items-end sm:justify-between sm:text-left">
         <div>
-          <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">{content.sectionEyebrows.services}</p>
+          <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Additional Services</p>
           <h2 className="max-w-3xl text-3xl leading-tight md:text-5xl">{content.sectionHeadings.services}</h2>
         </div>
-        {useCarousel ? <div className="flex justify-center gap-2">
+        <div className="flex justify-center gap-2">
           <button type="button" onClick={() => scrollRail(-1)} className="grid h-10 w-10 place-items-center rounded-full border border-[#222]/15 bg-white text-[#222] shadow-sm">
             <ChevronLeft className="h-5 w-5" />
           </button>
           <button type="button" onClick={() => scrollRail(1)} className="grid h-10 w-10 place-items-center rounded-full border border-[#222]/15 bg-white text-[#222] shadow-sm">
             <ChevronRight className="h-5 w-5" />
           </button>
-        </div> : null}
+        </div>
       </div>
-      <div ref={railRef} className={layoutClass}>
+      <div ref={railRef} className="flex snap-x gap-5 overflow-x-auto px-1 pb-3 [scrollbar-width:thin]">
         {content.services.map((service, index) => {
-          const Icon = serviceIconFor(service.title, index, service.icon);
+          const Icon = serviceIconFor(service.title, index);
           return (
-          <article key={`${service.title}-${index}`} className={`flex ${cardClass} flex-col border border-[#222]/10 bg-white p-7 shadow-sm`}>
+          <article key={service.title} className="flex min-w-[82vw] snap-start flex-col border border-[#222]/10 bg-white p-7 shadow-sm sm:min-w-[420px] lg:min-w-[460px]">
               <div className="mb-6 grid h-14 w-14 place-items-center rounded-full bg-[#f8f5ef] text-[#8c5b32]">
                 <Icon className="h-6 w-6" />
               </div>
               <h3 className="font-serif text-2xl leading-tight">{service.title}</h3>
               {service.price ? <p className="mt-2 text-sm font-bold text-[#8c5b32]">{service.price}</p> : null}
-              {service.text ? <p className="mt-4 text-sm leading-6 text-[#444]">{service.text}</p> : null}
+              <p className="mt-4 text-sm leading-6 text-[#444]">{service.text}</p>
             </article>
           );
         })}
-      </div>
-    </section>
-  );
-}
-
-function SourceContentSections({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
-  if (!content.customSections.length) return null;
-
-  return (
-    <>
-      {content.customSections.map((section, index) => (
-        <section key={section.id || section.title} id={section.id} className={`scroll-mt-28 px-6 py-16 ${index % 2 === 0 ? 'bg-white' : 'bg-[#f8f5ef]'}`}>
-          <div className="catstays-stack mx-auto grid max-w-[1400px] gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-center">
-            <div className={index % 2 === 1 ? 'lg:order-2' : ''}>
-              <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">From the owner site</p>
-              <h2 className="text-3xl leading-tight md:text-5xl">{section.title}</h2>
-              <p className="mt-5 max-w-3xl text-base leading-7 text-[#444]">{section.text}</p>
-              {section.items.length ? <SourceSectionItems section={section} /> : null}
-            </div>
-            {section.images[0] ? (
-              <SafeImage src={section.images[0]} alt="" className="catstays-template-section-image h-[360px] w-full rounded-md object-cover shadow-sm md:h-[460px]" />
-            ) : (
-              <div className="grid h-[360px] place-items-center rounded-md bg-[#0A1128] p-8 text-center text-white shadow-sm md:h-[460px]">
-                <Sparkles className="mb-4 h-8 w-8 text-[#F5C08A]" />
-                <p className="font-serif text-3xl">{section.title}</p>
-              </div>
-            )}
-          </div>
-        </section>
-      ))}
-    </>
-  );
-}
-
-function SourceSectionItems({
-  section,
-}: {
-  section: ReturnType<typeof buildCatstaysTemplateContent>['customSections'][number];
-}) {
-  const railRef = useRef<HTMLDivElement | null>(null);
-  const items = section.items.slice(0, 6);
-  const useCarousel = items.length > 3;
-  const layoutClass = useCarousel
-    ? 'mt-7 flex snap-x gap-4 overflow-x-auto pb-3 [scrollbar-width:thin]'
-    : 'mt-7 grid gap-4 sm:grid-cols-2';
-  const cardClass = useCarousel
-    ? 'min-w-[82vw] snap-start sm:min-w-[320px] lg:min-w-[360px]'
-    : '';
-
-  const scrollRail = (direction: -1 | 1) => {
-    railRef.current?.scrollBy({ left: direction * 360, behavior: 'smooth' });
-  };
-
-  return (
-    <>
-      {useCarousel ? (
-        <div className="mt-6 flex gap-2">
-          <button type="button" onClick={() => scrollRail(-1)} className="grid h-9 w-9 place-items-center rounded-full border border-[#222]/15 bg-white text-[#222] shadow-sm">
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <button type="button" onClick={() => scrollRail(1)} className="grid h-9 w-9 place-items-center rounded-full border border-[#222]/15 bg-white text-[#222] shadow-sm">
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
-      ) : null}
-      <div ref={railRef} className={layoutClass}>
-        {items.map((item) => (
-          <article key={`${section.id}-${item.title}`} className={`${cardClass} rounded-md border border-[#222]/10 bg-white/80 p-4 shadow-sm`}>
-            {item.title ? <h3 className="font-serif text-xl leading-tight">{item.title}</h3> : null}
-            {item.text ? <p className="mt-2 text-sm leading-6 text-[#444]">{item.text}</p> : null}
-          </article>
-        ))}
-      </div>
-    </>
-  );
-}
-
-function FaqSection({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
-  if (!content.faqs.length) return null;
-
-  return (
-    <section id="faqs" className="scroll-mt-28 bg-white px-6 py-16">
-      <div className="mx-auto max-w-[1100px]">
-        <p className="mb-3 text-center text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">{content.sectionEyebrows.faqs}</p>
-        <h2 className="text-center text-3xl leading-tight md:text-5xl">{content.sectionHeadings.faqs}</h2>
-        <div className="mt-10 grid gap-4">
-          {content.faqs.slice(0, 10).map((faq) => (
-            <article key={faq.question} className="rounded-md border border-[#222]/10 bg-[#f8f5ef] p-5 shadow-sm">
-              <h3 className="font-serif text-xl leading-tight">{faq.question}</h3>
-              <p className="mt-3 text-sm leading-7 text-[#444]">{faq.answer}</p>
-            </article>
-          ))}
-        </div>
       </div>
     </section>
   );
@@ -1018,13 +686,6 @@ function ReviewsSection({ content }: { content: ReturnType<typeof buildCatstaysT
   if (!content.testimonials.length) return null;
 
   const reviews = content.testimonials.slice(0, 10);
-  const useCarousel = reviews.length > 3;
-  const layoutClass = useCarousel
-    ? 'flex snap-x gap-5 overflow-x-auto px-1 pb-3 [scrollbar-width:thin]'
-    : centeredGridClass(reviews.length, 3, 'gap-5');
-  const cardClass = useCarousel
-    ? 'min-w-[82vw] snap-start sm:min-w-[420px] lg:min-w-[460px]'
-    : 'w-full';
   const scrollRail = (direction: -1 | 1) => {
     railRef.current?.scrollBy({ left: direction * 460, behavior: 'smooth' });
   };
@@ -1034,21 +695,21 @@ function ReviewsSection({ content }: { content: ReturnType<typeof buildCatstaysT
       <div className="mx-auto max-w-[1400px]">
         <div className="mb-10 flex flex-col gap-5 text-center sm:flex-row sm:items-end sm:justify-between sm:text-left">
           <div>
-            <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">{content.sectionEyebrows.reviews}</p>
+            <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Reviews</p>
             <h2 className="text-3xl leading-tight md:text-5xl">{content.sectionHeadings.reviews}</h2>
           </div>
-          {useCarousel ? <div className="flex justify-center gap-2">
+          <div className="flex justify-center gap-2">
             <button type="button" onClick={() => scrollRail(-1)} className="grid h-10 w-10 place-items-center rounded-full border border-[#222]/15 bg-white text-[#222] shadow-sm">
               <ChevronLeft className="h-5 w-5" />
             </button>
             <button type="button" onClick={() => scrollRail(1)} className="grid h-10 w-10 place-items-center rounded-full border border-[#222]/15 bg-white text-[#222] shadow-sm">
               <ChevronRight className="h-5 w-5" />
             </button>
-          </div> : null}
+          </div>
         </div>
-        <div ref={railRef} className={layoutClass}>
-          {reviews.map((testimonial, index) => (
-            <article key={`${testimonial.author}-${testimonial.quote}-${index}`} className={`${cardClass} border border-[#222]/10 bg-[#f8f5ef] p-7 shadow-sm`}>
+        <div ref={railRef} className="flex snap-x gap-5 overflow-x-auto px-1 pb-3 [scrollbar-width:thin]">
+          {reviews.map((testimonial) => (
+            <article key={`${testimonial.author}-${testimonial.quote}`} className="min-w-[82vw] snap-start border border-[#222]/10 bg-[#f8f5ef] p-7 shadow-sm sm:min-w-[420px] lg:min-w-[460px]">
               <p className="text-3xl leading-none text-[#b58b4a]">"</p>
               <blockquote className="mt-3 text-base italic leading-7 text-[#333]">{testimonial.quote}</blockquote>
               <p className="mt-6 text-xs font-bold uppercase tracking-[0.14em]">{testimonial.author}</p>
@@ -1062,80 +723,47 @@ function ReviewsSection({ content }: { content: ReturnType<typeof buildCatstaysT
 }
 
 function FacilitiesDetailSection({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
-  const railRef = useRef<HTMLDivElement | null>(null);
-
-  if (!content.facilities.title && !content.facilities.text && !content.facilities.image) return null;
-
-  const featureItems = content.facilities.items.filter((item) => item.title || item.text);
-  const useCarousel = featureItems.length > 3;
-  const layoutClass = useCarousel
-    ? 'mt-10 flex snap-x gap-6 overflow-x-auto px-1 pb-4 [scrollbar-width:thin]'
-    : centeredGridClass(featureItems.length, 3);
-  const cardClass = useCarousel
-    ? 'min-w-[82vw] snap-start sm:min-w-[360px] lg:min-w-[380px]'
-    : 'w-full';
-
-  const scrollRail = (direction: -1 | 1) => {
-    railRef.current?.scrollBy({ left: direction * 420, behavior: 'smooth' });
-  };
+  if (!content.facilities.items.length) return null;
 
   return (
     <section id="facilities" className="scroll-mt-28 bg-white px-6 py-16">
       <div className="catstays-stack mx-auto max-w-[1400px]">
         <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-          <SafeImage src={content.facilities.image} alt="" className="catstays-template-section-image h-[420px] w-full rounded-md object-cover shadow-sm md:h-[500px]" />
+          <img src={content.facilities.image} alt="" className="catstays-template-section-image h-[420px] w-full rounded-md object-cover shadow-sm md:h-[500px]" />
           <div>
-            <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">{content.facilities.eyebrow}</p>
+            <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Facilities</p>
             <h2 className="text-3xl leading-tight md:text-5xl">{content.facilities.title}</h2>
             <p className="mt-5 max-w-3xl text-base leading-7 text-[#444]">{content.facilities.text}</p>
           </div>
         </div>
-        {featureItems.length ? (
-          <>
-            {useCarousel ? (
-              <div className="mt-8 flex justify-center gap-2">
-                <button type="button" onClick={() => scrollRail(-1)} className="grid h-10 w-10 place-items-center rounded-full border border-[#222]/15 bg-white text-[#222] shadow-sm">
-                  <ChevronLeft className="h-5 w-5" />
-                </button>
-                <button type="button" onClick={() => scrollRail(1)} className="grid h-10 w-10 place-items-center rounded-full border border-[#222]/15 bg-white text-[#222] shadow-sm">
-                  <ChevronRight className="h-5 w-5" />
-                </button>
-              </div>
-            ) : null}
-            <div ref={railRef} className={layoutClass}>
-              {featureItems.map((feature, index) => {
-                const Icon = careIconFor(feature.icon, index);
-                return (
-                  <article key={`${feature.title}-${index}`} className={`${cardClass} rounded-md border border-[#222]/10 bg-white p-7 shadow-sm`}>
-                    <Icon className="mb-5 h-7 w-7 text-[#8c5b32]" />
-                    {feature.title ? <h3 className="font-serif text-xl leading-tight">{feature.title}</h3> : null}
-                    {feature.text ? <p className="mt-4 text-sm leading-6 text-[#444]">{feature.text}</p> : null}
-                  </article>
-                );
-              })}
-            </div>
-          </>
-        ) : null}
+        <div className="catstays-card-grid mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+          {content.facilities.items.map((item, index) => {
+            const Icon = facilityIcons[index % facilityIcons.length] || ShieldCheck;
+            return (
+              <article key={item.title} className="rounded-md border border-[#222]/10 bg-[#f8f5ef] p-5">
+                <Icon className="mb-4 h-6 w-6 text-[#8c5b32]" />
+                <h3 className="font-serif text-xl leading-tight">{item.title}</h3>
+                <p className="mt-3 text-sm leading-6 text-[#444]">{item.text}</p>
+              </article>
+            );
+          })}
+        </div>
       </div>
     </section>
   );
 }
 
 function OwnerStorySection({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
-  const hasOwnerText = Boolean(content.owner.text);
-  const hasOwnerImage = Boolean(content.owner.image);
-  if (!hasOwnerText && !hasOwnerImage) return null;
+  if (!content.owner.text) return null;
 
   return (
-    <section id="owner" className={`catstays-stack mx-auto grid max-w-[1400px] scroll-mt-28 gap-8 bg-white px-6 py-10 md:items-center md:px-0 md:py-0 ${hasOwnerImage ? 'md:grid-cols-[0.9fr_1.1fr]' : 'justify-center'}`}>
-      {hasOwnerImage ? (
-        <SafeImage src={content.owner.image} alt="" className="catstays-owner-image h-[360px] w-full rounded-md object-cover object-[50%_58%] sm:h-[420px] md:h-[460px] md:max-h-[500px] lg:h-[500px]" fallbackSrc="" />
-      ) : null}
-      <div className={`flex flex-col justify-center px-8 py-14 md:px-20 ${hasOwnerImage ? '' : 'mx-auto max-w-3xl text-center'}`}>
+    <section id="owner" className="catstays-stack mx-auto grid max-w-[1400px] scroll-mt-28 gap-8 bg-white px-6 py-10 md:grid-cols-[0.9fr_1.1fr] md:items-center md:px-0 md:py-0">
+      <img src={content.owner.image} alt="" className="catstays-owner-image h-[360px] w-full rounded-md object-cover object-[50%_58%] sm:h-[420px] md:h-[460px] md:max-h-[500px] lg:h-[500px]" />
+      <div className="flex flex-col justify-center px-8 py-14 md:px-20">
         <p className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">The people behind the care</p>
         <h2 className="text-3xl leading-[1.12] md:text-5xl">{content.owner.title}</h2>
-        <div className={`my-6 h-px w-14 bg-[#b58b4a] ${hasOwnerImage ? '' : 'mx-auto'}`} />
-        {hasOwnerText ? <p className="text-base leading-8 text-[#333]">{content.owner.text}</p> : null}
+        <div className="my-6 h-px w-14 bg-[#b58b4a]" />
+        <p className="text-base leading-8 text-[#333]">{content.owner.text}</p>
       </div>
     </section>
   );
@@ -1303,9 +931,7 @@ function ContactFormSection({
   );
 }
 
-function serviceIconFor(title: string, index: number, icon?: string) {
-  const ExplicitIcon = icon ? namedCareIcons[icon as keyof typeof namedCareIcons] : null;
-  if (ExplicitIcon) return ExplicitIcon;
+function serviceIconFor(title: string, index: number) {
   const normalized = title.toLowerCase();
   if (normalized.includes('brush') || normalized.includes('groom')) return Scissors;
   if (normalized.includes('medicine') || normalized.includes('vet')) return Stethoscope;
@@ -1538,6 +1164,7 @@ function TemplateFooter({
   onPreviewAnchorClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
 }) {
   const linkClass = `block underline-offset-4 hover:underline ${dark ? 'text-white/75 hover:text-white' : 'text-[#444] hover:text-[#222]'}`;
+  const virtualTourUrl = embeddableVirtualTourUrl(content.locationDetails.virtualTourUrl, content.contentLibrary.sourceHost);
   const socialLinkClass = `inline-flex h-9 w-9 items-center justify-center rounded-full border transition ${dark ? 'border-white/15 text-white/75 hover:border-white/40 hover:text-white' : 'border-[#222]/10 text-[#444] hover:border-[#222]/30 hover:text-[#222]'}`;
 
   return (
@@ -1551,9 +1178,16 @@ function TemplateFooter({
         <div>
           <h4 className="mb-4 text-xs font-bold uppercase tracking-[0.16em]">Quick Links</h4>
           <nav className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-            {content.footer.links.map((link) => (
-              <a key={`${link.label}-${link.href}`} href={link.href} onClick={onPreviewAnchorClick} className={linkClass}>{link.label}</a>
-            ))}
+            <a href="#home" onClick={onPreviewAnchorClick} className={linkClass}>Home</a>
+            <a href="#about" onClick={onPreviewAnchorClick} className={linkClass}>About</a>
+            <a href="#care" onClick={onPreviewAnchorClick} className={linkClass}>Care</a>
+            <a href="#facilities" onClick={onPreviewAnchorClick} className={linkClass}>Facilities</a>
+            <a href="#suites" onClick={onPreviewAnchorClick} className={linkClass}>Rooms</a>
+            <a href="#services" onClick={onPreviewAnchorClick} className={linkClass}>Extra Care</a>
+            <a href="#gallery" onClick={onPreviewAnchorClick} className={linkClass}>Gallery</a>
+            <a href="#reviews" onClick={onPreviewAnchorClick} className={linkClass}>Reviews</a>
+            <a href="#location" onClick={onPreviewAnchorClick} className={linkClass}>Location</a>
+            {virtualTourUrl ? <a href="#virtual-tour" onClick={onPreviewAnchorClick} className={linkClass}>Virtual Tour</a> : null}
           </nav>
         </div>
         <div>

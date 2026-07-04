@@ -1,7 +1,6 @@
 import {
   buildPreviewDataFromScrape,
   fallbackDeloraineScrape,
-  type CatterySiteContentIndexItem,
   type CatterySiteContentLibrary,
   type DelorainePreviewData,
   type ImportedCatteryScrape,
@@ -60,7 +59,6 @@ export interface PreviewImportRecord {
   services: NonNullable<ImportedCatteryScrape['services']>;
   faqs: NonNullable<ImportedCatteryScrape['faqs']>;
   contentLibrary: CatterySiteContentLibrary;
-  contentIndex: CatterySiteContentIndexItem[];
   normalizedPreviewData: DelorainePreviewData;
 }
 
@@ -80,12 +78,6 @@ export interface CatstaysTemplateContent {
     primaryHref: string;
     secondaryButton: string;
     secondaryHref: string;
-    showPrimaryButton: boolean;
-    showSecondaryButton: boolean;
-    imagePosition: string;
-    imagePositionX: number;
-    imagePositionY: number;
-    imageScale: number;
   };
   theme: {
     primaryColor: string;
@@ -102,13 +94,7 @@ export interface CatstaysTemplateContent {
     services: string;
     gallery: string;
     reviews: string;
-    faqs: string;
     contact: string;
-  };
-  sectionEyebrows: {
-    services: string;
-    reviews: string;
-    faqs: string;
   };
   features: Array<{
     title: string;
@@ -116,12 +102,6 @@ export interface CatstaysTemplateContent {
     icon?: string;
   }>;
   whyChoose: {
-    eyebrow: string;
-    title: string;
-    text: string;
-  };
-  careApproach: {
-    eyebrow: string;
     title: string;
     text: string;
     items: Array<{
@@ -131,7 +111,6 @@ export interface CatstaysTemplateContent {
     }>;
   };
   facilities: {
-    eyebrow: string;
     title: string;
     text: string;
     image: string;
@@ -146,7 +125,6 @@ export interface CatstaysTemplateContent {
     title: string;
     text: string;
     price: string;
-    icon?: string;
   }>;
   about: {
     title: string;
@@ -169,7 +147,6 @@ export interface CatstaysTemplateContent {
     author: string;
     image: string;
     location: string;
-    rating: number;
   }>;
   faqs: Array<{
     question: string;
@@ -191,16 +168,6 @@ export interface CatstaysTemplateContent {
     directions: string;
     virtualTourUrl: string;
   };
-  customSections: Array<{
-    id: string;
-    title: string;
-    text: string;
-    items: Array<{
-      title: string;
-      text: string;
-    }>;
-    images: string[];
-  }>;
   booking: {
     text: string;
     bannerText: string;
@@ -214,13 +181,8 @@ export interface CatstaysTemplateContent {
     hours: string;
     facebook: string;
     instagram: string;
-    links: Array<{
-      label: string;
-      href: string;
-    }>;
   };
   contentLibrary: CatterySiteContentLibrary;
-  contentIndex: CatterySiteContentIndexItem[];
 }
 
 export const previewImportTableStorageKey = 'catstays_preview_import_table';
@@ -336,7 +298,6 @@ export function buildPreviewImportRecord(scrape: ImportedCatteryScrape): Preview
     services: scrape.services ?? [],
     faqs: scrape.faqs ?? [],
     contentLibrary: normalizedPreviewData.siteContentLibrary ?? emptyContentLibrary(sourceUrl, sourceHost, businessName),
-    contentIndex: normalizedPreviewData.siteContentIndex ?? [],
     normalizedPreviewData,
   };
 }
@@ -362,9 +323,7 @@ export function dataFromPreviewRecord(
   currentData: Record<string, any> = {},
 ): Record<string, any> {
   const normalized = record.normalizedPreviewData;
-  const importedAddress = record.contact.address || normalized.address || currentData.address || '';
   const selectedTemplate = normalizePreviewTemplateId(templateId);
-  const shouldPreferImportedCollections = !currentData.importComplete && !currentData.previewImportRecordId;
   const updatedRecord: PreviewImportRecord = {
     ...record,
     status: 'in_progress',
@@ -373,10 +332,10 @@ export function dataFromPreviewRecord(
   savePreviewImportRecord(updatedRecord);
 
   return withOnboardingCollections({
-    ...normalized,
     ...currentData,
+    ...normalized,
     ...templateStyle(selectedTemplate),
-    __preferImportedCollections: shouldPreferImportedCollections,
+    __preferImportedCollections: true,
     selectedTemplate,
     previewImportRecord: updatedRecord,
     previewImportRecordId: record.id,
@@ -386,11 +345,11 @@ export function dataFromPreviewRecord(
     sourceUrl: record.source.url,
     sourceHost: record.source.host,
     businessName: record.identity.businessName,
-    location: importedAddress || record.identity.location,
+    location: record.identity.location,
     subdomain: currentData.subdomain || record.identity.subdomain,
     phone: record.contact.phone || currentData.phone,
     email: record.contact.email || currentData.email,
-    address: importedAddress,
+    address: record.contact.address || currentData.address,
   }, currentData);
 }
 
@@ -467,11 +426,6 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     normalized.siteContentLibrary ??
     data.siteContentLibrary ??
     emptyContentLibrary(stringFrom(record?.source.url, data.sourceUrl, normalized.sourceUrl), stringFrom(record?.source.host, data.sourceHost, normalized.sourceHost), businessName);
-  const contentIndex =
-    record?.contentIndex ??
-    normalized.siteContentIndex ??
-    data.siteContentIndex ??
-    [];
   const libraryRooms = libraryItems(contentLibrary, 'rooms');
   const libraryServices = libraryItems(contentLibrary, 'services');
   const libraryReviews = libraryItems(contentLibrary, 'reviews');
@@ -482,33 +436,28 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const whyChooseBlock = libraryBlock(contentLibrary, 'why-choose-us');
   const facilitiesBlock = libraryBlock(contentLibrary, 'facilities');
   const dailyCareBlock = libraryBlock(contentLibrary, 'daily-care');
-  const ownerBlock = libraryBlock(contentLibrary, 'owner-story');
   const locationBlock = libraryBlock(contentLibrary, 'location');
-  const sourceSections = sourceContentSections(contentLibrary);
-  const logoImage = stringFrom(data.logoImage, normalizedRecord.logoImage, record?.media.logoImage, data.logo);
-  const heroImage = heroImageFrom(
-    logoImage,
-    data.heroImageOwned ? data.heroImage : '',
+  const logoImage = stringFrom(data.logoImage, normalizedRecord.logoImage, record?.media.logoImage);
+  const heroImage = imageFrom(
+    data.heroImage,
     normalized.heroImage,
     record?.media.heroImage,
-    heroBlock?.images?.[0]?.url,
-    record?.media.galleryImages?.[0]?.url,
     record?.media.images?.[0],
-    data.heroImage,
+    record?.media.galleryImages?.[0]?.url,
   );
   const editedGalleryImages = Array.isArray(data.galleryImages) ? data.galleryImages : undefined;
   const galleryImages = uniqueStrings([
     ...(editedGalleryImages ?? [
+      ...(record?.media.images ?? []),
       ...(record?.media.galleryImages ?? []).map((image) => image.url),
       ...libraryGalleryImages.map((image) => image.url),
-      ...(record?.media.images ?? []),
     ]),
     data.facilitiesImage,
     data.aboutImage,
     data.ownerData?.image,
     heroImage,
   ]).filter((image) => isUsableGalleryImage(image, logoImage));
-  const sectionImages = ensureImageCount(galleryImages, heroImage);
+  const fallbackImages = ensureImageCount(galleryImages, heroImage);
   const usedImages = new Set<string>();
   rememberImage(usedImages, heroImage);
   const editedHighlights = Array.isArray(data.whyChooseUsFeatures) ? data.whyChooseUsFeatures : undefined;
@@ -524,30 +473,19 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const services = (editedServices ?? (record?.services?.length ? record.services : libraryServices.length ? libraryItemsToServices(libraryServices) : normalizedServices)).filter(Boolean);
   const editedTestimonials = Array.isArray(data.testimonials) ? data.testimonials : undefined;
   const testimonials = ensureReviewFallback(
-    normalizeEditableReviews(
-      (
-        editedTestimonials ??
-        normalizedRecord.testimonialsData?.testimonials ??
-        data.testimonialsData?.testimonials ??
-        libraryItemsToReviews(libraryReviews) ??
-        []
-      ).filter(Boolean),
-    ),
+    (
+      editedTestimonials ??
+      normalizedRecord.testimonialsData?.testimonials ??
+      data.testimonialsData?.testimonials ??
+      libraryItemsToReviews(libraryReviews) ??
+      []
+    ).filter(Boolean),
     businessName,
     stringFrom(record?.source.host, normalized.sourceHost, data.sourceHost),
   );
   const editedFaqs = Array.isArray(data.faqs) ? data.faqs : undefined;
-  const faqs = normalizeEditableFaqs(
-    (editedFaqs ?? normalizedRecord.faqData?.faqs ?? data.faqData?.faqs ?? record?.faqs ?? libraryItemsToFaqs(libraryFaqs) ?? []).filter(Boolean),
-  );
+  const faqs = (editedFaqs ?? normalizedRecord.faqData?.faqs ?? data.faqData?.faqs ?? record?.faqs ?? libraryItemsToFaqs(libraryFaqs) ?? []).filter(Boolean);
   const ownerData = data.ownerData ?? normalizedRecord.ownerData ?? {};
-  const ownerTitle = stringFrom(ownerData.title, ownerBlock?.title, `Meet the people behind ${businessName}`);
-  const ownerText = contentStringFrom(ownerData.text, ownerData.description, ownerBlock?.text);
-  const ownerImage = uniqueStrings([
-    ownerData.image,
-    normalizedRecord.ownerData?.image,
-    ownerBlock?.images?.[0]?.url,
-  ]).filter((image) => isUsableGalleryImage(image, logoImage))[0] || '';
   const commitmentData = data.commitmentData ?? normalizedRecord.commitmentData ?? {};
   const locationData = data.locationData ?? data.contactData?.locationDetails ?? normalizedRecord.locationData ?? normalizedRecord.contactData?.locationDetails ?? {};
   const socialLinks = {
@@ -555,14 +493,14 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     ...((data.socialLinks ?? {}) as Record<string, unknown>),
   };
   const hours = stringFrom(
-    data.contactData?.hours,
     data.hours,
+    data.contactData?.hours,
     normalizedRecord.hours,
     normalizedRecord.contactData?.hours,
     record?.normalizedPreviewData?.hours,
     'By appointment',
   );
-  const primaryDescription = contentStringFrom(
+  const primaryDescription = stringFrom(
     data.aboutText,
     normalized.aboutText,
     record?.content.aboutText,
@@ -570,45 +508,45 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     'A calm, caring cat boarding experience designed around comfort, routine, and reassurance.',
   );
   const mappedHighlights = highlights.map((feature: any) => ({
-    title: contentStringFrom(feature.title, feature.name),
-    text: contentStringFrom(feature.description, feature.text),
+    title: stringFrom(feature.title, feature.name),
+    text: stringFrom(feature.description, feature.text),
     icon: stringFrom(feature.icon),
   }));
   const mappedServices = services.map((service: any) => ({
-    title: contentStringFrom(service.title, service.name),
-    text: contentStringFrom(service.description, service.text),
+    title: stringFrom(service.title, service.name),
+    text: stringFrom(service.description, service.text),
     icon: stringFrom(service.icon),
   }));
   const featureItems = editedHighlights
-    ? mappedHighlights.filter((feature) => feature.title || feature.text).slice(0, 8)
+    ? mappedHighlights.filter((feature) => feature.title || feature.text).slice(0, 4)
     : ensureFeatureCount(mappedHighlights, mappedServices);
   const whyChooseItems = editedHighlights
     ? featureItems
     : ensureFeatureCount(
         (whyChooseBlock?.items?.length ? whyChooseBlock.items : featureItems).map((item: any) => ({
-          title: contentStringFrom(item.title, item.name),
-          text: contentStringFrom(item.text, item.description),
+          title: stringFrom(item.title, item.name),
+          text: stringFrom(item.text, item.description),
           icon: stringFrom(item.icon),
         })),
         featureItems,
-      ).slice(0, 8);
+      ).slice(0, 4);
   const editedFacilityItems = Array.isArray(data.facilityFeatures) ? data.facilityFeatures : undefined;
   const mappedFacilityItems = editedFacilityItems
     ? editedFacilityItems.map((item: any) => ({
-        title: contentStringFrom(item.title, item.name),
-        text: contentStringFrom(item.description, item.text),
+        title: stringFrom(item.title, item.name),
+        text: stringFrom(item.description, item.text),
         icon: stringFrom(item.icon),
       }))
     : [
         ...(facilitiesBlock?.items ?? []).map((item: any) => ({
-          title: contentStringFrom(item.title, item.name),
-          text: contentStringFrom(item.text, item.description),
+          title: stringFrom(item.title, item.name),
+          text: stringFrom(item.text, item.description),
           icon: stringFrom(item.icon),
         })),
         dailyCareBlock
           ? {
-              title: contentStringFrom(dailyCareBlock.title, 'Daily Care Routine'),
-              text: contentStringFrom(dailyCareBlock.text),
+              title: stringFrom(dailyCareBlock.title, 'Daily Care Routine'),
+              text: stringFrom(dailyCareBlock.text),
               icon: 'Clock',
             }
           : null,
@@ -623,10 +561,9 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       data.aboutImage,
       normalizedRecord.aboutImage,
       normalizedRecord.aboutData?.image,
-      sectionImages.find((image) => image !== heroImage),
+      fallbackImages.find((image) => image !== heroImage),
     ],
-    sectionImages,
-    logoImage,
+    fallbackImages,
   );
   const facilityImage = pickUniqueImage(
     usedImages,
@@ -634,67 +571,23 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       data.facilitiesImage,
       facilitiesBlock?.images?.[0]?.url,
       normalizedRecord.facilitiesData?.facilitiesImage,
-      sectionImages[2],
+      fallbackImages[2],
     ],
-    sectionImages,
-    logoImage,
+    fallbackImages,
+  );
+  const ownerImage = pickUniqueImage(
+    usedImages,
+    [
+      ownerData.image,
+      normalizedRecord.ownerData?.image,
+      fallbackImages[5],
+      fallbackImages[1],
+    ],
+    fallbackImages,
   );
   const virtualTourUrl = embeddableVirtualTourUrl(
     stringFrom(locationData.virtualTourUrl, normalized.virtualTourUrl, data.virtualTourUrl, data.contactData?.virtualTourUrl),
     contentLibrary.sourceHost,
-  );
-  const heroPrimaryButton = editableString(data.heroPrimaryCtaText, normalizedRecord.heroPrimaryCtaText, heroLinks[0]?.label, 'Discover Our Suites');
-  const heroPrimaryHref = editableString(data.heroPrimaryCtaHref, normalizedRecord.heroPrimaryCtaHref, heroLinks[0]?.url, '#suites');
-  const heroSecondaryButton = editableString(data.heroSecondaryCtaText, normalizedRecord.heroSecondaryCtaText, heroLinks[1]?.label, 'Our Care Approach');
-  const heroSecondaryHref = editableString(data.heroSecondaryCtaHref, normalizedRecord.heroSecondaryCtaHref, heroLinks[1]?.url, '#care');
-  const heroImagePositionX = clampNumber(data.heroImageObjectPositionX, 0, 100, 50);
-  const heroImagePositionY = clampNumber(data.heroImageObjectPositionY, 0, 100, 50);
-  const heroImageScale = clampNumber(data.heroImageScale, 100, 180, 100);
-  const whyChooseTitle = contentStringFrom(data.whyChooseUsHeading, whyChooseBlock?.title, `Why choose ${businessName}`);
-  const whyChooseText = contentStringFrom(data.whyChooseUsText, whyChooseBlock?.text, primaryDescription);
-  const careApproachTitle = contentStringFrom(data.careApproachHeading, normalizedRecord.careApproachHeading, data.whyChooseUsHeading, whyChooseBlock?.title, `Why choose ${businessName}`);
-  const careApproachText = contentStringFrom(data.careApproachText, normalizedRecord.careApproachText, data.whyChooseUsText, whyChooseBlock?.text, primaryDescription);
-  const facilitiesTitle = contentStringFrom(data.facilitiesHeading, facilitiesBlock?.title, 'Our Facilities');
-  const facilitiesText = contentStringFrom(data.facilitiesText, facilitiesBlock?.text, 'Comfortable, secure spaces designed around daily cat care, quiet routines, and peace of mind.');
-
-  const customSections = (Array.isArray(data.customSections) && data.customSections.length ? data.customSections : sourceSections)
-    .map((section: any) => ({
-      id: slugify(stringFrom(section.id, section.title, section.heading, 'source-section')),
-      title: contentStringFrom(section.title, section.heading),
-      text: contentStringFrom(section.text, section.description, section.content),
-      items: Array.isArray(section.items)
-        ? section.items
-            .map((item: any) => ({
-              title: contentStringFrom(item.title, item.name),
-              text: contentStringFrom(item.text, item.description, item.answer),
-            }))
-            .filter((item: any) => item.title || item.text)
-        : [],
-      images: uniqueStrings([
-        section.media,
-        ...(Array.isArray(section.images) ? section.images.map((image: any) => stringFrom(image.url, image.image, image)) : []),
-      ])
-        .filter((image: string) => isUsableGalleryImage(image, logoImage))
-        .slice(0, 6),
-    }))
-    .filter((section) => section.title && section.text)
-    .slice(0, 8);
-  const footerLinks = normalizeFooterLinks(
-    Array.isArray(data.footerLinks) && data.footerLinks.length
-      ? data.footerLinks
-      : defaultFooterLinks({
-          hasAbout: Boolean(primaryDescription || aboutImage),
-          hasCare: Boolean(careApproachTitle || whyChooseItems.length),
-          hasFacilities: Boolean(facilitiesTitle || facilityImage),
-          hasSuites: Boolean(rooms.length || (editedRooms?.length ?? 0)),
-          hasServices: Boolean(services.length),
-          hasGallery: Boolean(galleryImages.length),
-          hasReviews: Boolean(testimonials.some((review) => review.showOnWebsite !== false)),
-          hasFaqs: Boolean(faqs.some((faq) => faq.showOnWebsite !== false)),
-          hasLocation: Boolean(locationData || data.address || normalized.address),
-          hasVirtualTour: Boolean(virtualTourUrl),
-          customSections,
-        }),
   );
 
   return {
@@ -704,21 +597,15 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       location: stringFrom(data.location, normalized.location, record?.identity.location),
     },
     hero: {
-      eyebrow: editableString(data.heroEyebrow, normalizedRecord.heroEyebrow, 'A home away from home'),
-      heading: contentStringFrom(data.heroHeading, normalized.heroHeading, record?.content.heroHeading, `Welcome to ${businessName}`),
-      text: contentStringFrom(data.heroSubheading, normalized.heroSubheading, record?.content.heroSubheading, primaryDescription),
+      eyebrow: stringFrom(data.heroEyebrow, 'A home away from home'),
+      heading: stringFrom(data.heroHeading, normalized.heroHeading, record?.content.heroHeading, `Welcome to ${businessName}`),
+      text: stringFrom(data.heroSubheading, normalized.heroSubheading, record?.content.heroSubheading, primaryDescription),
       image: heroImage,
-      button: stringFrom(data.ctaText, heroPrimaryButton, heroLinks[0]?.label, 'Book Now'),
-      primaryButton: heroPrimaryButton,
-      primaryHref: heroPrimaryHref,
-      secondaryButton: heroSecondaryButton,
-      secondaryHref: heroSecondaryHref,
-      showPrimaryButton: Boolean(heroPrimaryButton && heroPrimaryHref),
-      showSecondaryButton: Boolean(heroSecondaryButton && heroSecondaryHref),
-      imagePosition: `${heroImagePositionX}% ${heroImagePositionY}%`,
-      imagePositionX: heroImagePositionX,
-      imagePositionY: heroImagePositionY,
-      imageScale: heroImageScale,
+      button: stringFrom(data.ctaText, data.heroPrimaryCtaText, heroLinks[0]?.label, 'Book Now'),
+      primaryButton: stringFrom(data.heroPrimaryCtaText, heroLinks[0]?.label, 'Discover Our Suites'),
+      primaryHref: stringFrom(data.heroPrimaryCtaHref, heroLinks[0]?.url, '#suites'),
+      secondaryButton: stringFrom(data.heroSecondaryCtaText, heroLinks[1]?.label, 'Our Care Approach'),
+      secondaryHref: stringFrom(data.heroSecondaryCtaHref, heroLinks[1]?.url, '#care'),
     },
     theme: {
       primaryColor: stringFrom(data.primaryColor, normalizedRecord.primaryColor, '#0A1128'),
@@ -729,72 +616,54 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       bodyFont: stringFrom(data.bodyFont, normalizedRecord.bodyFont, data.subheadingFont, normalizedRecord.subheadingFont, 'inter'),
     },
     sectionHeadings: {
-      care: careApproachTitle,
-      facilities: facilitiesTitle,
-      suites: contentStringFrom(data.suitesHeading, 'Beautiful suites for every kind of cat'),
-      services: contentStringFrom(data.additionalServicesHeading, 'Extra care when your cat needs it'),
-      gallery: contentStringFrom(data.galleryHeading, 'A closer look at the stay'),
-      reviews: contentStringFrom(data.testimonialsHeading, 'Trusted by cat families'),
-      faqs: contentStringFrom(data.faqHeading, 'Frequently Asked Questions'),
-      contact: contentStringFrom(data.contactHeading, 'Send us a message'),
-    },
-    sectionEyebrows: {
-      services: stringFrom(data.additionalServicesEyebrow, normalizedRecord.additionalServicesEyebrow, normalizedRecord.servicesData?.servicesEyebrow, 'Additional Services'),
-      reviews: stringFrom(data.testimonialsEyebrow, normalizedRecord.testimonialsEyebrow, normalizedRecord.testimonialsData?.testimonialsEyebrow, 'Reviews'),
-      faqs: stringFrom(data.faqEyebrow, normalizedRecord.faqEyebrow, normalizedRecord.faqData?.faqEyebrow, 'Questions and answers'),
+      care: stringFrom(data.whyChooseUsHeading, whyChooseBlock?.title, `Why choose ${businessName}`),
+      facilities: stringFrom(data.facilitiesHeading, facilitiesBlock?.title, 'Our Facilities'),
+      suites: stringFrom(data.suitesHeading, 'Beautiful suites for every kind of cat'),
+      services: stringFrom(data.additionalServicesHeading, 'Extra care when your cat needs it'),
+      gallery: stringFrom(data.galleryHeading, 'A closer look at the stay'),
+      reviews: stringFrom(data.testimonialsHeading, 'Trusted by cat families'),
+      contact: stringFrom(data.contactHeading, 'Send us a message'),
     },
     features: featureItems,
     whyChoose: {
-      eyebrow: contentStringFrom(data.whyChooseEyebrow, normalizedRecord.whyChooseEyebrow, normalizedRecord.whyChooseUsData?.whyChooseEyebrow, 'Why choose us'),
-      title: whyChooseTitle,
-      text: whyChooseText,
-    },
-    careApproach: {
-      eyebrow: contentStringFrom(data.careApproachEyebrow, normalizedRecord.careApproachEyebrow, normalizedRecord.whyChooseUsData?.careApproachEyebrow, 'Care Approach'),
-      title: careApproachTitle,
-      text: careApproachText,
+      title: stringFrom(data.whyChooseUsHeading, whyChooseBlock?.title, `Why choose ${businessName}`),
+      text: stringFrom(data.whyChooseUsText, whyChooseBlock?.text, primaryDescription),
       items: whyChooseItems,
     },
     facilities: {
-      eyebrow: contentStringFrom(data.facilitiesEyebrow, normalizedRecord.facilitiesEyebrow, normalizedRecord.facilitiesData?.facilitiesEyebrow, 'Premium accommodation'),
-      title: facilitiesTitle,
-      text: facilitiesText,
+      title: stringFrom(data.facilitiesHeading, facilitiesBlock?.title, 'Our Facilities'),
+      text: stringFrom(data.facilitiesText, facilitiesBlock?.text, 'Comfortable, secure spaces designed around daily cat care, quiet routines, and peace of mind.'),
       image: facilityImage,
-      items: facilityItems,
+      items: facilityItems.length || editedFacilityItems ? facilityItems : featureItems.slice(0, 4),
     },
     services: services.map((service: any, index: number) => ({
       image: pickUniqueImage(
         usedImages,
-        [service.image, sectionImages[index + 3], sectionImages[index]],
-        sectionImages,
-        logoImage,
+        [service.image, fallbackImages[index + 3], fallbackImages[index]],
+        fallbackImages,
       ),
-      title: contentStringFrom(service.title, service.name, `Care service ${index + 1}`),
-      text: contentStringFrom(service.description, service.text),
+      title: stringFrom(service.title, service.name, `Care service ${index + 1}`),
+      text: stringFrom(service.description, service.text, 'Additional support available during the stay.'),
       price: stringFrom(service.price),
-      icon: stringFrom(service.icon),
-    })).filter((service) => service.title || service.text || service.price),
+    })),
     about: {
-      title: contentStringFrom(data.aboutHeading, normalized.aboutHeading, record?.content.aboutHeading, `About ${businessName}`),
+      title: stringFrom(data.aboutHeading, normalized.aboutHeading, record?.content.aboutHeading, `About ${businessName}`),
       text: primaryDescription,
       image: aboutImage,
     },
-    gallery: galleryImages.slice(0, 12).map((image, index) => ({
+    gallery: fallbackImages.filter((image) => !hasSeenImage(usedImages, image)).slice(0, 12).map((image, index) => ({
       image,
       caption: stringFrom(record?.media.galleryImages?.[index]?.caption, `${businessName} photo ${index + 1}`),
     })),
-    suites: editedRooms && editedRooms.length === 0 ? [] : ensureSuiteCount(rooms, sectionImages, data.pricePerNight || normalized.pricePerNight, usedImages, logoImage),
-    testimonials: ensureTestimonials(testimonials.filter((review) => review.showOnWebsite !== false), businessName, sectionImages, heroImage, data.testimonialImage, logoImage),
-    faqs: faqs
-      .filter((faq) => faq.showOnWebsite !== false)
-      .map((faq: any) => ({
-        question: contentStringFrom(faq.question),
-        answer: contentStringFrom(faq.answer),
-      }))
-      .filter((faq) => faq.question && faq.answer),
+    suites: editedRooms && editedRooms.length === 0 ? [] : ensureSuiteCount(rooms, fallbackImages, data.pricePerNight || normalized.pricePerNight, usedImages),
+    testimonials: ensureTestimonials(testimonials, businessName, fallbackImages, heroImage, data.testimonialImage),
+    faqs: faqs.map((faq: any) => ({
+      question: stringFrom(faq.question),
+      answer: stringFrom(faq.answer),
+    })).filter((faq) => faq.question && faq.answer),
     owner: {
-      title: ownerTitle,
-      text: ownerText,
+      title: stringFrom(ownerData.title, `Meet the people behind ${businessName}`),
+      text: stringFrom(ownerData.text, ownerData.description, primaryDescription),
       image: ownerImage,
     },
     commitment: {
@@ -814,24 +683,21 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       directions: stringFrom(locationData.directions, locationBlock?.items?.[0]?.text, data.location, normalized.location),
       virtualTourUrl,
     },
-    customSections,
     booking: {
       text: stringFrom(data.bookingText, "Check availability and secure your cat's holiday today."),
       bannerText: stringFrom(data.bookingBannerText, "Check availability and secure your cat's stay today."),
       primaryCta: stringFrom(data.primaryCta, 'Check Availability'),
     },
     footer: {
-      about: contentStringFrom(data.footerAbout, primaryDescription),
+      about: stringFrom(data.footerAbout, primaryDescription),
       phone: stringFrom(data.phone, normalized.phone, record?.contact.phone),
       email: stringFrom(data.email, normalized.email, record?.contact.email),
       address: stringFrom(data.address, normalized.address, record?.contact.address),
       hours,
       facebook: stringFrom(data.facebookUrl, socialLinks.facebook),
       instagram: stringFrom(data.instagramUrl, socialLinks.instagram),
-      links: footerLinks,
     },
     contentLibrary,
-    contentIndex,
   };
 }
 
@@ -857,42 +723,6 @@ function libraryImages(library: CatterySiteContentLibrary, category: string) {
   return libraryBlock(library, category)?.images ?? [];
 }
 
-function sourceContentSections(library: CatterySiteContentLibrary) {
-  const coreCategories = new Set([
-    'hero',
-    'why-choose-us',
-    'facilities',
-    'daily-care',
-    'rooms',
-    'services',
-    'gallery',
-    'reviews',
-    'faqs',
-    'owner-story',
-    'commitment',
-    'location',
-    'contact',
-    'social',
-  ]);
-
-  return library.blocks
-    .filter((block) => !coreCategories.has(block.category))
-    .map((block) => ({
-      id: block.id,
-      title: contentStringFrom(block.title),
-      heading: contentStringFrom(block.title),
-      text: contentStringFrom(block.text),
-      description: contentStringFrom(block.text),
-      items: (block.items ?? []).map((item) => ({
-        title: contentStringFrom(item.title),
-        text: contentStringFrom(item.text, item.answer),
-      })),
-      images: (block.images ?? []).map((image) => image.url).filter(Boolean),
-      media: (block.images ?? [])[0]?.url || '',
-    }))
-    .filter((block) => block.title && block.text);
-}
-
 function libraryRoomsToRooms(items: ReturnType<typeof libraryItems>) {
   return items.map((item) => ({
     name: item.title,
@@ -909,134 +739,7 @@ function libraryItemsToServices(items: ReturnType<typeof libraryItems>) {
     description: item.text || '',
     price: item.price,
     image: item.image,
-    icon: item.icon,
   }));
-}
-
-function normalizeEditableServices(items: unknown): Array<{ title: string; description: string; price: string; image: string; icon: string }> {
-  if (!Array.isArray(items)) return [];
-  return items
-    .map((item: any) => ({
-      title: contentStringFrom(item?.title, item?.name),
-      description: contentStringFrom(item?.description, item?.text),
-      price: stringFrom(item?.price),
-      image: stringFrom(item?.image),
-      icon: stringFrom(item?.icon),
-    }))
-    .filter((item) => item.title || item.description || item.price || item.image);
-}
-
-function normalizeEditableReviews(items: unknown): Array<{ name: string; text: string; rating: number; location: string; image: string; showOnWebsite: boolean }> {
-  if (!Array.isArray(items)) return [];
-  const seen = new Set<string>();
-  return items
-    .map((item: any) => {
-      const name = contentStringFrom(item?.name, item?.author, item?.customer, item?.title);
-      const text = contentStringFrom(item?.text, item?.quote, item?.description);
-      const rating = clampNumber(item?.rating, 1, 5, 5);
-      const location = contentStringFrom(item?.location, item?.meta);
-      const image = stringFrom(item?.image);
-      const showOnWebsite = item?.showOnWebsite !== false && item?.hiddenOnWebsite !== true && item?.websiteHidden !== true;
-      return { name, text, rating, location, image, showOnWebsite };
-    })
-    .filter((item) => item.name || item.text)
-    .filter((item) => {
-      const key = `${item.name.toLowerCase()}-${item.text.toLowerCase().slice(0, 100)}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-}
-
-function normalizeEditableFaqs(items: unknown): Array<{ question: string; answer: string; showOnWebsite: boolean }> {
-  if (!Array.isArray(items)) return [];
-  const seenQuestions = new Set<string>();
-  const seenAnswers = new Set<string>();
-  return items
-    .map((item: any) => {
-      const question = contentStringFrom(item?.question, item?.title);
-      const answer = contentStringFrom(item?.answer, item?.text, item?.description);
-      const showOnWebsite = item?.showOnWebsite !== false && item?.hiddenOnWebsite !== true && item?.websiteHidden !== true;
-      return { question, answer, showOnWebsite };
-    })
-    .filter((item) => item.question && item.answer && !looksLikeNavigationCopy(item.answer))
-    .filter((item) => {
-      const questionKey = item.question.toLowerCase();
-      const answerKey = item.answer.toLowerCase();
-      if (seenQuestions.has(questionKey)) return false;
-      if (answerKey.length > 60 && seenAnswers.has(answerKey)) return false;
-      seenQuestions.add(questionKey);
-      if (answerKey.length > 60) seenAnswers.add(answerKey);
-      return true;
-    });
-}
-
-function normalizeFooterLinks(items: unknown): Array<{ label: string; href: string }> {
-  if (!Array.isArray(items)) return [];
-  const seen = new Set<string>();
-  return items
-    .map((item: any) => ({
-      label: contentStringFrom(item?.label, item?.title, item?.name),
-      href: normalizeFooterHref(stringFrom(item?.href, item?.anchor, item?.url)),
-    }))
-    .filter((item) => item.label && item.href)
-    .filter((item) => {
-      const key = `${item.label.toLowerCase()}-${item.href.toLowerCase()}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
-    .slice(0, 16);
-}
-
-function normalizeFooterHref(value: string): string {
-  const trimmed = value.trim();
-  if (!trimmed) return '';
-  if (trimmed.startsWith('#')) return trimmed;
-  if (/^[a-z0-9-]+$/i.test(trimmed)) return `#${trimmed}`;
-  return '';
-}
-
-function defaultFooterLinks({
-  hasAbout,
-  hasCare,
-  hasFacilities,
-  hasSuites,
-  hasServices,
-  hasGallery,
-  hasReviews,
-  hasFaqs,
-  hasLocation,
-  hasVirtualTour,
-  customSections,
-}: {
-  hasAbout: boolean;
-  hasCare: boolean;
-  hasFacilities: boolean;
-  hasSuites: boolean;
-  hasServices: boolean;
-  hasGallery: boolean;
-  hasReviews: boolean;
-  hasFaqs: boolean;
-  hasLocation: boolean;
-  hasVirtualTour: boolean;
-  customSections: Array<{ id: string; title: string }>;
-}) {
-  return [
-    { label: 'Home', href: '#home' },
-    hasAbout ? { label: 'About', href: '#about' } : null,
-    hasCare ? { label: 'Care', href: '#care' } : null,
-    hasFacilities ? { label: 'Facilities', href: '#facilities' } : null,
-    hasSuites ? { label: 'Suites', href: '#suites' } : null,
-    hasServices ? { label: 'Extra Care', href: '#services' } : null,
-    hasGallery ? { label: 'Gallery', href: '#gallery' } : null,
-    hasReviews ? { label: 'Reviews', href: '#reviews' } : null,
-    ...customSections.map((section) => ({ label: section.title, href: `#${section.id}` })),
-    hasFaqs ? { label: 'FAQs', href: '#faqs' } : null,
-    hasLocation ? { label: 'Location', href: '#location' } : null,
-    hasVirtualTour ? { label: 'Virtual Tour', href: '#virtual-tour' } : null,
-    { label: 'Contact', href: '#contact' },
-  ].filter(Boolean);
 }
 
 function libraryItemsToReviews(items: ReturnType<typeof libraryItems>) {
@@ -1108,18 +811,9 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
 
   const textFrom = (key: string, ...importedSources: unknown[]) => (
     preferImportedCollections
-      ? contentStringFrom(...importedSources, cleanData[key], fallback[key])
-      : contentStringFrom(cleanData[key], ...importedSources, fallback[key])
+      ? stringFrom(...importedSources, cleanData[key], fallback[key])
+      : stringFrom(cleanData[key], ...importedSources, fallback[key])
   );
-
-  const editableTextFrom = (key: string, ...importedSources: unknown[]) => {
-    if (!preferImportedCollections && typeof cleanData[key] === 'string') return cleanImportedCopy(cleanData[key]);
-
-    const importedValue = contentStringFrom(...importedSources);
-    if (preferImportedCollections && importedValue) return importedValue;
-    if (typeof cleanData[key] === 'string') return cleanImportedCopy(cleanData[key]);
-    return contentStringFrom(cleanData[key], ...importedSources, fallback[key]);
-  };
 
   const imageFieldFrom = (key: string, ...importedSources: unknown[]) => (
     preferImportedCollections
@@ -1128,37 +822,36 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
   );
 
   const mapItemsToFeatures = (items: any[] = []) => items.map((item) => ({
-    title: contentStringFrom(item.title, item.name),
-    description: contentStringFrom(item.description, item.text),
+    title: stringFrom(item.title, item.name),
+    description: stringFrom(item.description, item.text),
     icon: stringFrom(item.icon),
   })).filter((item) => item.title || item.description);
 
   const mapItemsToSuites = (items: any[] = []) => items.map((item) => ({
-    name: contentStringFrom(item.name, item.title),
-    description: contentStringFrom(item.description, item.text),
+    name: stringFrom(item.name, item.title),
+    description: stringFrom(item.description, item.text),
     price: stringFrom(item.price),
     image: stringFrom(item.image),
     amenities: Array.isArray(item.amenities) ? item.amenities : Array.isArray(item.features) ? item.features : [],
   })).filter((item) => item.name || item.description || item.image);
 
   const mapItemsToServices = (items: any[] = []) => items.map((item) => ({
-    title: contentStringFrom(item.title, item.name),
-    description: contentStringFrom(item.description, item.text),
+    title: stringFrom(item.title, item.name),
+    description: stringFrom(item.description, item.text),
     price: stringFrom(item.price),
     image: stringFrom(item.image),
-    icon: stringFrom(item.icon),
   })).filter((item) => item.title || item.description || item.image);
 
   const mapItemsToReviews = (items: any[] = []) => items.map((item) => ({
-    name: contentStringFrom(item.name, item.title, item.author),
-    text: contentStringFrom(item.text, item.quote, item.description),
+    name: stringFrom(item.name, item.title, item.author),
+    text: stringFrom(item.text, item.quote, item.description),
     rating: typeof item.rating === 'number' ? item.rating : 5,
-    location: contentStringFrom(item.location, item.meta),
+    location: stringFrom(item.location, item.meta),
   })).filter((item) => item.name || item.text);
 
   const mapItemsToFaqs = (items: any[] = []) => items.map((item) => ({
-    question: contentStringFrom(item.question, item.title),
-    answer: contentStringFrom(item.answer, item.text, item.description),
+    question: stringFrom(item.question, item.title),
+    answer: stringFrom(item.answer, item.text, item.description),
   })).filter((item) => item.question && item.answer);
 
   const mapImagesToUrls = (items: any[] = []) => items.map((item) => stringFrom(item.url, item.image, item)).filter(Boolean);
@@ -1171,19 +864,12 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
 
   return {
     ...cleanData,
-    siteContentIndex: record?.contentIndex ?? normalized.siteContentIndex ?? cleanData.siteContentIndex ?? fallback.siteContentIndex ?? [],
-    logoImage: imageFieldFrom('logoImage', normalized.logoImage, record?.media.logoImage),
-    heroEyebrow: editableTextFrom('heroEyebrow', normalized.heroEyebrow, 'A home away from home'),
-    heroPrimaryCtaText: editableTextFrom('heroPrimaryCtaText', heroLinks[0]?.label, cleanData.ctaText, 'Discover Our Suites'),
-    heroPrimaryCtaHref: editableTextFrom('heroPrimaryCtaHref', heroLinks[0]?.url, '#suites'),
-    heroSecondaryCtaText: editableTextFrom('heroSecondaryCtaText', heroLinks[1]?.label, 'Our Care Approach'),
-    heroSecondaryCtaHref: editableTextFrom('heroSecondaryCtaHref', heroLinks[1]?.url, '#care'),
-    whyChooseEyebrow: textFrom('whyChooseEyebrow', normalized.whyChooseEyebrow, normalized.whyChooseUsData?.whyChooseEyebrow),
+    heroPrimaryCtaText: textFrom('heroPrimaryCtaText', heroLinks[0]?.label, cleanData.ctaText, 'Discover Our Suites'),
+    heroPrimaryCtaHref: textFrom('heroPrimaryCtaHref', heroLinks[0]?.url, '#suites'),
+    heroSecondaryCtaText: textFrom('heroSecondaryCtaText', heroLinks[1]?.label, 'Our Care Approach'),
+    heroSecondaryCtaHref: textFrom('heroSecondaryCtaHref', heroLinks[1]?.url, '#care'),
     whyChooseUsHeading: textFrom('whyChooseUsHeading', normalized.whyChooseUsData?.whyChooseUsHeading, normalized.whyChooseUsData?.heading, block('why-choose-us')?.title),
     whyChooseUsText: textFrom('whyChooseUsText', normalized.whyChooseUsData?.whyChooseUsText, normalized.whyChooseUsData?.text, block('why-choose-us')?.text),
-    careApproachEyebrow: textFrom('careApproachEyebrow', normalized.careApproachEyebrow, normalized.whyChooseUsData?.careApproachEyebrow),
-    careApproachHeading: textFrom('careApproachHeading', normalized.careApproachHeading, normalized.whyChooseUsData?.careApproachHeading, normalized.whyChooseUsData?.whyChooseUsHeading, block('why-choose-us')?.title),
-    careApproachText: textFrom('careApproachText', normalized.careApproachText, normalized.whyChooseUsData?.careApproachText, normalized.whyChooseUsData?.whyChooseUsText, normalized.whyChooseUsData?.text, block('why-choose-us')?.text),
     aboutHeading: textFrom('aboutHeading', normalized.aboutHeading, normalized.aboutData?.heading, block('hero')?.title),
     aboutText: textFrom('aboutText', normalized.aboutText, normalized.aboutData?.text, block('hero')?.text),
     aboutImage: imageFieldFrom(
@@ -1196,16 +882,12 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
       blockImages('facilities')[0]?.url,
     ),
     facilitiesHeading: textFrom('facilitiesHeading', normalized.facilitiesData?.facilitiesHeading, normalized.facilitiesData?.heading, block('facilities')?.title),
-    facilitiesEyebrow: textFrom('facilitiesEyebrow', normalized.facilitiesEyebrow, normalized.facilitiesData?.facilitiesEyebrow),
     facilitiesText: textFrom('facilitiesText', normalized.facilitiesData?.facilitiesText, normalized.facilitiesData?.text, block('facilities')?.text),
     facilitiesImage: imageFieldFrom('facilitiesImage', normalized.facilitiesData?.facilitiesImage, normalized.facilitiesData?.image, blockImages('facilities')[0]?.url),
     suitesHeading: textFrom('suitesHeading', normalized.suitesData?.suitesHeading, normalized.suitesData?.heading, block('rooms')?.title),
-    additionalServicesEyebrow: textFrom('additionalServicesEyebrow', normalized.servicesData?.servicesEyebrow, normalized.servicesData?.eyebrow, block('services')?.eyebrow),
     additionalServicesHeading: textFrom('additionalServicesHeading', normalized.servicesData?.servicesHeading, normalized.servicesData?.heading, block('services')?.title),
     galleryHeading: textFrom('galleryHeading', normalized.galleryData?.galleryHeading, normalized.galleryData?.heading, block('gallery')?.title),
-    testimonialsEyebrow: textFrom('testimonialsEyebrow', normalized.testimonialsData?.testimonialsEyebrow, normalized.testimonialsData?.eyebrow, block('reviews')?.eyebrow),
     testimonialsHeading: textFrom('testimonialsHeading', normalized.testimonialsData?.testimonialsHeading, normalized.testimonialsData?.heading, block('reviews')?.title),
-    faqEyebrow: textFrom('faqEyebrow', normalized.faqData?.faqEyebrow, normalized.faqData?.eyebrow, block('faqs')?.eyebrow),
     faqHeading: textFrom('faqHeading', normalized.faqData?.faqHeading, normalized.faqData?.heading, block('faqs')?.title),
     ownerData: cleanData.ownerData ?? normalized.ownerData ?? (ownerBlock ? { title: ownerBlock.title, text: ownerBlock.text, image: ownerBlock.images?.[0]?.url } : undefined),
     locationData: cleanData.locationData ?? normalized.locationData ?? (locationBlock ? {
@@ -1240,12 +922,12 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
     ),
     roomTypes: arrayFrom('roomTypes'),
     pricingRates: arrayFrom('pricingRates'),
-    additionalServices: normalizeEditableServices(arrayFrom(
+    additionalServices: arrayFrom(
       'additionalServices',
-      normalizeEditableServices(normalized.servicesData?.services),
+      normalized.servicesData?.services,
       mapItemsToServices(blockItems('services')),
       mapItemsToServices(record?.services ?? []),
-    )),
+    ),
     discounts: arrayFrom('discounts'),
     blockOutDates: arrayFrom('blockOutDates'),
     galleryImages: arrayFrom(
@@ -1256,20 +938,19 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
       mapImagesToUrls(record?.media.galleryImages ?? []),
       record?.media.images,
     ),
-    testimonials: normalizeEditableReviews(arrayFrom(
+    testimonials: arrayFrom(
       'testimonials',
       normalized.testimonialsData?.testimonials,
       mapItemsToReviews(blockItems('reviews')),
       mapItemsToReviews(record?.contentLibrary?.blocks.find((candidate) => candidate.category === 'reviews')?.items ?? []),
-    )),
-    faqs: normalizeEditableFaqs(arrayFrom(
+    ),
+    faqs: arrayFrom(
       'faqs',
       normalized.faqData?.faqs,
       mapItemsToFaqs(blockItems('faqs')),
       record?.faqs,
-    )),
-    footerLinks: normalizeFooterLinks(arrayFrom('footerLinks', normalized.footerLinks)),
-    customSections: arrayFrom('customSections', sourceContentSections(contentLibrary)),
+    ),
+    customSections: arrayFrom('customSections'),
   };
 }
 
@@ -1283,143 +964,12 @@ function stringFrom(...values: unknown[]): string {
   return '';
 }
 
-function contentStringFrom(...values: unknown[]): string {
-  for (const value of values) {
-    if (typeof value === 'number' && Number.isFinite(value)) return String(value);
-    if (typeof value !== 'string') continue;
-    const cleaned = cleanImportedCopy(value);
-    if (cleaned) return cleaned;
-  }
-  return '';
-}
-
-function editableString(value: unknown, ...fallbackValues: unknown[]): string {
-  if (typeof value === 'string') return value.trim();
-  return stringFrom(...fallbackValues);
-}
-
-function cleanImportedCopy(value: string): string {
-  const withoutMenuTrails = stripTopOfPageMenuTrail(value)
-    .replace(/\btop of page\b(?:[\s,;/|&-]+(?:home|about|accomodation|accommodation|homestay|fees|feline|health|care|hyperbaric|oxygen|pulsed|electric|magnetic|field|therapy|pemf|hbot|integrative|gallery|professional|cat|grooming|rates|more|contact|suites|facilities|services|booking|book|faq|q|a|use|tab|navigate|through|menu|items)){3,}/gi, ' ')
-    .replace(/\bHome\s+About\s+(?:Accomodation|Accommodation)\b[\s\S]{0,500}?\b(?:More|Contact|Grooming Rates)\b/gi, ' ')
-    .replace(/\bUse tab to navigate through the menu items\.?/gi, ' ')
-    .replace(/\bbottom of page\b/gi, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  const lower = withoutMenuTrails.toLowerCase();
-  if (!withoutMenuTrails || /^(home|about|contact|gallery|more|top of page|bottom of page)$/i.test(withoutMenuTrails)) return '';
-  if (/^top of page\b/.test(lower)) return '';
-  if (looksLikeNavigationCopy(withoutMenuTrails)) return '';
-  return withoutMenuTrails;
-}
-
-function stripTopOfPageMenuTrail(value: string): string {
-  return value.replace(/\btop of page\b[\s\S]{0,650}/gi, (match) => {
-    const words = match.toLowerCase().split(/[^a-z]+/).filter(Boolean);
-    const navWords = new Set([
-      'top',
-      'page',
-      'home',
-      'about',
-      'accomodation',
-      'accommodation',
-      'homestay',
-      'fees',
-      'feline',
-      'health',
-      'care',
-      'hyperbaric',
-      'oxygen',
-      'pulsed',
-      'electric',
-      'magnetic',
-      'field',
-      'therapy',
-      'pemf',
-      'hbot',
-      'integrative',
-      'gallery',
-      'professional',
-      'cat',
-      'grooming',
-      'rates',
-      'more',
-      'contact',
-      'booking',
-      'book',
-      'faq',
-      'use',
-      'tab',
-      'navigate',
-      'menu',
-      'items',
-    ]);
-    const navCount = words.filter((word) => navWords.has(word)).length;
-    return navCount >= 8 ? ' ' : match;
-  });
-}
-
-function looksLikeNavigationCopy(value: string): boolean {
-  const words = value.toLowerCase().split(/[^a-z]+/).filter(Boolean);
-  if (words.length < 6) return false;
-  const navWords = new Set([
-    'top',
-    'page',
-    'home',
-    'about',
-    'accomodation',
-    'accommodation',
-    'homestay',
-    'fees',
-    'feline',
-    'health',
-    'care',
-    'hyperbaric',
-    'oxygen',
-    'pulsed',
-    'electric',
-    'magnetic',
-    'field',
-    'therapy',
-    'pemf',
-    'hbot',
-    'integrative',
-    'gallery',
-    'professional',
-    'cat',
-    'grooming',
-    'rates',
-    'more',
-    'contact',
-    'booking',
-    'book',
-    'faq',
-  ]);
-  const navCount = words.filter((word) => navWords.has(word)).length;
-  return navCount >= 8 && navCount / words.length > 0.65;
-}
-
-function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
-  const parsed = typeof value === 'number' ? value : Number(value);
-  if (!Number.isFinite(parsed)) return fallback;
-  return Math.min(max, Math.max(min, parsed));
-}
-
 function imageFrom(...values: unknown[]): string {
   for (const value of values) {
     const image = stringFrom(value);
     if (/^https?:\/\//i.test(image) || /^data:image\//i.test(image)) return image;
   }
-  return '';
-}
-
-function heroImageFrom(logoImage: string, ...values: unknown[]): string {
-  for (const value of values) {
-    const image = imageFrom(value);
-    if (image && isUsableGalleryImage(image, logoImage)) return image;
-  }
-  return '';
+  return 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=1200&h=900&fit=crop';
 }
 
 function embeddableVirtualTourUrl(rawUrl: string, sourceHost?: string): string {
@@ -1458,23 +1008,18 @@ function isUsableGalleryImage(image: string, logoImage?: string): boolean {
   const logoKey = logoImage?.split('?')[0].toLowerCase();
   if (!normalized) return false;
   if (logoKey && normalized === logoKey) return false;
-  const decoded = safeDecodeURIComponent(normalized);
-  if (!/^https?:\/\//i.test(image) && !/^data:image\//i.test(image)) return false;
-  if (/%60|`|:o\(|media\/\W/.test(decoded)) return false;
-  if (/logo|wordmark|brand|cardb|favicon|apple-touch-icon|header-logo|site-logo|lettermark|masthead|icon|avatar|profile|placeholder|silhouette|black.?cat|catstays|\/cat(?:[-_][a-z0-9]+)?\.png$/i.test(decoded)) return false;
-  return true;
-}
-
-function safeDecodeURIComponent(value: string): string {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
+  const decoded = decodeURIComponent(normalized);
+  return !/logo|favicon|apple-touch-icon|icon|avatar|profile|placeholder|silhouette|black.?cat|catstays|\/cat(?:[-_][a-z0-9]+)?\.png$/i.test(decoded);
 }
 
 function ensureImageCount(images: string[], heroImage: string): string[] {
-  return uniqueStrings([...images, heroImage]);
+  const fallback = [
+    heroImage,
+    'https://images.unsplash.com/photo-1543852786-1cf6624b9987?w=1200&h=900&fit=crop',
+    'https://images.unsplash.com/photo-1573865526739-10c1de0e0ef2?w=1200&h=900&fit=crop',
+    'https://images.unsplash.com/photo-1518791841217-8f162f1e1131?w=1200&h=900&fit=crop',
+  ];
+  return uniqueStrings([...images, ...fallback]);
 }
 
 function normalizedImageKey(image: string) {
@@ -1490,8 +1035,8 @@ function hasSeenImage(usedImages: Set<string>, image: string) {
   return image ? usedImages.has(normalizedImageKey(image)) : false;
 }
 
-function pickUniqueImage(usedImages: Set<string>, preferred: unknown[], fallbackImages: string[], logoImage = '') {
-  const preferredImages = uniqueStrings(preferred).filter((image) => isUsableGalleryImage(image, logoImage));
+function pickUniqueImage(usedImages: Set<string>, preferred: unknown[], fallbackImages: string[]) {
+  const preferredImages = uniqueStrings(preferred).filter((image) => isUsableGalleryImage(image));
   for (const image of preferredImages) {
     if (hasSeenImage(usedImages, image)) continue;
     rememberImage(usedImages, image);
@@ -1499,12 +1044,12 @@ function pickUniqueImage(usedImages: Set<string>, preferred: unknown[], fallback
   }
 
   for (const image of fallbackImages) {
-    if (!image || !isUsableGalleryImage(image, logoImage) || hasSeenImage(usedImages, image)) continue;
+    if (!image || hasSeenImage(usedImages, image)) continue;
     rememberImage(usedImages, image);
     return image;
   }
 
-  const fallback = preferredImages[0] || fallbackImages.find((image) => isUsableGalleryImage(image, logoImage)) || '';
+  const fallback = preferredImages[0] || fallbackImages[0] || '';
   rememberImage(usedImages, fallback);
   return fallback;
 }
@@ -1522,14 +1067,14 @@ function ensureFeatureCount(
     { title: 'Photo Updates', text: 'Owners can receive updates while their cats are away.' },
   ]
     .filter((feature) => feature.title || feature.text)
-    .slice(0, 8)
+    .slice(0, 4)
     .map((feature, index) => ({
-      title: feature.title || ['Fully Licensed', 'Premium Care', 'Daily Enrichment', 'Photo Updates', 'Comfort Checks', 'Owner Updates', 'Calm Spaces', 'Personalised Care'][index] || 'Care feature',
+      title: feature.title || ['Fully Licensed', 'Premium Care', 'Daily Enrichment', 'Photo Updates'][index],
       text: feature.text || 'A calm, professional cattery experience.',
     }));
 }
 
-function ensureSuiteCount(rooms: any[], images: string[], fallbackPrice?: string, usedImages?: Set<string>, logoImage = '') {
+function ensureSuiteCount(rooms: any[], images: string[], fallbackPrice?: string, usedImages?: Set<string>) {
   const fallbackSuites = [
     { name: 'Standard Suites', description: 'Comfortable and cosy suites perfect for a relaxing stay.' },
     { name: 'Deluxe Suites', description: 'Extra comfort and premium features for added calm.' },
@@ -1540,22 +1085,22 @@ function ensureSuiteCount(rooms: any[], images: string[], fallbackPrice?: string
 
   return sourceRooms.map((room, index) => {
     const fallback = fallbackSuites[index % fallbackSuites.length];
-    const title = contentStringFrom(room.name, room.title, fallback.name);
+    const title = stringFrom(room.name, room.title, fallback.name);
     const price = stringFrom(room.price, fallbackPrice);
     const priceUnit = stringFrom(room.priceUnit);
     const priceLabel = price && priceUnit ? `${price} ${priceUnit}` : price;
     const roomImage = stringFrom(room.image);
     return {
       image: usedImages
-        ? pickUniqueImage(usedImages, [isUsableGalleryImage(roomImage, logoImage) ? roomImage : '', images[index + 1], images[index], images[0]], images, logoImage)
-        : imageFrom(isUsableGalleryImage(roomImage, logoImage) ? roomImage : '', images[index + 1], images[index], images[0]),
+        ? pickUniqueImage(usedImages, [isUsableGalleryImage(roomImage) ? roomImage : '', images[index + 1], images[index], images[0]], images)
+        : imageFrom(isUsableGalleryImage(roomImage) ? roomImage : '', images[index + 1], images[index], images[0]),
       title,
-      text: contentStringFrom(room.description, priceLabel ? `${fallback.description} ${priceLabel}.` : fallback.description),
+      text: stringFrom(room.description, priceLabel ? `${fallback.description} ${priceLabel}.` : fallback.description),
       price: priceLabel,
       features: Array.isArray(room.amenities)
-        ? room.amenities.map((feature: unknown) => contentStringFrom(feature)).filter(Boolean).slice(0, 8)
+        ? room.amenities.map((feature: unknown) => stringFrom(feature)).filter(Boolean).slice(0, 6)
         : Array.isArray(room.features)
-          ? room.features.map((feature: unknown) => contentStringFrom(feature)).filter(Boolean).slice(0, 8)
+          ? room.features.map((feature: unknown) => stringFrom(feature)).filter(Boolean).slice(0, 6)
           : [],
     };
   });
@@ -1567,24 +1112,26 @@ function ensureTestimonials(
   images: string[],
   heroImage: string,
   testimonialImage?: unknown,
-  logoImage = '',
 ) {
   const mapped = testimonials
-    .map((testimonial: any, index: number) => {
-      const image = imageFrom(testimonial.image, index === 0 ? testimonialImage : undefined, images[index + 4], images[index], heroImage);
-      return {
-        quote: contentStringFrom(testimonial.text, testimonial.quote),
-        author: contentStringFrom(testimonial.name, testimonial.author, testimonial.customer, 'Guest family'),
-        image: isUsableGalleryImage(image, logoImage) ? image : '',
-        location: contentStringFrom(testimonial.location),
-        rating: clampNumber(testimonial.rating, 1, 5, 5),
-      };
-    })
+    .map((testimonial: any, index: number) => ({
+      quote: stringFrom(testimonial.text, testimonial.quote),
+      author: stringFrom(testimonial.name, testimonial.author, testimonial.customer, 'Guest family'),
+      image: imageFrom(testimonial.image, index === 0 ? testimonialImage : undefined, images[index + 4], images[index], heroImage),
+      location: stringFrom(testimonial.location),
+    }))
     .filter((testimonial) => testimonial.quote);
 
   if (mapped.length) return mapped.slice(0, 10);
 
-  return [];
+  return [
+    {
+      quote: "I built this because I needed it, and now I wouldn't run my cattery without it.",
+      author: 'Vanessa',
+      image: imageFrom(testimonialImage, images[3], heroImage),
+      location: businessName,
+    },
+  ];
 }
 
 function hostFromUrl(rawUrl: string) {

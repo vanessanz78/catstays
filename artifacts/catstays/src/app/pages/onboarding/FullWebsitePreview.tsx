@@ -23,6 +23,7 @@ import {
   CommitmentSection,
   ContactSection,
   FooterSection,
+  catImages,
   getHeadingFontClass,
   getSubheadingFontClass,
   getBodyFontClass
@@ -108,29 +109,6 @@ interface FullWebsitePreviewProps {
   showInfoCard?: boolean;
 }
 
-const previewImage = (...values: unknown[]) => {
-  for (const value of values) {
-    if (typeof value !== 'string') continue;
-    const image = value.trim();
-    if (/^https?:\/\//i.test(image) || /^data:image\//i.test(image)) return image;
-  }
-  return '';
-};
-
-const PreviewImage = ({ src, alt, className }: { src?: string; alt: string; className: string }) => {
-  if (!src) return <div aria-hidden="true" className={`${className} bg-gray-100`} />;
-  return (
-    <img
-      src={src}
-      alt={alt}
-      className={className}
-      onError={(event) => {
-        event.currentTarget.style.display = 'none';
-      }}
-    />
-  );
-};
-
 export function FullWebsitePreview({
   data,
   initialMode = 'website',
@@ -200,7 +178,11 @@ export function FullWebsitePreview({
 
         {/* Hero Section */}
         <div id="hero" className="relative h-[400px] sm:h-[500px] md:h-[600px]">
-          <PreviewImage src={previewImage(data.heroImage)} alt="Hero" className="w-full h-full object-cover" />
+          <img 
+            src={data.heroImage || catImages.hero1} 
+            alt="Hero" 
+            className="w-full h-full object-cover"
+          />
           <div className="absolute inset-0 bg-gradient-to-b from-black/40 to-black/60 flex flex-col items-center justify-center px-4 sm:px-6 md:px-8 text-center">
             <h1 
               className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-4 sm:mb-6 text-white leading-tight" 

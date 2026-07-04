@@ -78,60 +78,6 @@ function sourceUrlForTemplateSnapshot(data: Record<string, any>) {
   return /^https?:\/\//i.test(trimmedUrl) ? trimmedUrl : `https://${trimmedUrl}`;
 }
 
-function safeDecodeURIComponent(value: string) {
-  try {
-    return decodeURIComponent(value);
-  } catch {
-    return value;
-  }
-}
-
-function imageSettingKey(value: unknown) {
-  return String(value || '')
-    .trim()
-    .split('#')[0]
-    .split('?')[0]
-    .toLowerCase()
-    .replace(/\/+$/, '');
-}
-
-function dimensionFromImageUrl(url: string, key: 'w' | 'h' | 'width' | 'height') {
-  try {
-    const parsed = new URL(url, 'https://catstays.local');
-    const value = Number(parsed.searchParams.get(key));
-    return Number.isFinite(value) && value > 0 ? value : 0;
-  } catch {
-    return 0;
-  }
-}
-
-function isLikelyLogoOrWordmarkImage(image: unknown, logoImage?: unknown, businessName?: unknown) {
-  const imageValue = String(image || '').trim();
-  if (!imageValue) return false;
-
-  const imageKey = imageSettingKey(imageValue);
-  const logoKey = imageSettingKey(logoImage);
-  if (logoKey && imageKey && imageKey === logoKey) return true;
-
-  const decoded = safeDecodeURIComponent(imageValue).toLowerCase();
-  const compactDecoded = decoded.replace(/[^a-z0-9]+/g, '');
-  const compactBusinessName = String(businessName || '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '');
-  const hasBrandName =
-    compactBusinessName.length > 3 && compactDecoded.includes(compactBusinessName);
-  const hasBrandAssetName =
-    /(^|[-_/])(logo|wordmark|brandmark|brand|header-logo|site-logo|letterhead|masthead)([-_.?/]|$)/i.test(
-      decoded,
-    );
-  const hasHeaderArtworkName =
-    /(^|[-_/])(banner|header|hero-logo|nameplate)([-_.?/]|$)/i.test(decoded) && hasBrandName;
-  const width = dimensionFromImageUrl(imageValue, 'w') || dimensionFromImageUrl(imageValue, 'width');
-  const height = dimensionFromImageUrl(imageValue, 'h') || dimensionFromImageUrl(imageValue, 'height');
-
-  return hasBrandAssetName || hasHeaderArtworkName || Boolean(width && height && width > height * 4 && hasBrandName);
-}
-
 function OnboardingTemplateSnapshot({
   template,
   data,
@@ -237,70 +183,6 @@ function offlinePublishMessage(message: string) {
   return message;
 }
 
-const ONBOARDING_STORAGE_KEY = 'catstays_onboarding';
-const ACCOUNT_STORAGE_KEY = 'catstays_account';
-
-function readStoredJson<T>(key: string): T | null {
-  if (typeof window === 'undefined') return null;
-  const raw = localStorage.getItem(key);
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as T;
-  } catch {
-    return null;
-  }
-}
-
-function isPublishedCheckpoint(value: any) {
-  if (!value) return false;
-  const storedStep = Number(value.step || 0);
-  return (
-    storedStep >= 8 ||
-    value.publishStatus === 'published' ||
-    Boolean(value.catteryId || value.data?.publishedCatteryId)
-  );
-}
-
-function saveOnboardingProgress({
-  step,
-  data,
-  accountCreated,
-  publishStatus,
-  catteryId,
-}: {
-  step: number;
-  data: any;
-  accountCreated: boolean;
-  publishStatus?: string;
-  catteryId?: string | null;
-}) {
-  if (typeof window === 'undefined') return;
-  const existing = readStoredJson<any>(ONBOARDING_STORAGE_KEY) || {};
-
-  if (isPublishedCheckpoint(existing) && step < 8) {
-    return;
-  }
-
-  localStorage.setItem(ONBOARDING_STORAGE_KEY, JSON.stringify({
-    ...existing,
-    step,
-    data,
-    accountCreated,
-    publishStatus: publishStatus ?? existing.publishStatus,
-    catteryId: catteryId ?? existing.catteryId,
-    updatedAt: new Date().toISOString(),
-  }));
-}
-
-function isPublishedAccount(account: any) {
-  return Boolean(
-    account?.catteryId ||
-    account?.status === 'confirmation_sent' ||
-    account?.status === 'published' ||
-    account?.status === 'confirmed'
-  );
-}
-
 export function OnboardingWizard() {
   const navigate = useNavigate();
   const { cattery, refreshCattery } = useAuth();
@@ -343,15 +225,7 @@ export function OnboardingWizard() {
     backgroundColor: '#FAF7F2',
     typography: 'playfair',
     logo: '',
-    logoImage: '',
     heroImage: '',
-    heroImageOwned: false,
-    heroImageSourceUrl: '',
-    heroImageStoragePath: '',
-    heroImageObjectPositionX: 50,
-    heroImageObjectPositionY: 50,
-    heroImageScale: 100,
-    heroEyebrow: 'A home away from home',
     heroHeading: 'Luxury Cat Boarding',
     heroSubheading: 'A home away from home for your feline friends',
     heroPrimaryCtaText: 'Discover Our Suites',
@@ -360,42 +234,35 @@ export function OnboardingWizard() {
     heroSecondaryCtaHref: '#care',
     aboutText: 'We provide premium cat boarding in a peaceful, caring environment.',
     aboutHeading: 'About Our Cattery',
-    whyChooseEyebrow: 'Why choose us',
-    whyChooseUsHeading: 'Why choose us',
-    whyChooseUsText: '',
-    careApproachEyebrow: 'Care Approach',
-    careApproachHeading: 'Why choose us',
-    careApproachText: '',
-    facilitiesEyebrow: 'Premium accommodation',
     phone: '',
     address: '',
-    hours: '',
     locationData: null,
-    contactData: null,
     socialLinks: null,
     virtualTourUrl: '',
     footerAbout: '',
-    footerLinks: [],
     siteContentLibrary: null,
-    siteContentIndex: [],
     contentLibrary: null,
     sectionsOrder: [],
     
-    // Website Content
-    galleryImages: [],
+    // Website Content - Preloaded defaults
+    galleryImages: [
+      'https://images.unsplash.com/photo-1574158622682-e40e69881006?w=800&h=800&fit=crop',
+      'https://images.unsplash.com/photo-1518791841217-8f162f1e1131?w=800&h=800&fit=crop',
+      'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=800&h=800&fit=crop',
+      'https://images.unsplash.com/photo-1548681528-6a5c45b66b42?w=800&h=800&fit=crop',
+      'https://images.unsplash.com/photo-1573865526739-10c1de0e0ef2?w=800&h=800&fit=crop',
+      'https://images.unsplash.com/photo-1519052537078-e6302a4968d4?w=800&h=800&fit=crop'
+    ],
     testimonials: [
       { name: 'Sarah M.', text: 'Absolutely wonderful! My cat Whiskers loves it here.', rating: 5 },
       { name: 'James T.', text: 'Professional, caring, and spotlessly clean. Highly recommend!', rating: 5 },
       { name: 'Emma L.', text: 'I travel worry-free knowing my cats are in great hands.', rating: 5 }
     ],
-    testimonialsEyebrow: 'Reviews',
-    faqEyebrow: 'Questions and answers',
     faqs: [
       { question: 'What are your check-in times?', answer: 'Check-in is between 9 AM - 12 PM, and check-out is 3 PM - 6 PM.' },
       { question: 'Do you require vaccinations?', answer: 'Yes, all cats must be up-to-date on vaccinations for everyone\'s safety.' },
       { question: 'Can I visit my cat during their stay?', answer: 'We recommend letting cats settle in, but video updates are sent daily.' }
     ],
-    additionalServicesEyebrow: 'Additional Services',
     additionalServices: [
       { title: 'Grooming', price: '$35', description: 'Professional bathing and brushing' },
       { title: 'Medication Administration', price: '$10/day', description: 'Careful medication management' },
@@ -571,38 +438,10 @@ export function OnboardingWizard() {
       status: 'draft',
     };
     setAccountCreated(true);
-    localStorage.setItem(ACCOUNT_STORAGE_KEY, JSON.stringify(draftAccount));
-    saveOnboardingProgress({ step: 2, data, accountCreated: true });
+    localStorage.setItem('catstays_account', JSON.stringify(draftAccount));
+    localStorage.setItem('catstays_onboarding', JSON.stringify({ step: 2, data, accountCreated: true }));
     setIsSaving(false);
     setStep(2);
-  };
-
-  const handleContinueFromAccountReady = () => {
-    const account = readStoredJson<any>(ACCOUNT_STORAGE_KEY);
-    const saved = readStoredJson<any>(ONBOARDING_STORAGE_KEY);
-
-    if (isPublishedAccount(account) || isPublishedCheckpoint(saved)) {
-      const savedData = saved?.data || data;
-      const nextData = {
-        ...savedData,
-        emailConfirmed: Boolean(savedData.emailConfirmed || account?.emailConfirmed),
-        publishedCatteryId: savedData.publishedCatteryId || account?.catteryId,
-        subdomain: savedData.subdomain || account?.slug || data.subdomain,
-      };
-      setData(nextData);
-      setAccountCreated(true);
-      saveOnboardingProgress({
-        step: 8,
-        data: nextData,
-        accountCreated: true,
-        publishStatus: 'published',
-        catteryId: nextData.publishedCatteryId || account?.catteryId || null,
-      });
-      setStep(8);
-      return;
-    }
-
-    handleNext();
   };
 
   const handleImportWebsite = async () => {
@@ -647,7 +486,7 @@ export function OnboardingWizard() {
   const handleSaveProgress = async () => {
     setIsSaving(true);
     // Always save locally for resilience
-    saveOnboardingProgress({ step, data, accountCreated });
+    localStorage.setItem('catstays_onboarding', JSON.stringify({ step, data, accountCreated }));
 
     // Save cattery profile + website settings to Supabase if logged in
     if (cattery?.id) {
@@ -660,15 +499,7 @@ export function OnboardingWizard() {
         subheadingFont: data.subheadingFont,
         bodyFont: data.bodyFont,
         logo: data.logo,
-        logoImage: data.logoImage,
         heroImage: data.heroImage,
-        heroImageOwned: data.heroImageOwned,
-        heroImageSourceUrl: data.heroImageSourceUrl,
-        heroImageStoragePath: data.heroImageStoragePath,
-        heroImageObjectPositionX: data.heroImageObjectPositionX,
-        heroImageObjectPositionY: data.heroImageObjectPositionY,
-        heroImageScale: data.heroImageScale,
-        heroEyebrow: data.heroEyebrow,
         heroHeading: data.heroHeading,
         heroSubheading: data.heroSubheading,
         heroPrimaryCtaText: data.heroPrimaryCtaText,
@@ -677,38 +508,25 @@ export function OnboardingWizard() {
         heroSecondaryCtaHref: data.heroSecondaryCtaHref,
         aboutText: data.aboutText,
         aboutHeading: data.aboutHeading,
-        whyChooseEyebrow: data.whyChooseEyebrow,
         whyChooseUsHeading: data.whyChooseUsHeading,
-        whyChooseUsText: data.whyChooseUsText,
-        careApproachEyebrow: data.careApproachEyebrow,
-        careApproachHeading: data.careApproachHeading,
-        careApproachText: data.careApproachText,
         whyChooseUsFeatures: data.whyChooseUsFeatures,
-        facilitiesEyebrow: data.facilitiesEyebrow,
         facilitiesHeading: data.facilitiesHeading,
         facilitiesText: data.facilitiesText,
         facilitiesImage: data.facilitiesImage,
         facilityFeatures: data.facilityFeatures,
         suitesHeading: data.suitesHeading,
         suites: data.suites,
-        additionalServicesEyebrow: data.additionalServicesEyebrow,
         additionalServicesHeading: data.additionalServicesHeading,
         galleryHeading: data.galleryHeading,
         galleryImages: data.galleryImages,
-        testimonialsEyebrow: data.testimonialsEyebrow,
         testimonialsHeading: data.testimonialsHeading,
-        faqEyebrow: data.faqEyebrow,
         faqHeading: data.faqHeading,
         ownerData: data.ownerData,
         locationData: data.locationData,
-        hours: data.hours,
-        contactData: data.contactData,
         socialLinks: data.socialLinks,
         virtualTourUrl: data.virtualTourUrl,
         footerAbout: data.footerAbout,
-        footerLinks: data.footerLinks,
         siteContentLibrary: data.siteContentLibrary,
-        siteContentIndex: data.siteContentIndex,
         contentLibrary: data.contentLibrary,
         sectionsOrder: data.sectionsOrder,
         importSourceUrl: data.importSourceUrl,
@@ -764,111 +582,78 @@ export function OnboardingWizard() {
     if (cattery) {
       setAccountCreated(true);
       const ws = cattery.website_settings as Record<string, any> || {};
-      setData(prev => {
-        const businessName = cattery.name || prev.businessName;
-        const restoredLogoImage = ws.logoImage || prev.logoImage || ws.logo || prev.logo;
-        const restoredHeroImage = isLikelyLogoOrWordmarkImage(ws.heroImage, restoredLogoImage, businessName)
-          ? prev.heroImage
-          : ws.heroImage || prev.heroImage;
-
-        return {
-          ...prev,
-          businessName,
-          phone: cattery.phone || prev.phone,
-          address: cattery.address || prev.address,
-          location: cattery.city || prev.location,
-          subdomain: cattery.slug || prev.subdomain,
-          primaryColor: ws.primaryColor || prev.primaryColor,
-          accentColor: ws.accentColor || prev.accentColor,
-          backgroundColor: ws.backgroundColor || prev.backgroundColor,
-          typography: ws.typography || prev.typography,
-          headingFont: ws.headingFont || prev.headingFont,
-          subheadingFont: ws.subheadingFont || prev.subheadingFont,
-          bodyFont: ws.bodyFont || prev.bodyFont,
-          logo: ws.logo || prev.logo,
-          logoImage: restoredLogoImage,
-          heroImage: restoredHeroImage,
-          heroImageOwned: ws.heroImageOwned ?? prev.heroImageOwned,
-          heroImageSourceUrl: ws.heroImageSourceUrl ?? prev.heroImageSourceUrl,
-          heroImageStoragePath: ws.heroImageStoragePath ?? prev.heroImageStoragePath,
-          heroImageObjectPositionX: ws.heroImageObjectPositionX ?? prev.heroImageObjectPositionX,
-          heroImageObjectPositionY: ws.heroImageObjectPositionY ?? prev.heroImageObjectPositionY,
-          heroImageScale: ws.heroImageScale ?? prev.heroImageScale,
-          heroEyebrow: ws.heroEyebrow ?? prev.heroEyebrow,
-          heroHeading: ws.heroHeading || prev.heroHeading,
-          heroSubheading: ws.heroSubheading || prev.heroSubheading,
-          heroPrimaryCtaText: ws.heroPrimaryCtaText ?? prev.heroPrimaryCtaText,
-          heroPrimaryCtaHref: ws.heroPrimaryCtaHref ?? prev.heroPrimaryCtaHref,
-          heroSecondaryCtaText: ws.heroSecondaryCtaText ?? prev.heroSecondaryCtaText,
-          heroSecondaryCtaHref: ws.heroSecondaryCtaHref ?? prev.heroSecondaryCtaHref,
-          aboutText: ws.aboutText || prev.aboutText,
-          aboutHeading: ws.aboutHeading || prev.aboutHeading,
-          whyChooseEyebrow: ws.whyChooseEyebrow ?? prev.whyChooseEyebrow,
-          whyChooseUsHeading: ws.whyChooseUsHeading || prev.whyChooseUsHeading,
-          whyChooseUsText: ws.whyChooseUsText ?? prev.whyChooseUsText,
-          careApproachEyebrow: ws.careApproachEyebrow ?? prev.careApproachEyebrow,
-          careApproachHeading: ws.careApproachHeading ?? prev.careApproachHeading,
-          careApproachText: ws.careApproachText ?? prev.careApproachText,
-          whyChooseUsFeatures: ws.whyChooseUsFeatures ?? prev.whyChooseUsFeatures,
-          facilitiesEyebrow: ws.facilitiesEyebrow ?? prev.facilitiesEyebrow,
-          facilitiesHeading: ws.facilitiesHeading || prev.facilitiesHeading,
-          facilitiesText: ws.facilitiesText || prev.facilitiesText,
-          facilitiesImage: ws.facilitiesImage || prev.facilitiesImage,
-          facilityFeatures: ws.facilityFeatures ?? prev.facilityFeatures,
-          suitesHeading: ws.suitesHeading || prev.suitesHeading,
-          suites: ws.suites ?? prev.suites,
-          additionalServicesEyebrow: ws.additionalServicesEyebrow ?? prev.additionalServicesEyebrow,
-          additionalServicesHeading: ws.additionalServicesHeading || prev.additionalServicesHeading,
-          galleryHeading: ws.galleryHeading || prev.galleryHeading,
-          galleryImages: ws.galleryImages ?? prev.galleryImages,
-          testimonialsEyebrow: ws.testimonialsEyebrow ?? prev.testimonialsEyebrow,
-          testimonialsHeading: ws.testimonialsHeading || prev.testimonialsHeading,
-          testimonials: ws.testimonials ?? prev.testimonials,
-          faqEyebrow: ws.faqEyebrow ?? prev.faqEyebrow,
-          faqHeading: ws.faqHeading || prev.faqHeading,
-          faqs: ws.faqs ?? prev.faqs,
-          additionalServices: ws.additionalServices ?? prev.additionalServices,
-          ownerData: ws.ownerData || prev.ownerData,
-          locationData: ws.locationData || prev.locationData,
-          hours: ws.hours ?? prev.hours,
-          contactData: ws.contactData || prev.contactData,
-          socialLinks: ws.socialLinks || prev.socialLinks,
-          virtualTourUrl: ws.virtualTourUrl || prev.virtualTourUrl,
-          footerAbout: ws.footerAbout || prev.footerAbout,
-          footerLinks: ws.footerLinks ?? prev.footerLinks,
-          siteContentLibrary: ws.siteContentLibrary || prev.siteContentLibrary,
-          siteContentIndex: ws.siteContentIndex ?? prev.siteContentIndex,
-          contentLibrary: ws.contentLibrary || prev.contentLibrary,
-          sectionsOrder: ws.sectionsOrder || prev.sectionsOrder,
-          importSourceUrl: ws.importSourceUrl || ws.sourceUrl || prev.importSourceUrl,
-          sourceUrl: ws.sourceUrl || ws.importSourceUrl || prev.sourceUrl,
-          sourceHost: ws.sourceHost || prev.sourceHost,
-          previewImportRecord: ws.previewImportRecord || prev.previewImportRecord,
-          previewImportRecordId: ws.previewImportRecordId || prev.previewImportRecordId,
-          previewRecordStatus: ws.previewRecordStatus || prev.previewRecordStatus,
-          liveTemplate: ws.liveTemplate || prev.liveTemplate,
-          selectedTemplate: ws.selectedTemplate || ws.liveTemplate || prev.selectedTemplate,
-        };
-      });
+      setData(prev => ({
+        ...prev,
+        businessName: cattery.name || prev.businessName,
+        phone: cattery.phone || prev.phone,
+        address: cattery.address || prev.address,
+        location: cattery.city || prev.location,
+        subdomain: cattery.slug || prev.subdomain,
+        primaryColor: ws.primaryColor || prev.primaryColor,
+        accentColor: ws.accentColor || prev.accentColor,
+        backgroundColor: ws.backgroundColor || prev.backgroundColor,
+        typography: ws.typography || prev.typography,
+        headingFont: ws.headingFont || prev.headingFont,
+        subheadingFont: ws.subheadingFont || prev.subheadingFont,
+        bodyFont: ws.bodyFont || prev.bodyFont,
+        logo: ws.logo || prev.logo,
+        heroImage: ws.heroImage || prev.heroImage,
+        heroHeading: ws.heroHeading || prev.heroHeading,
+        heroSubheading: ws.heroSubheading || prev.heroSubheading,
+        heroPrimaryCtaText: ws.heroPrimaryCtaText || prev.heroPrimaryCtaText,
+        heroPrimaryCtaHref: ws.heroPrimaryCtaHref || prev.heroPrimaryCtaHref,
+        heroSecondaryCtaText: ws.heroSecondaryCtaText || prev.heroSecondaryCtaText,
+        heroSecondaryCtaHref: ws.heroSecondaryCtaHref || prev.heroSecondaryCtaHref,
+        aboutText: ws.aboutText || prev.aboutText,
+        aboutHeading: ws.aboutHeading || prev.aboutHeading,
+        whyChooseUsHeading: ws.whyChooseUsHeading || prev.whyChooseUsHeading,
+        whyChooseUsFeatures: ws.whyChooseUsFeatures ?? prev.whyChooseUsFeatures,
+        facilitiesHeading: ws.facilitiesHeading || prev.facilitiesHeading,
+        facilitiesText: ws.facilitiesText || prev.facilitiesText,
+        facilitiesImage: ws.facilitiesImage || prev.facilitiesImage,
+        facilityFeatures: ws.facilityFeatures ?? prev.facilityFeatures,
+        suitesHeading: ws.suitesHeading || prev.suitesHeading,
+        suites: ws.suites ?? prev.suites,
+        additionalServicesHeading: ws.additionalServicesHeading || prev.additionalServicesHeading,
+        galleryHeading: ws.galleryHeading || prev.galleryHeading,
+        galleryImages: ws.galleryImages ?? prev.galleryImages,
+        testimonialsHeading: ws.testimonialsHeading || prev.testimonialsHeading,
+        testimonials: ws.testimonials ?? prev.testimonials,
+        faqHeading: ws.faqHeading || prev.faqHeading,
+        faqs: ws.faqs ?? prev.faqs,
+        additionalServices: ws.additionalServices ?? prev.additionalServices,
+        ownerData: ws.ownerData || prev.ownerData,
+        locationData: ws.locationData || prev.locationData,
+        socialLinks: ws.socialLinks || prev.socialLinks,
+        virtualTourUrl: ws.virtualTourUrl || prev.virtualTourUrl,
+        footerAbout: ws.footerAbout || prev.footerAbout,
+        siteContentLibrary: ws.siteContentLibrary || prev.siteContentLibrary,
+        contentLibrary: ws.contentLibrary || prev.contentLibrary,
+        sectionsOrder: ws.sectionsOrder || prev.sectionsOrder,
+        importSourceUrl: ws.importSourceUrl || ws.sourceUrl || prev.importSourceUrl,
+        sourceUrl: ws.sourceUrl || ws.importSourceUrl || prev.sourceUrl,
+        sourceHost: ws.sourceHost || prev.sourceHost,
+        previewImportRecord: ws.previewImportRecord || prev.previewImportRecord,
+        previewImportRecordId: ws.previewImportRecordId || prev.previewImportRecordId,
+        previewRecordStatus: ws.previewRecordStatus || prev.previewRecordStatus,
+        liveTemplate: ws.liveTemplate || prev.liveTemplate,
+        selectedTemplate: ws.selectedTemplate || ws.liveTemplate || prev.selectedTemplate,
+      }));
     }
   }, [cattery?.id]);
 
   // Load saved progress and signup data on mount
   useEffect(() => {
     // Load saved account
-    const account = readStoredJson<any>(ACCOUNT_STORAGE_KEY);
-    const accountWasPublished = isPublishedAccount(account);
-    if (account) {
-      setAccountCreated(true);
-      setData(prev => ({
-        ...prev,
-        name: account.name || prev.name,
-        email: account.email || prev.email,
-        businessName: account.businessName || prev.businessName,
-        subdomain: account.slug || prev.subdomain,
-        emailConfirmed: Boolean(account.emailConfirmed),
-        publishedCatteryId: account.catteryId || prev.publishedCatteryId,
-      }));
+    const accountData = localStorage.getItem('catstays_account');
+    if (accountData) {
+      try {
+        const account = JSON.parse(accountData);
+        setAccountCreated(true);
+        setData(prev => ({ ...prev, name: account.name, email: account.email }));
+      } catch (e) {
+        console.error('Failed to load account data');
+      }
     }
 
     // Load signup data from modal (legacy)
@@ -886,43 +671,38 @@ export function OnboardingWizard() {
     }
 
     // Load saved onboarding progress
-    const saved = readStoredJson<any>(ONBOARDING_STORAGE_KEY);
+    const saved = localStorage.getItem('catstays_onboarding');
     if (saved) {
-      const savedStep = Number(saved.step || 1);
-      const restoredStep = accountWasPublished && savedStep < 8 ? 8 : savedStep;
-      const restoredData = {
-        ...(saved.data || {}),
-        emailConfirmed: Boolean(saved.data?.emailConfirmed || account?.emailConfirmed),
-        publishedCatteryId: saved.data?.publishedCatteryId || account?.catteryId,
-        subdomain: saved.data?.subdomain || account?.slug || '',
-      };
-      setStep(restoredStep);
-      setData(restoredData);
-      if (saved.accountCreated || accountWasPublished) setAccountCreated(true);
-    } else if (accountWasPublished) {
-      setStep(8);
+      try {
+        const { step: savedStep, data: savedData, accountCreated: savedAccountCreated } = JSON.parse(saved);
+        setStep(savedStep);
+        setData(savedData);
+        if (savedAccountCreated) setAccountCreated(savedAccountCreated);
+      } catch (e) {
+        console.error('Failed to load saved progress');
+      }
     }
   }, []);
 
   // Keep local progress synced so returning owners land on the correct step.
   useEffect(() => {
-    if (step <= 1) return;
-    saveOnboardingProgress({
+    if (!accountCreated && step <= 1) return;
+    localStorage.setItem('catstays_onboarding', JSON.stringify({
       step,
       data,
       accountCreated,
-    });
+    }));
   }, [step, data, accountCreated]);
 
   // Auto-save on unmount (when leaving the page)
   useEffect(() => {
     return () => {
       if (step > 1 && accountCreated) {
-        saveOnboardingProgress({
-          step,
-          data,
-          accountCreated,
-        });
+        localStorage.setItem('catstays_onboarding', JSON.stringify({ 
+          step, 
+          data, 
+          accountCreated 
+        }));
       }
     };
   }, [step, data, accountCreated]);
@@ -948,24 +728,6 @@ export function OnboardingWizard() {
         'What Sets Us Apart',
         'Why We\'re Different',
         'Your Cat Deserves the Best'
-      ],
-      whyChooseUsText: [
-        'We provide a quiet, caring environment where cats can settle into a gentle routine with individual attention.',
-        'Our cattery is designed for comfort, calm, and confidence, with care shaped around each cat\'s personality.',
-        'From the first enquiry to collection day, we focus on clear communication, safe spaces, and reassuring daily care.',
-        'Every detail is chosen to help cats feel secure while their owners feel confident about the stay.'
-      ],
-      careApproachHeading: [
-        'Why Choose Us',
-        'Our Care Approach',
-        'Care That Feels Personal',
-        'What Makes Our Care Different'
-      ],
-      careApproachText: [
-        'Every stay is shaped around calm routines, individual attention, and the comfort each cat needs to settle in.',
-        'We focus on gentle handling, careful observation, and a peaceful environment so every guest feels secure.',
-        'Our approach combines safe accommodation, daily comfort checks, and thoughtful care from people who understand cats.',
-        'Cats thrive with routine, patience, and quiet spaces, so our care is designed to support exactly that.'
       ],
       facilitiesHeading: [
         'Our Facilities',
@@ -1168,7 +930,7 @@ export function OnboardingWizard() {
     const nextData = applyPreviewTemplate(data, template);
     setData(nextData);
     setShowTemplateSelection(false);
-    saveOnboardingProgress({ step, data: nextData, accountCreated });
+    localStorage.setItem('catstays_onboarding', JSON.stringify({ step, data: nextData, accountCreated }));
     setStep(Math.min(step + 1, totalSteps));
   };
 
@@ -1179,18 +941,16 @@ export function OnboardingWizard() {
     try {
       let activeCatteryId = cattery?.id ?? null;
       const liveData = markPreviewSelectionLive(data);
-      let publishedSlug = liveData.subdomain;
-      let emailConfirmationRedirectUrl = '';
       setData(liveData);
 
       if (!activeCatteryId) {
         if (!liveData.name || !liveData.email || !liveData.password || (liveData.password || '').length < 8) {
-          setPaymentError('Please complete the account name, email, and password from the first step before publishing. Your setup is still saved.');
-          saveOnboardingProgress({ step: 7, data: liveData, accountCreated: true });
+          setCreateAccountError('Please complete your account details before publishing.');
+          setStep(1);
           return;
         }
 
-        saveOnboardingProgress({ step: 7, data: liveData, accountCreated: true });
+        localStorage.setItem('catstays_onboarding', JSON.stringify({ step, data: liveData, accountCreated: true }));
 
         const response = await fetch('/api/cattery/provision', {
           method: 'POST',
@@ -1203,8 +963,6 @@ export function OnboardingWizard() {
           error?: string;
           catteryId?: string;
           slug?: string;
-          emailConfirmationSent?: boolean;
-          emailConfirmationRedirectUrl?: string;
         } = {};
 
         try {
@@ -1217,15 +975,19 @@ export function OnboardingWizard() {
           const message = payload.error || publishErrorMessage(response.status, rawPayload);
           if (response.status === 409 && message.toLowerCase().includes('account')) {
             setCreateAccountError(message);
+            setAccountCreated(false);
+            setStep(1);
+            return;
           }
           throw new Error(message);
         }
 
         activeCatteryId = payload.catteryId || null;
-        publishedSlug = payload.slug || liveData.subdomain;
-        emailConfirmationRedirectUrl = payload.emailConfirmationRedirectUrl || '';
+        if (payload.slug && payload.slug !== data.subdomain) {
+          setData((prev: any) => ({ ...prev, subdomain: payload.slug }));
+        }
 
-        localStorage.setItem(ACCOUNT_STORAGE_KEY, JSON.stringify({
+        localStorage.setItem('catstays_account', JSON.stringify({
           name: liveData.name,
           email: liveData.email,
           businessName: liveData.businessName,
@@ -1281,26 +1043,13 @@ export function OnboardingWizard() {
         await refreshCattery();
       }
 
-      const publishedData = {
-        ...liveData,
-        subdomain: publishedSlug,
-        publishedCatteryId: activeCatteryId,
-        publishStatus: 'published',
-        emailConfirmationSent: true,
-        emailConfirmationRedirectUrl,
-        selectedPlan,
-      };
-
-      saveOnboardingProgress({
+      localStorage.setItem('catstays_onboarding', JSON.stringify({
         step: 8,
-        data: publishedData,
+        data: liveData,
         accountCreated: true,
-        publishStatus: 'published',
-        catteryId: activeCatteryId,
-      });
+      }));
 
       // Move to success screen
-      setData(publishedData);
       setStep(8);
     } catch (error) {
       const message = error instanceof Error
@@ -1561,7 +1310,7 @@ export function OnboardingWizard() {
                     </div>
 
                     <Button
-                      onClick={handleContinueFromAccountReady}
+                      onClick={handleNext}
                       size="lg"
                       className="w-full bg-[#C46A3A] hover:bg-[#A85A30] text-white rounded-xl py-7 text-lg shadow-lg"
                     >
@@ -1607,7 +1356,7 @@ export function OnboardingWizard() {
                       id="location"
                       placeholder="Start typing your address..."
                       value={data.location}
-                      onChange={(value) => setData({ ...data, location: value, address: value })}
+                      onChange={(value) => setData({ ...data, location: value, address: data.address || value })}
                       className="rounded-xl h-12 text-lg"
                     />
                     <p className="text-xs text-forest/60 mt-2">
@@ -2221,13 +1970,11 @@ export function OnboardingWizard() {
             onGoToWebsite={() => window.open(`https://${data.subdomain}.catstays.app`, '_blank', 'noopener,noreferrer')}
             onContinueToDataImport={() => {
               setStep(9);
-              saveOnboardingProgress({
+              localStorage.setItem('catstays_onboarding', JSON.stringify({
                 step: 9,
                 data,
                 accountCreated,
-                publishStatus: 'published',
-                catteryId: data.publishedCatteryId || null,
-              });
+              }));
             }}
             businessData={data}
             subscriptionTier={selectedPlan}

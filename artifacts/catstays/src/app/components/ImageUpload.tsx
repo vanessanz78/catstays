@@ -7,20 +7,13 @@ import { projectId, publicAnonKey } from '@/utils/supabase/info';
 
 interface ImageUploadProps {
   value: string;
-  onChange: (url: string, meta?: ImageChangeMeta) => void;
+  onChange: (url: string) => void;
   label?: string;
   className?: string;
 }
 
-interface ImageChangeMeta {
-  owned?: boolean;
-  sourceUrl?: string;
-  storagePath?: string;
-}
-
 export function ImageUpload({ value, onChange, label, className = '' }: ImageUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
-  const [isCopyingUrl, setIsCopyingUrl] = useState(false);
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [urlInput, setUrlInput] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -64,7 +57,7 @@ export function ImageUpload({ value, onChange, label, className = '' }: ImageUpl
       }
 
       const data = await response.json();
-      onChange(data.url, { owned: true, storagePath: data.path });
+      onChange(data.url);
     } catch (error) {
       console.error('Error uploading image:', error);
       alert('Failed to upload image. Please try again.');
@@ -76,45 +69,16 @@ export function ImageUpload({ value, onChange, label, className = '' }: ImageUpl
     }
   };
 
-  const handleUrlSubmit = async () => {
-    const sourceUrl = urlInput.trim();
-    if (!sourceUrl) return;
-    if (!/^https?:\/\//i.test(sourceUrl)) {
-      alert('Please enter a full image URL starting with https://');
-      return;
-    }
-
-    setIsCopyingUrl(true);
-
-    try {
-      const response = await fetch('/api/website/copy-image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageUrl: sourceUrl }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Image copy failed');
-      }
-
-      const data = await response.json() as { url?: string; path?: string };
-      if (!data.url) {
-        throw new Error('Image copy did not return a URL');
-      }
-
-      onChange(data.url, { owned: true, sourceUrl, storagePath: data.path });
+  const handleUrlSubmit = () => {
+    if (urlInput.trim()) {
+      onChange(urlInput.trim());
       setUrlInput('');
       setShowUrlInput(false);
-    } catch (error) {
-      console.error('Error copying linked image:', error);
-      alert('CatStays could not copy that image into storage yet. Please try another image URL or upload the image file so the published site does not rely on the original website.');
-    } finally {
-      setIsCopyingUrl(false);
     }
   };
 
   const handleRemove = () => {
-    onChange('', { owned: false });
+    onChange('');
   };
 
   return (
@@ -154,7 +118,6 @@ export function ImageUpload({ value, onChange, label, className = '' }: ImageUpl
               type="button"
               variant="outline"
               onClick={() => setShowUrlInput(!showUrlInput)}
-              disabled={isCopyingUrl}
             >
               <LinkIcon className="w-4 h-4" />
             </Button>
@@ -168,10 +131,9 @@ export function ImageUpload({ value, onChange, label, className = '' }: ImageUpl
                 placeholder="https://example.com/image.jpg"
                 className="flex-1"
                 onKeyDown={(e) => e.key === 'Enter' && handleUrlSubmit()}
-                disabled={isCopyingUrl}
               />
-              <Button onClick={handleUrlSubmit} size="sm" disabled={isCopyingUrl}>
-                {isCopyingUrl ? 'Copying...' : 'Add'}
+              <Button onClick={handleUrlSubmit} size="sm">
+                Add
               </Button>
             </div>
           )}

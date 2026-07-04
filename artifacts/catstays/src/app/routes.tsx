@@ -641,21 +641,6 @@ export const router = createBrowserRouter([
     Component: DeloraineDemoClientPortal,
     ErrorBoundary: RootErrorBoundary,
   },
-  {
-    path: "/demo/:demoSlug",
-    Component: DeloraineDemo,
-    ErrorBoundary: RootErrorBoundary,
-  },
-  {
-    path: "/demo/:demoSlug/dashboard",
-    Component: DeloraineDemoDashboard,
-    ErrorBoundary: RootErrorBoundary,
-  },
-  {
-    path: "/demo/:demoSlug/client",
-    Component: DeloraineDemoClientPortal,
-    ErrorBoundary: RootErrorBoundary,
-  },
 
   // Not found
   {

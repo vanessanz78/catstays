@@ -82,6 +82,7 @@ import {
   ContactSection,
   CustomSections,
   FooterSection,
+  catImages,
   getHeadingFontClass as getHeadingFont,
   getSubheadingFontClass as getSubheadingFont,
   getBodyFontClass as getBodyFont
@@ -102,46 +103,6 @@ const getIconComponent = (iconName: string) => {
     Sparkles
   };
   return icons[iconName] || Shield;
-};
-
-const builderImage = (...values: unknown[]) => {
-  for (const value of values.flat()) {
-    if (typeof value !== 'string') continue;
-    const image = value.trim();
-    if (/^https?:\/\//i.test(image) || /^data:image\//i.test(image)) return image;
-  }
-  return '';
-};
-
-const builderGalleryImages = (data: any) => {
-  const images = [
-    ...(Array.isArray(data.galleryImages) ? data.galleryImages : []),
-    data.heroImage,
-    data.facilitiesImage,
-    data.aboutImage,
-  ];
-  const seen = new Set<string>();
-  return images
-    .map((image) => builderImage(image))
-    .filter((image) => {
-      if (!image || seen.has(image)) return false;
-      seen.add(image);
-      return true;
-    });
-};
-
-const BuilderImage = ({ src, alt, className }: { src?: string; alt: string; className: string }) => {
-  if (!src) return <div aria-hidden="true" className={`${className} bg-gray-100`} />;
-  return (
-    <img
-      src={src}
-      alt={alt}
-      className={className}
-      onError={(event) => {
-        event.currentTarget.style.display = 'none';
-      }}
-    />
-  );
 };
 
 function importedPreviewUrl(data: Record<string, any>) {
@@ -183,10 +144,6 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
   const [isBookingFromClientPortal, setIsBookingFromClientPortal] = useState(false);
   const selectedTemplate = normalizePreviewTemplateId(data.selectedTemplate || 'conversion-focus');
   const isSourceOnlyOriginal = selectedTemplate === 'original';
-  const galleryImages = builderGalleryImages(data);
-  const heroImage = builderImage(data.heroImage, data.facilitiesImage, data.aboutImage, galleryImages);
-  const facilitiesImage = builderImage(data.facilitiesImage, data.heroImage, data.aboutImage, galleryImages);
-  const aboutImage = builderImage(data.aboutImage, data.heroImage, data.facilitiesImage, galleryImages);
 
   // AI regeneration handler - calls onAIRegenerate prop
   const handleAIClick = async (field: string) => {
@@ -303,14 +260,7 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
       );
     }
 
-    return (
-      <CatstaysTemplateSite
-        data={data}
-        templateId={template}
-        embedded
-        onDataChange={(updates) => setData({ ...data, ...updates })}
-      />
-    );
+    return <CatstaysTemplateSite data={data} templateId={template} embedded />;
   };
 
   // TEMPLATE 1: Boutique Luxury - Large hero, elegant serif headings, minimal layout, ALL 14 SECTIONS
@@ -328,7 +278,11 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
 
       {/* 1. HERO - Large, elegant with overlay */}
       <div id="hero" className="relative h-[500px]">
-        <BuilderImage src={heroImage} alt="Hero" className="w-full h-full object-cover" />
+        <img 
+          src={data.heroImage || catImages.hero1} 
+          alt="Hero" 
+          className="w-full h-full object-cover"
+        />
         <div className="absolute inset-0 bg-gradient-to-b from-black/40 to-black/60 flex flex-col items-center justify-center px-8 text-center">
           <h1 className="text-4xl md:text-6xl font-bold mb-6 text-white" style={{ fontFamily: getHeadingFontClass(data.headingFont || data.typography || 'playfair') }}>
             {data.heroHeading || 'Luxury Cat Boarding'}
@@ -416,7 +370,7 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
               </ul>
             </div>
             <div className="h-64 md:h-96 rounded-2xl overflow-hidden shadow-2xl">
-              <BuilderImage src={facilitiesImage} alt="Facilities" className="w-full h-full object-cover" />
+              <img src={data.facilitiesImage || catImages.room1} alt="Facilities" className="w-full h-full object-cover" />
             </div>
           </div>
         </div>
@@ -434,9 +388,9 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
             {(data.suites && data.suites.length > 0 ? data.suites : [
-              { name: 'Standard Suite', price: '$35/night', description: 'Cozy space with daily play and photo updates', image: galleryImages[0] || facilitiesImage },
-              { name: 'Premium Suite', price: '$55/night', description: 'Spacious room with extra playtime and video calls', image: galleryImages[1] || heroImage, popular: true },
-              { name: 'Luxury Villa', price: '$85/night', description: 'Private villa with garden access and premium treats', image: galleryImages[2] || aboutImage }
+              { name: 'Standard Suite', price: '$35/night', description: 'Cozy space with daily play and photo updates', image: catImages.room1 },
+              { name: 'Premium Suite', price: '$55/night', description: 'Spacious room with extra playtime and video calls', image: catImages.room2, popular: true },
+              { name: 'Luxury Villa', price: '$85/night', description: 'Private villa with garden access and premium treats', image: catImages.hero1 }
             ]).map((room: any, i: number) => (
               <div key={i} className="bg-white rounded-2xl p-6 md:p-8 shadow-lg relative hover:shadow-2xl transition-shadow">
                 {room.popular && (
@@ -463,7 +417,7 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
 
       {/* 5. CTA BANNER - Elegant, minimal */}
       <div className="relative h-64 md:h-80 overflow-hidden">
-        <BuilderImage src={heroImage || facilitiesImage || aboutImage || galleryImages[0]} alt="CTA" className="w-full h-full object-cover" />
+        <img src={catImages.happy} alt="CTA" className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center px-6 md:px-8 text-center">
           <h2 className="text-3xl md:text-5xl font-bold mb-6 text-white" style={{ fontFamily: getFontClass(data.typography) }}>
             Book Your Cat's Stay Today
@@ -515,9 +469,9 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
             </h2>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
-            {galleryImages.slice(0, 12).map((img: string, i: number) => (
+            {(data.galleryImages && data.galleryImages.length > 0 ? data.galleryImages : [catImages.happy, catImages.playing, catImages.care, catImages.room1, catImages.hero2, catImages.hero1]).map((img: string, i: number) => (
               <div key={i} className="aspect-square rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-shadow">
-                <BuilderImage src={img} alt={`Gallery ${i + 1}`} className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
+                <img src={img} alt={`Gallery ${i + 1}`} className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
               </div>
             ))}
           </div>
@@ -582,7 +536,7 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
         <div className="max-w-6xl mx-auto">
           <div className="grid md:grid-cols-2 gap-12 md:gap-16 items-center">
             <div className="h-64 md:h-96 rounded-2xl overflow-hidden shadow-2xl">
-              <BuilderImage src={aboutImage} alt="About" className="w-full h-full object-cover" />
+              <img src={data.aboutImage || catImages.care} alt="About" className="w-full h-full object-cover" />
             </div>
             <div>
               <div className="w-16 h-0.5 mb-6" style={{ backgroundColor: data.accentColor || '#C46A3A' }}></div>
@@ -628,34 +582,28 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
       </div>
 
       {/* 12. CUSTOM SECTIONS */}
-      {(data.customSections || []).map((section: any, i: number) => {
-        const heading = section.heading || section.title;
-        const description = section.description || section.text || section.content;
-        const media = section.media || section.image || section.images?.[0];
-
-        return (
-          <div key={section.id || i} className={`px-6 md:px-12 py-16 md:py-24 ${i % 2 === 0 ? 'bg-white' : ''}`} style={{ backgroundColor: i % 2 === 0 ? 'white' : data.backgroundColor || '#F8F7F5' }}>
-            <div className="max-w-6xl mx-auto">
-              <div className={`grid md:grid-cols-2 gap-12 md:gap-16 items-center ${media ? '' : 'md:grid-cols-1'}`}>
-                <div className={media ? '' : 'text-center mx-auto max-w-3xl'}>
-                  <div className={`w-16 h-0.5 mb-6 ${media ? '' : 'mx-auto'}`} style={{ backgroundColor: data.accentColor || '#C46A3A' }}></div>
-                  <h2 className="text-3xl md:text-4xl font-bold mb-8" style={{ color: data.primaryColor || '#0A1128', fontFamily: getHeadingFontClass(data.headingFont || data.typography || 'playfair') }}>
-                    {heading}
-                  </h2>
-                  <p className="text-base md:text-lg leading-relaxed text-gray-600 whitespace-pre-line" style={{ fontFamily: getBodyFontClass(data.bodyFont || 'inter') }}>
-                    {description}
-                  </p>
-                </div>
-                {media && (
-                  <div className="h-64 md:h-96 rounded-2xl overflow-hidden shadow-2xl">
-                    <img src={media} alt={heading} className="w-full h-full object-cover" />
-                  </div>
-                )}
+      {(data.customSections || []).map((section: any, i: number) => (
+        <div key={i} className={`px-6 md:px-12 py-16 md:py-24 ${i % 2 === 0 ? 'bg-white' : ''}`} style={{ backgroundColor: i % 2 === 0 ? 'white' : data.backgroundColor || '#F8F7F5' }}>
+          <div className="max-w-6xl mx-auto">
+            <div className={`grid md:grid-cols-2 gap-12 md:gap-16 items-center ${section.media ? '' : 'md:grid-cols-1'}`}>
+              <div className={section.media ? '' : 'text-center mx-auto max-w-3xl'}>
+                <div className={`w-16 h-0.5 mb-6 ${section.media ? '' : 'mx-auto'}`} style={{ backgroundColor: data.accentColor || '#C46A3A' }}></div>
+                <h2 className="text-3xl md:text-4xl font-bold mb-8" style={{ color: data.primaryColor || '#0A1128', fontFamily: getHeadingFontClass(data.headingFont || data.typography || 'playfair') }}>
+                  {section.heading}
+                </h2>
+                <p className="text-base md:text-lg leading-relaxed text-gray-600 whitespace-pre-line" style={{ fontFamily: getBodyFontClass(data.bodyFont || 'inter') }}>
+                  {section.description}
+                </p>
               </div>
+              {section.media && (
+                <div className="h-64 md:h-96 rounded-2xl overflow-hidden shadow-2xl">
+                  <img src={section.media} alt={section.heading} className="w-full h-full object-cover" />
+                </div>
+              )}
             </div>
           </div>
-        );
-      })}
+        </div>
+      ))}
 
       {/* 13. LOCATION - Map placeholder */}
       <div className="px-6 md:px-12 py-16 md:py-24 bg-white">
@@ -788,7 +736,7 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
 
       {/* HERO - Image-focused with overlay */}
       <div className="relative h-[500px]">
-        <BuilderImage src={heroImage} alt="Hero" className="w-full h-full object-cover" />
+        <img src={data.heroImage || catImages.hero1} alt="Hero" className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
           <div className="text-center text-white px-8">
             <h1 className="text-5xl font-bold mb-4" style={{ fontFamily: getFontClass(data.typography) }}>
@@ -846,7 +794,7 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
           )}
         </div>
         <div className="overflow-hidden">
-          <BuilderImage src={heroImage} alt="Hero" className="w-full h-full object-cover" />
+          <img src={data.heroImage || catImages.hero2} alt="Hero" className="w-full h-full object-cover" />
         </div>
       </div>
 
@@ -1238,7 +1186,11 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
                     <Label className="text-base font-semibold">Facilities Image</Label>
                     <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 hover:border-gray-400 transition-colors">
                       <div className="aspect-video rounded-lg overflow-hidden mb-3 bg-gray-100">
-                        <BuilderImage src={facilitiesImage} alt="Facilities Preview" className="w-full h-full object-cover" />
+                        <img 
+                          src={data.facilitiesImage || catImages.room1} 
+                          alt="Facilities Preview" 
+                          className="w-full h-full object-cover"
+                        />
                       </div>
                       <Input
                         type="text"
@@ -1254,7 +1206,11 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
                     <Label className="text-base font-semibold">About Image</Label>
                     <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 hover:border-gray-400 transition-colors">
                       <div className="aspect-video rounded-lg overflow-hidden mb-3 bg-gray-100">
-                        <BuilderImage src={aboutImage} alt="About Preview" className="w-full h-full object-cover" />
+                        <img 
+                          src={data.aboutImage || catImages.care} 
+                          alt="About Preview" 
+                          className="w-full h-full object-cover"
+                        />
                       </div>
                       <Input
                         type="text"
