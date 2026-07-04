@@ -932,16 +932,7 @@ function SourceContentSections({ content }: { content: ReturnType<typeof buildCa
               <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">From the owner site</p>
               <h2 className="text-3xl leading-tight md:text-5xl">{section.title}</h2>
               <p className="mt-5 max-w-3xl text-base leading-7 text-[#444]">{section.text}</p>
-              {section.items.length ? (
-                <div className="mt-7 grid gap-4 sm:grid-cols-2">
-                  {section.items.slice(0, 6).map((item) => (
-                    <article key={`${section.id}-${item.title}`} className="rounded-md border border-[#222]/10 bg-white/80 p-4 shadow-sm">
-                      {item.title ? <h3 className="font-serif text-xl leading-tight">{item.title}</h3> : null}
-                      {item.text ? <p className="mt-2 text-sm leading-6 text-[#444]">{item.text}</p> : null}
-                    </article>
-                  ))}
-                </div>
-              ) : null}
+              {section.items.length ? <SourceSectionItems section={section} /> : null}
             </div>
             {section.images[0] ? (
               <SafeImage src={section.images[0]} alt="" className="catstays-template-section-image h-[360px] w-full rounded-md object-cover shadow-sm md:h-[460px]" />
@@ -954,6 +945,49 @@ function SourceContentSections({ content }: { content: ReturnType<typeof buildCa
           </div>
         </section>
       ))}
+    </>
+  );
+}
+
+function SourceSectionItems({
+  section,
+}: {
+  section: ReturnType<typeof buildCatstaysTemplateContent>['customSections'][number];
+}) {
+  const railRef = useRef<HTMLDivElement | null>(null);
+  const items = section.items.slice(0, 6);
+  const useCarousel = items.length > 3;
+  const layoutClass = useCarousel
+    ? 'mt-7 flex snap-x gap-4 overflow-x-auto pb-3 [scrollbar-width:thin]'
+    : 'mt-7 grid gap-4 sm:grid-cols-2';
+  const cardClass = useCarousel
+    ? 'min-w-[82vw] snap-start sm:min-w-[320px] lg:min-w-[360px]'
+    : '';
+
+  const scrollRail = (direction: -1 | 1) => {
+    railRef.current?.scrollBy({ left: direction * 360, behavior: 'smooth' });
+  };
+
+  return (
+    <>
+      {useCarousel ? (
+        <div className="mt-6 flex gap-2">
+          <button type="button" onClick={() => scrollRail(-1)} className="grid h-9 w-9 place-items-center rounded-full border border-[#222]/15 bg-white text-[#222] shadow-sm">
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <button type="button" onClick={() => scrollRail(1)} className="grid h-9 w-9 place-items-center rounded-full border border-[#222]/15 bg-white text-[#222] shadow-sm">
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      ) : null}
+      <div ref={railRef} className={layoutClass}>
+        {items.map((item) => (
+          <article key={`${section.id}-${item.title}`} className={`${cardClass} rounded-md border border-[#222]/10 bg-white/80 p-4 shadow-sm`}>
+            {item.title ? <h3 className="font-serif text-xl leading-tight">{item.title}</h3> : null}
+            {item.text ? <p className="mt-2 text-sm leading-6 text-[#444]">{item.text}</p> : null}
+          </article>
+        ))}
+      </div>
     </>
   );
 }
@@ -1028,7 +1062,22 @@ function ReviewsSection({ content }: { content: ReturnType<typeof buildCatstaysT
 }
 
 function FacilitiesDetailSection({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
+  const railRef = useRef<HTMLDivElement | null>(null);
+
   if (!content.facilities.title && !content.facilities.text && !content.facilities.image) return null;
+
+  const featureItems = content.facilities.items.filter((item) => item.title || item.text);
+  const useCarousel = featureItems.length > 3;
+  const layoutClass = useCarousel
+    ? 'mt-10 flex snap-x gap-6 overflow-x-auto px-1 pb-4 [scrollbar-width:thin]'
+    : centeredGridClass(featureItems.length, 3);
+  const cardClass = useCarousel
+    ? 'min-w-[82vw] snap-start sm:min-w-[360px] lg:min-w-[380px]'
+    : 'w-full';
+
+  const scrollRail = (direction: -1 | 1) => {
+    railRef.current?.scrollBy({ left: direction * 420, behavior: 'smooth' });
+  };
 
   return (
     <section id="facilities" className="scroll-mt-28 bg-white px-6 py-16">
@@ -1041,6 +1090,32 @@ function FacilitiesDetailSection({ content }: { content: ReturnType<typeof build
             <p className="mt-5 max-w-3xl text-base leading-7 text-[#444]">{content.facilities.text}</p>
           </div>
         </div>
+        {featureItems.length ? (
+          <>
+            {useCarousel ? (
+              <div className="mt-8 flex justify-center gap-2">
+                <button type="button" onClick={() => scrollRail(-1)} className="grid h-10 w-10 place-items-center rounded-full border border-[#222]/15 bg-white text-[#222] shadow-sm">
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                <button type="button" onClick={() => scrollRail(1)} className="grid h-10 w-10 place-items-center rounded-full border border-[#222]/15 bg-white text-[#222] shadow-sm">
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              </div>
+            ) : null}
+            <div ref={railRef} className={layoutClass}>
+              {featureItems.map((feature, index) => {
+                const Icon = careIconFor(feature.icon, index);
+                return (
+                  <article key={`${feature.title}-${index}`} className={`${cardClass} rounded-md border border-[#222]/10 bg-white p-7 shadow-sm`}>
+                    <Icon className="mb-5 h-7 w-7 text-[#8c5b32]" />
+                    {feature.title ? <h3 className="font-serif text-xl leading-tight">{feature.title}</h3> : null}
+                    {feature.text ? <p className="mt-4 text-sm leading-6 text-[#444]">{feature.text}</p> : null}
+                  </article>
+                );
+              })}
+            </div>
+          </>
+        ) : null}
       </div>
     </section>
   );
