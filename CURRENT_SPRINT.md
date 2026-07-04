@@ -1,6 +1,6 @@
 # Current Sprint
 
-Last updated: 2026-07-03
+Last updated: 2026-07-04
 
 ## Goal
 
@@ -53,14 +53,18 @@ Stabilise CatStays onboarding publish and imported website preview quality, with
 - On 2026-07-03, preview rendering was hardened so failed image URLs render neutral placeholders instead of browser broken-image icons, logo/wordmark candidates are rejected for hero imagery, short card rows center by default, and Care/Services/Reviews switch to horizontal rails when they have more than three cards.
 - The scrape image copy pass now accepts AVIF owner-site images and attempts to copy up to 48 bounded source images into the CatStays Supabase `catstays-media` bucket before returning preview data.
 - User-facing imported copy now runs through the navigation-boilerplate cleaner for hero text, headings, suites, reviews, FAQs, footer summaries, and source-site custom sections so menu text such as `top of page Home About...` is rejected before display.
+- On 2026-07-04, a likely preview flicker cause was identified: freshly scraped media can render briefly, then older saved `website_settings` / preview-record data can rehydrate over it. This is a saved-state precedence issue, not evidence of two separate codebases.
+- Imported source content now produces a `siteContentIndex` for searchable recall. The index is carried through the scraper result, preview import record, onboarding state, and saved Supabase `website_settings` so future templates can map captured content instead of reusing shallow homepage copy.
+- The importer now stores `logoImage` separately from hero imagery and rejects a saved/restored hero image when it matches the known logo/wordmark asset. Logo files can be retained as logos, but top/header imagery must be actual photos.
+- Image filtering now targets logos, wordmarks, favicons, placeholders, and known brand assets without rejecting every wide landscape photo, so legitimate cattery photos remain available for hero, suite, service, gallery, and section placement.
 - No root-level Architect Update exists yet.
 
 ## Next Actions
 
 1. Push the local CatStays import/rendering commits to GitHub, then pull `main` into Replit and republish/restart so the latest import and app URL changes are active.
-2. UAT importing `https://fancyfelines.nz` and confirm the demo URL updates to `/demo/fancyfelines`.
+2. UAT importing `https://fancyfelines.nz` from a fresh pulled Replit session, then confirm the demo URL updates to `/demo/fancyfelines`.
 3. Confirm the first cattery setup page fills Location with the imported address, for example the FancyFelines Whareora Road address, not `fancyfelines` or the business name.
-4. Confirm generated previews do not use the FancyFelines logo/wordmark as hero/header photography and do not show broken image boxes.
+4. Confirm generated previews do not use the FancyFelines logo/wordmark as hero/header photography, do not flash back to older saved logo imagery after loading, and do not show broken image boxes.
 5. Confirm the Care Approach and Boarding Options card rows are centered and responsive when there are only three or two cards, and confirm Boarding Options becomes a horizontal scroll rail when more than three suites exist.
 6. Confirm Professional Cat Grooming, Q&A/FAQs, collaborations, health care, HBOT, PEMF, and other source-site pages appear as appropriate one-page sections or FAQs, and that FAQs are available to the chatbot/footer.
 7. Re-run publish UAT with both existing and fresh Auth emails: existing emails should stay on Publish with an inline error; fresh emails should complete provisioning and land on Success, not Account.

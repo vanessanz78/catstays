@@ -1,6 +1,7 @@
 import {
   buildPreviewDataFromScrape,
   fallbackDeloraineScrape,
+  type CatterySiteContentIndexItem,
   type CatterySiteContentLibrary,
   type DelorainePreviewData,
   type ImportedCatteryScrape,
@@ -59,6 +60,7 @@ export interface PreviewImportRecord {
   services: NonNullable<ImportedCatteryScrape['services']>;
   faqs: NonNullable<ImportedCatteryScrape['faqs']>;
   contentLibrary: CatterySiteContentLibrary;
+  contentIndex: CatterySiteContentIndexItem[];
   normalizedPreviewData: DelorainePreviewData;
 }
 
@@ -218,6 +220,7 @@ export interface CatstaysTemplateContent {
     }>;
   };
   contentLibrary: CatterySiteContentLibrary;
+  contentIndex: CatterySiteContentIndexItem[];
 }
 
 export const previewImportTableStorageKey = 'catstays_preview_import_table';
@@ -333,6 +336,7 @@ export function buildPreviewImportRecord(scrape: ImportedCatteryScrape): Preview
     services: scrape.services ?? [],
     faqs: scrape.faqs ?? [],
     contentLibrary: normalizedPreviewData.siteContentLibrary ?? emptyContentLibrary(sourceUrl, sourceHost, businessName),
+    contentIndex: normalizedPreviewData.siteContentIndex ?? [],
     normalizedPreviewData,
   };
 }
@@ -463,6 +467,11 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     normalized.siteContentLibrary ??
     data.siteContentLibrary ??
     emptyContentLibrary(stringFrom(record?.source.url, data.sourceUrl, normalized.sourceUrl), stringFrom(record?.source.host, data.sourceHost, normalized.sourceHost), businessName);
+  const contentIndex =
+    record?.contentIndex ??
+    normalized.siteContentIndex ??
+    data.siteContentIndex ??
+    [];
   const libraryRooms = libraryItems(contentLibrary, 'rooms');
   const libraryServices = libraryItems(contentLibrary, 'services');
   const libraryReviews = libraryItems(contentLibrary, 'reviews');
@@ -476,14 +485,16 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const ownerBlock = libraryBlock(contentLibrary, 'owner-story');
   const locationBlock = libraryBlock(contentLibrary, 'location');
   const sourceSections = sourceContentSections(contentLibrary);
-  const logoImage = stringFrom(data.logoImage, normalizedRecord.logoImage, record?.media.logoImage);
+  const logoImage = stringFrom(data.logoImage, normalizedRecord.logoImage, record?.media.logoImage, data.logo);
   const heroImage = heroImageFrom(
     logoImage,
-    data.heroImage,
+    data.heroImageOwned ? data.heroImage : '',
     normalized.heroImage,
     record?.media.heroImage,
-    record?.media.images?.[0],
+    heroBlock?.images?.[0]?.url,
     record?.media.galleryImages?.[0]?.url,
+    record?.media.images?.[0],
+    data.heroImage,
   );
   const editedGalleryImages = Array.isArray(data.galleryImages) ? data.galleryImages : undefined;
   const galleryImages = uniqueStrings([
@@ -615,6 +626,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       sectionImages.find((image) => image !== heroImage),
     ],
     sectionImages,
+    logoImage,
   );
   const facilityImage = pickUniqueImage(
     usedImages,
@@ -625,6 +637,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       sectionImages[2],
     ],
     sectionImages,
+    logoImage,
   );
   const virtualTourUrl = embeddableVirtualTourUrl(
     stringFrom(locationData.virtualTourUrl, normalized.virtualTourUrl, data.virtualTourUrl, data.contactData?.virtualTourUrl),
@@ -754,6 +767,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
         usedImages,
         [service.image, sectionImages[index + 3], sectionImages[index]],
         sectionImages,
+        logoImage,
       ),
       title: contentStringFrom(service.title, service.name, `Care service ${index + 1}`),
       text: contentStringFrom(service.description, service.text),
@@ -769,8 +783,8 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       image,
       caption: stringFrom(record?.media.galleryImages?.[index]?.caption, `${businessName} photo ${index + 1}`),
     })),
-    suites: editedRooms && editedRooms.length === 0 ? [] : ensureSuiteCount(rooms, sectionImages, data.pricePerNight || normalized.pricePerNight, usedImages),
-    testimonials: ensureTestimonials(testimonials.filter((review) => review.showOnWebsite !== false), businessName, sectionImages, heroImage, data.testimonialImage),
+    suites: editedRooms && editedRooms.length === 0 ? [] : ensureSuiteCount(rooms, sectionImages, data.pricePerNight || normalized.pricePerNight, usedImages, logoImage),
+    testimonials: ensureTestimonials(testimonials.filter((review) => review.showOnWebsite !== false), businessName, sectionImages, heroImage, data.testimonialImage, logoImage),
     faqs: faqs
       .filter((faq) => faq.showOnWebsite !== false)
       .map((faq: any) => ({
@@ -817,6 +831,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       links: footerLinks,
     },
     contentLibrary,
+    contentIndex,
   };
 }
 
@@ -1156,6 +1171,8 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
 
   return {
     ...cleanData,
+    siteContentIndex: record?.contentIndex ?? normalized.siteContentIndex ?? cleanData.siteContentIndex ?? fallback.siteContentIndex ?? [],
+    logoImage: imageFieldFrom('logoImage', normalized.logoImage, record?.media.logoImage),
     heroEyebrow: editableTextFrom('heroEyebrow', normalized.heroEyebrow, 'A home away from home'),
     heroPrimaryCtaText: editableTextFrom('heroPrimaryCtaText', heroLinks[0]?.label, cleanData.ctaText, 'Discover Our Suites'),
     heroPrimaryCtaHref: editableTextFrom('heroPrimaryCtaHref', heroLinks[0]?.url, '#suites'),
@@ -1441,14 +1458,19 @@ function isUsableGalleryImage(image: string, logoImage?: string): boolean {
   const logoKey = logoImage?.split('?')[0].toLowerCase();
   if (!normalized) return false;
   if (logoKey && normalized === logoKey) return false;
-  const decoded = decodeURIComponent(normalized);
+  const decoded = safeDecodeURIComponent(normalized);
   if (!/^https?:\/\//i.test(image) && !/^data:image\//i.test(image)) return false;
   if (/%60|`|:o\(|media\/\W/.test(decoded)) return false;
-  if (/logo|wordmark|brand|cardb|favicon|apple-touch-icon|icon|avatar|profile|placeholder|silhouette|black.?cat|catstays|\/cat(?:[-_][a-z0-9]+)?\.png$/i.test(decoded)) return false;
-  const width = imageWidth(image);
-  const height = imageHeight(image);
-  if (width && height && width / height > 2.8 && height <= 360) return false;
+  if (/logo|wordmark|brand|cardb|favicon|apple-touch-icon|header-logo|site-logo|lettermark|masthead|icon|avatar|profile|placeholder|silhouette|black.?cat|catstays|\/cat(?:[-_][a-z0-9]+)?\.png$/i.test(decoded)) return false;
   return true;
+}
+
+function safeDecodeURIComponent(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
 }
 
 function ensureImageCount(images: string[], heroImage: string): string[] {
@@ -1468,8 +1490,8 @@ function hasSeenImage(usedImages: Set<string>, image: string) {
   return image ? usedImages.has(normalizedImageKey(image)) : false;
 }
 
-function pickUniqueImage(usedImages: Set<string>, preferred: unknown[], fallbackImages: string[]) {
-  const preferredImages = uniqueStrings(preferred).filter((image) => isUsableGalleryImage(image));
+function pickUniqueImage(usedImages: Set<string>, preferred: unknown[], fallbackImages: string[], logoImage = '') {
+  const preferredImages = uniqueStrings(preferred).filter((image) => isUsableGalleryImage(image, logoImage));
   for (const image of preferredImages) {
     if (hasSeenImage(usedImages, image)) continue;
     rememberImage(usedImages, image);
@@ -1477,24 +1499,14 @@ function pickUniqueImage(usedImages: Set<string>, preferred: unknown[], fallback
   }
 
   for (const image of fallbackImages) {
-    if (!image || hasSeenImage(usedImages, image)) continue;
+    if (!image || !isUsableGalleryImage(image, logoImage) || hasSeenImage(usedImages, image)) continue;
     rememberImage(usedImages, image);
     return image;
   }
 
-  const fallback = preferredImages[0] || fallbackImages[0] || '';
+  const fallback = preferredImages[0] || fallbackImages.find((image) => isUsableGalleryImage(image, logoImage)) || '';
   rememberImage(usedImages, fallback);
   return fallback;
-}
-
-function imageWidth(image: string): number {
-  const width = image.match(/[?&](?:w|width)=([0-9]+)/i)?.[1] || image.match(/\/w_([0-9]+)/i)?.[1];
-  return width ? Number(width) : 0;
-}
-
-function imageHeight(image: string): number {
-  const height = image.match(/[?&](?:h|height)=([0-9]+)/i)?.[1] || image.match(/,h_([0-9]+)/i)?.[1];
-  return height ? Number(height) : 0;
 }
 
 function ensureFeatureCount(
@@ -1517,7 +1529,7 @@ function ensureFeatureCount(
     }));
 }
 
-function ensureSuiteCount(rooms: any[], images: string[], fallbackPrice?: string, usedImages?: Set<string>) {
+function ensureSuiteCount(rooms: any[], images: string[], fallbackPrice?: string, usedImages?: Set<string>, logoImage = '') {
   const fallbackSuites = [
     { name: 'Standard Suites', description: 'Comfortable and cosy suites perfect for a relaxing stay.' },
     { name: 'Deluxe Suites', description: 'Extra comfort and premium features for added calm.' },
@@ -1535,8 +1547,8 @@ function ensureSuiteCount(rooms: any[], images: string[], fallbackPrice?: string
     const roomImage = stringFrom(room.image);
     return {
       image: usedImages
-        ? pickUniqueImage(usedImages, [isUsableGalleryImage(roomImage) ? roomImage : '', images[index + 1], images[index], images[0]], images)
-        : imageFrom(isUsableGalleryImage(roomImage) ? roomImage : '', images[index + 1], images[index], images[0]),
+        ? pickUniqueImage(usedImages, [isUsableGalleryImage(roomImage, logoImage) ? roomImage : '', images[index + 1], images[index], images[0]], images, logoImage)
+        : imageFrom(isUsableGalleryImage(roomImage, logoImage) ? roomImage : '', images[index + 1], images[index], images[0]),
       title,
       text: contentStringFrom(room.description, priceLabel ? `${fallback.description} ${priceLabel}.` : fallback.description),
       price: priceLabel,
@@ -1555,15 +1567,19 @@ function ensureTestimonials(
   images: string[],
   heroImage: string,
   testimonialImage?: unknown,
+  logoImage = '',
 ) {
   const mapped = testimonials
-    .map((testimonial: any, index: number) => ({
-      quote: contentStringFrom(testimonial.text, testimonial.quote),
-      author: contentStringFrom(testimonial.name, testimonial.author, testimonial.customer, 'Guest family'),
-      image: imageFrom(testimonial.image, index === 0 ? testimonialImage : undefined, images[index + 4], images[index], heroImage),
-      location: contentStringFrom(testimonial.location),
-      rating: clampNumber(testimonial.rating, 1, 5, 5),
-    }))
+    .map((testimonial: any, index: number) => {
+      const image = imageFrom(testimonial.image, index === 0 ? testimonialImage : undefined, images[index + 4], images[index], heroImage);
+      return {
+        quote: contentStringFrom(testimonial.text, testimonial.quote),
+        author: contentStringFrom(testimonial.name, testimonial.author, testimonial.customer, 'Guest family'),
+        image: isUsableGalleryImage(image, logoImage) ? image : '',
+        location: contentStringFrom(testimonial.location),
+        rating: clampNumber(testimonial.rating, 1, 5, 5),
+      };
+    })
     .filter((testimonial) => testimonial.quote);
 
   if (mapped.length) return mapped.slice(0, 10);

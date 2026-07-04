@@ -78,6 +78,60 @@ function sourceUrlForTemplateSnapshot(data: Record<string, any>) {
   return /^https?:\/\//i.test(trimmedUrl) ? trimmedUrl : `https://${trimmedUrl}`;
 }
 
+function safeDecodeURIComponent(value: string) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function imageSettingKey(value: unknown) {
+  return String(value || '')
+    .trim()
+    .split('#')[0]
+    .split('?')[0]
+    .toLowerCase()
+    .replace(/\/+$/, '');
+}
+
+function dimensionFromImageUrl(url: string, key: 'w' | 'h' | 'width' | 'height') {
+  try {
+    const parsed = new URL(url, 'https://catstays.local');
+    const value = Number(parsed.searchParams.get(key));
+    return Number.isFinite(value) && value > 0 ? value : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function isLikelyLogoOrWordmarkImage(image: unknown, logoImage?: unknown, businessName?: unknown) {
+  const imageValue = String(image || '').trim();
+  if (!imageValue) return false;
+
+  const imageKey = imageSettingKey(imageValue);
+  const logoKey = imageSettingKey(logoImage);
+  if (logoKey && imageKey && imageKey === logoKey) return true;
+
+  const decoded = safeDecodeURIComponent(imageValue).toLowerCase();
+  const compactDecoded = decoded.replace(/[^a-z0-9]+/g, '');
+  const compactBusinessName = String(businessName || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '');
+  const hasBrandName =
+    compactBusinessName.length > 3 && compactDecoded.includes(compactBusinessName);
+  const hasBrandAssetName =
+    /(^|[-_/])(logo|wordmark|brandmark|brand|header-logo|site-logo|letterhead|masthead)([-_.?/]|$)/i.test(
+      decoded,
+    );
+  const hasHeaderArtworkName =
+    /(^|[-_/])(banner|header|hero-logo|nameplate)([-_.?/]|$)/i.test(decoded) && hasBrandName;
+  const width = dimensionFromImageUrl(imageValue, 'w') || dimensionFromImageUrl(imageValue, 'width');
+  const height = dimensionFromImageUrl(imageValue, 'h') || dimensionFromImageUrl(imageValue, 'height');
+
+  return hasBrandAssetName || hasHeaderArtworkName || Boolean(width && height && width > height * 4 && hasBrandName);
+}
+
 function OnboardingTemplateSnapshot({
   template,
   data,
@@ -289,6 +343,7 @@ export function OnboardingWizard() {
     backgroundColor: '#FAF7F2',
     typography: 'playfair',
     logo: '',
+    logoImage: '',
     heroImage: '',
     heroImageOwned: false,
     heroImageSourceUrl: '',
@@ -322,6 +377,7 @@ export function OnboardingWizard() {
     footerAbout: '',
     footerLinks: [],
     siteContentLibrary: null,
+    siteContentIndex: [],
     contentLibrary: null,
     sectionsOrder: [],
     
@@ -604,6 +660,7 @@ export function OnboardingWizard() {
         subheadingFont: data.subheadingFont,
         bodyFont: data.bodyFont,
         logo: data.logo,
+        logoImage: data.logoImage,
         heroImage: data.heroImage,
         heroImageOwned: data.heroImageOwned,
         heroImageSourceUrl: data.heroImageSourceUrl,
@@ -651,6 +708,7 @@ export function OnboardingWizard() {
         footerAbout: data.footerAbout,
         footerLinks: data.footerLinks,
         siteContentLibrary: data.siteContentLibrary,
+        siteContentIndex: data.siteContentIndex,
         contentLibrary: data.contentLibrary,
         sectionsOrder: data.sectionsOrder,
         importSourceUrl: data.importSourceUrl,
@@ -706,82 +764,92 @@ export function OnboardingWizard() {
     if (cattery) {
       setAccountCreated(true);
       const ws = cattery.website_settings as Record<string, any> || {};
-      setData(prev => ({
-        ...prev,
-        businessName: cattery.name || prev.businessName,
-        phone: cattery.phone || prev.phone,
-        address: cattery.address || prev.address,
-        location: cattery.city || prev.location,
-        subdomain: cattery.slug || prev.subdomain,
-        primaryColor: ws.primaryColor || prev.primaryColor,
-        accentColor: ws.accentColor || prev.accentColor,
-        backgroundColor: ws.backgroundColor || prev.backgroundColor,
-        typography: ws.typography || prev.typography,
-        headingFont: ws.headingFont || prev.headingFont,
-        subheadingFont: ws.subheadingFont || prev.subheadingFont,
-        bodyFont: ws.bodyFont || prev.bodyFont,
-        logo: ws.logo || prev.logo,
-        heroImage: ws.heroImage || prev.heroImage,
-        heroImageOwned: ws.heroImageOwned ?? prev.heroImageOwned,
-        heroImageSourceUrl: ws.heroImageSourceUrl ?? prev.heroImageSourceUrl,
-        heroImageStoragePath: ws.heroImageStoragePath ?? prev.heroImageStoragePath,
-        heroImageObjectPositionX: ws.heroImageObjectPositionX ?? prev.heroImageObjectPositionX,
-        heroImageObjectPositionY: ws.heroImageObjectPositionY ?? prev.heroImageObjectPositionY,
-        heroImageScale: ws.heroImageScale ?? prev.heroImageScale,
-        heroEyebrow: ws.heroEyebrow ?? prev.heroEyebrow,
-        heroHeading: ws.heroHeading || prev.heroHeading,
-        heroSubheading: ws.heroSubheading || prev.heroSubheading,
-        heroPrimaryCtaText: ws.heroPrimaryCtaText ?? prev.heroPrimaryCtaText,
-        heroPrimaryCtaHref: ws.heroPrimaryCtaHref ?? prev.heroPrimaryCtaHref,
-        heroSecondaryCtaText: ws.heroSecondaryCtaText ?? prev.heroSecondaryCtaText,
-        heroSecondaryCtaHref: ws.heroSecondaryCtaHref ?? prev.heroSecondaryCtaHref,
-        aboutText: ws.aboutText || prev.aboutText,
-        aboutHeading: ws.aboutHeading || prev.aboutHeading,
-        whyChooseEyebrow: ws.whyChooseEyebrow ?? prev.whyChooseEyebrow,
-        whyChooseUsHeading: ws.whyChooseUsHeading || prev.whyChooseUsHeading,
-        whyChooseUsText: ws.whyChooseUsText ?? prev.whyChooseUsText,
-        careApproachEyebrow: ws.careApproachEyebrow ?? prev.careApproachEyebrow,
-        careApproachHeading: ws.careApproachHeading ?? prev.careApproachHeading,
-        careApproachText: ws.careApproachText ?? prev.careApproachText,
-        whyChooseUsFeatures: ws.whyChooseUsFeatures ?? prev.whyChooseUsFeatures,
-        facilitiesEyebrow: ws.facilitiesEyebrow ?? prev.facilitiesEyebrow,
-        facilitiesHeading: ws.facilitiesHeading || prev.facilitiesHeading,
-        facilitiesText: ws.facilitiesText || prev.facilitiesText,
-        facilitiesImage: ws.facilitiesImage || prev.facilitiesImage,
-        facilityFeatures: ws.facilityFeatures ?? prev.facilityFeatures,
-        suitesHeading: ws.suitesHeading || prev.suitesHeading,
-        suites: ws.suites ?? prev.suites,
-        additionalServicesEyebrow: ws.additionalServicesEyebrow ?? prev.additionalServicesEyebrow,
-        additionalServicesHeading: ws.additionalServicesHeading || prev.additionalServicesHeading,
-        galleryHeading: ws.galleryHeading || prev.galleryHeading,
-        galleryImages: ws.galleryImages ?? prev.galleryImages,
-        testimonialsEyebrow: ws.testimonialsEyebrow ?? prev.testimonialsEyebrow,
-        testimonialsHeading: ws.testimonialsHeading || prev.testimonialsHeading,
-        testimonials: ws.testimonials ?? prev.testimonials,
-        faqEyebrow: ws.faqEyebrow ?? prev.faqEyebrow,
-        faqHeading: ws.faqHeading || prev.faqHeading,
-        faqs: ws.faqs ?? prev.faqs,
-        additionalServices: ws.additionalServices ?? prev.additionalServices,
-        ownerData: ws.ownerData || prev.ownerData,
-        locationData: ws.locationData || prev.locationData,
-        hours: ws.hours ?? prev.hours,
-        contactData: ws.contactData || prev.contactData,
-        socialLinks: ws.socialLinks || prev.socialLinks,
-        virtualTourUrl: ws.virtualTourUrl || prev.virtualTourUrl,
-        footerAbout: ws.footerAbout || prev.footerAbout,
-        footerLinks: ws.footerLinks ?? prev.footerLinks,
-        siteContentLibrary: ws.siteContentLibrary || prev.siteContentLibrary,
-        contentLibrary: ws.contentLibrary || prev.contentLibrary,
-        sectionsOrder: ws.sectionsOrder || prev.sectionsOrder,
-        importSourceUrl: ws.importSourceUrl || ws.sourceUrl || prev.importSourceUrl,
-        sourceUrl: ws.sourceUrl || ws.importSourceUrl || prev.sourceUrl,
-        sourceHost: ws.sourceHost || prev.sourceHost,
-        previewImportRecord: ws.previewImportRecord || prev.previewImportRecord,
-        previewImportRecordId: ws.previewImportRecordId || prev.previewImportRecordId,
-        previewRecordStatus: ws.previewRecordStatus || prev.previewRecordStatus,
-        liveTemplate: ws.liveTemplate || prev.liveTemplate,
-        selectedTemplate: ws.selectedTemplate || ws.liveTemplate || prev.selectedTemplate,
-      }));
+      setData(prev => {
+        const businessName = cattery.name || prev.businessName;
+        const restoredLogoImage = ws.logoImage || prev.logoImage || ws.logo || prev.logo;
+        const restoredHeroImage = isLikelyLogoOrWordmarkImage(ws.heroImage, restoredLogoImage, businessName)
+          ? prev.heroImage
+          : ws.heroImage || prev.heroImage;
+
+        return {
+          ...prev,
+          businessName,
+          phone: cattery.phone || prev.phone,
+          address: cattery.address || prev.address,
+          location: cattery.city || prev.location,
+          subdomain: cattery.slug || prev.subdomain,
+          primaryColor: ws.primaryColor || prev.primaryColor,
+          accentColor: ws.accentColor || prev.accentColor,
+          backgroundColor: ws.backgroundColor || prev.backgroundColor,
+          typography: ws.typography || prev.typography,
+          headingFont: ws.headingFont || prev.headingFont,
+          subheadingFont: ws.subheadingFont || prev.subheadingFont,
+          bodyFont: ws.bodyFont || prev.bodyFont,
+          logo: ws.logo || prev.logo,
+          logoImage: restoredLogoImage,
+          heroImage: restoredHeroImage,
+          heroImageOwned: ws.heroImageOwned ?? prev.heroImageOwned,
+          heroImageSourceUrl: ws.heroImageSourceUrl ?? prev.heroImageSourceUrl,
+          heroImageStoragePath: ws.heroImageStoragePath ?? prev.heroImageStoragePath,
+          heroImageObjectPositionX: ws.heroImageObjectPositionX ?? prev.heroImageObjectPositionX,
+          heroImageObjectPositionY: ws.heroImageObjectPositionY ?? prev.heroImageObjectPositionY,
+          heroImageScale: ws.heroImageScale ?? prev.heroImageScale,
+          heroEyebrow: ws.heroEyebrow ?? prev.heroEyebrow,
+          heroHeading: ws.heroHeading || prev.heroHeading,
+          heroSubheading: ws.heroSubheading || prev.heroSubheading,
+          heroPrimaryCtaText: ws.heroPrimaryCtaText ?? prev.heroPrimaryCtaText,
+          heroPrimaryCtaHref: ws.heroPrimaryCtaHref ?? prev.heroPrimaryCtaHref,
+          heroSecondaryCtaText: ws.heroSecondaryCtaText ?? prev.heroSecondaryCtaText,
+          heroSecondaryCtaHref: ws.heroSecondaryCtaHref ?? prev.heroSecondaryCtaHref,
+          aboutText: ws.aboutText || prev.aboutText,
+          aboutHeading: ws.aboutHeading || prev.aboutHeading,
+          whyChooseEyebrow: ws.whyChooseEyebrow ?? prev.whyChooseEyebrow,
+          whyChooseUsHeading: ws.whyChooseUsHeading || prev.whyChooseUsHeading,
+          whyChooseUsText: ws.whyChooseUsText ?? prev.whyChooseUsText,
+          careApproachEyebrow: ws.careApproachEyebrow ?? prev.careApproachEyebrow,
+          careApproachHeading: ws.careApproachHeading ?? prev.careApproachHeading,
+          careApproachText: ws.careApproachText ?? prev.careApproachText,
+          whyChooseUsFeatures: ws.whyChooseUsFeatures ?? prev.whyChooseUsFeatures,
+          facilitiesEyebrow: ws.facilitiesEyebrow ?? prev.facilitiesEyebrow,
+          facilitiesHeading: ws.facilitiesHeading || prev.facilitiesHeading,
+          facilitiesText: ws.facilitiesText || prev.facilitiesText,
+          facilitiesImage: ws.facilitiesImage || prev.facilitiesImage,
+          facilityFeatures: ws.facilityFeatures ?? prev.facilityFeatures,
+          suitesHeading: ws.suitesHeading || prev.suitesHeading,
+          suites: ws.suites ?? prev.suites,
+          additionalServicesEyebrow: ws.additionalServicesEyebrow ?? prev.additionalServicesEyebrow,
+          additionalServicesHeading: ws.additionalServicesHeading || prev.additionalServicesHeading,
+          galleryHeading: ws.galleryHeading || prev.galleryHeading,
+          galleryImages: ws.galleryImages ?? prev.galleryImages,
+          testimonialsEyebrow: ws.testimonialsEyebrow ?? prev.testimonialsEyebrow,
+          testimonialsHeading: ws.testimonialsHeading || prev.testimonialsHeading,
+          testimonials: ws.testimonials ?? prev.testimonials,
+          faqEyebrow: ws.faqEyebrow ?? prev.faqEyebrow,
+          faqHeading: ws.faqHeading || prev.faqHeading,
+          faqs: ws.faqs ?? prev.faqs,
+          additionalServices: ws.additionalServices ?? prev.additionalServices,
+          ownerData: ws.ownerData || prev.ownerData,
+          locationData: ws.locationData || prev.locationData,
+          hours: ws.hours ?? prev.hours,
+          contactData: ws.contactData || prev.contactData,
+          socialLinks: ws.socialLinks || prev.socialLinks,
+          virtualTourUrl: ws.virtualTourUrl || prev.virtualTourUrl,
+          footerAbout: ws.footerAbout || prev.footerAbout,
+          footerLinks: ws.footerLinks ?? prev.footerLinks,
+          siteContentLibrary: ws.siteContentLibrary || prev.siteContentLibrary,
+          siteContentIndex: ws.siteContentIndex ?? prev.siteContentIndex,
+          contentLibrary: ws.contentLibrary || prev.contentLibrary,
+          sectionsOrder: ws.sectionsOrder || prev.sectionsOrder,
+          importSourceUrl: ws.importSourceUrl || ws.sourceUrl || prev.importSourceUrl,
+          sourceUrl: ws.sourceUrl || ws.importSourceUrl || prev.sourceUrl,
+          sourceHost: ws.sourceHost || prev.sourceHost,
+          previewImportRecord: ws.previewImportRecord || prev.previewImportRecord,
+          previewImportRecordId: ws.previewImportRecordId || prev.previewImportRecordId,
+          previewRecordStatus: ws.previewRecordStatus || prev.previewRecordStatus,
+          liveTemplate: ws.liveTemplate || prev.liveTemplate,
+          selectedTemplate: ws.selectedTemplate || ws.liveTemplate || prev.selectedTemplate,
+        };
+      });
     }
   }, [cattery?.id]);
 

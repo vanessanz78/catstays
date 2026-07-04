@@ -73,6 +73,7 @@ export interface CatterySiteContentItem {
   answer?: string;
   rating?: number;
   features?: string[];
+  icon?: string;
 }
 
 export interface CatterySiteContentBlock {
@@ -93,6 +94,16 @@ export interface CatterySiteContentLibrary {
   businessName: string;
   capturedAt: string;
   blocks: CatterySiteContentBlock[];
+}
+
+export interface CatterySiteContentIndexItem {
+  id: string;
+  category: string;
+  title: string;
+  text: string;
+  keywords: string[];
+  imageUrls: string[];
+  sourceUrl?: string;
 }
 
 export interface CatteryWebsiteScrapeResult {
@@ -139,6 +150,7 @@ export interface CatteryWebsiteScrapeResult {
   };
   virtualTourUrl: string;
   siteContentLibrary: CatterySiteContentLibrary;
+  siteContentIndex: CatterySiteContentIndexItem[];
   bodyText: string;
   extractedFrom: {
     html: boolean;
@@ -276,6 +288,7 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
     virtualTourUrl,
     supplementalPages,
   });
+  const siteContentIndex = buildSiteContentIndex(siteContentLibrary);
   const websiteSettings = buildWebsiteSettings({
     businessName,
     description,
@@ -301,6 +314,7 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
     locationDetails,
     virtualTourUrl,
     siteContentLibrary,
+    siteContentIndex,
   });
 
   return {
@@ -331,6 +345,7 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
     locationDetails,
     virtualTourUrl,
     siteContentLibrary,
+    siteContentIndex,
     bodyText: bodyText.slice(0, 8000),
     extractedFrom: {
       html: true,
@@ -1520,6 +1535,81 @@ function buildSiteContentLibrary(input: {
   };
 }
 
+function buildSiteContentIndex(library: CatterySiteContentLibrary): CatterySiteContentIndexItem[] {
+  const items: CatterySiteContentIndexItem[] = [];
+
+  for (const block of library.blocks) {
+    const blockImages = uniqueImageUrls((block.images ?? []).map((image) => image.url));
+    const blockText = cleanIndexText(block.text);
+    if (block.title || blockText || blockImages.length) {
+      items.push({
+        id: block.id,
+        category: block.category,
+        title: cleanIndexText(block.title),
+        text: blockText,
+        keywords: keywordsForIndex([block.title, block.text, block.category]),
+        imageUrls: blockImages,
+        sourceUrl: library.sourceUrl,
+      });
+    }
+
+    (block.items ?? []).forEach((item, index) => {
+      const title = cleanIndexText(item.title);
+      const text = cleanIndexText(item.text || item.answer || item.meta || '');
+      const imageUrls = uniqueImageUrls([item.image]);
+      if (!title && !text && !imageUrls.length) return;
+
+      items.push({
+        id: `${block.id}-${slugify(title || `item-${index + 1}`)}`,
+        category: block.category,
+        title,
+        text,
+        keywords: keywordsForIndex([title, text, block.category, item.price, item.meta, ...(item.features ?? [])]),
+        imageUrls,
+        sourceUrl: item.url || library.sourceUrl,
+      });
+    });
+  }
+
+  return items.slice(0, 160);
+}
+
+function cleanIndexText(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  return cleanText(value).slice(0, 2000);
+}
+
+function keywordsForIndex(values: unknown[]): string[] {
+  const stopWords = new Set(['the', 'and', 'for', 'with', 'from', 'this', 'that', 'your', 'our', 'cat', 'cats', 'cattery']);
+  const seen = new Set<string>();
+  const keywords: string[] = [];
+
+  values
+    .map((value) => (typeof value === 'string' ? value : ''))
+    .join(' ')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .forEach((word) => {
+      if (word.length < 3 || stopWords.has(word) || seen.has(word)) return;
+      seen.add(word);
+      keywords.push(word);
+    });
+
+  return keywords.slice(0, 40);
+}
+
+function uniqueImageUrls(images: Array<string | undefined>): string[] {
+  const seen = new Set<string>();
+  return images
+    .filter((image): image is string => Boolean(image && /^https?:\/\//i.test(image)))
+    .filter((image) => {
+      const key = imageKey(image);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
 function buildWebsiteSettings(input: {
   businessName: string;
   description: string;
@@ -1561,16 +1651,25 @@ function buildWebsiteSettings(input: {
   };
   virtualTourUrl: string;
   siteContentLibrary: CatterySiteContentLibrary;
+  siteContentIndex: CatterySiteContentIndexItem[];
 }): Record<string, unknown> {
   const curatedGalleryImages = input.galleryImages.length
     ? input.galleryImages
     : input.images.slice(0, 12).map((url, index) => ({ url, caption: `Cattery photo ${index + 1}` }));
-  const galleryUrls = curatedGalleryImages.map((image) => image.url).filter(Boolean);
+  const galleryUrls = curatedGalleryImages
+    .map((image) => image.url)
+    .filter((image) => isUsablePhotoImage(image, input.logoImage, input.businessName));
+  const photoImages = input.images.filter((image) => isUsablePhotoImage(image, input.logoImage, input.businessName));
+  const heroImage = firstUsablePhotoImage(
+    [input.heroImage, ...galleryUrls, ...photoImages],
+    input.logoImage,
+    input.businessName,
+  );
   const roomCards = input.rooms.map((room, index) => ({
     name: room.name,
     price: room.price && room.priceUnit ? `${room.price}/${room.priceUnit.replace(/^per\s+/i, '')}` : room.price,
     description: room.description,
-    image: room.image || galleryUrls[index + 1] || input.images[index + 1] || input.heroImage,
+    image: firstUsablePhotoImage([room.image, galleryUrls[index + 1], photoImages[index + 1], heroImage], input.logoImage, input.businessName),
     popular: index === 0,
     features: room.amenities ?? [],
   }));
@@ -1587,7 +1686,7 @@ function buildWebsiteSettings(input: {
     aboutText:
       input.description ||
       `${input.businessName} provides safe, comfortable cat boarding with personal care for every guest.`,
-    heroImage: input.heroImage || input.images[0],
+    heroImage,
     logoImage: input.logoImage,
     ctaText: 'Book a stay',
     headingFont: 'playfair',
@@ -1624,7 +1723,10 @@ function buildWebsiteSettings(input: {
       facilitiesText:
         input.highlights[0]?.description ||
         'Safe, calm boarding facilities designed specifically for cats.',
-      facilitiesImage: input.images.find((image) => /building|facility|indoor|communal/i.test(decodeURIComponent(image))) || input.heroImage,
+      facilitiesImage:
+        photoImages.find((image) => /building|facility|indoor|communal/i.test(safeDecodeURIComponent(image))) ||
+        galleryUrls[0] ||
+        heroImage,
     },
     suitesData: {
       suitesHeading: 'Boarding options',
@@ -1638,7 +1740,7 @@ function buildWebsiteSettings(input: {
         title: service.title,
         description: service.description,
         price: service.price,
-        image: service.image || input.images[index + 2] || input.heroImage,
+        image: firstUsablePhotoImage([service.image, photoImages[index + 2], galleryUrls[index], heroImage], input.logoImage, input.businessName),
       })),
     },
     galleryData: {
@@ -1659,6 +1761,7 @@ function buildWebsiteSettings(input: {
     commitmentData: input.commitment,
     locationData: input.locationDetails,
     siteContentLibrary: input.siteContentLibrary,
+    siteContentIndex: input.siteContentIndex,
     contactData: {
       contactHeading: 'Contact and booking',
       hours: input.hours,
@@ -2202,14 +2305,38 @@ function isProbablyUsableImageUrl(image: string): boolean {
 
 function isLikelyLogoImage(image: string, businessName = ''): boolean {
   if (!image) return false;
-  const decoded = decodeURIComponent(image).toLowerCase();
+  const decoded = safeDecodeURIComponent(image).toLowerCase();
   const compactBusiness = businessName.toLowerCase().replace(/[^a-z0-9]+/g, '');
   const compactImage = decoded.replace(/[^a-z0-9]+/g, '');
   if (/logo|wordmark|brand|cardb|header-logo|site-logo/.test(decoded)) return true;
   if (compactBusiness.length > 5 && compactImage.includes(compactBusiness) && imageAspectRatio(image) > 2.4) return true;
-  const width = imageWidth(image);
-  const height = imageHeight(image);
-  return Boolean(width && height && width / height > 2.8 && height <= 360);
+  return false;
+}
+
+function firstUsablePhotoImage(images: Array<string | undefined>, logoImage = '', businessName = ''): string {
+  for (const image of images) {
+    if (image && isUsablePhotoImage(image, logoImage, businessName)) return image;
+  }
+  return '';
+}
+
+function isUsablePhotoImage(image: string, logoImage = '', businessName = ''): boolean {
+  if (!/^https?:\/\//i.test(image)) return false;
+  if (logoImage && imageKey(image) === imageKey(logoImage)) return false;
+  const decoded = safeDecodeURIComponent(image).toLowerCase();
+  if (/%60|`|:o\(|media\/\W/.test(decoded)) return false;
+  if (/logo|wordmark|brand|cardb|favicon|apple-touch-icon|header-logo|site-logo|lettermark|masthead|icon|avatar|profile|placeholder|silhouette|black.?cat|catstays|\/cat(?:[-_][a-z0-9]+)?\.png$/i.test(decoded)) {
+    return false;
+  }
+  return !isLikelyLogoImage(image, businessName);
+}
+
+function safeDecodeURIComponent(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
 }
 
 function imageKey(image?: string): string {

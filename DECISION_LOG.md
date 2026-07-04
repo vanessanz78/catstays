@@ -1,6 +1,21 @@
 # Decision Log
 
-Last updated: 2026-07-03
+Last updated: 2026-07-04
+
+## 2026-07-04 - Import Index And Saved Media Precedence
+
+Decision: Imported websites must store a searchable content index and saved preview state must not restore logos, wordmarks, or brand-only graphics as hero/header photos.
+
+Reason: Replit UAT showed a real photo briefly in development before the page reverted to an older logo/header-style image. That points to fresh scrape data being overwritten by saved `website_settings` or preview-record hydration, not to two competing codebases.
+
+Impact:
+
+- Scraped source pages are converted into `siteContentIndex` entries with category, title, text, keywords, image URLs, and source URL.
+- The index is returned by the scraper, saved in preview import records, restored into onboarding state, and allowed through publish/provisioning website settings.
+- Logo imagery is saved separately as `logoImage`; it can be used for branding, but not as the hero/header image.
+- Onboarding reload rejects a saved hero image when it matches the known logo/wordmark asset, preventing old saved logo heroes from overriding a fresh imported photo.
+- Image filtering should reject logo/wordmark/favicons/placeholder-style URLs while still allowing real wide landscape photos.
+- UAT should reimport the source website after Replit pulls the GitHub changes, because old saved/generated records can still contain stale bad image choices until refreshed.
 
 ## 2026-07-03 - Imported Preview Must Fail Cleanly
 
