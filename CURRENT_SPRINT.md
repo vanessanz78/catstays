@@ -1,6 +1,6 @@
 # Current Sprint
 
-Last updated: 2026-07-01
+Last updated: 2026-07-05
 
 ## Goal
 
@@ -13,6 +13,15 @@ Stabilise the CatStays onboarding publish flow and give future Codex chats a roo
 - Review environment: Replit
 - Deployment environment: Replit / CatStays app environment
 - Operating system entrypoint: `START_HERE.md` in `vanessanz78/codex-operating-system`
+
+## Branch / Ref Handoff Rule
+
+- Current sprint note ref: `main`.
+- Correction from 2026-07-05 review: the last known handoff before the FancyFelines work was from GitHub `main`, not a feature branch. Replit was instructed to pull `main`.
+- Every future GitHub note, sprint note, decision note, PR note, and Replit handoff must include the exact working ref.
+- Required wording for future notes: `Working ref: <main | branch name | commit SHA>`.
+- If work is on a branch, the branch name must be visible in the note and in the Replit command.
+- If work is being tested by commit SHA, the note must say it is a detached SHA test and not a durable branch.
 
 ## Current State
 
@@ -41,6 +50,7 @@ Stabilise the CatStays onboarding publish flow and give future Codex chats a roo
 - Treat duplicate-email publish failures as Publish-step errors rather than account-step resets.
 - Treat Supabase Authentication > Users as the source of truth for signup email uniqueness.
 - Pin Replit public app URL values to `https://catstays.app` for confirmation email redirects.
+- Record the working Git ref in every future GitHub note and Replit handoff.
 
 ## Risks Or Blockers
 
@@ -64,4 +74,4 @@ Future chats should read:
 4. `CURRENT_SPRINT.md`.
 5. `DECISION_LOG.md`.
 
-Then continue from the UAT items above.
+Then continue from the UAT items above and preserve the exact working ref in any new GitHub note.
