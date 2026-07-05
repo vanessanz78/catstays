@@ -1,6 +1,6 @@
 # Decision Log
 
-Last updated: 2026-07-01
+Last updated: 2026-07-05
 
 ## 2026-07-01 - Root Sprint Docs
 
@@ -50,6 +50,19 @@ Impact:
 - Users should stay on the Publish step when publishing with an already-registered email.
 - Setup context is preserved.
 - Replit UAT should confirm both duplicate-email and fresh-email publish paths.
+
+## 2026-07-05 - Branch / Ref Must Be Explicit In GitHub Notes
+
+Decision: Every GitHub note, sprint note, decision note, PR note, and Replit handoff must explicitly state the working ref.
+
+Reason: Screenshots from the CatStays v2 conversation showed the last known handoff before the FancyFelines work was on GitHub `main`, not a feature branch. Later recovery branches and save branches made the history harder to follow. Future chats need the exact ref in the durable notes instead of inferring it from conversation history or branch names.
+
+Impact:
+
+- Future notes must include `Working ref: <main | branch name | commit SHA>`.
+- If work is on a branch, the branch name must be written in the note and used in the Replit command.
+- If testing an older commit by SHA, the note must say it is a detached SHA test and not a durable branch.
+- Replit handoff commands must match the documented ref.
 
 ## Open Decisions
 
