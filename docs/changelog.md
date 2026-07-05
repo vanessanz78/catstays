@@ -5,6 +5,7 @@
 - Created restore branch `codex/stable-pre-fancyfelines-main-20260705` from commit `49fefa8b65c17f8d9dad25d9656afc98e3d4ffad`, the last known GitHub `main` state before the FancyFelines import/preview conversation.
 - Clarified that `eea5a0a` is not a pre-FancyFelines rollback point because it is already inside the later import/preview change stack.
 - Added a durable rule that every future GitHub note and Replit handoff must include the exact working ref: `main`, branch name, or commit SHA.
+- Added a small startup recovery guard for oversized `catstays_preview_import_table` browser storage so Generate Preview can recover from the storage-quota failure caused by an earlier import-preview branch.
 
 ## 2026-07-01
 
