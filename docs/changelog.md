@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-07-05
+
+- Clarified that the last known pre-FancyFelines CatStays handoff was on GitHub `main`, not a feature branch.
+- Added a durable rule that every future GitHub note and Replit handoff must include the exact working ref: `main`, branch name, or commit SHA.
+
 ## 2026-07-01
 
 - Set Replit public app URL values `CATSTAYS_APP_URL` and `VITE_PUBLIC_APP_URL` to `https://catstays.app` so Supabase confirmation links prefer the live app URL.
