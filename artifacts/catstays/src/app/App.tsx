@@ -7,6 +7,44 @@ import { subdomainRouter } from './subdomainRouter';
 const previewImportStorageKey = 'catstays_preview_import_table';
 const oversizedStorageThreshold = 500_000;
 
+function clearPreviewCache(storage: Storage) {
+  try {
+    storage.removeItem(previewImportStorageKey);
+  } catch {
+    // Ignore unavailable browser storage; preview generation can recover without this cache.
+  }
+}
+
+function installPreviewCacheQuotaGuard() {
+  if (typeof window === 'undefined' || typeof Storage === 'undefined') return;
+
+  const globalWindow = window as Window & { __catstaysPreviewCacheQuotaGuardInstalled?: boolean };
+  if (globalWindow.__catstaysPreviewCacheQuotaGuardInstalled) return;
+
+  const originalSetItem = Storage.prototype.setItem;
+
+  Storage.prototype.setItem = function guardedSetItem(key: string, value: string) {
+    if (key !== previewImportStorageKey) {
+      return originalSetItem.call(this, key, value);
+    }
+
+    try {
+      return originalSetItem.call(this, key, value);
+    } catch {
+      clearPreviewCache(this);
+      if (value.length <= oversizedStorageThreshold) {
+        try {
+          return originalSetItem.call(this, key, value);
+        } catch {
+          clearPreviewCache(this);
+        }
+      }
+    }
+  };
+
+  globalWindow.__catstaysPreviewCacheQuotaGuardInstalled = true;
+}
+
 function clearOversizedPreviewCache() {
   if (typeof window === 'undefined') return;
 
@@ -14,18 +52,15 @@ function clearOversizedPreviewCache() {
     try {
       const cachedPreview = storage.getItem(previewImportStorageKey);
       if (cachedPreview && cachedPreview.length > oversizedStorageThreshold) {
-        storage.removeItem(previewImportStorageKey);
+        clearPreviewCache(storage);
       }
     } catch {
-      try {
-        storage.removeItem(previewImportStorageKey);
-      } catch {
-        // Ignore unavailable browser storage; preview generation can recover without this cache.
-      }
+      clearPreviewCache(storage);
     }
   }
 }
 
+installPreviewCacheQuotaGuard();
 clearOversizedPreviewCache();
 
 const onSubdomain = isSubdomainOrCustomDomain();
