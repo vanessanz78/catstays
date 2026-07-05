@@ -22,15 +22,6 @@ const getIconComponent = (iconName: string) => {
   return icons[iconName] || Shield;
 };
 
-const catImages = {
-  hero1: 'https://images.unsplash.com/photo-1770255860384-3359fd44b467?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1200',
-  hero2: 'https://images.unsplash.com/photo-1636340629239-008219592d08?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1200',
-  room1: 'https://images.unsplash.com/photo-1672764788664-9f5844477a0f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=600',
-  happy: 'https://images.unsplash.com/photo-1662118821764-68db771a95ec?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=600',
-  playing: 'https://images.unsplash.com/photo-1574114908319-2efa632834d1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=600',
-  care: 'https://images.unsplash.com/photo-1725419876939-f8f9987cf0d2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=600',
-};
-
 const getFontClass = (typography: string) => {
   switch (typography) {
     case 'playfair':
@@ -49,9 +40,53 @@ interface TemplateProps {
   onClientLogin?: () => void;
 }
 
+const templateImage = (...values: unknown[]) => {
+  for (const value of values.flat()) {
+    if (typeof value !== 'string') continue;
+    const image = value.trim();
+    if (/^https?:\/\//i.test(image) || /^data:image\//i.test(image)) return image;
+  }
+  return '';
+};
+
+const templateGalleryImages = (data: any) => {
+  const images = [
+    ...(Array.isArray(data.galleryImages) ? data.galleryImages : []),
+    data.heroImage,
+    data.facilitiesImage,
+    data.aboutImage,
+  ];
+  const seen = new Set<string>();
+  return images
+    .map((image) => templateImage(image))
+    .filter((image) => {
+      if (!image || seen.has(image)) return false;
+      seen.add(image);
+      return true;
+    });
+};
+
+const TemplateImage = ({ src, alt, className }: { src?: string; alt: string; className: string }) => {
+  if (!src) return <div aria-hidden="true" className={`${className} bg-gray-100`} />;
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className={className}
+      onError={(event) => {
+        event.currentTarget.style.display = 'none';
+      }}
+    />
+  );
+};
+
 // Clean Modern Template - ALL 14 SECTIONS
 export const CleanModernTemplate = ({ data, onStaffLogin, onClientLogin }: TemplateProps) => {
   const renderSection = (sectionNumber: number, content: React.ReactNode) => content;
+  const galleryImages = templateGalleryImages(data);
+  const heroImage = templateImage(data.heroImage, data.facilitiesImage, data.aboutImage, galleryImages);
+  const facilitiesImage = templateImage(data.facilitiesImage, data.heroImage, data.aboutImage, galleryImages);
+  const aboutImage = templateImage(data.aboutImage, data.heroImage, data.facilitiesImage, galleryImages);
 
   return (
     <div className="bg-white">
@@ -82,7 +117,7 @@ export const CleanModernTemplate = ({ data, onStaffLogin, onClientLogin }: Templ
                 </Button>
               </div>
               <div className="h-64 md:h-80 rounded-lg overflow-hidden shadow-lg">
-                <img src={data.heroImage || catImages.hero2} alt="Hero" className="w-full h-full object-cover" />
+                <TemplateImage src={heroImage} alt="Hero" className="w-full h-full object-cover" />
               </div>
             </div>
           </div>
@@ -124,7 +159,7 @@ export const CleanModernTemplate = ({ data, onStaffLogin, onClientLogin }: Templ
           <div className="max-w-6xl mx-auto">
             <div className="grid md:grid-cols-2 gap-8 md:gap-12 items-center">
               <div className="h-64 md:h-80 rounded-lg overflow-hidden shadow-lg">
-                <img src={data.facilitiesImage || catImages.room1} alt="Facilities" className="w-full h-full object-cover" />
+                <TemplateImage src={facilitiesImage} alt="Facilities" className="w-full h-full object-cover" />
               </div>
               <div>
                 <h2 className={`text-2xl md:text-3xl font-bold mb-4 ${getFontClass(data.typography)}`} style={{ color: data.primaryColor || '#2d3e2f' }}>
@@ -177,7 +212,7 @@ export const CleanModernTemplate = ({ data, onStaffLogin, onClientLogin }: Templ
       {/* 5. CTA BANNER */}
       {renderSection(5, (
         <div className="relative h-64 md:h-80 overflow-hidden">
-          <img src={catImages.happy} alt="CTA" className="w-full h-full object-cover" />
+          <TemplateImage src={heroImage || facilitiesImage || aboutImage || galleryImages[0]} alt="CTA" className="w-full h-full object-cover" />
           <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center px-6 text-center">
             <h2 className={`text-2xl md:text-4xl font-bold mb-4 text-white ${getFontClass(data.typography)}`}>
               Book Your Cat's Stay Today
@@ -224,9 +259,9 @@ export const CleanModernTemplate = ({ data, onStaffLogin, onClientLogin }: Templ
               Gallery
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {[catImages.happy, catImages.playing, catImages.care, catImages.room1, catImages.hero2, catImages.hero1].map((img, i) => (
+              {galleryImages.slice(0, 6).map((img, i) => (
                 <div key={i} className="aspect-square rounded-lg overflow-hidden shadow-sm">
-                  <img src={img} alt={`Gallery ${i + 1}`} className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
+                  <TemplateImage src={img} alt={`Gallery ${i + 1}`} className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
                 </div>
               ))}
             </div>
@@ -299,7 +334,7 @@ export const CleanModernTemplate = ({ data, onStaffLogin, onClientLogin }: Templ
                 </p>
               </div>
               <div className="h-64 md:h-80 rounded-lg overflow-hidden shadow-lg">
-                <img src={data.aboutImage || catImages.care} alt="About" className="w-full h-full object-cover" />
+                <TemplateImage src={aboutImage} alt="About" className="w-full h-full object-cover" />
               </div>
             </div>
           </div>

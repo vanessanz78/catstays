@@ -1,651 +1,625 @@
+import type { ComponentType } from "react";
 import { createBrowserRouter } from "react-router";
-
-// Marketing pages
-import { MarketingHome } from "./pages/marketing/Home";
-import { MarketingFeatures } from "./pages/marketing/Features";
-import { MarketingPricing } from "./pages/marketing/Pricing";
-import { MarketingDemo } from "./pages/marketing/Demo";
-import { Signup } from "./pages/marketing/Signup";
-import { Login } from "./pages/marketing/Login";
-
-// Onboarding
-import { OnboardingWizard } from "./pages/onboarding/OnboardingWizard";
-import { ConfirmEmail } from "./pages/onboarding/ConfirmEmail";
-import { OnboardingDemo } from "./pages/onboarding/OnboardingDemo";
-import { PublishSuccessScreen } from "./pages/onboarding/PublishSuccessScreen";
-import { UpsellScreen } from "./pages/onboarding/UpsellScreen";
-import { SubscriptionPreviewStep } from "./pages/onboarding/SubscriptionPreviewStep";
-
-// Admin Dashboard
-import { AdminDashboard } from "./pages/admin/Dashboard";
-import { ModernDashboard } from "./pages/admin/ModernDashboard";
-import { DashboardPreviewMock } from "./pages/onboarding/DashboardPreviewMock";
-import { AdminCalendar } from "./pages/admin/Calendar";
-import { BookingCalendar } from "./pages/admin/BookingCalendar";
-import { AdminRoomPlanner } from "./pages/admin/RoomPlanner";
-import { AdminBookings } from "./pages/admin/Bookings";
-import { AdminCustomers } from "./pages/admin/Customers";
-import { AdminSettings } from "./pages/admin/Settings";
-import { SettingsDataImport } from "./pages/tenant/SettingsDataImport";
-import { AdminAccounting } from "./pages/admin/Accounting";
-import { AdminMessages } from "./pages/admin/Messages";
-import { AdminPromotions } from "./pages/admin/Promotions";
-import { AdminSocial } from "./pages/admin/Social";
-import { CatUpdateGenerator } from "./pages/admin/CatUpdateGenerator";
-import { AdminInsights } from "./pages/admin/Insights";
-import { PhotoUpdates } from "./pages/admin/PhotoUpdates";
-import { BookingConfirmationDemo } from "./pages/admin/BookingConfirmationDemo";
-import { SmartImport } from "./pages/admin/SmartImport";
-import { SmartDataImport } from "./pages/admin/SmartDataImport";
-import { SubscriptionDemo, SubscriptionLockedDemo } from "./pages/admin/SubscriptionDemo";
-import { PaymentPausedScreen } from "./pages/subscription/PaymentPausedScreen";
-import { PaymentPausedDemo } from "./pages/subscription/PaymentPausedDemo";
-import { PaymentPausedComparison } from "./pages/subscription/PaymentPausedComparison";
-
-// New Dashboard Components
-import { DashboardWebsiteEditor } from "./pages/admin/WebsiteEditor";
-import { BookingSetup } from "./pages/admin/BookingSetup";
-import { MarketingKit } from "./pages/admin/MarketingKit";
-import { Subscription } from "./pages/admin/Subscription";
-import { PaymentIntegration } from "./pages/admin/PaymentIntegration";
-import { DomainSettings } from "./pages/admin/DomainSettings";
-
-// Room Planner
-import { RoomPlannerDashboard } from "./pages/rooms/RoomPlannerDashboard";
-import { RoomManagement } from "./pages/rooms/RoomManagement";
-
-// Public pages
-import { UpdatePage } from "./pages/public/UpdatePage";
-
-// Tenant Website
-import { TenantHome } from "./pages/tenant/Home";
-import { TenantAbout } from "./pages/tenant/About";
-import { TenantRooms } from "./pages/tenant/Rooms";
-import { TenantBooking } from "./pages/tenant/Booking";
-import { BookingFlow } from "./pages/tenant/BookingFlow";
-import { TenantContact } from "./pages/tenant/Contact";
-import { TenantBlog } from "./pages/tenant/Blog";
-import { TenantLogin } from "./pages/tenant/Login";
-
-// Customer Portal
-import { CustomerDashboard } from "./pages/customer/Dashboard";
-import { CustomerBookings } from "./pages/customer/Bookings";
-import { CustomerProfile } from "./pages/customer/Profile";
-import { ClientPortalEntry } from "./pages/customer/ClientPortalEntry";
-
-// Error handling
+import { AuthProvider } from "@/contexts/AuthContext";
 import { RootErrorBoundary } from "./components/RootErrorBoundary";
-import { NotFound } from "./pages/NotFound";
 
-// Website Builder & Platform Admin
-import { WebsiteEditor } from "./pages/builder/WebsiteEditor";
-import { WebsiteBuilderStudio } from "./pages/WebsiteBuilderStudio";
-import { PlatformDashboard } from "./pages/platform/PlatformDashboard";
-import { AdminLogin } from "./pages/platform/AdminLogin";
-import { StaffDashboard } from "./pages/staff/StaffDashboard";
+type RouteComponent = ComponentType<Record<string, never>>;
+type LazyRouteLoader = () => Promise<unknown>;
 
-// Demo pages
-import { AuthFlowDemo } from "./pages/demo/AuthFlowDemo";
-import { RoomsPricingDemo } from "./pages/demo/RoomsPricingDemo";
-import { DeloraineDemo, DeloraineDemoClientPortal, DeloraineDemoDashboard } from "./pages/demo/DeloraineDemo";
-import BookingSystemDemo from "./pages/BookingSystemDemo";
+function withAuthProvider(Component: ComponentType) {
+  function AuthenticatedRoute() {
+    return (
+      <AuthProvider>
+        <Component />
+      </AuthProvider>
+    );
+  }
+
+  AuthenticatedRoute.displayName = `AuthenticatedRoute(${Component.displayName || Component.name || "Component"})`;
+  return AuthenticatedRoute;
+}
+
+function lazyRoute(loader: LazyRouteLoader, exportName: string, requiresAuth = false) {
+  return async () => {
+    const module = (await loader()) as Record<string, RouteComponent>;
+    const Component = module[exportName];
+
+    if (!Component) {
+      throw new Error(`Route component export "${exportName}" was not found.`);
+    }
+
+    return {
+      Component: requiresAuth ? withAuthProvider(Component) : Component,
+    };
+  };
+}
+
+function lazyDefaultRoute(loader: LazyRouteLoader, requiresAuth = false) {
+  return async () => {
+    const module = (await loader()) as { default?: RouteComponent };
+    const Component = module.default;
+
+    if (!Component) {
+      throw new Error("Default route component export was not found.");
+    }
+
+    return {
+      Component: requiresAuth ? withAuthProvider(Component) : Component,
+    };
+  };
+}
 
 export const router = createBrowserRouter([
   // Marketing website (catstays.app)
   {
     path: "/",
-    Component: MarketingHome,
+    lazy: lazyRoute(() => import("./pages/marketing/Home"), "MarketingHome"),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/home",
-    Component: MarketingHome,
+    lazy: lazyRoute(() => import("./pages/marketing/Home"), "MarketingHome"),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/marketing",
-    Component: MarketingHome,
+    lazy: lazyRoute(() => import("./pages/marketing/Home"), "MarketingHome"),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/features",
-    Component: MarketingFeatures,
+    lazy: lazyRoute(() => import("./pages/marketing/Features"), "MarketingFeatures"),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/pricing",
-    Component: MarketingPricing,
+    lazy: lazyRoute(() => import("./pages/marketing/Pricing"), "MarketingPricing"),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/demo",
-    Component: MarketingDemo,
+    lazy: lazyRoute(() => import("./pages/marketing/Demo"), "MarketingDemo"),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/signup",
-    Component: Signup,
+    lazy: lazyRoute(() => import("./pages/marketing/Signup"), "Signup", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/login",
-    Component: Login,
+    lazy: lazyRoute(() => import("./pages/marketing/Login"), "Login", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/onboarding",
-    Component: OnboardingWizard,
+    lazy: lazyRoute(() => import("./pages/onboarding/OnboardingWizard"), "OnboardingWizard", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/confirm-email",
-    Component: ConfirmEmail,
+    lazy: lazyRoute(() => import("./pages/onboarding/ConfirmEmail"), "ConfirmEmail"),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/onboarding-demo",
-    Component: OnboardingDemo,
+    lazy: lazyRoute(() => import("./pages/onboarding/OnboardingDemo"), "OnboardingDemo"),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/publish-success",
-    Component: PublishSuccessScreen,
+    lazy: lazyRoute(() => import("./pages/onboarding/PublishSuccessScreen"), "PublishSuccessScreen", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/upsell",
-    Component: UpsellScreen,
+    lazy: lazyRoute(() => import("./pages/onboarding/UpsellScreen"), "UpsellScreen", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/subscription-preview",
-    Component: SubscriptionPreviewStep,
+    lazy: lazyRoute(() => import("./pages/onboarding/SubscriptionPreviewStep"), "SubscriptionPreviewStep", true),
     ErrorBoundary: RootErrorBoundary,
   },
 
   // Platform owner admin
   {
     path: "/admin",
-    Component: PlatformDashboard,
+    lazy: lazyRoute(() => import("./pages/platform/PlatformDashboard"), "PlatformDashboard", true),
     ErrorBoundary: RootErrorBoundary,
   },
 
   // Cattery staff dashboard
   {
     path: "/staff-dashboard",
-    Component: StaffDashboard,
+    lazy: lazyRoute(() => import("./pages/staff/StaffDashboard"), "StaffDashboard", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/staff-dashboard/bookings",
-    Component: AdminBookings,
+    lazy: lazyRoute(() => import("./pages/admin/Bookings"), "AdminBookings", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/staff-dashboard/customers",
-    Component: AdminCustomers,
+    lazy: lazyRoute(() => import("./pages/admin/Customers"), "AdminCustomers", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/staff-dashboard/calendar",
-    Component: AdminCalendar,
+    lazy: lazyRoute(() => import("./pages/admin/Calendar"), "AdminCalendar", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/staff-dashboard/room-planner",
-    Component: RoomPlannerDashboard,
+    lazy: lazyRoute(() => import("./pages/rooms/RoomPlannerDashboard"), "RoomPlannerDashboard", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/staff-dashboard/smart-import",
-    Component: SmartImport,
+    lazy: lazyRoute(() => import("./pages/admin/SmartImport"), "SmartImport", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/staff-dashboard/smart-data-import",
-    Component: SmartDataImport,
+    lazy: lazyRoute(() => import("./pages/admin/SmartDataImport"), "SmartDataImport", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/staff-dashboard/accounting",
-    Component: AdminAccounting,
+    lazy: lazyRoute(() => import("./pages/admin/Accounting"), "AdminAccounting", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/staff-dashboard/messages",
-    Component: AdminMessages,
+    lazy: lazyRoute(() => import("./pages/admin/Messages"), "AdminMessages", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/staff-dashboard/promotions",
-    Component: AdminPromotions,
+    lazy: lazyRoute(() => import("./pages/admin/Promotions"), "AdminPromotions", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/staff-dashboard/social",
-    Component: AdminSocial,
+    lazy: lazyRoute(() => import("./pages/admin/Social"), "AdminSocial", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/staff-dashboard/cat-update-generator",
-    Component: CatUpdateGenerator,
+    lazy: lazyRoute(() => import("./pages/admin/CatUpdateGenerator"), "CatUpdateGenerator", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/staff-dashboard/insights",
-    Component: AdminInsights,
+    lazy: lazyRoute(() => import("./pages/admin/Insights"), "AdminInsights", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/staff-dashboard/settings",
-    Component: AdminSettings,
+    lazy: lazyRoute(() => import("./pages/admin/Settings"), "AdminSettings", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/staff-dashboard/booking-setup",
-    Component: BookingSetup,
+    lazy: lazyRoute(() => import("./pages/admin/BookingSetup"), "BookingSetup", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/staff-dashboard/payment",
-    Component: PaymentIntegration,
+    lazy: lazyRoute(() => import("./pages/admin/PaymentIntegration"), "PaymentIntegration", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/staff-dashboard/website-editor",
-    Component: DashboardWebsiteEditor,
+    lazy: lazyRoute(() => import("./pages/admin/WebsiteEditor"), "DashboardWebsiteEditor", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/staff-dashboard/marketing",
-    Component: MarketingKit,
+    lazy: lazyRoute(() => import("./pages/admin/MarketingKit"), "MarketingKit", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/staff-dashboard/subscription",
-    Component: Subscription,
+    lazy: lazyRoute(() => import("./pages/admin/Subscription"), "Subscription", true),
     ErrorBoundary: RootErrorBoundary,
   },
 
   // Legacy cattery dashboard routes
   {
     path: "/admin/overview",
-    Component: AdminDashboard,
+    lazy: lazyRoute(() => import("./pages/admin/Dashboard"), "AdminDashboard", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/admin/modern-dashboard",
-    Component: ModernDashboard,
+    lazy: lazyRoute(() => import("./pages/admin/ModernDashboard"), "ModernDashboard", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/admin/dashboard-preview-mock",
-    Component: DashboardPreviewMock,
+    lazy: lazyRoute(() => import("./pages/onboarding/DashboardPreviewMock"), "DashboardPreviewMock", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/admin/calendar",
-    Component: AdminCalendar,
+    lazy: lazyRoute(() => import("./pages/admin/Calendar"), "AdminCalendar", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/admin/booking-calendar",
-    Component: BookingCalendar,
+    lazy: lazyRoute(() => import("./pages/admin/BookingCalendar"), "BookingCalendar", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/admin/room-planner",
-    Component: RoomPlannerDashboard,
+    lazy: lazyRoute(() => import("./pages/rooms/RoomPlannerDashboard"), "RoomPlannerDashboard", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/admin/bookings",
-    Component: AdminBookings,
+    lazy: lazyRoute(() => import("./pages/admin/Bookings"), "AdminBookings", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/admin/customers",
-    Component: AdminCustomers,
+    lazy: lazyRoute(() => import("./pages/admin/Customers"), "AdminCustomers", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/admin/settings",
-    Component: AdminSettings,
+    lazy: lazyRoute(() => import("./pages/admin/Settings"), "AdminSettings", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/admin/settings/data",
-    Component: SettingsDataImport,
+    lazy: lazyRoute(() => import("./pages/tenant/SettingsDataImport"), "SettingsDataImport", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/admin/accounting",
-    Component: AdminAccounting,
+    lazy: lazyRoute(() => import("./pages/admin/Accounting"), "AdminAccounting", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/admin/messages",
-    Component: AdminMessages,
+    lazy: lazyRoute(() => import("./pages/admin/Messages"), "AdminMessages", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/admin/promotions",
-    Component: AdminPromotions,
+    lazy: lazyRoute(() => import("./pages/admin/Promotions"), "AdminPromotions", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/admin/social",
-    Component: AdminSocial,
+    lazy: lazyRoute(() => import("./pages/admin/Social"), "AdminSocial", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/admin/cat-update-generator",
-    Component: CatUpdateGenerator,
+    lazy: lazyRoute(() => import("./pages/admin/CatUpdateGenerator"), "CatUpdateGenerator", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/admin/insights",
-    Component: AdminInsights,
+    lazy: lazyRoute(() => import("./pages/admin/Insights"), "AdminInsights", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/admin/photo-updates",
-    Component: PhotoUpdates,
+    lazy: lazyRoute(() => import("./pages/admin/PhotoUpdates"), "PhotoUpdates", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/admin/booking-confirmation-demo",
-    Component: BookingConfirmationDemo,
+    lazy: lazyRoute(() => import("./pages/admin/BookingConfirmationDemo"), "BookingConfirmationDemo", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/admin/smart-import",
-    Component: SmartImport,
+    lazy: lazyRoute(() => import("./pages/admin/SmartImport"), "SmartImport", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/admin/smart-data-import",
-    Component: SmartDataImport,
+    lazy: lazyRoute(() => import("./pages/admin/SmartDataImport"), "SmartDataImport", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/admin/subscription-demo",
-    Component: SubscriptionDemo,
+    lazy: lazyRoute(() => import("./pages/admin/SubscriptionDemo"), "SubscriptionDemo", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/admin/subscription-locked-demo",
-    Component: SubscriptionLockedDemo,
+    lazy: lazyRoute(() => import("./pages/admin/SubscriptionDemo"), "SubscriptionLockedDemo", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/subscription/payment-paused",
-    Component: PaymentPausedScreen,
+    lazy: lazyRoute(() => import("./pages/subscription/PaymentPausedScreen"), "PaymentPausedScreen"),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/subscription/payment-paused-demo",
-    Component: PaymentPausedDemo,
+    lazy: lazyRoute(() => import("./pages/subscription/PaymentPausedDemo"), "PaymentPausedDemo"),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/subscription/payment-paused-comparison",
-    Component: PaymentPausedComparison,
+    lazy: lazyRoute(() => import("./pages/subscription/PaymentPausedComparison"), "PaymentPausedComparison"),
     ErrorBoundary: RootErrorBoundary,
   },
 
   // New Dashboard Components
   {
     path: "/admin/website-editor",
-    Component: DashboardWebsiteEditor,
+    lazy: lazyRoute(() => import("./pages/admin/WebsiteEditor"), "DashboardWebsiteEditor", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/admin/booking-setup",
-    Component: BookingSetup,
+    lazy: lazyRoute(() => import("./pages/admin/BookingSetup"), "BookingSetup", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/admin/marketing-kit",
-    Component: MarketingKit,
+    lazy: lazyRoute(() => import("./pages/admin/MarketingKit"), "MarketingKit", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/admin/subscription",
-    Component: Subscription,
+    lazy: lazyRoute(() => import("./pages/admin/Subscription"), "Subscription", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/admin/payment-integration",
-    Component: PaymentIntegration,
+    lazy: lazyRoute(() => import("./pages/admin/PaymentIntegration"), "PaymentIntegration", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/admin/domain-settings",
-    Component: DomainSettings,
+    lazy: lazyRoute(() => import("./pages/admin/DomainSettings"), "DomainSettings", true),
     ErrorBoundary: RootErrorBoundary,
   },
 
   // Dashboard routes (alternative paths)
   {
     path: "/dashboard/website-editor",
-    Component: DashboardWebsiteEditor,
+    lazy: lazyRoute(() => import("./pages/admin/WebsiteEditor"), "DashboardWebsiteEditor", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/dashboard/booking-setup",
-    Component: BookingSetup,
+    lazy: lazyRoute(() => import("./pages/admin/BookingSetup"), "BookingSetup", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/dashboard/marketing",
-    Component: MarketingKit,
+    lazy: lazyRoute(() => import("./pages/admin/MarketingKit"), "MarketingKit", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/dashboard/subscription",
-    Component: Subscription,
+    lazy: lazyRoute(() => import("./pages/admin/Subscription"), "Subscription", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/dashboard/payment",
-    Component: PaymentIntegration,
+    lazy: lazyRoute(() => import("./pages/admin/PaymentIntegration"), "PaymentIntegration", true),
     ErrorBoundary: RootErrorBoundary,
   },
 
   // Room Planner
   {
     path: "/rooms/room-planner-dashboard",
-    Component: RoomPlannerDashboard,
+    lazy: lazyRoute(() => import("./pages/rooms/RoomPlannerDashboard"), "RoomPlannerDashboard", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/rooms/room-management",
-    Component: RoomManagement,
+    lazy: lazyRoute(() => import("./pages/rooms/RoomManagement"), "RoomManagement", true),
     ErrorBoundary: RootErrorBoundary,
   },
 
   // Public pages
   {
     path: "/update",
-    Component: UpdatePage,
+    lazy: lazyRoute(() => import("./pages/public/UpdatePage"), "UpdatePage"),
     ErrorBoundary: RootErrorBoundary,
   },
 
   // Tenant website (businessname.catstays.app)
   {
     path: "/site",
-    Component: TenantHome,
+    lazy: lazyRoute(() => import("./pages/tenant/Home"), "TenantHome"),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/site/about",
-    Component: TenantAbout,
+    lazy: lazyRoute(() => import("./pages/tenant/About"), "TenantAbout"),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/site/rooms",
-    Component: TenantRooms,
+    lazy: lazyRoute(() => import("./pages/tenant/Rooms"), "TenantRooms"),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/site/booking",
-    Component: TenantBooking,
+    lazy: lazyRoute(() => import("./pages/tenant/Booking"), "TenantBooking"),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/site/booking-flow",
-    Component: BookingFlow,
+    lazy: lazyRoute(() => import("./pages/tenant/BookingFlow"), "BookingFlow"),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/site/contact",
-    Component: TenantContact,
+    lazy: lazyRoute(() => import("./pages/tenant/Contact"), "TenantContact"),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/site/blog",
-    Component: TenantBlog,
+    lazy: lazyRoute(() => import("./pages/tenant/Blog"), "TenantBlog"),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/site/login",
-    Component: TenantLogin,
+    lazy: lazyRoute(() => import("./pages/tenant/Login"), "TenantLogin"),
     ErrorBoundary: RootErrorBoundary,
   },
 
   // Tenant website with dynamic tenant ID
   {
     path: "/tenant/:tenantId",
-    Component: TenantHome,
+    lazy: lazyRoute(() => import("./pages/tenant/Home"), "TenantHome"),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/tenant/:tenantId/about",
-    Component: TenantAbout,
+    lazy: lazyRoute(() => import("./pages/tenant/About"), "TenantAbout"),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/tenant/:tenantId/rooms",
-    Component: TenantRooms,
+    lazy: lazyRoute(() => import("./pages/tenant/Rooms"), "TenantRooms"),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/tenant/:tenantId/booking",
-    Component: TenantBooking,
+    lazy: lazyRoute(() => import("./pages/tenant/Booking"), "TenantBooking"),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/tenant/:tenantId/booking-flow",
-    Component: BookingFlow,
+    lazy: lazyRoute(() => import("./pages/tenant/BookingFlow"), "BookingFlow"),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/tenant/:tenantId/contact",
-    Component: TenantContact,
+    lazy: lazyRoute(() => import("./pages/tenant/Contact"), "TenantContact"),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/tenant/:tenantId/blog",
-    Component: TenantBlog,
+    lazy: lazyRoute(() => import("./pages/tenant/Blog"), "TenantBlog"),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/tenant/:tenantId/login",
-    Component: TenantLogin,
+    lazy: lazyRoute(() => import("./pages/tenant/Login"), "TenantLogin"),
     ErrorBoundary: RootErrorBoundary,
   },
 
   // Customer portal
   {
     path: "/client-portal",
-    Component: ClientPortalEntry,
+    lazy: lazyRoute(() => import("./pages/customer/ClientPortalEntry"), "ClientPortalEntry"),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/client-portal/bookings",
-    Component: ClientPortalEntry,
+    lazy: lazyRoute(() => import("./pages/customer/ClientPortalEntry"), "ClientPortalEntry"),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/client-portal/profile",
-    Component: ClientPortalEntry,
+    lazy: lazyRoute(() => import("./pages/customer/ClientPortalEntry"), "ClientPortalEntry"),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/customer",
-    Component: CustomerDashboard,
+    lazy: lazyRoute(() => import("./pages/customer/Dashboard"), "CustomerDashboard", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/customer/bookings",
-    Component: CustomerBookings,
+    lazy: lazyRoute(() => import("./pages/customer/Bookings"), "CustomerBookings", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/customer/profile",
-    Component: CustomerProfile,
+    lazy: lazyRoute(() => import("./pages/customer/Profile"), "CustomerProfile", true),
     ErrorBoundary: RootErrorBoundary,
   },
 
   // Website Builder & Platform Admin
   {
     path: "/builder/website-editor",
-    Component: WebsiteEditor,
+    lazy: lazyRoute(() => import("./pages/builder/WebsiteEditor"), "WebsiteEditor", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/builder/website-studio",
-    Component: WebsiteBuilderStudio,
+    lazy: lazyRoute(() => import("./pages/WebsiteBuilderStudio"), "WebsiteBuilderStudio", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/platform/dashboard",
-    Component: PlatformDashboard,
+    lazy: lazyRoute(() => import("./pages/platform/PlatformDashboard"), "PlatformDashboard", true),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/platform/admin-login",
-    Component: AdminLogin,
+    lazy: lazyRoute(() => import("./pages/platform/AdminLogin"), "AdminLogin"),
     ErrorBoundary: RootErrorBoundary,
   },
 
   // Demo pages
   {
     path: "/demo/auth-flow",
-    Component: AuthFlowDemo,
+    lazy: lazyRoute(() => import("./pages/demo/AuthFlowDemo"), "AuthFlowDemo"),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/demo/rooms-pricing",
-    Component: RoomsPricingDemo,
+    lazy: lazyRoute(() => import("./pages/demo/RoomsPricingDemo"), "RoomsPricingDemo"),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/demo/booking-system",
-    Component: BookingSystemDemo,
+    lazy: lazyDefaultRoute(() => import("./pages/BookingSystemDemo")),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/demo/deloraine",
-    Component: DeloraineDemo,
+    lazy: lazyRoute(() => import("./pages/demo/DeloraineDemo"), "DeloraineDemo"),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/demo/deloraine-dashboard",
-    Component: DeloraineDemoDashboard,
+    lazy: lazyRoute(() => import("./pages/demo/DeloraineDemo"), "DeloraineDemoDashboard"),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/demo/deloraine-client",
-    Component: DeloraineDemoClientPortal,
+    lazy: lazyRoute(() => import("./pages/demo/DeloraineDemo"), "DeloraineDemoClientPortal"),
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
+    path: "/demo/:demoSlug",
+    lazy: lazyRoute(() => import("./pages/demo/DeloraineDemo"), "DeloraineDemo"),
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
+    path: "/demo/:demoSlug/dashboard",
+    lazy: lazyRoute(() => import("./pages/demo/DeloraineDemo"), "DeloraineDemoDashboard"),
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
+    path: "/demo/:demoSlug/client",
+    lazy: lazyRoute(() => import("./pages/demo/DeloraineDemo"), "DeloraineDemoClientPortal"),
     ErrorBoundary: RootErrorBoundary,
   },
 
   // Not found
   {
     path: "*",
-    Component: NotFound,
+    lazy: lazyRoute(() => import("./pages/NotFound"), "NotFound"),
     ErrorBoundary: RootErrorBoundary,
   },
 ]);
