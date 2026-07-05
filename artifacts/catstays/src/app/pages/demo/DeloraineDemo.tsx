@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useLocation } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { ArrowLeft, CheckCircle, Globe, LayoutDashboard, Monitor, Smartphone, Tablet, UserRound } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { CatstaysTemplateSite } from '../onboarding/CatstaysTemplateSite';
@@ -37,28 +37,24 @@ interface DeloraineDemoPageProps {
 const modeOptions: Array<{
   mode: DemoMode;
   label: string;
-  href: string;
   icon: typeof Globe;
   description: string;
 }> = [
   {
     mode: 'website',
     label: 'Website',
-    href: '/demo/deloraine',
     icon: Globe,
     description: 'Preview the imported customer-facing website exactly as visitors will browse it.',
   },
   {
     mode: 'dashboard',
     label: 'Staff demo',
-    href: '/demo/deloraine-dashboard',
     icon: LayoutDashboard,
     description: 'Preview the staff workspace for bookings, customers, rooms, payments, and daily operations.',
   },
   {
     mode: 'client',
     label: 'Client portal',
-    href: '/demo/deloraine-client',
     icon: UserRound,
     description: 'Clients can view bookings, manage pet profiles, and receive photo updates.',
   },
@@ -90,6 +86,7 @@ export function DeloraineDemoClientPortal() {
 
 function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const [requestedImportUrl] = useState(() => readRequestedImportUrl());
   const [previewData, setPreviewData] = useState<DelorainePreviewData>(() => readInitialPreviewData(requestedImportUrl));
   const [previewMode, setPreviewMode] = useState<DemoMode>(initialMode);
@@ -112,7 +109,17 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
   };
 
   const selectedTemplate = normalizePreviewTemplateId(previewData.selectedTemplate || 'original');
-  const modeHref = (href: string) => href;
+  const previewSlug = previewSlugForData(previewData, requestedImportUrl);
+  const modeHref = (mode: DemoMode) => demoPathForMode(mode, previewSlug);
+
+  useEffect(() => {
+    if (!previewSlug || previewSlug === 'deloraine') return;
+    if (!/^\/demo\/(?:[^/]+(?:\/(?:dashboard|client))?|deloraine-(?:dashboard|client))$/.test(location.pathname)) return;
+    const expectedPath = demoPathForMode(previewMode, previewSlug);
+    if (location.pathname !== expectedPath) {
+      navigate(expectedPath, { replace: true });
+    }
+  }, [location.pathname, navigate, previewMode, previewSlug]);
 
   const selectTemplate = (template: PreviewTemplateId) => {
     const nextData = dataForTemplate(previewData, template);
@@ -199,12 +206,12 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
       <div className="border-b border-[#0A1128]/10 bg-[#0A1128] text-white">
         <div className="mx-auto flex max-w-7xl flex-col gap-2 px-5 py-2.5 sm:px-8 md:flex-row md:items-center md:justify-between lg:px-10">
           <div className="flex flex-wrap items-center gap-2">
-            {modeOptions.map(({ mode, label, href, icon: Icon, description }) => {
+            {modeOptions.map(({ mode, label, icon: Icon, description }) => {
               const active = previewMode === mode;
               return (
                 <Link
                   key={mode}
-                  to={modeHref(href)}
+                  to={modeHref(mode)}
                   onClick={() => setPreviewMode(mode)}
                   onMouseEnter={() => setHoveredMode(mode)}
                   onMouseLeave={() => setHoveredMode(null)}
@@ -527,4 +534,32 @@ function readStoredPreviewData(requestedUrl: string): DelorainePreviewData | nul
 
 function isDeloraineRequest(requestedUrl: string): boolean {
   return sourceMatchesRequest(DELORAINE_SOURCE_URL, requestedUrl);
+}
+
+function previewSlugForData(data: DelorainePreviewData, requestedUrl: string) {
+  const businessName = (data as any).businessName || (data as any).previewImportRecord?.identity?.businessName || '';
+  const fromBusiness = slugify(businessName.replace(/\.(?:co\.)?[a-z]{2,}$/i, ''));
+  if (fromBusiness && fromBusiness !== 'your-cattery') return fromBusiness;
+  try {
+    const host = new URL(requestedUrl.startsWith('http') ? requestedUrl : `https://${requestedUrl}`).hostname.replace(/^www\./, '');
+    return slugify(host.split('.')[0] || 'deloraine');
+  } catch {
+    return 'deloraine';
+  }
+}
+
+function demoPathForMode(mode: DemoMode, slug: string) {
+  const safeSlug = slug || 'deloraine';
+  if (mode === 'dashboard') return `/demo/${safeSlug}/dashboard`;
+  if (mode === 'client') return `/demo/${safeSlug}/client`;
+  return `/demo/${safeSlug}`;
+}
+
+function slugify(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48) || 'deloraine';
 }

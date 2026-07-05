@@ -600,6 +600,21 @@ export const router = createBrowserRouter([
     lazy: lazyRoute(() => import("./pages/demo/DeloraineDemo"), "DeloraineDemoClientPortal"),
     ErrorBoundary: RootErrorBoundary,
   },
+  {
+    path: "/demo/:demoSlug",
+    Component: DeloraineDemo,
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
+    path: "/demo/:demoSlug/dashboard",
+    Component: DeloraineDemoDashboard,
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
+    path: "/demo/:demoSlug/client",
+    Component: DeloraineDemoClientPortal,
+    ErrorBoundary: RootErrorBoundary,
+  },
 
   // Not found
   {
