@@ -10,7 +10,7 @@ import { BookingFlowModal } from '../../components/BookingFlowModal';
 import { ChatWidget } from '../../components/ChatWidget';
 import { WebsiteHeader } from '../../components/WebsiteHeader';
 import { CatstaysTemplateSite } from './CatstaysTemplateSite';
-import { isOriginalTemplate, normalizePreviewTemplateId } from '../../lib/previewTemplates';
+import { normalizePreviewTemplateId } from '../../lib/previewTemplates';
 import {
   WhyChooseUsSection,
   FacilitiesSection,
@@ -139,19 +139,8 @@ export function FullWebsitePreview({
     setShowBookingModal(true);
   };
 
-  // Render the imported customer website exactly when a source URL exists.
+  // Render the generated customer website preview from the saved scrape.
   const renderWebsitePreview = (fillHeight = true) => {
-    const sourcePreviewUrl = importedPreviewUrl(data);
-    if (sourcePreviewUrl && isOriginalTemplate(data.selectedTemplate)) {
-      return (
-        <SourceWebsitePreview
-          sourceUrl={sourcePreviewUrl}
-          title={`${data.businessName || 'Imported cattery'} website preview`}
-          fillHeight={fillHeight}
-        />
-      );
-    }
-
     const template = normalizePreviewTemplateId(data.selectedTemplate || 'conversion-focus');
 
     if (
@@ -363,9 +352,7 @@ export function FullWebsitePreview({
     );
   };
 
-  const isOriginalWebsitePreview = previewMode === 'website' && isOriginalTemplate(data.selectedTemplate);
-
-  if (isEmbeddedDemoSurface && deviceType === 'desktop' && previewMode === 'website' && !isOriginalWebsitePreview) {
+  if (isEmbeddedDemoSurface && deviceType === 'desktop' && previewMode === 'website') {
     return (
       <div
         className="w-full overflow-visible bg-white"
@@ -575,46 +562,6 @@ export function FullWebsitePreview({
           </div>
         </Card>
       </div>}
-    </div>
-  );
-}
-
-function importedPreviewUrl(data: FullWebsitePreviewProps['data']) {
-  const rawUrl = data.importSourceUrl || data.sourceUrl;
-  if (!rawUrl || typeof rawUrl !== 'string') return '';
-
-  try {
-    const url = new URL(rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`);
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') return '';
-    return url.toString();
-  } catch {
-    return '';
-  }
-}
-
-function SourceWebsitePreview({
-  sourceUrl,
-  title,
-  fillHeight,
-}: {
-  sourceUrl: string;
-  title: string;
-  fillHeight: boolean;
-}) {
-  const heightStyle = fillHeight
-    ? { height: '100%' }
-    : { height: '900px', minHeight: 'calc(100vh - 170px)' };
-
-  return (
-    <div className="w-full bg-white" style={heightStyle}>
-      <iframe
-        title={title}
-        src={sourceUrl}
-        className="block h-full min-h-[inherit] w-full border-0 bg-white"
-        referrerPolicy="no-referrer-when-downgrade"
-        sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
-        scrolling="auto"
-      />
     </div>
   );
 }

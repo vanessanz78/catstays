@@ -9,9 +9,37 @@ import { ImageWithFallback } from '../../components/figma/ImageWithFallback';
 import { ChatWidget } from '../../components/ChatWidget';
 import { useTenantCattery } from '@/hooks/useTenantCattery';
 import { sendContactEnquiry } from '@/utils/email';
+import { CatstaysTemplateSite } from '../onboarding/CatstaysTemplateSite';
+import { normalizePreviewTemplateId } from '../../lib/previewTemplates';
 
 const DEFAULT_HERO = 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080';
 const ABOUT_IMG = 'https://images.unsplash.com/photo-1573865526739-10c1dd7aa736?w=1200&q=80';
+const PUBLIC_SITE_INDEX_KEY = 'catstays_public_sites';
+
+function tenantSlugKey(value?: string) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function readLocalPublicSite(tenantId?: string) {
+  if (!tenantId || typeof window === 'undefined') return null;
+  const slug = tenantSlugKey(tenantId);
+
+  try {
+    const direct = localStorage.getItem(`catstays_public_site_${slug}`);
+    if (direct) {
+      const parsed = JSON.parse(direct);
+      if (parsed?.data) return parsed;
+    }
+
+    const index = JSON.parse(localStorage.getItem(PUBLIC_SITE_INDEX_KEY) || '{}');
+    return index?.[slug]?.data ? index[slug] : null;
+  } catch {
+    return null;
+  }
+}
 
 export function TenantHome() {
   const { tenantId } = useParams();
@@ -19,6 +47,25 @@ export function TenantHome() {
   const { cattery, rooms, loading } = useTenantCattery(tenantId);
   const base = tenantId ? `/tenant/${tenantId}` : '/site';
   const ws = (cattery?.website_settings as Record<string, any>) ?? {};
+  const localPublicSite = readLocalPublicSite(tenantId);
+  const generatedSiteData = localPublicSite?.data || (cattery && (ws.selectedTemplate || ws.liveTemplate || ws.previewImportRecord)
+    ? {
+        ...ws,
+        businessName: cattery.name,
+        phone: cattery.phone,
+        email: cattery.email,
+        address: cattery.address,
+        location: cattery.city || cattery.address || ws.location,
+        subdomain: tenantId || ws.subdomain,
+      }
+    : null);
+  const generatedTemplateId = normalizePreviewTemplateId(
+    generatedSiteData?.liveTemplate ||
+    generatedSiteData?.selectedTemplate ||
+    ws.liveTemplate ||
+    ws.selectedTemplate ||
+    'conversion-focus',
+  );
 
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
@@ -53,6 +100,18 @@ export function TenantHome() {
       <div className="min-h-screen flex items-center justify-center bg-cream">
         <Loader2 className="w-8 h-8 animate-spin text-sage" />
       </div>
+    );
+  }
+
+  if (generatedSiteData) {
+    return (
+      <CatstaysTemplateSite
+        data={{
+          ...generatedSiteData,
+          previewRecordStatus: localPublicSite?.status || generatedSiteData.previewRecordStatus || 'live',
+        }}
+        templateId={generatedTemplateId}
+      />
     );
   }
 

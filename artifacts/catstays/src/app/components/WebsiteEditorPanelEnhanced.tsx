@@ -9,7 +9,8 @@ import { ImageUpload } from './ImageUpload';
 
 /**
  * Website Editor Panel - Sections ordered to match the generated preview (top to bottom)
- * Order: Hero -> About -> Care Approach -> Facilities -> Owner Story -> Gallery -> Suites -> Services -> Reviews -> Contact -> Footer -> Chatbot
+ * Order: Hero -> Care Approach -> About/Owner Story -> Gallery -> Suites -> Services -> Reviews -> Contact -> Footer -> Chatbot FAQ
+ * The standalone facilities editor only appears when a template explicitly renders that section.
  */
 
 interface WebsiteEditorPanelEnhancedProps {
@@ -37,6 +38,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
     social: 'Social Media',
     footer: 'Footer Links',
   };
+  const showFacilitiesDetailEditor = data.showFacilitiesDetailSection === true;
 
   const handleAIClick = (field: string) => {
     if (onAIRegenerate) {
@@ -77,7 +79,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       <option value="#booking">Booking strip</option>
       <option value="#about">About</option>
       <option value="#care">Care approach</option>
-      <option value="#facilities">Facilities</option>
+      {showFacilitiesDetailEditor ? <option value="#facilities">Facilities</option> : null}
       <option value="#suites">Suites / rooms</option>
       <option value="#services">Extra care / services</option>
       <option value="#gallery">Gallery</option>
@@ -85,6 +87,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       <option value="#location">Location</option>
       <option value="#virtual-tour">Virtual tour</option>
       <option value="#contact">Contact</option>
+      <option value="#faqs">FAQs</option>
     </select>
   );
 
@@ -151,9 +154,9 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
             <div className="space-y-2">
               <Label>Primary Button Text</Label>
               <Input
-                value={data.heroPrimaryCtaText || 'Discover Our Suites'}
+                value={data.heroPrimaryCtaText || 'View Suites'}
                 onChange={(e) => setData({ ...data, heroPrimaryCtaText: e.target.value })}
-                placeholder="Discover Our Suites"
+                placeholder="View Suites"
                 className="rounded-lg"
               />
             </div>
@@ -179,7 +182,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       </AccordionItem>
 
       {/* 2. CARE APPROACH SECTION */}
-      <AccordionItem value="why-choose-us" className="order-3 border rounded-xl px-4 bg-white">
+      <AccordionItem value="why-choose-us" className="order-2 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
           <span className="font-semibold">{sectionTitles.care}</span>
         </AccordionTrigger>
@@ -399,7 +402,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       </AccordionItem>
 
       {/* 3. ABOUT SECTION */}
-      <AccordionItem value="about" className="order-2 border rounded-xl px-4 bg-white">
+      <AccordionItem value="about" className="order-3 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
           <span className="font-semibold">{sectionTitles.about}</span>
         </AccordionTrigger>
@@ -458,7 +461,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       </AccordionItem>
 
       {/* 4. FACILITIES SECTION */}
-      <AccordionItem value="facilities" className="order-4 border rounded-xl px-4 bg-white">
+      <AccordionItem value="facilities" className={`${showFacilitiesDetailEditor ? 'order-4' : 'hidden'} border rounded-xl px-4 bg-white`}>
         <AccordionTrigger className="hover:no-underline py-4">
           <span className="font-semibold">{sectionTitles.facilities}</span>
         </AccordionTrigger>
