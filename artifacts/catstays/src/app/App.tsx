@@ -23,7 +23,7 @@ function installPreviewCacheQuotaGuard() {
 
   const originalSetItem = Storage.prototype.setItem;
 
-  Storage.prototype.setItem = function guardedSetItem(key: string, value: string) {
+  Storage.prototype.setItem = function guardedSetItem(this: Storage, key: string, value: string) {
     if (key !== previewImportStorageKey) {
       return originalSetItem.call(this, key, value);
     }
