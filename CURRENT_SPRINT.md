@@ -18,7 +18,7 @@ Stabilise the CatStays onboarding publish flow and give future Codex chats a roo
 
 ## Restore Point Note
 
-This branch was created on 2026-07-05 to recover the last known GitHub `main` state before the FancyFelines-specific import/preview changes. The app code is intentionally based on commit `49fefa8`, with one extra guard in `artifacts/catstays/src/app/App.tsx` that clears an oversized preview import browser cache so the demo page does not crash with a storage quota error.
+This branch was created on 2026-07-05 to recover the last known GitHub `main` state before the FancyFelines-specific import/preview changes. The app code is intentionally based on commit `49fefa8`, with one extra guard in `artifacts/catstays/src/app/App.tsx` that clears an oversized preview import browser cache and prevents quota errors for that cache key from crashing the demo page.
 
 Every future GitHub note and Replit handoff must include the exact working ref. Required wording: `Working ref: <main | branch name | commit SHA>`.
 
@@ -31,7 +31,7 @@ Every future GitHub note and Replit handoff must include the exact working ref. 
 - Duplicate email detection comes from Supabase Auth users (`auth.users` / Authentication > Users), not OAuth Apps and not the public `customers` table.
 - Replit's database module may exist in the workspace, but the publish/provisioning route uses Supabase Auth and Supabase tables, not the Replit Postgres database.
 - `.replit` now sets `CATSTAYS_APP_URL` and `VITE_PUBLIC_APP_URL` to `https://catstays.app` so confirmation URLs prefer the live app URL instead of a Replit development preview origin.
-- `artifacts/catstays/src/app/App.tsx` now clears an oversized `catstays_preview_import_table` cache on startup to recover from the Generate Preview storage-quota error.
+- `artifacts/catstays/src/app/App.tsx` now clears oversized `catstays_preview_import_table` browser storage and guards that cache key from quota write crashes during Generate Preview.
 - `docs/changelog.md`, `docs/onboarding-flow.md`, and `docs/CATSTAYS_REPLIT_SECRETS.md` were updated for the publish-loop and app URL work.
 - No root-level Architect Update exists yet.
 
@@ -52,7 +52,7 @@ Every future GitHub note and Replit handoff must include the exact working ref. 
 - Treat Supabase Authentication > Users as the source of truth for signup email uniqueness.
 - Pin Replit public app URL values to `https://catstays.app` for confirmation email redirects.
 - Use `codex/stable-pre-fancyfelines-main-20260705` as the restore branch for the pre-FancyFelines `main` state.
-- Add one startup cache guard for oversized preview import browser storage after Generate Preview hit the browser quota.
+- Add one targeted cache guard for `catstays_preview_import_table` after Generate Preview hit the browser quota.
 
 ## Risks Or Blockers
 
