@@ -602,17 +602,17 @@ export const router = createBrowserRouter([
   },
   {
     path: "/demo/:demoSlug",
-    Component: DeloraineDemo,
+    lazy: lazyRoute(() => import("./pages/demo/DeloraineDemo"), "DeloraineDemo"),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/demo/:demoSlug/dashboard",
-    Component: DeloraineDemoDashboard,
+    lazy: lazyRoute(() => import("./pages/demo/DeloraineDemo"), "DeloraineDemoDashboard"),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/demo/:demoSlug/client",
-    Component: DeloraineDemoClientPortal,
+    lazy: lazyRoute(() => import("./pages/demo/DeloraineDemo"), "DeloraineDemoClientPortal"),
     ErrorBoundary: RootErrorBoundary,
   },
 

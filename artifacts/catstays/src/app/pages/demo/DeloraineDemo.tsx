@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router';
+import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { ArrowLeft, CheckCircle, Globe, LayoutDashboard, Monitor, Smartphone, Tablet, UserRound } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { CatstaysTemplateSite } from '../onboarding/CatstaysTemplateSite';
@@ -87,7 +87,8 @@ export function DeloraineDemoClientPortal() {
 function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const [requestedImportUrl] = useState(() => readRequestedImportUrl());
+  const { demoSlug } = useParams();
+  const [requestedImportUrl] = useState(() => readRequestedImportUrl(demoSlug));
   const [previewData, setPreviewData] = useState<DelorainePreviewData>(() => readInitialPreviewData(requestedImportUrl));
   const [previewMode, setPreviewMode] = useState<DemoMode>(initialMode);
   const [hoveredMode, setHoveredMode] = useState<DemoMode | null>(null);
@@ -474,25 +475,94 @@ function persistPreviewData(previewData: DelorainePreviewData) {
   }
 }
 
-function readRequestedImportUrl(): string {
+function readRequestedImportUrl(demoSlug?: string): string {
   if (typeof window === 'undefined') return DELORAINE_SOURCE_URL;
 
   const sourceParam = new URLSearchParams(window.location.search).get('source');
   const sourceIntent = window.sessionStorage.getItem(PREVIEW_SOURCE_INTENT_STORAGE_KEY);
   const explicitPreviewSource = sourceIntent === 'form-submit';
-  const requestedUrl =
-    explicitPreviewSource
-      ? window.sessionStorage.getItem(PREVIEW_URL_STORAGE_KEY) ||
-        window.localStorage.getItem(PREVIEW_URL_STORAGE_KEY) ||
-        window.sessionStorage.getItem(IMPORT_URL_STORAGE_KEY) ||
-        window.localStorage.getItem(IMPORT_URL_STORAGE_KEY) ||
-        sourceParam ||
-        DELORAINE_SOURCE_URL
-      : DELORAINE_SOURCE_URL;
+  const routeSlug = slugify(demoSlug || '');
+
+  let requestedUrl = DELORAINE_SOURCE_URL;
+  if (routeSlug && routeSlug !== 'deloraine') {
+    requestedUrl =
+      sourceParam ||
+      readStoredSourceUrlForSlug(routeSlug) ||
+      readMatchingStoredPreviewUrl(routeSlug) ||
+      `https://${routeSlug}.nz/`;
+  } else if (explicitPreviewSource) {
+    requestedUrl = sourceParam || readStoredPreviewUrl() || DELORAINE_SOURCE_URL;
+  }
 
   window.localStorage.setItem(PREVIEW_URL_STORAGE_KEY, requestedUrl);
   window.sessionStorage.setItem(PREVIEW_URL_STORAGE_KEY, requestedUrl);
   return requestedUrl;
+}
+
+function readStoredPreviewUrl(): string | null {
+  return (
+    window.sessionStorage.getItem(PREVIEW_URL_STORAGE_KEY) ||
+    window.localStorage.getItem(PREVIEW_URL_STORAGE_KEY) ||
+    window.sessionStorage.getItem(IMPORT_URL_STORAGE_KEY) ||
+    window.localStorage.getItem(IMPORT_URL_STORAGE_KEY)
+  );
+}
+
+function readMatchingStoredPreviewUrl(slug: string): string | null {
+  const storedUrl = readStoredPreviewUrl();
+  if (!storedUrl) return null;
+  return sourceUrlMatchesSlug(storedUrl, slug) ? storedUrl : null;
+}
+
+function readStoredSourceUrlForSlug(slug: string): string | null {
+  const rawValues = [
+    window.sessionStorage.getItem(PREVIEW_DATA_STORAGE_KEY),
+    window.localStorage.getItem(PREVIEW_DATA_STORAGE_KEY),
+  ].filter((value): value is string => Boolean(value));
+
+  for (const raw of rawValues) {
+    try {
+      const parsed = JSON.parse(raw) as {
+        scrape?: ImportedCatteryScrape;
+        previewData?: DelorainePreviewData;
+      };
+      const previewData = parsed.previewData;
+      const scrape = parsed.scrape;
+      const sourceUrl = scrape?.sourceUrl || previewData?.sourceUrl || (previewData as any)?.importSourceUrl;
+      if (!sourceUrl) continue;
+
+      const sourceHost = scrape?.sourceHost || hostFromUrl(sourceUrl);
+      const candidateSlugs = [
+        (previewData as any)?.businessName,
+        previewData?.heading,
+        scrape?.heading,
+        scrape?.title,
+        sourceHost?.split('.')[0],
+      ]
+        .map((value) => slugify(value || ''))
+        .filter(Boolean);
+
+      if (candidateSlugs.includes(slug)) return sourceUrl;
+    } catch {
+      // Ignore stale or malformed preview storage and fall back to the route slug.
+    }
+  }
+
+  return null;
+}
+
+function sourceUrlMatchesSlug(sourceUrl: string, slug: string): boolean {
+  const host = hostFromUrl(sourceUrl);
+  if (!host) return false;
+  return slugify(host.split('.')[0] || '') === slug;
+}
+
+function hostFromUrl(value: string): string {
+  try {
+    return new URL(value.startsWith('http') ? value : `https://${value}`).hostname.replace(/^www\./, '');
+  } catch {
+    return '';
+  }
 }
 
 function readInitialPreviewData(requestedUrl: string): DelorainePreviewData {
