@@ -18,7 +18,7 @@ Impact:
 
 Decision: Treat Supabase Authentication > Users, not OAuth Apps, public customer tables, or Replit Database, as the source of truth for signup email uniqueness.
 
-Reason: CatStays signup/publish calls Supabase Auth. Email/password identities are stored in the Supabase Auth schema and surfaced in Authentication > Users. OAuth Apps only controls whether the project acts as an OAuth provider for third-party apps; an empty OAuth Apps list does not mean email signup users have been deleted. Empty public tables such as `customers` also do not remove Auth users.
+Reason: CatStays signup/publish calls Supabase Auth. Email/password identities are stored in the Supabase Auth schema and surfaced in Authentication > Users. OAuth Apps only controls whether the project acts as an OAuth provider for third-party applications; an empty OAuth Apps list does not mean email signup users have been deleted. Empty public tables such as `customers` also do not remove Auth users.
 
 Impact:
 
@@ -60,8 +60,20 @@ Reason: The `eea5a0a` rollback target was still after the FancyFelines import/pr
 Impact:
 
 - Replit should test `codex/stable-pre-fancyfelines-main-20260705`, not `eea5a0a`, when trying to restore the pre-FancyFelines state.
-- This branch keeps the app code at the pre-FancyFelines `main` state and adds only handoff notes.
+- This branch keeps the app code based on the pre-FancyFelines `main` state, with only a targeted preview-cache recovery guard added after the restore point.
 - Future GitHub notes and Replit handoffs must include `Working ref: <main | branch name | commit SHA>`.
+
+## 2026-07-05 - Preview Import Cache Recovery
+
+Decision: Add a startup guard that clears only oversized browser storage for `catstays_preview_import_table`.
+
+Reason: Generate Preview could fail before rendering when an earlier import-preview branch stored too much preview-import data in browser storage. The browser then raised a storage quota error before the restored app could recover.
+
+Impact:
+
+- The restore branch can recover from the specific `catstays_preview_import_table` quota failure shown in Replit preview.
+- The guard does not delete onboarding data, source files, Supabase data, or imported project state; it only removes an oversized/stuck browser preview-import cache.
+- If Generate Preview still fails after pulling this branch and hard-refreshing, the next fix should guard the preview-import save path itself rather than moving to later FancyFelines commits.
 
 ## Open Decisions
 
