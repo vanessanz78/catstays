@@ -1,6 +1,6 @@
 # Decision Log
 
-Last updated: 2026-07-01
+Last updated: 2026-07-05
 
 ## 2026-07-01 - Root Sprint Docs
 
@@ -50,6 +50,18 @@ Impact:
 - Users should stay on the Publish step when publishing with an already-registered email.
 - Setup context is preserved.
 - Replit UAT should confirm both duplicate-email and fresh-email publish paths.
+
+## 2026-07-05 - Pre-FancyFelines Restore Branch
+
+Decision: Create `codex/stable-pre-fancyfelines-main-20260705` from commit `49fefa8b65c17f8d9dad25d9656afc98e3d4ffad`.
+
+Reason: The `eea5a0a` rollback target was still after the FancyFelines import/preview work had started. Screenshots from the CatStays v2 conversation showed the last known handoff before FancyFelines was GitHub `main`, and the relevant final pre-FancyFelines GitHub commit was `49fefa8`.
+
+Impact:
+
+- Replit should test `codex/stable-pre-fancyfelines-main-20260705`, not `eea5a0a`, when trying to restore the pre-FancyFelines state.
+- This branch keeps the app code at the pre-FancyFelines `main` state and adds only handoff notes.
+- Future GitHub notes and Replit handoffs must include `Working ref: <main | branch name | commit SHA>`.
 
 ## Open Decisions
 
