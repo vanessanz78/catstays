@@ -1,6 +1,6 @@
 # Decision Log
 
-Last updated: 2026-07-01
+Last updated: 2026-07-05
 
 ## 2026-07-01 - Root Sprint Docs
 
@@ -50,6 +50,20 @@ Impact:
 - Users should stay on the Publish step when publishing with an already-registered email.
 - Setup context is preserved.
 - Replit UAT should confirm both duplicate-email and fresh-email publish paths.
+
+## 2026-07-05 - Recover Imported Preview Image Selection
+
+Decision: Use branch `codex/import-preview-image-recovery-20260705` to recover the source-site media catalogue and preview image selection logic from `codex/media-library-preview-images`, based on the Replit-working branch `codex/import-preview-rendering-20260703`.
+
+Reason: The post-FancyFelines state mixed real import improvements with placeholder-image regressions. Replit was also hitting a browser storage quota crash for `catstays_preview_import_table`, which could stop imported image records from being recalled and make previews fall back to placeholders.
+
+Impact:
+
+- Imported website media is indexed with category, source page, surrounding text, logo/text-heavy/decorative flags, and scoring.
+- Template image selection avoids logos, text-heavy images, decorative images, and repeated normal-section images.
+- Real imported sites no longer silently fall back to generic placeholder images when source images are absent or fail to load.
+- Full preview payloads are kept in session storage, with compact local storage fallbacks to avoid browser quota failures.
+- A durable Supabase source-image download, resize, and storage pipeline was not found in GitHub during this recovery pass and remains a separate implementation decision.
 
 ## Open Decisions
 
