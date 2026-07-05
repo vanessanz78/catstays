@@ -76,6 +76,18 @@ Impact:
 - The guard does not delete onboarding data, source files, Supabase data, or imported project state.
 - If Generate Preview still fails after pulling this branch and hard-refreshing, continue from the pre-FancyFelines restore branch rather than moving to later FancyFelines commits.
 
+## 2026-07-05 - Preview Image Fallback Recovery
+
+Decision: Filter known stale source-site asset image URLs and render a real-photo fallback wherever the CatStays preview template displays an image.
+
+Reason: Some recovered preview data and template cards still referenced old Deloraine source-site asset URLs. Those URLs could return a web page instead of an image, which produced broken image boxes after the stable branch was restored.
+
+Impact:
+
+- The recovered pre-FancyFelines branch should no longer show broken image boxes when stale source asset URLs appear in stored preview data.
+- Template cards now use stable real-photo fallback images rather than old source-site assets.
+- This change is a stability fix only; it does not reintroduce the later FancyFelines import/preview branch behavior.
+
 ## Open Decisions
 
 - Whether to add a formal root-level Architect Update file for CatStays.

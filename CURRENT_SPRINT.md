@@ -39,11 +39,12 @@ Every future GitHub note and Replit handoff must include the exact working ref. 
 
 1. Pull `codex/stable-pre-fancyfelines-main-20260705` into Replit and republish/restart so this restore branch can be tested.
 2. Hard refresh the preview after Replit restarts, then click Generate Preview again and confirm the storage-quota fail screen is gone.
-3. In Supabase Authentication > Users, delete or use a different email than any existing Auth user before testing a fresh publish path.
-4. UAT the Publish step with an already-registered email and confirm it stays on Publish with an inline error.
-5. UAT a fresh email publish path to confirm normal provisioning still reaches Success.
-6. Confirm the email confirmation redirect URL now points to the live CatStays URL. If links still open a development/auth URL, verify Supabase Auth URL Configuration and additional redirect URLs in Supabase.
-7. If this restore branch is confirmed stable, use it as the clean base for rebuilding later import/preview work.
+3. Confirm the restored preview no longer shows broken image boxes in the hero, about, facilities, suites, owner, gallery, and template-selector image areas.
+4. In Supabase Authentication > Users, delete or use a different email than any existing Auth user before testing a fresh publish path.
+5. UAT the Publish step with an already-registered email and confirm it stays on Publish with an inline error.
+6. UAT a fresh email publish path to confirm normal provisioning still reaches Success.
+7. Confirm the email confirmation redirect URL now points to the live CatStays URL. If links still open a development/auth URL, verify Supabase Auth URL Configuration and additional redirect URLs in Supabase.
+8. If this restore branch is confirmed stable, use it as the clean base for rebuilding later import/preview work.
 
 ## Decisions This Sprint
 
@@ -53,6 +54,7 @@ Every future GitHub note and Replit handoff must include the exact working ref. 
 - Pin Replit public app URL values to `https://catstays.app` for confirmation email redirects.
 - Use `codex/stable-pre-fancyfelines-main-20260705` as the restore branch for the pre-FancyFelines `main` state.
 - Add one targeted cache guard for `catstays_preview_import_table` after Generate Preview hit the browser quota.
+- Filter known stale source-site image URLs and render a real-photo fallback instead of broken image boxes on the recovered preview branch.
 
 ## Risks Or Blockers
 

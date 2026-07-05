@@ -5,14 +5,14 @@ export const PREVIEW_DATA_STORAGE_KEY = 'catstays_preview_data';
 export const IMPORT_URL_STORAGE_KEY = 'catstays_import_url';
 
 const deloraineAssets = [
-  'https://www.delorainecattery.com/assets/Deloraine%20Cattery%20Building-CX1rWDRb.png',
-  'https://www.delorainecattery.com/assets/Private3-R_9kRTwp.jpg',
-  'https://www.delorainecattery.com/assets/Communal3-CidRKr1N.jpg',
-  'https://www.delorainecattery.com/assets/Indoor-Blew-XJG.jpeg',
-  'https://www.delorainecattery.com/assets/Kitty3-nO3ryPLf.jpg',
-  'https://www.delorainecattery.com/assets/Wally-C97dE8Dg.jpg',
-  'https://www.delorainecattery.com/assets/Lola-c8BpaLTB.jpg',
-  'https://www.delorainecattery.com/assets/Paul%20and%20Vanessa-Dst6H-6-.jpg',
+  'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=1200&h=900&fit=crop',
+  'https://images.unsplash.com/photo-1543852786-1cf6624b9987?w=1200&h=900&fit=crop',
+  'https://images.unsplash.com/photo-1573865526739-10c1de0e0ef2?w=1200&h=900&fit=crop',
+  'https://images.unsplash.com/photo-1518791841217-8f162f1e1131?w=1200&h=900&fit=crop',
+  'https://images.unsplash.com/photo-1513360371669-4adf3dd7dff8?w=1200&h=900&fit=crop',
+  'https://images.unsplash.com/photo-1574158622682-e40e69881006?w=1200&h=900&fit=crop',
+  'https://images.unsplash.com/photo-1495360010541-f48722b34f7d?w=1200&h=900&fit=crop',
+  'https://images.unsplash.com/photo-1555685812-4b943f1cb0eb?w=1200&h=900&fit=crop',
 ];
 
 const deloraineVirtualTourEmbedUrl =
@@ -1462,17 +1462,39 @@ function genericFaqs(businessName: string): NonNullable<ImportedCatteryScrape['f
 }
 
 function imageByName(images: string[], pattern: RegExp): string {
-  return images.find((image) => pattern.test(decodeURIComponent(image))) || '';
+  return images.find((image) => pattern.test(safeDecodeURIComponent(image))) || '';
 }
 
 function uniqueImages(images: Array<string | undefined>): string[] {
   const seen = new Set<string>();
   return images
-    .filter((image): image is string => Boolean(image && /^https?:\/\//i.test(image)))
+    .filter((image): image is string => Boolean(image && isLikelyRenderableImage(image)))
     .filter((image) => {
       const key = image.split('?')[0].toLowerCase();
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
     });
+}
+
+function isLikelyRenderableImage(image: string): boolean {
+  if (!/^https?:\/\//i.test(image)) return false;
+  try {
+    const url = new URL(image);
+    const host = url.hostname.replace(/^www\./, '').toLowerCase();
+    const decodedPath = safeDecodeURIComponent(url.pathname);
+    if (host === 'delorainecattery.com' && /^\/assets\//i.test(decodedPath)) return false;
+    if (/\.(?:html?|php|aspx?)(?:$|[?#])/i.test(decodedPath)) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function safeDecodeURIComponent(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
 }

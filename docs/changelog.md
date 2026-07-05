@@ -6,6 +6,7 @@
 - Clarified that `eea5a0a` is not a pre-FancyFelines rollback point because it is already inside the later import/preview change stack.
 - Added a durable rule that every future GitHub note and Replit handoff must include the exact working ref: `main`, branch name, or commit SHA.
 - Added a targeted guard for `catstays_preview_import_table` browser storage so Generate Preview can recover from oversized cache and storage-quota write failures without showing the app fail screen.
+- Fixed recovered preview image rendering by filtering known stale source-site asset URLs and adding a real-photo fallback for template images.
 
 ## 2026-07-01
 

@@ -186,32 +186,33 @@ export interface CatstaysTemplateContent {
 }
 
 export const previewImportTableStorageKey = 'catstays_preview_import_table';
+const defaultTemplateImageFallback = 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=1200&h=900&fit=crop';
 
 export const previewTemplateCards: PreviewTemplateOption[] = [
   {
     id: 'original',
     name: 'Original',
     description: 'The scraped website exactly as it appears now',
-    image: 'https://www.delorainecattery.com/assets/Deloraine%20Cattery%20Building-CX1rWDRb.png',
+    image: defaultTemplateImageFallback,
     sourceOnly: true,
   },
   {
     id: 'conversion-focus',
     name: 'Focus',
     description: 'Conversion-first layout with booking widget below the hero',
-    image: 'https://www.delorainecattery.com/assets/Deloraine%20Cattery%20Building-CX1rWDRb.png',
+    image: 'https://images.unsplash.com/photo-1573865526739-10c1de0e0ef2?w=1200&h=900&fit=crop',
   },
   {
     id: 'editorial-guide',
     name: 'Editorial',
     description: 'Story-led checkerboard sections with magazine-style pacing',
-    image: 'https://www.delorainecattery.com/assets/Paul%20and%20Vanessa-Dst6H-6-.jpg',
+    image: 'https://images.unsplash.com/photo-1518791841217-8f162f1e1131?w=1200&h=900&fit=crop',
   },
   {
     id: 'modern-showcase',
     name: 'Showcase',
     description: 'Image-first pages with minimal copy and strong visual rhythm',
-    image: 'https://www.delorainecattery.com/assets/Kitty3-nO3ryPLf.jpg',
+    image: 'https://images.unsplash.com/photo-1513360371669-4adf3dd7dff8?w=1200&h=900&fit=crop',
   },
 ];
 
@@ -256,6 +257,10 @@ export function buildPreviewImportRecord(scrape: ImportedCatteryScrape): Preview
   const sourceUrl = scrape.sourceUrl || '';
   const sourceHost = scrape.sourceHost || hostFromUrl(sourceUrl);
   const businessName = normalizedPreviewData.businessName;
+  const mediaImages = uniqueStrings([normalizedPreviewData.heroImage, ...(scrape.images ?? [])])
+    .filter((image) => isUsableGalleryImage(image, scrape.logoImage));
+  const mediaGalleryImages = (scrape.galleryImages ?? [])
+    .filter((image) => isUsableGalleryImage(image.url, scrape.logoImage));
 
   return {
     id: `${slugify(sourceHost || businessName)}-${Date.now()}`,
@@ -279,10 +284,10 @@ export function buildPreviewImportRecord(scrape: ImportedCatteryScrape): Preview
       city: scrape.city || normalizedPreviewData.location,
     },
     media: {
-      heroImage: normalizedPreviewData.heroImage,
+      heroImage: imageFrom(normalizedPreviewData.heroImage, mediaImages[0]),
       logoImage: scrape.logoImage,
-      images: scrape.images ?? [],
-      galleryImages: scrape.galleryImages ?? [],
+      images: mediaImages,
+      galleryImages: mediaGalleryImages,
     },
     content: {
       title: scrape.title || businessName,
@@ -817,8 +822,8 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
 
   const imageFieldFrom = (key: string, ...importedSources: unknown[]) => (
     preferImportedCollections
-      ? stringFrom(...importedSources, cleanData[key], fallback[key])
-      : stringFrom(cleanData[key], ...importedSources, fallback[key])
+      ? imageFrom(...importedSources, cleanData[key], fallback[key])
+      : imageFrom(cleanData[key], ...importedSources, fallback[key])
   );
 
   const mapItemsToFeatures = (items: any[] = []) => items.map((item) => ({
@@ -831,7 +836,7 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
     name: stringFrom(item.name, item.title),
     description: stringFrom(item.description, item.text),
     price: stringFrom(item.price),
-    image: stringFrom(item.image),
+    image: isRenderableImageUrl(stringFrom(item.image)) ? stringFrom(item.image) : '',
     amenities: Array.isArray(item.amenities) ? item.amenities : Array.isArray(item.features) ? item.features : [],
   })).filter((item) => item.name || item.description || item.image);
 
@@ -839,7 +844,7 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
     title: stringFrom(item.title, item.name),
     description: stringFrom(item.description, item.text),
     price: stringFrom(item.price),
-    image: stringFrom(item.image),
+    image: isRenderableImageUrl(stringFrom(item.image)) ? stringFrom(item.image) : '',
   })).filter((item) => item.title || item.description || item.image);
 
   const mapItemsToReviews = (items: any[] = []) => items.map((item) => ({
@@ -854,7 +859,9 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
     answer: stringFrom(item.answer, item.text, item.description),
   })).filter((item) => item.question && item.answer);
 
-  const mapImagesToUrls = (items: any[] = []) => items.map((item) => stringFrom(item.url, item.image, item)).filter(Boolean);
+  const mapImagesToUrls = (items: any[] = []) => items
+    .map((item) => stringFrom(item.url, item.image, item))
+    .filter((image) => isUsableGalleryImage(image));
   const heroBlock = block('hero');
   const heroLinks = heroBlock?.links ?? [];
   const ownerBlock = block('owner-story');
@@ -967,9 +974,9 @@ function stringFrom(...values: unknown[]): string {
 function imageFrom(...values: unknown[]): string {
   for (const value of values) {
     const image = stringFrom(value);
-    if (/^https?:\/\//i.test(image) || /^data:image\//i.test(image)) return image;
+    if (isRenderableImageUrl(image)) return image;
   }
-  return 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=1200&h=900&fit=crop';
+  return defaultTemplateImageFallback;
 }
 
 function embeddableVirtualTourUrl(rawUrl: string, sourceHost?: string): string {
@@ -1004,12 +1011,37 @@ function uniqueStrings(values: unknown[]): string[] {
 }
 
 function isUsableGalleryImage(image: string, logoImage?: string): boolean {
+  if (!isRenderableImageUrl(image)) return false;
   const normalized = image.split('?')[0].toLowerCase();
   const logoKey = logoImage?.split('?')[0].toLowerCase();
   if (!normalized) return false;
   if (logoKey && normalized === logoKey) return false;
-  const decoded = decodeURIComponent(normalized);
+  const decoded = safeDecodeURIComponent(normalized);
   return !/logo|favicon|apple-touch-icon|icon|avatar|profile|placeholder|silhouette|black.?cat|catstays|\/cat(?:[-_][a-z0-9]+)?\.png$/i.test(decoded);
+}
+
+function isRenderableImageUrl(image: string): boolean {
+  if (!image) return false;
+  if (/^data:image\//i.test(image)) return true;
+  if (!/^https?:\/\//i.test(image)) return false;
+  try {
+    const url = new URL(image);
+    const host = url.hostname.replace(/^www\./, '').toLowerCase();
+    const decodedPath = safeDecodeURIComponent(url.pathname);
+    if (host === 'delorainecattery.com' && /^\/assets\//i.test(decodedPath)) return false;
+    if (/\.(?:html?|php|aspx?)(?:$|[?#])/i.test(decodedPath)) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function safeDecodeURIComponent(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
 }
 
 function ensureImageCount(images: string[], heroImage: string): string[] {
