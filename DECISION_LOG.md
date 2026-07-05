@@ -65,15 +65,16 @@ Impact:
 
 ## 2026-07-05 - Preview Import Cache Recovery
 
-Decision: Add a startup guard that clears only oversized browser storage for `catstays_preview_import_table`.
+Decision: Add a targeted guard for browser storage key `catstays_preview_import_table`.
 
-Reason: Generate Preview could fail before rendering when an earlier import-preview branch stored too much preview-import data in browser storage. The browser then raised a storage quota error before the restored app could recover.
+Reason: Generate Preview could fail before rendering when an earlier import-preview branch stored too much preview-import data in browser storage. The browser then raised a storage quota error and sent the user to the app fail screen.
 
 Impact:
 
 - The restore branch can recover from the specific `catstays_preview_import_table` quota failure shown in Replit preview.
-- The guard does not delete onboarding data, source files, Supabase data, or imported project state; it only removes an oversized/stuck browser preview-import cache.
-- If Generate Preview still fails after pulling this branch and hard-refreshing, the next fix should guard the preview-import save path itself rather than moving to later FancyFelines commits.
+- The guard clears only oversized/stuck preview-import cache and prevents quota write failures for that cache key from crashing the app.
+- The guard does not delete onboarding data, source files, Supabase data, or imported project state.
+- If Generate Preview still fails after pulling this branch and hard-refreshing, continue from the pre-FancyFelines restore branch rather than moving to later FancyFelines commits.
 
 ## Open Decisions
 
