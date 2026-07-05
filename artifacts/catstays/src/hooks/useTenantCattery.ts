@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/utils/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { useOptionalAuth } from '@/contexts/AuthContext';
 import { useSubdomainCattery } from '@/contexts/SubdomainContext';
 import type { TenantCattery, TenantRoom } from '@/types/cattery';
 
@@ -67,7 +67,9 @@ const demoRooms: TenantRoom[] = [
 ];
 
 export function useTenantCattery(catteryId?: string) {
-  const { cattery: authCattery, loading: authLoading } = useAuth();
+  const auth = useOptionalAuth();
+  const authCattery = auth?.cattery ?? null;
+  const authLoading = auth?.loading ?? false;
   const subdomainCtx = useSubdomainCattery();
   const [cattery, setCattery] = useState<TenantCattery | null>(null);
   const [rooms, setRooms] = useState<TenantRoom[]>([]);

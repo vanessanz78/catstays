@@ -1,6 +1,20 @@
 # Decision Log
 
-Last updated: 2026-07-01
+Last updated: 2026-07-05
+
+## 2026-07-05 - Engineering Standard 001 Low Compute Architecture
+
+Decision: Adopt Engineering Standard 001 as a non-functional requirement for CatStays and keep anonymous/public routes free from dashboard, auth, AI, realtime, polling, and import work.
+
+Reason: A deployed app with zero active users should consume close to zero compute. CatStays had no server-side background jobs, but the frontend was eagerly loading private/admin/onboarding code and starting Supabase auth for anonymous visitors.
+
+Impact:
+
+- Public marketing routes must lazy-load only the page being viewed.
+- Auth context should be mounted at authenticated route boundaries, not around the whole app.
+- Tenant public pages may fetch public tenant data without requiring auth context.
+- AI, imports, dashboards, reporting, and admin tools must remain user-triggered and lazy-loaded.
+- The detailed audit, diagram, compute reduction report, and future development rules live in `docs/Engineering-Standards/001-Low-Compute-Architecture.md`.
 
 ## 2026-07-01 - Root Sprint Docs
 
