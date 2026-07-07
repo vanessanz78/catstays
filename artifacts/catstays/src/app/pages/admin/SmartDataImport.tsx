@@ -41,6 +41,8 @@ export function SmartDataImport() {
   // Simulate AI processing
   useEffect(() => {
     if (currentStep === 'processing') {
+      const animationTimeouts: ReturnType<typeof setTimeout>[] = [];
+
       // Progress animation
       const progressInterval = setInterval(() => {
         setProcessingProgress(prev => {
@@ -53,12 +55,12 @@ export function SmartDataImport() {
       }, 30);
 
       // Icon reveal animation
-      setTimeout(() => setShowIcons({ customers: true, pets: false, bookings: false }), 800);
-      setTimeout(() => setShowIcons({ customers: true, pets: true, bookings: false }), 1400);
-      setTimeout(() => setShowIcons({ customers: true, pets: true, bookings: true }), 2000);
+      animationTimeouts.push(setTimeout(() => setShowIcons({ customers: true, pets: false, bookings: false }), 800));
+      animationTimeouts.push(setTimeout(() => setShowIcons({ customers: true, pets: true, bookings: false }), 1400));
+      animationTimeouts.push(setTimeout(() => setShowIcons({ customers: true, pets: true, bookings: true }), 2000));
 
       // Move to results
-      setTimeout(() => {
+      animationTimeouts.push(setTimeout(() => {
         setResults({
           customers: 124,
           pets: 87,
@@ -82,9 +84,12 @@ export function SmartDataImport() {
           },
         });
         setCurrentStep('results');
-      }, 3000);
+      }, 3000));
 
-      return () => clearInterval(progressInterval);
+      return () => {
+        clearInterval(progressInterval);
+        animationTimeouts.forEach(clearTimeout);
+      };
     }
   }, [currentStep]);
 

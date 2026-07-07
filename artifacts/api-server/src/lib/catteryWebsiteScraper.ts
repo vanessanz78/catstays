@@ -8,7 +8,7 @@ const FETCH_TIMEOUT_MS = 10_000;
 const MAX_HTML_BYTES = 1_200_000;
 const MAX_ASSET_BYTES = 2_500_000;
 const MAX_REDIRECTS = 5;
-const MAX_CRAWLED_PAGES = 8;
+const MAX_CRAWLED_PAGES = 16;
 const MAX_SITEMAP_DOCUMENTS = 4;
 const MAX_SITEMAP_URLS = 24;
 
@@ -53,6 +53,7 @@ export interface CatteryScrapedService {
   description: string;
   price?: string;
   image?: string;
+  icon?: string;
 }
 
 export interface CatteryScrapedReview {
@@ -72,6 +73,7 @@ export interface CatterySiteContentItem {
   answer?: string;
   rating?: number;
   features?: string[];
+  icon?: string;
 }
 
 export interface CatterySiteContentBlock {
@@ -92,6 +94,16 @@ export interface CatterySiteContentLibrary {
   businessName: string;
   capturedAt: string;
   blocks: CatterySiteContentBlock[];
+}
+
+export interface CatterySiteContentIndexItem {
+  id: string;
+  category: string;
+  title: string;
+  text: string;
+  keywords: string[];
+  imageUrls: string[];
+  sourceUrl?: string;
 }
 
 export interface CatteryWebsiteScrapeResult {
@@ -138,6 +150,7 @@ export interface CatteryWebsiteScrapeResult {
   };
   virtualTourUrl: string;
   siteContentLibrary: CatterySiteContentLibrary;
+  siteContentIndex: CatterySiteContentIndexItem[];
   bodyText: string;
   extractedFrom: {
     html: boolean;
@@ -217,8 +230,10 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
       .flatMap((page) => page.images),
   );
 
-  const logoImage = findLogoImage(images);
-  const heroImage = findHeroImage(images, logoImage) || meta.heroImage;
+  const title = cleanText(meta.title || supplementalPages[0]?.title || firstText(bundleTexts, /Deloraine Cattery|Cattery/i) || 'Your Cattery');
+  const businessName = deriveBusinessName(root, meta, supplementalPages, title, bodyText);
+  const logoImage = findLogoImage(images, businessName);
+  const heroImage = findHeroImage(images, logoImage, businessName) || (!isLikelyLogoImage(meta.heroImage, businessName) ? meta.heroImage : '');
   const phone = extractPhone(searchableText);
   const email = extractEmail(searchableText);
   const address = extractAddress(root, searchableText);
@@ -233,9 +248,7 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
   const highlights = buildHighlights(scriptBundle, bodyText, supplementalPages, homeBodyText, hours);
   const faqs = buildFaqs(scriptBundle, supplementalPages, searchableText, hours);
   const reviews = buildReviews(scriptBundle, bodyText, supplementalPages);
-  const galleryImages = buildGalleryImages(scriptBundle, images, logoImage, galleryPageImages);
-  const title = cleanText(meta.title || supplementalPages[0]?.title || firstText(bundleTexts, /Deloraine Cattery|Cattery/i) || 'Your Cattery');
-  const businessName = deriveBusinessName(root, meta, supplementalPages, title, bodyText);
+  const galleryImages = buildGalleryImages(scriptBundle, images, logoImage, galleryPageImages, businessName);
   const headingCandidate = cleanText(meta.heading || '');
   const heading = isWeakSectionHeading(headingCandidate)
     ? businessName
@@ -246,7 +259,7 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
     throw new TypeError('NO_USEFUL_CONTENT');
   }
 
-  const owner = buildOwnerSection(scriptBundle, images, businessName);
+  const owner = buildOwnerSection(scriptBundle, images, businessName, supplementalPages, homeBodyText);
   const commitment = buildCommitmentSection(businessName, highlights, bodyText);
   const locationDetails = buildLocationDetails(businessName, address, city, virtualTourUrl);
   const sourceHost = parsedUrl.hostname.replace(/^www\./, '');
@@ -273,7 +286,9 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
     commitment,
     locationDetails,
     virtualTourUrl,
+    supplementalPages,
   });
+  const siteContentIndex = buildSiteContentIndex(siteContentLibrary);
   const websiteSettings = buildWebsiteSettings({
     businessName,
     description,
@@ -299,6 +314,7 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
     locationDetails,
     virtualTourUrl,
     siteContentLibrary,
+    siteContentIndex,
   });
 
   return {
@@ -329,6 +345,7 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
     locationDetails,
     virtualTourUrl,
     siteContentLibrary,
+    siteContentIndex,
     bodyText: bodyText.slice(0, 8000),
     extractedFrom: {
       html: true,
@@ -368,7 +385,7 @@ async function fetchSupplementalPages(baseUrl: URL, root: ReturnType<typeof pars
           title: cleanText(pageRoot.querySelector('title')?.text ?? ''),
           heading: cleanText(pageRoot.querySelector('h1')?.text ?? pageRoot.querySelector('h2')?.text ?? ''),
           bodyText: readableText(pageRoot),
-          images: collectHtmlImages(pageRoot, baseUrl),
+          images: collectHtmlImages(pageRoot, new URL(url)),
         };
       } catch {
         return null;
@@ -385,7 +402,7 @@ async function collectSupplementalPageUrls(baseUrl: URL, root: ReturnType<typeof
   const combined = uniqueUrls([
     ...sitemapUrls,
     ...linkedUrls,
-  ]).filter((url) => url !== baseUrl.href);
+  ]).filter((url) => canonicalPageKey(url) !== canonicalPageKey(baseUrl.href));
 
   return combined
     .sort((left, right) => pagePriority(right) - pagePriority(left))
@@ -448,18 +465,22 @@ function collectSameOriginLinks(root: ReturnType<typeof parse>, baseUrl: URL): s
 }
 
 function readableText(root: ReturnType<typeof parse>): string {
-  root.querySelectorAll('script, style, noscript').forEach((node) => node.remove());
+  root.querySelectorAll('script, style, noscript, nav, header, footer').forEach((node) => node.remove());
   return cleanText(root.querySelector('body')?.text ?? root.text);
 }
 
 function uniqueUrls(urls: string[]): string[] {
   const seen = new Set<string>();
   return urls.filter((url) => {
-    const key = url.replace(/#.*$/, '').replace(/\/$/, '');
+    const key = canonicalPageKey(url);
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
+}
+
+function canonicalPageKey(url: string): string {
+  return url.replace(/#.*$/, '').replace(/\/$/, '');
 }
 
 function isHtmlLikeUrl(url: string): boolean {
@@ -472,10 +493,10 @@ function pagePriority(url: string): number {
   let score = 0;
   if (pathname === '/' || pathname === '') score -= 20;
   if (/gallery|photo|image/.test(pathname)) score += 12;
-  if (/booking|fees|pricing|price|suite|room/.test(pathname)) score += 10;
+  if (/booking|fees|pricing|price|suite|room|accomodation|accommodation|homestay/.test(pathname)) score += 10;
   if (/contact|hour|open|location/.test(pathname)) score += 9;
-  if (/service|care|facility|faq|tour/.test(pathname)) score += 8;
-  if (/about|story|owner|vaccination|condition/.test(pathname)) score += 6;
+  if (/service|care|facility|faq|q-a|question|tour|groom|health|hyperbaric|oxygen|pemf|collaboration|partner/.test(pathname)) score += 8;
+  if (/about|story|owner|vaccination|condition|wellness/.test(pathname)) score += 6;
   if (/privacy|feed|author|tag|category/.test(pathname)) score -= 12;
   return score;
 }
@@ -824,6 +845,7 @@ function curateImageUrls(rawImages: string[]): string[] {
   for (const image of rawImages) {
     if (!image) continue;
     if (/\.(svg|gif)(\?|$)/i.test(image)) continue;
+    if (!isProbablyUsableImageUrl(image)) continue;
     if (/favicon|apple-touch-icon|placeholder|avatar|profile|icon/i.test(image)) continue;
     const key = imageKey(image);
     const existing = byKey.get(key);
@@ -834,15 +856,17 @@ function curateImageUrls(rawImages: string[]): string[] {
   return Array.from(byKey.values()).slice(0, 30);
 }
 
-function findLogoImage(images: string[]): string {
-  return images.find((image) => /logo/i.test(decodeURIComponent(image))) ?? '';
+function findLogoImage(images: string[], businessName = ''): string {
+  return images.find((image) => isLikelyLogoImage(image, businessName)) ?? '';
 }
 
-function findHeroImage(images: string[], logoImage: string): string {
+function findHeroImage(images: string[], logoImage: string, businessName = ''): string {
   const logoKey = imageKey(logoImage);
+  const candidates = images.filter((image) => imageKey(image) !== logoKey && !isLikelyLogoImage(image, businessName));
   return (
-    images.find((image) => /building|facility|cattery|exterior|hero/i.test(decodeURIComponent(image)) && imageKey(image) !== logoKey) ||
-    images.find((image) => imageKey(image) !== logoKey) ||
+    candidates.find((image) => /building|facility|cattery|exterior|hero|suite|room|cat|groom|clinic/i.test(decodeURIComponent(image))) ||
+    candidates.find((image) => imageAspectRatio(image) < 2.6 || imageAspectRatio(image) === 0) ||
+    candidates[0] ||
     ''
   );
 }
@@ -852,6 +876,7 @@ function buildGalleryImages(
   images: string[],
   logoImage: string,
   preferredImages: string[] = [],
+  businessName = '',
 ): Array<{ url: string; caption: string }> {
   const captionsByAsset = new Map<string, string>();
   const galleryMatches = bundle.matchAll(/src:([A-Za-z0-9_$]+),alt:"([^"]*)",title:"([^"]*)"/g);
@@ -862,6 +887,7 @@ function buildGalleryImages(
   const logoKey = imageKey(logoImage);
   return uniqueUrls([...preferredImages, ...images])
     .filter((image) => imageKey(image) !== logoKey)
+    .filter((image) => !isLikelyLogoImage(image, businessName))
     .slice(0, 12)
     .map((url, index) => ({
       url,
@@ -884,7 +910,7 @@ function buildRooms(apiRooms: CatteryScrapedRoom[], bundle: string, images: stri
     communal: images.find((image) => /communal/i.test(decodeURIComponent(image))),
     indoor: images.find((image) => /indoor/i.test(decodeURIComponent(image))),
   };
-  const fallbackImages = images.filter((image) => image && !/logo|icon/i.test(decodeURIComponent(image)));
+  const fallbackImages = images.filter((image) => image && !isLikelyLogoImage(image) && !/icon/i.test(decodeURIComponent(image)));
   const roomFallbackImages = fallbackImages.filter((image) => !/building|facility|exterior/i.test(decodeURIComponent(image)));
   const preferredRoomImages = roomFallbackImages.length > 1 ? roomFallbackImages.slice(1) : roomFallbackImages.length ? roomFallbackImages : fallbackImages;
 
@@ -989,18 +1015,28 @@ function buildServices(
   supplementalPages: ScrapedPage[],
   homeBodyText: string,
 ): CatteryScrapedService[] {
-  const fallbackImagePool = images.filter((image) => !/logo|icon|building|facility/i.test(decodeURIComponent(image)));
+  const fallbackImagePool = images.filter((image) => !isLikelyLogoImage(image) && !/icon|building|facility/i.test(decodeURIComponent(image)));
   const matches = [...bundle.matchAll(/name:"([^"]{3,80})",price:"([^"]{1,80})",description:"([^"]{20,420})"/g)];
   const services = matches
-    .map((match) => ({
-      title: cleanText(match[1]),
-      price: cleanText(match[2]),
-      description: cleanText(match[3]),
-      image: serviceImage(match[1], images),
-    }))
+    .map((match, index) => {
+      const title = cleanText(match[1]);
+      const description = cleanServiceDescription(match[3]);
+      if (!title || !description) return null;
+      return {
+        title,
+        price: cleanText(match[2]),
+        description,
+        image: serviceImage(match[1], images),
+        icon: serviceIconName(title, index),
+      };
+    })
+    .filter((service): service is CatteryScrapedService => Boolean(service))
     .filter((service) => !/professional grooming/i.test(service.title));
 
   if (services.length) return services.slice(0, 12);
+
+  const pageServices = buildServicesFromPages(supplementalPages, fallbackImagePool);
+  if (pageServices.length) return pageServices.slice(0, 12);
 
   const serviceSources = {
     home: homeBodyText,
@@ -1030,26 +1066,56 @@ function buildServices(
       description: firstSentenceMatching(serviceSources.gallery, /text letting me know|happy and settled|well looked after/i),
     },
   ]
+    .map((service) => ({
+      ...service,
+      description: cleanServiceDescription(service.description),
+    }))
     .filter((service) => service.description)
     .map((service, index) => ({
       ...service,
       image: fallbackImagePool[index] || fallbackImagePool[0] || images[index + 1] || images[0],
+      icon: serviceIconName(service.title, index),
     }));
 
-  return fallbackServices.length
-    ? fallbackServices.slice(0, 6)
-    : [
-        {
-          title: 'Cat boarding',
-          description: 'Comfortable accommodation and daily care for cats.',
-          image: fallbackImagePool[0] || images[0],
-        },
-        {
-          title: 'Photo updates',
-          description: 'Friendly updates for families while cats are staying.',
-          image: fallbackImagePool[1] || fallbackImagePool[0] || images[1] || images[0],
-        },
-      ];
+  return fallbackServices.slice(0, 6);
+}
+
+function buildServicesFromPages(pages: ScrapedPage[], fallbackImages: string[]): CatteryScrapedService[] {
+  const servicePages = pages.filter((page) =>
+    /accomodation|accommodation|homestay|groom|health|care|hyperbaric|oxygen|pemf|therapy|collaboration|partner/i.test(
+      `${page.url} ${page.title} ${page.heading}`,
+    ) &&
+    !/gallery|q-a|faq|contact/i.test(`${page.url} ${page.title} ${page.heading}`),
+  );
+
+  return uniqueByServiceTitle(
+    servicePages
+      .map((page, index) => {
+        const title = normalizePageTitle(page);
+        const description = cleanServiceDescription(summarizePrimaryContent(page.bodyText) || firstContentExcerpt(page.bodyText, 360));
+        if (!title || !description) return null;
+        const image =
+          curateImageUrls(page.images).find((candidate) => !isLikelyLogoImage(candidate, title)) ||
+          fallbackImages[index] ||
+          fallbackImages[0] ||
+          '';
+        return {
+          title,
+          description,
+          price: extractPriceLabel(page.bodyText),
+          image,
+          icon: serviceIconName(title, index),
+        };
+      })
+      .filter((service): service is CatteryScrapedService => Boolean(service)),
+  );
+}
+
+function cleanServiceDescription(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  const text = cleanText(value);
+  if (isWeakDescription(text) || looksLikeNavigationCopy(text)) return '';
+  return text;
 }
 
 function buildHighlights(
@@ -1111,7 +1177,11 @@ function buildFaqs(bundle: string, supplementalPages: ScrapedPage[], searchableT
     .filter((faq) => faq.question && faq.answer);
 
   const explicitFaqs = uniqueByQuestion([...templateMatches, ...stringMatches]).slice(0, 20);
-  if (explicitFaqs.length) return explicitFaqs;
+  const pageFaqs = uniqueByQuestion(
+    supplementalPages
+      .filter((page) => /q-a|q-and-a|q\s*&\s*a|faq|frequently-asked|question/i.test(`${page.url} ${page.title} ${page.heading}`))
+      .flatMap((page) => extractFaqsFromText(`${page.heading} ${page.bodyText}`)),
+  ).slice(0, 20);
 
   const vaccinationText = pageText(supplementalPages, /vaccination/i);
   const hoursText = pageText(supplementalPages, /open-hours|contact-hours|hours/i);
@@ -1119,7 +1189,7 @@ function buildFaqs(bundle: string, supplementalPages: ScrapedPage[], searchableT
   const termsText = pageText(supplementalPages, /terms|conditions/i);
   const homeText = searchableText;
 
-  return uniqueByQuestion(
+  const fallbackFaqs = uniqueByQuestion(
     [
       {
         question: 'What vaccinations are required?',
@@ -1164,6 +1234,121 @@ function buildFaqs(bundle: string, supplementalPages: ScrapedPage[], searchableT
     ]
       .filter((faq) => faq.answer),
   ).slice(0, 12);
+
+  return uniqueByQuestion([...explicitFaqs, ...pageFaqs, ...fallbackFaqs]).slice(0, 20);
+}
+
+function extractFaqsFromText(text: string): Array<{ question: string; answer: string }> {
+  const cleaned = stripNavigationBoilerplate(text);
+  const questionMatches = [...cleaned.matchAll(/([^.!?]{8,180}\?)/g)];
+  return questionMatches
+    .map((match, index) => {
+      const question = cleanText(match[1]);
+      const answerStart = (match.index ?? 0) + match[0].length;
+      const answerEnd = questionMatches[index + 1]?.index ?? cleaned.length;
+      const answer = firstContentExcerpt(cleaned.slice(answerStart, answerEnd), 420);
+      return { question, answer };
+    })
+    .filter((faq) => faq.question && faq.answer && !/navigation|menu|top of page/i.test(faq.question))
+    .filter((faq) => !looksLikeNavigationCopy(faq.answer));
+}
+
+function buildSourcePageBlocks(pages: ScrapedPage[], businessName: string): CatterySiteContentBlock[] {
+  const reservedCategories = new Set([
+    'about',
+    'contact',
+    'faqs',
+    'gallery',
+    'hero',
+    'location',
+    'reviews',
+    'rooms',
+    'services',
+    'why-choose-us',
+  ]);
+
+  return pages
+    .map((page) => {
+      const title = normalizePageTitle(page);
+      const category = sourcePageCategory(page);
+      const text = summarizePrimaryContent(page.bodyText) || firstContentExcerpt(page.bodyText, 520);
+      if (!title || !text || reservedCategories.has(category)) return null;
+      const images = curateImageUrls(page.images)
+        .filter((image) => !isLikelyLogoImage(image, businessName))
+        .slice(0, 6)
+        .map((url, index) => ({ url, caption: `${title} photo ${index + 1}` }));
+      return {
+        id: `source-${slugify(title)}`,
+        category,
+        title,
+        text,
+        source: 'scrape' as const,
+        images,
+      };
+    })
+    .filter((block): block is CatterySiteContentBlock => Boolean(block));
+}
+
+function sourcePageCategory(page: ScrapedPage): string {
+  const haystack = `${page.url} ${page.title} ${page.heading}`.toLowerCase();
+  if (/q-a|q-and-a|q\s*&\s*a|faq|frequently-asked|question/.test(haystack)) return 'faqs';
+  if (/gallery|photo|portfolio/.test(haystack)) return 'gallery';
+  if (/contact|location|hours?/.test(haystack)) return 'contact';
+  if (/groom/.test(haystack)) return 'grooming';
+  if (/hyperbaric|oxygen|hbot/.test(haystack)) return 'hyperbaric-oxygen';
+  if (/pemf|magnetic/.test(haystack)) return 'pemf-therapy';
+  if (/health|wellness|respite|care/.test(haystack)) return 'health-care';
+  if (/collaboration|partner/.test(haystack)) return 'collaborations';
+  if (/fee|price|rate/.test(haystack)) return 'pricing';
+  if (/accomodation|accommodation|homestay|suite|room/.test(haystack)) return 'accommodation';
+  return 'source-page';
+}
+
+function normalizePageTitle(page: ScrapedPage): string {
+  const title = cleanText(page.heading || page.title)
+    .replace(/\s*\|\s*Fancy\s*Felines.*$/i, '')
+    .replace(/\s*\|\s*.*?Cattery.*$/i, '')
+    .replace(/\s+[|:-]\s+.*$/, '')
+    .trim();
+  if (!title || /^(home|top of page|bottom of page)$/i.test(title)) {
+    return titleFromUrl(page.url);
+  }
+  return title;
+}
+
+function titleFromUrl(url: string): string {
+  try {
+    const slug = new URL(url).pathname.split('/').filter(Boolean).pop() || '';
+    return cleanText(slug.replace(/[-_]+/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()));
+  } catch {
+    return '';
+  }
+}
+
+function firstContentExcerpt(text: string, maxChars: number): string {
+  const cleaned = stripNavigationBoilerplate(text);
+  if (looksLikeNavigationCopy(cleaned)) return '';
+  const sentences = sentenceList(cleaned)
+    .filter((sentence) => sentence.length > 12)
+    .filter((sentence) => !/^(home|about|contact|gallery|more|bottom of page|top of page)$/i.test(sentence))
+    .filter((sentence) => !/use tab to navigate|ring or text|book now|copyright/i.test(sentence));
+  return joinSentences(sentences, maxChars) || cleaned.slice(0, maxChars).trim();
+}
+
+function extractPriceLabel(text: string): string {
+  const prices = [...text.matchAll(/\$\s?\d{2,4}(?:\.\d{2})?(?:\s*(?:\+?\s*gst|per\s+\d*\/?hr|per\s+night|per\s+day|each way))?/gi)]
+    .map((match) => cleanText(match[0]));
+  return prices.slice(0, 3).join(' / ');
+}
+
+function uniqueByServiceTitle(items: CatteryScrapedService[]) {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = item.title.toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function buildSiteContentLibrary(input: {
@@ -1205,8 +1390,10 @@ function buildSiteContentLibrary(input: {
     virtualTourUrl: string;
   };
   virtualTourUrl: string;
+  supplementalPages: ScrapedPage[];
 }): CatterySiteContentLibrary {
   const source: CatterySiteContentBlock['source'] = 'scrape';
+  const sourcePageBlocks = buildSourcePageBlocks(input.supplementalPages, input.businessName);
   const blocks: CatterySiteContentBlock[] = [
     {
       id: 'hero',
@@ -1254,6 +1441,7 @@ function buildSiteContentLibrary(input: {
         text: service.description,
         price: service.price,
         image: service.image,
+        icon: service.icon,
       })),
     },
     {
@@ -1334,6 +1522,7 @@ function buildSiteContentLibrary(input: {
         input.socialLinks.instagram ? { label: 'Instagram', url: input.socialLinks.instagram } : undefined,
       ].filter((link): link is { label: string; url: string } => Boolean(link)),
     },
+    ...sourcePageBlocks,
   ];
 
   return {
@@ -1344,6 +1533,81 @@ function buildSiteContentLibrary(input: {
     capturedAt: new Date().toISOString(),
     blocks,
   };
+}
+
+function buildSiteContentIndex(library: CatterySiteContentLibrary): CatterySiteContentIndexItem[] {
+  const items: CatterySiteContentIndexItem[] = [];
+
+  for (const block of library.blocks) {
+    const blockImages = uniqueImageUrls((block.images ?? []).map((image) => image.url));
+    const blockText = cleanIndexText(block.text);
+    if (block.title || blockText || blockImages.length) {
+      items.push({
+        id: block.id,
+        category: block.category,
+        title: cleanIndexText(block.title),
+        text: blockText,
+        keywords: keywordsForIndex([block.title, block.text, block.category]),
+        imageUrls: blockImages,
+        sourceUrl: library.sourceUrl,
+      });
+    }
+
+    (block.items ?? []).forEach((item, index) => {
+      const title = cleanIndexText(item.title);
+      const text = cleanIndexText(item.text || item.answer || item.meta || '');
+      const imageUrls = uniqueImageUrls([item.image]);
+      if (!title && !text && !imageUrls.length) return;
+
+      items.push({
+        id: `${block.id}-${slugify(title || `item-${index + 1}`)}`,
+        category: block.category,
+        title,
+        text,
+        keywords: keywordsForIndex([title, text, block.category, item.price, item.meta, ...(item.features ?? [])]),
+        imageUrls,
+        sourceUrl: item.url || library.sourceUrl,
+      });
+    });
+  }
+
+  return items.slice(0, 160);
+}
+
+function cleanIndexText(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  return cleanText(value).slice(0, 2000);
+}
+
+function keywordsForIndex(values: unknown[]): string[] {
+  const stopWords = new Set(['the', 'and', 'for', 'with', 'from', 'this', 'that', 'your', 'our', 'cat', 'cats', 'cattery']);
+  const seen = new Set<string>();
+  const keywords: string[] = [];
+
+  values
+    .map((value) => (typeof value === 'string' ? value : ''))
+    .join(' ')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .forEach((word) => {
+      if (word.length < 3 || stopWords.has(word) || seen.has(word)) return;
+      seen.add(word);
+      keywords.push(word);
+    });
+
+  return keywords.slice(0, 40);
+}
+
+function uniqueImageUrls(images: Array<string | undefined>): string[] {
+  const seen = new Set<string>();
+  return images
+    .filter((image): image is string => Boolean(image && /^https?:\/\//i.test(image)))
+    .filter((image) => {
+      const key = imageKey(image);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 }
 
 function buildWebsiteSettings(input: {
@@ -1387,16 +1651,25 @@ function buildWebsiteSettings(input: {
   };
   virtualTourUrl: string;
   siteContentLibrary: CatterySiteContentLibrary;
+  siteContentIndex: CatterySiteContentIndexItem[];
 }): Record<string, unknown> {
   const curatedGalleryImages = input.galleryImages.length
     ? input.galleryImages
     : input.images.slice(0, 12).map((url, index) => ({ url, caption: `Cattery photo ${index + 1}` }));
-  const galleryUrls = curatedGalleryImages.map((image) => image.url).filter(Boolean);
+  const galleryUrls = curatedGalleryImages
+    .map((image) => image.url)
+    .filter((image) => isUsablePhotoImage(image, input.logoImage, input.businessName));
+  const photoImages = input.images.filter((image) => isUsablePhotoImage(image, input.logoImage, input.businessName));
+  const heroImage = firstUsablePhotoImage(
+    [input.heroImage, ...galleryUrls, ...photoImages],
+    input.logoImage,
+    input.businessName,
+  );
   const roomCards = input.rooms.map((room, index) => ({
     name: room.name,
     price: room.price && room.priceUnit ? `${room.price}/${room.priceUnit.replace(/^per\s+/i, '')}` : room.price,
     description: room.description,
-    image: room.image || galleryUrls[index + 1] || input.images[index + 1] || input.heroImage,
+    image: firstUsablePhotoImage([room.image, galleryUrls[index + 1], photoImages[index + 1], heroImage], input.logoImage, input.businessName),
     popular: index === 0,
     features: room.amenities ?? [],
   }));
@@ -1413,7 +1686,7 @@ function buildWebsiteSettings(input: {
     aboutText:
       input.description ||
       `${input.businessName} provides safe, comfortable cat boarding with personal care for every guest.`,
-    heroImage: input.heroImage || input.images[0],
+    heroImage,
     logoImage: input.logoImage,
     ctaText: 'Book a stay',
     headingFont: 'playfair',
@@ -1428,7 +1701,16 @@ function buildWebsiteSettings(input: {
     location: [input.city, input.country].filter(Boolean).join(', '),
     sourceUrl: input.bookingUrl,
     whyChooseUsData: {
+      whyChooseEyebrow: 'Why choose us',
       whyChooseUsHeading: `Why choose ${input.businessName}`,
+      whyChooseUsText:
+        input.description ||
+        'Personal, calm care designed around the way cats feel safest.',
+      careApproachEyebrow: 'Care Approach',
+      careApproachHeading: `Why choose ${input.businessName}`,
+      careApproachText:
+        input.description ||
+        'Personal, calm care designed around the way cats feel safest.',
       whyChooseUsFeatures: input.highlights.map((highlight, index) => ({
         icon: ['Shield', 'Heart', 'Home'][index] ?? 'Star',
         title: highlight.title,
@@ -1436,27 +1718,29 @@ function buildWebsiteSettings(input: {
       })),
     },
     facilitiesData: {
+      facilitiesEyebrow: 'Premium accommodation',
       facilitiesHeading: 'Purpose-built cat accommodation',
       facilitiesText:
         input.highlights[0]?.description ||
         'Safe, calm boarding facilities designed specifically for cats.',
-      facilitiesImage: input.images.find((image) => /building|facility|indoor|communal/i.test(decodeURIComponent(image))) || input.heroImage,
-      facilityFeatures: input.highlights.map((highlight) => ({
-        title: highlight.title,
-        description: highlight.description,
-      })),
+      facilitiesImage:
+        photoImages.find((image) => /building|facility|indoor|communal/i.test(safeDecodeURIComponent(image))) ||
+        galleryUrls[0] ||
+        heroImage,
     },
     suitesData: {
       suitesHeading: 'Boarding options',
       suites: roomCards,
     },
     servicesData: {
+      servicesEyebrow: 'Additional Services',
       servicesHeading: 'Care services',
       services: input.services.slice(0, 12).map((service, index) => ({
-        icon: ['Heart', 'Camera', 'Clock', 'Shield'][index] ?? 'Star',
+        icon: service.icon || serviceIconName(service.title, index),
         title: service.title,
-        description: service.price ? `${service.description} ${service.price}.` : service.description,
-        image: service.image || input.images[index + 2] || input.heroImage,
+        description: service.description,
+        price: service.price,
+        image: firstUsablePhotoImage([service.image, photoImages[index + 2], galleryUrls[index], heroImage], input.logoImage, input.businessName),
       })),
     },
     galleryData: {
@@ -1464,9 +1748,12 @@ function buildWebsiteSettings(input: {
       galleryImages: curatedGalleryImages,
     },
     faqData: {
+      faqEyebrow: 'Questions and answers',
+      faqHeading: 'Frequently Asked Questions',
       faqs: input.faqs,
     },
     testimonialsData: {
+      testimonialsEyebrow: 'Reviews',
       testimonialsHeading: 'Guest reviews',
       testimonials: input.reviews,
     },
@@ -1474,6 +1761,7 @@ function buildWebsiteSettings(input: {
     commitmentData: input.commitment,
     locationData: input.locationDetails,
     siteContentLibrary: input.siteContentLibrary,
+    siteContentIndex: input.siteContentIndex,
     contactData: {
       contactHeading: 'Contact and booking',
       hours: input.hours,
@@ -1481,6 +1769,7 @@ function buildWebsiteSettings(input: {
       virtualTourUrl: input.virtualTourUrl,
       locationDetails: input.locationDetails,
     },
+    footerLinks: buildFooterLinks(input),
     roomTypes: input.rooms.map((room) => ({
       name: room.name,
       numberOfRooms: '1',
@@ -1498,6 +1787,30 @@ function buildWebsiteSettings(input: {
   };
 }
 
+function buildFooterLinks(input: {
+  rooms: CatteryScrapedRoom[];
+  services: CatteryScrapedService[];
+  galleryImages: Array<{ url: string; caption: string }>;
+  reviews: CatteryScrapedReview[];
+  faqs: Array<{ question: string; answer: string }>;
+  virtualTourUrl: string;
+}) {
+  return [
+    { label: 'Home', href: '#home' },
+    { label: 'About', href: '#about' },
+    { label: 'Care', href: '#care' },
+    { label: 'Facilities', href: '#facilities' },
+    input.rooms.length ? { label: 'Suites', href: '#suites' } : null,
+    input.services.length ? { label: 'Extra Care', href: '#services' } : null,
+    input.galleryImages.length ? { label: 'Gallery', href: '#gallery' } : null,
+    input.reviews.length ? { label: 'Reviews', href: '#reviews' } : null,
+    input.faqs.length ? { label: 'FAQs', href: '#faqs' } : null,
+    { label: 'Location', href: '#location' },
+    input.virtualTourUrl ? { label: 'Virtual Tour', href: '#virtual-tour' } : null,
+    { label: 'Contact', href: '#contact' },
+  ].filter(Boolean);
+}
+
 function extractReadableBundleText(bundle: string): string[] {
   const values = [
     ...bundle.matchAll(/children:"([^"]{16,700})"/g),
@@ -1512,14 +1825,26 @@ function extractReadableBundleText(bundle: string): string[] {
 
 function extractAddress(root: ReturnType<typeof parse>, text: string): string {
   const addressTag = cleanText(root.querySelector('address')?.text ?? '');
-  if (addressTag) return addressTag;
+  if (addressTag) return cleanAddressMatch(addressTag);
   const labeledAddress = cleanText(
     text.match(/Address:\s*([\s\S]{10,160}?)(?:Primary Contact|Alternate Contact|Phone|Email|Opening Hours|Please note)/i)?.[1] ?? '',
   );
-  if (labeledAddress) return labeledAddress;
+  if (labeledAddress) return cleanAddressMatch(labeledAddress);
   const streetMatch =
-    text.match(/\b\d{1,5}\s+[A-Z][A-Za-z0-9' -]{2,80}(?:Street|St|Road|Rd|Avenue|Ave|Drive|Dr|Lane|Ln|Way),?\s+[A-Z][A-Za-z' -]{2,80}(?:,\s*[A-Z][A-Za-z' -]{2,80})?/);
-  return cleanText(streetMatch?.[0] ?? '');
+    text.match(
+      /\b\d{1,5}\s+[A-Z][A-Za-zÀ-ÖØ-öø-ÿĀ-ſ0-9' -]{2,80}\s(?:Street|St|Road|Rd|Avenue|Ave|Drive|Dr|Lane|Ln|Way),?\s+[A-Z][A-Za-zÀ-ÖØ-öø-ÿĀ-ſ' -]{2,80}(?:,\s*[A-Z][A-Za-zÀ-ÖØ-öø-ÿĀ-ſ' -]{2,80})?(?:,\s*\d{4})?(?:,\s*(?:New Zealand|NZ))?/,
+    ) ||
+    text.match(
+      /\b[A-Z][A-Za-zÀ-ÖØ-öø-ÿĀ-ſ' -]{2,80}\s(?:Street|St|Road|Rd|Avenue|Ave|Drive|Dr|Lane|Ln|Way),?\s+[A-Z][A-Za-zÀ-ÖØ-öø-ÿĀ-ſ' -]{2,80}(?:,\s*[A-Z][A-Za-zÀ-ÖØ-öø-ÿĀ-ſ' -]{2,80})?(?:,\s*\d{4})?(?:,\s*(?:New Zealand|NZ))?/,
+    );
+  return cleanAddressMatch(streetMatch?.[0] ?? '');
+}
+
+function cleanAddressMatch(address: string): string {
+  const cleaned = cleanText(address);
+  if (!cleaned) return '';
+  const countryBounded = cleaned.match(/^(.*?\b(?:New Zealand|NZ)\b)/i)?.[1] || cleaned;
+  return cleanText(countryBounded.replace(/,\s*$/, ''));
 }
 
 function extractPhone(text: string): string {
@@ -1620,16 +1945,14 @@ function buildReviews(bundle: string, bodyText: string, supplementalPages: Scrap
     })
     .filter((review) => review.name && review.text && !/Vanessa|Paul/i.test(review.name));
 
-  if (reviews.length) return uniqueByReview(reviews).slice(0, 8);
-
-  const galleryText = pageText(supplementalPages, /gallery|review|testimonial/i);
+  const galleryText = pageText(supplementalPages, /gallery|review|testimonial|recommendation/i);
   const galleryReviews = extractReviewsFromPageText(galleryText);
-  if (galleryReviews.length) return uniqueByReview(galleryReviews).slice(0, 8);
 
+  const fallbackReviews: CatteryScrapedReview[] = [];
   if (/review\/widgetJs|revelationpets\.com\?s=review/i.test(`${bundle} ${bodyText}`)) {
-    return REVELATION_PETS_REVIEW_FALLBACKS;
+    fallbackReviews.push(...REVELATION_PETS_REVIEW_FALLBACKS);
   }
-  return [];
+  return uniqueByReview([...reviews, ...galleryReviews, ...fallbackReviews]).slice(0, 12);
 }
 
 function buildSiteDescription(
@@ -1679,7 +2002,64 @@ function summarizePrimaryContent(text: string): string {
 function isWeakDescription(value: string): boolean {
   const text = cleanText(value);
   if (!text || text.length < 20) return true;
+  if (looksLikeNavigationCopy(text)) return true;
   return /^(gallery|booking form|contact details|open hours|pricing|home|page not found)$/i.test(text);
+}
+
+function looksLikeNavigationCopy(value: string): boolean {
+  const text = cleanText(value);
+  if (!text) return true;
+  if (/^top of page\b/i.test(text)) return true;
+  if (/\bUse tab to navigate through the menu items\b/i.test(text)) return true;
+  const words = text.toLowerCase().split(/[^a-z]+/).filter(Boolean);
+  if (words.length < 6) return false;
+  const navWords = new Set([
+    'top',
+    'page',
+    'home',
+    'about',
+    'accomodation',
+    'accommodation',
+    'homestay',
+    'fees',
+    'feline',
+    'health',
+    'care',
+    'hyperbaric',
+    'oxygen',
+    'pulsed',
+    'electric',
+    'magnetic',
+    'field',
+    'therapy',
+    'pemf',
+    'hbot',
+    'integrative',
+    'gallery',
+    'professional',
+    'cat',
+    'grooming',
+    'rates',
+    'more',
+    'contact',
+    'booking',
+    'book',
+    'faq',
+  ]);
+  const navCount = words.filter((word) => navWords.has(word)).length;
+  return navCount >= 8 && navCount / words.length > 0.65;
+}
+
+function serviceIconName(title: string, index: number): string {
+  if (/brush|groom|matting|coat|fur/i.test(title)) return 'Scissors';
+  if (/medicine|medical|vet|health|oxygen|hbot|therapy|pemf/i.test(title)) return 'Stethoscope';
+  if (/electric|heat|blanket|warming/i.test(title)) return 'Zap';
+  if (/airport|flight/i.test(title)) return 'Plane';
+  if (/pickup|drop|transport|delivery/i.test(title)) return 'Car';
+  if (/photo|update|gallery/i.test(title)) return 'Camera';
+  if (/feed|diet|water|meal/i.test(title)) return 'Heart';
+  if (/hour|time|daily|room service/i.test(title)) return 'Clock';
+  return ['Scissors', 'Stethoscope', 'Zap', 'Car', 'Plane', 'Shield', 'Heart', 'Clock'][index % 8] || 'Star';
 }
 
 function sentenceList(text: string): string[] {
@@ -1760,24 +2140,62 @@ function extractReviewsFromPageText(text: string): CatteryScrapedReview[] {
   return reviews;
 }
 
-function buildOwnerSection(bundle: string, images: string[], businessName: string) {
+function buildOwnerSection(
+  bundle: string,
+  images: string[],
+  businessName: string,
+  supplementalPages: ScrapedPage[] = [],
+  homeBodyText = '',
+) {
   const texts = extractReadableBundleText(bundle);
-  const ownerTitle = firstText(texts, /Your Caring Hosts|About .*Vanessa|About .*Wilson|people behind/i);
-  const ownerText = texts
-    .filter((text) => /Paul|Vanessa|owner|host|family|farm|animals/i.test(text))
-    .filter((text) => text !== ownerTitle)
-    .slice(0, 3)
-    .join(' ');
+  const ownerPages = supplementalPages.filter((page) => /about|owner|team|people|story|behind|staff|who-we-are/i.test(`${page.url} ${page.title} ${page.heading}`));
+  const ownerTitle = cleanText(
+    ownerPages.find((page) => !isWeakSectionHeading(page.heading))?.heading ||
+      firstText(texts, /Your Caring Hosts|About .*Vanessa|About .*Wilson|people behind|owner|team/i),
+  );
+  const ownerText = buildOwnerStoryText([
+    ...ownerPages.map((page) => page.bodyText),
+    ...texts,
+    homeBodyText,
+  ]);
   const fallbackTitle = `Meet the people behind ${businessName}`;
+  const ownerImage = findOwnerImage(images, ownerPages, businessName, ownerText || ownerTitle);
   return {
-    title: !ownerText && !images.find((image) => /Paul|Vanessa|Wilson|owner/i.test(decodeURIComponent(image)))
-      ? fallbackTitle
-      : /behind home/i.test(ownerTitle)
-        ? fallbackTitle
-        : ownerTitle || fallbackTitle,
+    title: /behind home/i.test(ownerTitle) ? fallbackTitle : ownerTitle || fallbackTitle,
     text: ownerText,
-    image: images.find((image) => /Paul|Vanessa|Wilson|owner/i.test(decodeURIComponent(image))) || '',
+    image: ownerImage,
   };
+}
+
+function buildOwnerStoryText(sources: string[]) {
+  const ownerSentences = sources
+    .flatMap((source) => sentenceList(source))
+    .map((sentence) => cleanText(sentence))
+    .filter(Boolean)
+    .filter((sentence) => isOwnerStorySentence(sentence))
+    .filter((sentence) => !isNavigationOrGenericOwnerSentence(sentence));
+
+  return joinSentences(ownerSentences, 560);
+}
+
+function isOwnerStorySentence(sentence: string) {
+  return /owner|owned|operated|run by|founded|founder|family|host|team|people behind|our story|passion|experience|qualified|certified|groomer|grooming specialist|veterinary|Vanessa|Paul|Sarah|Casey|Wilson/i.test(sentence);
+}
+
+function isNavigationOrGenericOwnerSentence(sentence: string) {
+  return /top of page|bottom of page|use tab|menu|book now|contact us|pricing|open hours/i.test(sentence) ||
+    (!/owner|owned|operated|run by|founded|founder|family|host|team|people behind|our story|passion|experience|qualified|certified|groomer|grooming specialist|veterinary|Vanessa|Paul|Sarah|Casey|Wilson/i.test(sentence) &&
+      /boutique|cattery in|speciali[sz]ing|homestay style accommodation|providing/i.test(sentence));
+}
+
+function findOwnerImage(images: string[], ownerPages: ScrapedPage[], businessName: string, hasOwnerContent: string) {
+  const explicitOwnerImage = images.find((image) => /owner|team|people|staff|profile|host|Sarah|Casey|Vanessa|Paul|Wilson/i.test(decodeURIComponent(image)));
+  if (explicitOwnerImage && !isLikelyLogoImage(explicitOwnerImage, businessName)) return explicitOwnerImage;
+  if (!hasOwnerContent) return '';
+
+  return ownerPages
+    .flatMap((page) => page.images)
+    .find((image) => image && !isLikelyLogoImage(image, businessName) && !/logo|icon|favicon|placeholder/i.test(decodeURIComponent(image))) || '';
 }
 
 function buildCommitmentSection(
@@ -1877,6 +2295,50 @@ function absoluteUrl(src: string, baseUrl: URL): string {
   }
 }
 
+function isProbablyUsableImageUrl(image: string): boolean {
+  const decoded = decodeURIComponent(image).toLowerCase();
+  if (!/^https?:\/\//i.test(image)) return false;
+  if (/%60|`|:o\(|media\/\W/.test(decoded)) return false;
+  if (/\.(?:html?|css|js|json|xml|txt)(?:\?|$)/i.test(decoded)) return false;
+  return /\.(?:jpe?g|png|webp|avif|jfif)(?:[/?#]|$)/i.test(decoded) || /static\.wixstatic\.com\/media\//i.test(decoded);
+}
+
+function isLikelyLogoImage(image: string, businessName = ''): boolean {
+  if (!image) return false;
+  const decoded = safeDecodeURIComponent(image).toLowerCase();
+  const compactBusiness = businessName.toLowerCase().replace(/[^a-z0-9]+/g, '');
+  const compactImage = decoded.replace(/[^a-z0-9]+/g, '');
+  if (/logo|wordmark|brand|cardb|header-logo|site-logo/.test(decoded)) return true;
+  if (compactBusiness.length > 5 && compactImage.includes(compactBusiness) && imageAspectRatio(image) > 2.4) return true;
+  return false;
+}
+
+function firstUsablePhotoImage(images: Array<string | undefined>, logoImage = '', businessName = ''): string {
+  for (const image of images) {
+    if (image && isUsablePhotoImage(image, logoImage, businessName)) return image;
+  }
+  return '';
+}
+
+function isUsablePhotoImage(image: string, logoImage = '', businessName = ''): boolean {
+  if (!/^https?:\/\//i.test(image)) return false;
+  if (logoImage && imageKey(image) === imageKey(logoImage)) return false;
+  const decoded = safeDecodeURIComponent(image).toLowerCase();
+  if (/%60|`|:o\(|media\/\W/.test(decoded)) return false;
+  if (/logo|wordmark|brand|cardb|favicon|apple-touch-icon|header-logo|site-logo|lettermark|masthead|icon|avatar|profile|placeholder|silhouette|black.?cat|catstays|\/cat(?:[-_][a-z0-9]+)?\.png$/i.test(decoded)) {
+    return false;
+  }
+  return !isLikelyLogoImage(image, businessName);
+}
+
+function safeDecodeURIComponent(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
 function imageKey(image?: string): string {
   if (!image) return '';
   try {
@@ -1889,8 +2351,19 @@ function imageKey(image?: string): string {
 }
 
 function imageWidth(image: string): number {
-  const width = image.match(/[?&](?:w|width)=([0-9]+)/i)?.[1];
+  const width = image.match(/[?&](?:w|width)=([0-9]+)/i)?.[1] || image.match(/\/w_([0-9]+)/i)?.[1];
   return width ? Number(width) : 0;
+}
+
+function imageHeight(image: string): number {
+  const height = image.match(/[?&](?:h|height)=([0-9]+)/i)?.[1] || image.match(/,h_([0-9]+)/i)?.[1];
+  return height ? Number(height) : 0;
+}
+
+function imageAspectRatio(image: string): number {
+  const width = imageWidth(image);
+  const height = imageHeight(image);
+  return width && height ? width / height : 0;
 }
 
 function cityFromAddress(address: string): string {
@@ -1926,10 +2399,14 @@ function uniqueByTitle(items: Array<{ title: string; description: string }>) {
 
 function uniqueByQuestion(items: Array<{ question: string; answer: string }>) {
   const seen = new Set<string>();
+  const seenAnswers = new Set<string>();
   return items.filter((item) => {
     const key = item.question.toLowerCase();
+    const answerKey = cleanText(item.answer).toLowerCase();
     if (seen.has(key)) return false;
+    if (answerKey.length > 60 && seenAnswers.has(answerKey)) return false;
     seen.add(key);
+    if (answerKey.length > 60) seenAnswers.add(answerKey);
     return true;
   });
 }
@@ -1957,13 +2434,68 @@ function escapeRegExp(value: string): string {
 }
 
 function cleanText(value: string): string {
-  return decodeEntities(value)
+  return stripNavigationBoilerplate(decodeEntities(value))
     .replace(/\\n/g, ' ')
     .replace(/\\"/g, '"')
     .replace(/\\'/g, "'")
     .replace(/`/g, '')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function stripNavigationBoilerplate(value: string): string {
+  return stripTopOfPageMenuTrail(value)
+    .replace(/\btop of page\b[\s\S]{0,700}?\bUse tab to navigate through the menu items\.?/gi, ' ')
+    .replace(/\btop of page\b(?:[\s,;/|&-]+(?:home|about|accomodation|accommodation|homestay|fees|feline|health|care|hyperbaric|oxygen|pulsed|electric|magnetic|field|therapy|pemf|hbot|integrative|gallery|professional|cat|grooming|rates|more|contact|suites|facilities|services|booking|book|faq|q|a|use|tab|navigate|through|menu|items)){3,}/gi, ' ')
+    .replace(/\bHome\s+About\s+(?:Accomodation|Accommodation)[\s\S]{0,500}?\bMore\b/gi, ' ')
+    .replace(/\bRing or text for an appointment\b/gi, ' ')
+    .replace(/\bbottom of page\b/gi, ' ');
+}
+
+function stripTopOfPageMenuTrail(value: string): string {
+  return value.replace(/\btop of page\b[\s\S]{0,650}/gi, (match) => {
+    const words = match.toLowerCase().split(/[^a-z]+/).filter(Boolean);
+    const navWords = new Set([
+      'top',
+      'page',
+      'home',
+      'about',
+      'accomodation',
+      'accommodation',
+      'homestay',
+      'fees',
+      'feline',
+      'health',
+      'care',
+      'hyperbaric',
+      'oxygen',
+      'pulsed',
+      'electric',
+      'magnetic',
+      'field',
+      'therapy',
+      'pemf',
+      'hbot',
+      'integrative',
+      'gallery',
+      'professional',
+      'cat',
+      'grooming',
+      'rates',
+      'more',
+      'contact',
+      'booking',
+      'book',
+      'faq',
+      'use',
+      'tab',
+      'navigate',
+      'menu',
+      'items',
+    ]);
+    const navCount = words.filter((word) => navWords.has(word)).length;
+    return navCount >= 8 ? ' ' : match;
+  });
 }
 
 function decodeEntities(value: string): string {

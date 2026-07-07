@@ -1,9 +1,36 @@
 # Changelog
 
-## 2026-07-05
+## 2026-07-07
 
-- Clarified that the last known pre-FancyFelines CatStays handoff was on GitHub `main`, not a feature branch.
-- Added a durable rule that every future GitHub note and Replit handoff must include the exact working ref: `main`, branch name, or commit SHA.
+- Recreated the source-of-truth recovery branch `codex/catstays-source-of-truth-recovery-20260706` from current `main` after confirming that branch was not present locally or on GitHub.
+- Applied PR #5 (`codex/recover-import-preview-low-compute`) as the primary recovery baseline.
+- Recorded that PR #6 (`codex/import-preview-image-recovery-20260705`) is used only for image/media recovery pieces and PR #3 (`codex/import-preview-rendering-20260703`) is artifact-only context.
+- Added the working-ref handoff rule to the root sprint and decision docs so GitHub notes, PRs, Replit commands, and future chats always state the exact branch when work is not on `main`.
+- Added compact browser storage for preview import records so oversized scraped image/content payloads fall back to a capped table instead of throwing `catstays_preview_import_table` quota errors.
+- Reviewed PR #6's rich media catalogue as reference only; it was not wholesale-merged into this recovery branch because it conflicts with the PR #5 baseline.
+
+## 2026-07-02
+
+- Updated onboarding import mapping so the cattery setup Location field uses the imported full address, and manual/Google address edits keep the stored address in sync.
+- Improved website import coverage so CatStays captures more source-site pages, images, Q&A content, and extra owner-site sections before generating preview templates.
+- Added importer rules to keep logos/wordmarks and stock/filler photos out of hero, gallery, suite, room, and service photography, with neutral empty image areas for unusable or broken source images.
+- Added imported source sections and FAQ output to generated one-page previews so pages such as grooming, health care, HBOT, PEMF, collaborations, and Q&A have a place in the preview and builder data.
+- Centered short preview card rows for care, facility, and suite sections when there are only one, two, or three cards.
+- Added imported demo slug routes such as `/demo/fancyfelines`, `/demo/fancyfelines/dashboard`, and `/demo/fancyfelines/client` while preserving legacy Deloraine routes.
+- Added Website Builder hero eyebrow editing, CTA link `None` options, template-rendered primary/secondary hero buttons, and hover X/Y/Zoom controls for hero image positioning.
+- Preserved owner-edited builder copy, image choices, CTA choices, and hero image crop settings across template switches and Supabase `website_settings` save/load.
+- Added a repository-backed `/api/website/copy-image` route and `catstays-media` Supabase Storage bucket definition so pasted image URLs can be copied to CatStays-owned storage instead of being treated as durable hot-links.
+- Split Website Builder controls for the top Why Choose story, Purpose-built accommodation/facilities, and Care Approach card row, with imported navigation-menu boilerplate stripped from generated copy.
+- Removed the duplicate Purpose-built accommodation card row so care cards only render and edit in the Care Approach section.
+- Reordered Website Builder sections so Boarding Options appears after the care/facilities content, matching the generated preview scroll order.
+- Added editable suite bullet points to Boarding Options and made suite card rows center for short rows or scroll horizontally when more than three suites exist.
+- Copied scraped owner-site image URLs into CatStays-owned Supabase Storage during website import when storage is configured, and stopped gallery generation from excluding real photos just because they were already used elsewhere.
+- Tightened owner story generation so it only renders real owner/team/story content and no longer borrows generic About copy or stock imagery.
+- Tightened Care Services import/editor behavior so service descriptions reject navigation boilerplate, prices stay separate, the `Additional Services` eyebrow and icons are editable, and service cards can be reordered in the builder.
+- Added editable review and FAQ eyebrows/headings, kept imported review/FAQ lists instead of placeholder fallbacks, added show/hide controls for website display, and filtered repeated navigation-style FAQ answers.
+- Added editable footer quick links with section-anchor selection, included FAQs in generated footer links when available, and made footer hours mirror Contact / Location hours.
+- Hardened the Publish handler so duplicate-account conflicts stay on the Publish step with the inline error instead of resetting to step 1.
+- Hardened post-publish onboarding state so a successfully provisioned but unconfirmed Supabase Auth user is restored to the Success step instead of the Account step, and frontend confirmation URLs no longer fall back to localhost.
 
 ## 2026-07-01
 
