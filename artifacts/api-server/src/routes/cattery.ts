@@ -27,6 +27,7 @@ function resolvePublicAppUrl() {
 }
 
 const PUBLIC_APP_URL = resolvePublicAppUrl();
+const CONFIRM_EMAIL_REDIRECT_URL = `${PUBLIC_APP_URL}/confirm-email`;
 const supabaseUrl = readEnvValue('VITE_SUPABASE_URL');
 const supabaseAnonKey = readEnvValue('VITE_SUPABASE_ANON_KEY');
 const supabaseServiceKey = readEnvValue('SUPABASE_SERVICE_ROLE_KEY');
@@ -64,12 +65,57 @@ const websiteSettingKeys = [
   'backgroundColor',
   'typography',
   'logo',
+  'logoImage',
   'heroImage',
+  'heroImageOwned',
+  'heroImageSourceUrl',
+  'heroImageStoragePath',
+  'heroImageObjectPositionX',
+  'heroImageObjectPositionY',
+  'heroImageScale',
+  'heroEyebrow',
   'heroHeading',
   'heroSubheading',
+  'heroPrimaryCtaText',
+  'heroPrimaryCtaHref',
+  'heroSecondaryCtaText',
+  'heroSecondaryCtaHref',
   'aboutText',
   'aboutHeading',
+  'whyChooseEyebrow',
+  'whyChooseUsHeading',
+  'whyChooseUsText',
+  'careApproachEyebrow',
+  'careApproachHeading',
+  'careApproachText',
+  'whyChooseUsFeatures',
+  'facilitiesEyebrow',
+  'facilitiesHeading',
+  'facilitiesText',
+  'facilitiesImage',
+  'facilityFeatures',
+  'suitesHeading',
+  'suites',
+  'additionalServicesEyebrow',
+  'additionalServicesHeading',
+  'galleryHeading',
   'galleryImages',
+  'testimonialsEyebrow',
+  'testimonialsHeading',
+  'faqEyebrow',
+  'faqHeading',
+  'ownerData',
+  'locationData',
+  'hours',
+  'contactData',
+  'socialLinks',
+  'virtualTourUrl',
+  'footerAbout',
+  'footerLinks',
+  'siteContentLibrary',
+  'siteContentIndex',
+  'contentLibrary',
+  'sectionsOrder',
   'importSourceUrl',
   'sourceUrl',
   'sourceHost',
@@ -245,7 +291,7 @@ router.post('/cattery/provision', async (req: Request, res: Response) => {
           full_name: ownerName,
           business_name: businessName,
         },
-        emailRedirectTo: `${PUBLIC_APP_URL}/confirm-email`,
+        emailRedirectTo: CONFIRM_EMAIL_REDIRECT_URL,
       },
     });
 
@@ -334,6 +380,7 @@ router.post('/cattery/provision', async (req: Request, res: Response) => {
       catteryId: cattery.id,
       slug: requestedSlug,
       emailConfirmationSent: true,
+      emailConfirmationRedirectUrl: CONFIRM_EMAIL_REDIRECT_URL,
     });
   } catch (err: unknown) {
     console.error('[cattery/provision]', err);

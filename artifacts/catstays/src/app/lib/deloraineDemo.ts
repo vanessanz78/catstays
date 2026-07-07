@@ -18,14 +18,6 @@ const deloraineAssets = [
 const deloraineVirtualTourEmbedUrl =
   'https://www.google.com/maps/embed?pb=!4v1585042151806!6m8!1m7!1sCAoSLEFGMVFpcE4yclY4ZXBnVTVJTlc4VkVoTEN2dmx5Wk45b201czhtZ3ZUbFpr!2m2!1d-35.72669200000001!2d174.355986!3f20.68!4f-14.75!5f0.4000000000000002';
 
-const genericCatAssets = [
-  'https://images.unsplash.com/photo-1770255860384-3359fd44b467?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1200',
-  'https://images.unsplash.com/photo-1636340629239-008219592d08?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1200',
-  'https://images.unsplash.com/photo-1672764788664-9f5844477a0f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=600',
-  'https://images.unsplash.com/photo-1574114908319-2efa632834d1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=600',
-  'https://images.unsplash.com/photo-1725419876939-f8f9987cf0d2?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=600',
-];
-
 export type CatterySiteContentCategory =
   | 'hero'
   | 'navigation'
@@ -78,6 +70,16 @@ export interface CatterySiteContentLibrary {
   businessName?: string;
   capturedAt?: string;
   blocks: CatterySiteContentBlock[];
+}
+
+export interface CatterySiteContentIndexItem {
+  id: string;
+  category: CatterySiteContentCategory | string;
+  title: string;
+  text: string;
+  keywords: string[];
+  imageUrls: string[];
+  sourceUrl?: string;
 }
 
 export interface ImportedCatteryScrape {
@@ -137,6 +139,7 @@ export interface ImportedCatteryScrape {
   };
   virtualTourUrl?: string;
   siteContentLibrary?: CatterySiteContentLibrary;
+  siteContentIndex?: CatterySiteContentIndexItem[];
   websiteSettings?: Record<string, any>;
   bodyText?: string;
   extractedFrom?: {
@@ -189,6 +192,7 @@ export interface DelorainePreviewData {
   };
   virtualTourUrl?: string;
   siteContentLibrary?: CatterySiteContentLibrary;
+  siteContentIndex?: CatterySiteContentIndexItem[];
   sectionsOrder?: string[];
   roomTypes?: Array<{
     name: string;
@@ -885,30 +889,44 @@ export const defaultDelorainePreviewData = buildPreviewDataFromScrape(fallbackDe
 export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): DelorainePreviewData {
   const settings = scrape.websiteSettings ?? {};
   const isDeloraineSource = isDeloraineScrape(scrape);
-  const fallbackAssets = isDeloraineSource ? deloraineAssets : genericCatAssets;
-  const images = uniqueImages([
+  const fallbackAssets = isDeloraineSource ? deloraineAssets : [];
+  const rawImages = uniqueImages([
     scrape.heroImage,
     ...(scrape.images ?? []),
     ...fallbackAssets,
   ]);
+  const businessName =
+    meaningfulHeading(stringValue(settings.businessName)) ||
+    cleanBusinessName(scrape.title) ||
+    meaningfulHeading(scrape.heading) ||
+    businessNameFromScrape(scrape);
+  const logoImage = stringValue(settings.logoImage) || stringValue(settings.logo) || scrape.logoImage || '';
+  const images = rawImages.filter((image) => isUsablePhotoImage(image, logoImage, businessName));
+  const fallbackGalleryImages = rawImages.map((url, index) => ({ url, caption: `${businessName} photo ${index + 1}` }));
+  const galleryImages = (scrape.galleryImages?.length ? scrape.galleryImages : fallbackGalleryImages)
+    .filter((image) => isUsablePhotoImage(image.url, logoImage, businessName));
+  const heroImage = firstUsablePhotoImage(
+    [
+      settings.heroImageOwned ? stringValue(settings.heroImage) : '',
+      scrape.heroImage,
+      ...(galleryImages ?? []).map((image) => image.url),
+      ...images,
+      stringValue(settings.heroImage),
+    ],
+    logoImage,
+    businessName,
+  );
   const fallbackRooms = isDeloraineSource ? fallbackDeloraineScrape.rooms ?? [] : genericRooms(images);
   const fallbackServices = isDeloraineSource ? fallbackDeloraineScrape.services ?? [] : genericServices(images);
   const fallbackHighlights = isDeloraineSource ? fallbackDeloraineScrape.highlights ?? [] : genericHighlights();
   const rooms = scrape.rooms?.length ? scrape.rooms : fallbackRooms;
   const services = (scrape.services?.length ? scrape.services : fallbackServices).slice(0, 12);
   const highlights = scrape.highlights?.length ? scrape.highlights : fallbackHighlights;
-  const galleryImages =
-    scrape.galleryImages?.length
-      ? scrape.galleryImages
-      : images.map((url, index) => ({ url, caption: `${businessNameFromScrape(scrape)} photo ${index + 1}` }));
-  const businessName =
-    meaningfulHeading(stringValue(settings.businessName)) ||
-    cleanBusinessName(scrape.title) ||
-    meaningfulHeading(scrape.heading) ||
-    businessNameFromScrape(scrape);
   const fallbackPhone = isDeloraineSource ? fallbackDeloraineScrape.phone || '' : '';
   const fallbackEmail = isDeloraineSource ? fallbackDeloraineScrape.email || '' : '';
   const fallbackAddress = isDeloraineSource ? fallbackDeloraineScrape.address || '' : '';
+  const importedAddress = stringValue(settings.address) || scrape.address || fallbackAddress;
+  const importedLocation = importedAddress || stringValue(settings.location) || scrape.city || '';
   const fallbackFaqs = isDeloraineSource ? fallbackDeloraineScrape.faqs : genericFaqs(businessName);
   const reviews = scrape.reviews?.length
     ? scrape.reviews
@@ -946,12 +964,17 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
       socialLinks,
       virtualTourUrl,
     });
+  const settingsContentIndex = siteContentIndexFromSettings(settings.siteContentIndex);
+  const siteContentIndex =
+    (settingsContentIndex?.length ? settingsContentIndex : undefined) ||
+    (scrape.siteContentIndex?.length ? scrape.siteContentIndex : undefined) ||
+    buildSiteContentIndex(siteContentLibrary);
 
   return {
     businessName,
     sourceUrl: scrape.sourceUrl,
     sourceHost: scrape.sourceHost,
-    location: stringValue(settings.location) || scrape.city || '',
+    location: importedLocation,
     subdomain: slugify(businessName),
     primaryColor: stringValue(settings.primaryColor) || '#0A1128',
     accentColor: stringValue(settings.accentColor) || '#C46A3A',
@@ -968,17 +991,28 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
       'A purpose-built cat boarding facility focused on comfort, calm, and personal care.',
     phone: stringValue(settings.phone) || scrape.phone || fallbackPhone,
     email: stringValue(settings.email) || scrape.email || fallbackEmail,
-    address: stringValue(settings.address) || scrape.address || fallbackAddress,
+    address: importedAddress,
     pricePerNight: pricePerNight(rooms),
     pricePerCat: pricePerNight(rooms),
     selectedTemplate: scrape.sourceUrl ? 'original' : 'conversion-focus',
-    heroImage: stringValue(settings.heroImage) || images[0],
+    heroImage: heroImage || images[0] || '',
     ctaText: 'Book a stay',
     headingFont: 'playfair',
     subheadingFont: 'inter',
     typography: 'playfair',
     whyChooseUsData: {
+      whyChooseEyebrow: 'Why choose us',
       whyChooseUsHeading: `Why choose ${businessName}`,
+      whyChooseUsText:
+        scrape.description ||
+        settings.aboutText ||
+        'Personal, calm care designed around the way cats feel safest.',
+      careApproachEyebrow: 'Care Approach',
+      careApproachHeading: `Why choose ${businessName}`,
+      careApproachText:
+        scrape.description ||
+        settings.aboutText ||
+        'Personal, calm care designed around the way cats feel safest.',
       whyChooseUsFeatures: highlights.map((highlight, index) => ({
         icon: ['Shield', 'Heart', 'Home'][index] ?? 'Star',
         title: highlight.title,
@@ -986,15 +1020,12 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
       })),
     },
     facilitiesData: {
+      facilitiesEyebrow: 'Premium accommodation',
       facilitiesHeading: 'Purpose-built cat accommodation',
       facilitiesText:
         highlights[0]?.description ||
         'Comfortable cat boarding facilities designed around safety, routine, and calm.',
-      facilitiesImage: imageByName(images, /building|facility|indoor|communal/i) || images[0],
-      facilityFeatures: highlights.map((highlight) => ({
-        title: highlight.title,
-        description: highlight.description,
-      })),
+      facilitiesImage: imageByName(images, /building|facility|indoor|communal/i) || heroImage || images[0],
     },
     suitesData: {
       suitesHeading: 'Boarding options',
@@ -1002,7 +1033,7 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
         name: room.name,
         price: room.price && room.priceUnit ? `${room.price}/${room.priceUnit.replace(/^per\s+/i, '')}` : room.price,
         description: room.description,
-        image: room.image || images[index + 1] || images[0],
+        image: firstUsablePhotoImage([room.image, images[index + 1], images[0], heroImage], logoImage, businessName),
         popular: index === 0,
         features: room.amenities ?? [],
       })),
@@ -1013,7 +1044,7 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
         icon: ['Heart', 'Clock', 'Shield', 'Home'][index] ?? 'Star',
         title: service.title,
         description: service.price ? `${service.description} ${service.price}.` : service.description,
-        image: service.image || images[index + 2] || images[0],
+        image: firstUsablePhotoImage([service.image, images[index + 2], images[0], heroImage], logoImage, businessName),
       })),
     },
     galleryData: {
@@ -1053,6 +1084,7 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
     socialLinks,
     virtualTourUrl,
     siteContentLibrary,
+    siteContentIndex,
     sectionsOrder: ['hero', 'about', 'why-choose-us', 'facilities', 'suites', 'services', 'gallery', 'reviews', 'location', 'contact'],
     roomTypes: rooms.map((room) => ({
       name: room.name,
@@ -1088,15 +1120,12 @@ export function buildFallbackScrapeForUrl(rawUrl: string): ImportedCatteryScrape
     title: businessName,
     description: `${businessName} has been imported into CatStays as a starter preview. Add rooms, pricing, photos, and booking rules to finish setup.`,
     heading: businessName,
-    heroImage: genericCatAssets[0],
-    images: genericCatAssets,
-    galleryImages: genericCatAssets.map((url, index) => ({
-      url,
-      caption: `${businessName} preview ${index + 1}`,
-    })),
+    heroImage: '',
+    images: [],
+    galleryImages: [],
     highlights: genericHighlights(),
-    rooms: genericRooms(genericCatAssets),
-    services: genericServices(genericCatAssets),
+    rooms: genericRooms([]),
+    services: genericServices([]),
     faqs: genericFaqs(businessName),
     extractedFrom: {
       html: false,
@@ -1111,6 +1140,94 @@ function siteContentLibraryFromSettings(value: unknown): CatterySiteContentLibra
   const candidate = value as Partial<CatterySiteContentLibrary>;
   if (candidate.schemaVersion !== 1 || !Array.isArray(candidate.blocks)) return undefined;
   return candidate as CatterySiteContentLibrary;
+}
+
+function siteContentIndexFromSettings(value: unknown): CatterySiteContentIndexItem[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  return value
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const candidate = item as Partial<CatterySiteContentIndexItem>;
+      const title = cleanIndexText(candidate.title);
+      const text = cleanIndexText(candidate.text);
+      const category = stringValue(candidate.category);
+      if (!title && !text) return null;
+      return {
+        id: stringValue(candidate.id) || slugify(`${category}-${title || text}`),
+        category,
+        title,
+        text,
+        keywords: Array.isArray(candidate.keywords)
+          ? candidate.keywords.map((keyword) => stringValue(keyword)).filter(Boolean).slice(0, 40)
+          : keywordsForIndex([title, text, category]),
+        imageUrls: uniqueImages(Array.isArray(candidate.imageUrls) ? candidate.imageUrls.map((image) => stringValue(image)) : []),
+        sourceUrl: stringValue(candidate.sourceUrl),
+      };
+    })
+    .filter((item): item is CatterySiteContentIndexItem => Boolean(item));
+}
+
+export function buildSiteContentIndex(library: CatterySiteContentLibrary): CatterySiteContentIndexItem[] {
+  const items: CatterySiteContentIndexItem[] = [];
+
+  for (const block of library.blocks) {
+    const blockImages = uniqueImages((block.images ?? []).map((image) => image.url));
+    const blockText = cleanIndexText(block.text);
+    if (block.title || blockText || blockImages.length) {
+      items.push({
+        id: block.id,
+        category: block.category,
+        title: cleanIndexText(block.title),
+        text: blockText,
+        keywords: keywordsForIndex([block.title, block.text, block.category]),
+        imageUrls: blockImages,
+        sourceUrl: library.sourceUrl,
+      });
+    }
+
+    (block.items ?? []).forEach((item, index) => {
+      const title = cleanIndexText(item.title);
+      const text = cleanIndexText(item.text || item.answer || item.meta || '');
+      const imageUrls = uniqueImages([item.image]);
+      if (!title && !text && !imageUrls.length) return;
+
+      items.push({
+        id: `${block.id}-${slugify(title || `item-${index + 1}`)}`,
+        category: block.category,
+        title,
+        text,
+        keywords: keywordsForIndex([title, text, block.category, item.price, item.meta, ...(item.features ?? [])]),
+        imageUrls,
+        sourceUrl: item.url || library.sourceUrl,
+      });
+    });
+  }
+
+  return items.slice(0, 160);
+}
+
+function cleanIndexText(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  return value.replace(/\s+/g, ' ').trim().slice(0, 2000);
+}
+
+function keywordsForIndex(values: unknown[]): string[] {
+  const stopWords = new Set(['the', 'and', 'for', 'with', 'from', 'this', 'that', 'your', 'our', 'cat', 'cats', 'cattery']);
+  const seen = new Set<string>();
+  const keywords: string[] = [];
+
+  values
+    .map((value) => (typeof value === 'string' ? value : ''))
+    .join(' ')
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .forEach((word) => {
+      if (word.length < 3 || stopWords.has(word) || seen.has(word)) return;
+      seen.add(word);
+      keywords.push(word);
+    });
+
+  return keywords.slice(0, 40);
 }
 
 function buildSiteContentLibrary(input: {
@@ -1397,7 +1514,7 @@ function genericRooms(images: string[]): NonNullable<ImportedCatteryScrape['room
       price_per_night: 35,
       capacity: 1,
       amenities: ['Daily care', 'Comfort checks', 'Clean bedding'],
-      image: images[2] || genericCatAssets[2],
+      image: images[2] || '',
     },
     {
       name: 'Premium Suite',
@@ -1407,7 +1524,7 @@ function genericRooms(images: string[]): NonNullable<ImportedCatteryScrape['room
       price_per_night: 55,
       capacity: 2,
       amenities: ['Extra space', 'Photo updates', 'Enrichment time'],
-      image: images[3] || genericCatAssets[3],
+      image: images[3] || '',
     },
   ];
 }
@@ -1417,12 +1534,12 @@ function genericServices(images: string[]): NonNullable<ImportedCatteryScrape['s
     {
       title: 'Daily Photo Updates',
       description: 'Send owners reassuring updates from their cat during the stay.',
-      image: images[3] || genericCatAssets[3],
+      image: images[3] || '',
     },
     {
       title: 'Medication Support',
       description: 'Record medication instructions and make care notes easy for staff to follow.',
-      image: images[4] || genericCatAssets[4],
+      image: images[4] || '',
     },
   ];
 }
@@ -1463,6 +1580,60 @@ function genericFaqs(businessName: string): NonNullable<ImportedCatteryScrape['f
 
 function imageByName(images: string[], pattern: RegExp): string {
   return images.find((image) => pattern.test(decodeURIComponent(image))) || '';
+}
+
+function firstUsablePhotoImage(values: unknown[], logoImage = '', businessName = ''): string {
+  for (const value of values) {
+    const image = stringValue(value);
+    if (image && isUsablePhotoImage(image, logoImage, businessName)) return image;
+  }
+  return '';
+}
+
+function isUsablePhotoImage(image: string, logoImage = '', businessName = ''): boolean {
+  if (!/^https?:\/\//i.test(image)) return false;
+  const normalized = image.split('?')[0].trim().toLowerCase();
+  const logoKey = logoImage.split('?')[0].trim().toLowerCase();
+  if (!normalized) return false;
+  if (logoKey && normalized === logoKey) return false;
+
+  const decoded = safeDecodeURIComponent(normalized);
+  if (/%60|`|:o\(|media\/\W/.test(decoded)) return false;
+  if (/logo|wordmark|brand|cardb|favicon|apple-touch-icon|header-logo|site-logo|lettermark|masthead|icon|avatar|profile|placeholder|silhouette|black.?cat|catstays|\/cat(?:[-_][a-z0-9]+)?\.png$/i.test(decoded)) {
+    return false;
+  }
+
+  const compactBusiness = businessName.toLowerCase().replace(/[^a-z0-9]+/g, '');
+  const compactImage = decoded.replace(/[^a-z0-9]+/g, '');
+  if (compactBusiness.length > 5 && compactImage.includes(compactBusiness) && imageAspectRatioFromUrl(image) > 2.4) {
+    return false;
+  }
+
+  return true;
+}
+
+function safeDecodeURIComponent(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function imageWidthFromUrl(image: string): number {
+  const width = image.match(/[?&](?:w|width)=([0-9]+)/i)?.[1] || image.match(/\/w_([0-9]+)/i)?.[1];
+  return width ? Number(width) : 0;
+}
+
+function imageHeightFromUrl(image: string): number {
+  const height = image.match(/[?&](?:h|height)=([0-9]+)/i)?.[1] || image.match(/,h_([0-9]+)/i)?.[1];
+  return height ? Number(height) : 0;
+}
+
+function imageAspectRatioFromUrl(image: string): number {
+  const width = imageWidthFromUrl(image);
+  const height = imageHeightFromUrl(image);
+  return width && height ? width / height : 0;
 }
 
 function uniqueImages(images: Array<string | undefined>): string[] {

@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import Papa from 'papaparse';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
@@ -80,6 +80,22 @@ export function DataImportFlow({ onComplete, onCancel }: DataImportFlowProps) {
   const [processingProgress, setProcessingProgress] = useState(0);
   const [showPreview, setShowPreview] = useState(false);
   const [parsedData, setParsedData] = useState<ParsedData>({ customers: 0, pets: 0, bookings: 0, previewRows: [] });
+  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const reviewTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearProcessingTimers = useCallback(() => {
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current);
+      progressIntervalRef.current = null;
+    }
+
+    if (reviewTimeoutRef.current) {
+      clearTimeout(reviewTimeoutRef.current);
+      reviewTimeoutRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => clearProcessingTimers, [clearProcessingTimers]);
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -111,25 +127,26 @@ export function DataImportFlow({ onComplete, onCancel }: DataImportFlowProps) {
 
   const handleUpload = async () => {
     if (!file) return;
+    clearProcessingTimers();
     setStep('processing');
 
     let progress = 0;
-    const interval = setInterval(() => {
+    progressIntervalRef.current = setInterval(() => {
       progress += 15;
       setProcessingProgress(Math.min(progress, 90));
     }, 200);
 
     try {
       const data = await parseCsvFile(file);
-      clearInterval(interval);
+      clearProcessingTimers();
       setProcessingProgress(100);
       setParsedData(data);
-      setTimeout(() => setStep('review'), 400);
+      reviewTimeoutRef.current = setTimeout(() => setStep('review'), 400);
     } catch {
-      clearInterval(interval);
+      clearProcessingTimers();
       setProcessingProgress(100);
       setParsedData({ customers: 0, pets: 0, bookings: 0, previewRows: [] });
-      setTimeout(() => setStep('review'), 400);
+      reviewTimeoutRef.current = setTimeout(() => setStep('review'), 400);
     }
   };
 

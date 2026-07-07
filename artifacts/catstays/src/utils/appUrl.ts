@@ -12,16 +12,20 @@ function trimTrailingSlash(value: string) {
   return value.replace(/\/$/, '');
 }
 
-export function getPublicAppUrl() {
-  if (configuredAppUrl && configuredAppUrl.trim().length > 0) {
-    const trimmed = configuredAppUrl.trim();
-    if (!isPlaceholderValue(trimmed) && !isLocalhostUrl(trimmed)) {
-      return trimTrailingSlash(trimmed);
-    }
-  }
+function usablePublicUrl(value: string | undefined) {
+  if (!value || value.trim().length === 0) return null;
+  const trimmed = value.trim();
+  if (isPlaceholderValue(trimmed) || isLocalhostUrl(trimmed)) return null;
+  return trimTrailingSlash(trimmed);
+}
 
-  if (typeof window !== 'undefined' && window.location?.origin) {
-    return trimTrailingSlash(window.location.origin);
+export function getPublicAppUrl() {
+  const configured = usablePublicUrl(configuredAppUrl);
+  if (configured) return configured;
+
+  if (typeof window !== 'undefined') {
+    const origin = usablePublicUrl(window.location?.origin);
+    if (origin) return origin;
   }
 
   return 'https://catstays.app';

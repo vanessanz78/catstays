@@ -4,12 +4,12 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from './ui/accordion';
-import { Wand2, Plus, X, ChevronDown, ChevronUp, Check } from 'lucide-react';
+import { Wand2, Plus, X, ChevronDown, ChevronUp, Check, GripVertical } from 'lucide-react';
 import { ImageUpload } from './ImageUpload';
 
 /**
  * Website Editor Panel - Sections ordered to match the generated preview (top to bottom)
- * Order: Hero -> About -> Care Approach -> Facilities -> Owner Story -> Gallery -> Suites -> Services -> Reviews -> Contact -> Footer -> Chatbot
+ * Order: Hero -> About -> Why Choose story -> Facilities -> Care Approach -> Suites -> Services -> Source sections -> FAQ -> Gallery -> Reviews -> Owner Story -> Contact -> Footer -> Social
  */
 
 interface WebsiteEditorPanelEnhancedProps {
@@ -21,9 +21,11 @@ interface WebsiteEditorPanelEnhancedProps {
 
 export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRegenerating }: WebsiteEditorPanelEnhancedProps) {
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
+  const [draggingServiceIndex, setDraggingServiceIndex] = useState<number | null>(null);
   const sectionTitles = {
     hero: 'Home / Hero',
-    care: data.whyChooseUsHeading || 'Care Approach',
+    care: data.whyChooseUsHeading || 'Why Choose Story',
+    careApproach: data.careApproachHeading || 'Care Approach',
     about: data.aboutHeading || 'About',
     facilities: data.facilitiesHeading || 'Facilities',
     suites: data.suitesHeading || 'Suites / Rooms',
@@ -48,6 +50,10 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
     setExpandedItems(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
+  const heroImagePositionX = numberWithFallback(data.heroImageObjectPositionX, 50);
+  const heroImagePositionY = numberWithFallback(data.heroImageObjectPositionY, 50);
+  const heroImageScale = numberWithFallback(data.heroImageScale, 100);
+
   // Helper to render icon options
   const renderIconSelect = (value: string, onChange: (value: string) => void, className?: string) => (
     <select
@@ -61,6 +67,12 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       <option value="Star">⭐ Star (Quality)</option>
       <option value="Clock">🕐 Clock (24/7 Care)</option>
       <option value="Camera">📷 Camera (Photo Updates)</option>
+      <option value="Scissors">✂️ Scissors (Grooming)</option>
+      <option value="Stethoscope">🩺 Stethoscope (Health Care)</option>
+      <option value="Zap">⚡ Zap (Energy / Therapy)</option>
+      <option value="Car">🚗 Car (Transport)</option>
+      <option value="Plane">✈️ Plane (Airport)</option>
+      <option value="CalendarCheck">📅 Calendar (Bookings)</option>
       <option value="Home">🏠 Home (Comfortable)</option>
       <option value="Users">👥 Users (Family Run)</option>
       <option value="CheckCircle">✓ Check (Verified)</option>
@@ -74,6 +86,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       onChange={(e) => onChange(e.target.value)}
       className="w-full h-10 px-3 rounded-lg border border-gray-300"
     >
+      <option value="">None</option>
       <option value="#booking">Booking strip</option>
       <option value="#about">About</option>
       <option value="#care">Care approach</option>
@@ -82,10 +95,253 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       <option value="#services">Extra care / services</option>
       <option value="#gallery">Gallery</option>
       <option value="#reviews">Reviews</option>
+      <option value="#faqs">FAQs</option>
       <option value="#location">Location</option>
       <option value="#virtual-tour">Virtual tour</option>
       <option value="#contact">Contact</option>
     </select>
+  );
+
+  const defaultCareFeatures = [
+    { icon: 'Shield', title: 'Licensed & Insured', description: 'Fully certified cattery' },
+    { icon: 'Heart', title: 'Loving Care', description: 'Individual attention daily' },
+    { icon: 'Award', title: '15+ Years Experience', description: 'Trusted by thousands' },
+  ];
+  const careFeatures = data.whyChooseUsFeatures || defaultCareFeatures;
+
+  const setCareFeature = (index: number, updates: Record<string, any>) => {
+    const newFeatures = [...careFeatures];
+    newFeatures[index] = { ...newFeatures[index], ...updates };
+    setData({ ...data, whyChooseUsFeatures: newFeatures });
+  };
+
+  const removeCareFeature = (index: number) => {
+    setData({ ...data, whyChooseUsFeatures: careFeatures.filter((_: any, i: number) => i !== index) });
+  };
+
+  const addCareFeature = () => {
+    const newFeatures = [...careFeatures, { icon: 'Shield', title: '', description: '', isNew: true }];
+    setData({ ...data, whyChooseUsFeatures: newFeatures });
+    toggleExpanded(`why-choose-${newFeatures.length - 1}`);
+  };
+
+  const getSuiteBulletPoints = (suite: any) => {
+    if (Array.isArray(suite?.features)) return suite.features;
+    if (Array.isArray(suite?.amenities)) return suite.amenities;
+    return [];
+  };
+
+  const setSuiteAt = (index: number, updates: Record<string, any>) => {
+    const newSuites = [...(data.suites || [])];
+    newSuites[index] = { ...(newSuites[index] || {}), ...updates };
+    setData({ ...data, suites: newSuites });
+  };
+
+  const setSuiteBulletPoints = (index: number, bulletPoints: string[]) => {
+    setSuiteAt(index, {
+      features: bulletPoints,
+      amenities: bulletPoints,
+    });
+  };
+
+  const defaultAdditionalServices = [
+    { icon: 'Heart', title: 'Extra Comfort Check', price: '$8/day', description: 'Additional wellbeing check during the stay' },
+    { icon: 'Stethoscope', title: 'Medication Administration', price: '$10/day', description: 'Careful medication management' },
+    { icon: 'Heart', title: 'Special Diet', price: '$15/day', description: 'Custom meal preparation' },
+    { icon: 'Clock', title: 'Extended Playtime', price: '$20/day', description: 'Extra one-on-one attention' },
+  ];
+  const additionalServices = Array.isArray(data.additionalServices) ? data.additionalServices : defaultAdditionalServices;
+
+  const setAdditionalServices = (services: any[]) => {
+    setData({ ...data, additionalServices: services });
+  };
+
+  const setAdditionalService = (index: number, updates: Record<string, any>) => {
+    const newServices = [...additionalServices];
+    newServices[index] = { ...(newServices[index] || {}), ...updates };
+    setAdditionalServices(newServices);
+  };
+
+  const removeAdditionalService = (index: number) => {
+    setAdditionalServices(additionalServices.filter((_: any, i: number) => i !== index));
+  };
+
+  const moveAdditionalService = (fromIndex: number | null, toIndex: number) => {
+    if (fromIndex === null || fromIndex === toIndex || !additionalServices[fromIndex]) return;
+    const newServices = [...additionalServices];
+    const [moved] = newServices.splice(fromIndex, 1);
+    newServices.splice(toIndex, 0, moved);
+    setAdditionalServices(newServices);
+  };
+
+  const generatedFooterLinks: any[] = [
+    { label: 'Home', href: '#home' },
+    data.aboutHeading || data.aboutText ? { label: 'About', href: '#about' } : null,
+    data.careApproachHeading || data.whyChooseUsHeading ? { label: 'Care', href: '#care' } : null,
+    data.facilitiesHeading || data.facilitiesImage ? { label: 'Facilities', href: '#facilities' } : null,
+    Array.isArray(data.suites) && data.suites.length ? { label: 'Suites', href: '#suites' } : null,
+    Array.isArray(data.additionalServices) && data.additionalServices.length ? { label: 'Extra Care', href: '#services' } : null,
+    Array.isArray(data.galleryImages) && data.galleryImages.length ? { label: 'Gallery', href: '#gallery' } : null,
+    Array.isArray(data.testimonials) && data.testimonials.some((review: any) => review?.showOnWebsite !== false) ? { label: 'Reviews', href: '#reviews' } : null,
+    ...(Array.isArray(data.customSections)
+      ? data.customSections
+          .filter((section: any) => section?.heading || section?.title)
+          .map((section: any) => ({
+            label: section.heading || section.title,
+            href: `#${String(section.id || section.heading || section.title || 'section').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')}`,
+          }))
+      : []),
+    Array.isArray(data.faqs) && data.faqs.some((faq: any) => faq?.showOnWebsite !== false) ? { label: 'FAQs', href: '#faqs' } : null,
+    { label: 'Location', href: '#location' },
+    data.virtualTourUrl || data.locationData?.virtualTourUrl ? { label: 'Virtual Tour', href: '#virtual-tour' } : null,
+    { label: 'Contact', href: '#contact' },
+  ].filter(Boolean);
+  const footerLinks: any[] = Array.isArray(data.footerLinks) && data.footerLinks.length ? data.footerLinks : generatedFooterLinks;
+
+  const setFooterLink = (index: number, updates: Record<string, string>) => {
+    const links = [...footerLinks];
+    links[index] = { ...(links[index] || {}), ...updates };
+    setData({ ...data, footerLinks: links });
+  };
+
+  const renderCarePointEditor = () => (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <Label>Care Points</Label>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={addCareFeature}
+          className="text-xs h-7"
+        >
+          <Plus className="w-3 h-3 mr-1" />
+          Add Feature
+        </Button>
+      </div>
+
+      {careFeatures.map((feature: any, index: number) => {
+        const isExpanded = expandedItems[`why-choose-${index}`] || feature.isNew;
+        const isComplete = feature.title && feature.description;
+
+        return (
+          <div key={index} className="border rounded-lg bg-gray-50">
+            {!isExpanded ? (
+              <div className="flex items-center justify-between p-3">
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <span className="text-sm font-medium text-gray-700">
+                    {feature.title || `Feature ${index + 1}`}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => toggleExpanded(`why-choose-${index}`)}
+                    className="h-7 w-7 p-0"
+                  >
+                    <ChevronDown className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => removeCareFeature(index)}
+                    className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3 p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">Feature {index + 1}</span>
+                  <div className="flex items-center gap-1">
+                    {feature.isNew && isComplete && (
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setCareFeature(index, { isNew: false });
+                          toggleExpanded(`why-choose-${index}`);
+                        }}
+                        className="h-7 text-xs bg-green-600 hover:bg-green-700"
+                      >
+                        <Check className="w-3 h-3 mr-1" />
+                        Save
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => toggleExpanded(`why-choose-${index}`)}
+                      className="h-7 w-7 p-0"
+                    >
+                      <ChevronUp className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => removeCareFeature(index)}
+                      className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs">Icon</Label>
+                  {renderIconSelect(feature.icon || 'Shield', (value) => setCareFeature(index, { icon: value }))}
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs">Title</Label>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleAIClick(`whyChooseUsFeature${index}Title`)}
+                      disabled={isRegenerating}
+                      className="text-xs h-6"
+                    >
+                      <Wand2 className="w-3 h-3 mr-1" />
+                      AI
+                    </Button>
+                  </div>
+                  <Input
+                    value={feature.title || ''}
+                    onChange={(e) => setCareFeature(index, { title: e.target.value })}
+                    placeholder="Feature title"
+                    className="h-9 rounded-lg text-sm"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs">Description</Label>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleAIClick(`whyChooseUsFeature${index}Description`)}
+                      disabled={isRegenerating}
+                      className="text-xs h-6"
+                    >
+                      <Wand2 className="w-3 h-3 mr-1" />
+                      AI
+                    </Button>
+                  </div>
+                  <Input
+                    value={feature.description || ''}
+                    onChange={(e) => setCareFeature(index, { description: e.target.value })}
+                    placeholder="Feature description"
+                    className="h-9 rounded-lg text-sm"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
   );
 
   return (
@@ -96,6 +352,16 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
           <span className="font-semibold">{sectionTitles.hero}</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
+          <div className="space-y-2">
+            <Label>Hero Eyebrow</Label>
+            <Input
+              value={data.heroEyebrow ?? 'A home away from home'}
+              onChange={(e) => setData({ ...data, heroEyebrow: e.target.value })}
+              placeholder="A home away from home"
+              className="rounded-lg"
+            />
+          </div>
+
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label>Hero Heading</Label>
@@ -144,14 +410,44 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
           <ImageUpload
             label="Hero Image"
             value={data.heroImage || ''}
-            onChange={(url) => setData({ ...data, heroImage: url })}
+            onChange={(url, meta) => setData({
+              ...data,
+              heroImage: url,
+              heroImageOwned: meta?.owned ?? data.heroImageOwned,
+              heroImageSourceUrl: meta?.sourceUrl ?? data.heroImageSourceUrl,
+              heroImageStoragePath: meta?.storagePath ?? data.heroImageStoragePath,
+            })}
           />
+
+          <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+            <HeroImageControl
+              label="Horizontal"
+              value={heroImagePositionX}
+              min={0}
+              max={100}
+              onChange={(value) => setData({ ...data, heroImageObjectPositionX: value })}
+            />
+            <HeroImageControl
+              label="Vertical"
+              value={heroImagePositionY}
+              min={0}
+              max={100}
+              onChange={(value) => setData({ ...data, heroImageObjectPositionY: value })}
+            />
+            <HeroImageControl
+              label="Zoom"
+              value={heroImageScale}
+              min={100}
+              max={180}
+              onChange={(value) => setData({ ...data, heroImageScale: value })}
+            />
+          </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Primary Button Text</Label>
               <Input
-                value={data.heroPrimaryCtaText || 'Discover Our Suites'}
+                value={data.heroPrimaryCtaText ?? 'Discover Our Suites'}
                 onChange={(e) => setData({ ...data, heroPrimaryCtaText: e.target.value })}
                 placeholder="Discover Our Suites"
                 className="rounded-lg"
@@ -159,12 +455,12 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
             </div>
             <div className="space-y-2">
               <Label>Primary Button Link</Label>
-              {renderAnchorSelect(data.heroPrimaryCtaHref || '#suites', (value) => setData({ ...data, heroPrimaryCtaHref: value }))}
+              {renderAnchorSelect(data.heroPrimaryCtaHref ?? '#suites', (value) => setData({ ...data, heroPrimaryCtaHref: value }))}
             </div>
             <div className="space-y-2">
               <Label>Secondary Button Text</Label>
               <Input
-                value={data.heroSecondaryCtaText || 'Our Care Approach'}
+                value={data.heroSecondaryCtaText ?? 'Our Care Approach'}
                 onChange={(e) => setData({ ...data, heroSecondaryCtaText: e.target.value })}
                 placeholder="Our Care Approach"
                 className="rounded-lg"
@@ -172,18 +468,28 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
             </div>
             <div className="space-y-2">
               <Label>Secondary Button Link</Label>
-              {renderAnchorSelect(data.heroSecondaryCtaHref || '#care', (value) => setData({ ...data, heroSecondaryCtaHref: value }))}
+              {renderAnchorSelect(data.heroSecondaryCtaHref ?? '#care', (value) => setData({ ...data, heroSecondaryCtaHref: value }))}
             </div>
           </div>
         </AccordionContent>
       </AccordionItem>
 
-      {/* 2. CARE APPROACH SECTION */}
+      {/* 2. WHY CHOOSE STORY SECTION */}
       <AccordionItem value="why-choose-us" className="order-3 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
           <span className="font-semibold">{sectionTitles.care}</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
+          <div className="space-y-2">
+            <Label>Section Eyebrow</Label>
+            <Input
+              value={data.whyChooseEyebrow ?? 'Why choose us'}
+              onChange={(e) => setData({ ...data, whyChooseEyebrow: e.target.value })}
+              placeholder="Why choose us"
+              className="rounded-lg"
+            />
+          </div>
+
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label>Section Heading</Label>
@@ -206,194 +512,27 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
             />
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label>Care Points</Label>
+              <Label>Section Copy</Label>
               <Button
                 size="sm"
-                variant="outline"
-                onClick={() => {
-                  const newFeatures = [...(data.whyChooseUsFeatures || [
-                    { icon: 'Shield', title: 'Licensed & Insured', description: 'Fully certified cattery' },
-                    { icon: 'Heart', title: 'Loving Care', description: 'Individual attention daily' },
-                    { icon: 'Award', title: '15+ Years Experience', description: 'Trusted by thousands' }
-                  ]), { icon: 'Shield', title: '', description: '', isNew: true }];
-                  setData({ ...data, whyChooseUsFeatures: newFeatures });
-                  toggleExpanded(`why-choose-${newFeatures.length - 1}`);
-                }}
+                variant="ghost"
+                onClick={() => handleAIClick('whyChooseUsText')}
+                disabled={isRegenerating}
                 className="text-xs h-7"
               >
-                <Plus className="w-3 h-3 mr-1" />
-                Add Feature
+                <Wand2 className="w-3 h-3 mr-1" />
+                AI
               </Button>
             </div>
-
-            {(data.whyChooseUsFeatures || [
-              { icon: 'Shield', title: 'Licensed & Insured', description: 'Fully certified cattery' },
-              { icon: 'Heart', title: 'Loving Care', description: 'Individual attention daily' },
-              { icon: 'Award', title: '15+ Years Experience', description: 'Trusted by thousands' }
-            ]).map((feature: any, index: number) => {
-              const isExpanded = expandedItems[`why-choose-${index}`] || feature.isNew;
-              const isComplete = feature.title && feature.description;
-
-              return (
-                <div key={index} className="border rounded-lg bg-gray-50">
-                  {!isExpanded ? (
-                    <div className="flex items-center justify-between p-3">
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <span className="text-sm font-medium text-gray-700">
-                          {feature.title || `Feature ${index + 1}`}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => toggleExpanded(`why-choose-${index}`)}
-                          className="h-7 w-7 p-0"
-                        >
-                          <ChevronDown className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            const newFeatures = (data.whyChooseUsFeatures || [
-                              { icon: 'Shield', title: 'Licensed & Insured', description: 'Fully certified cattery' },
-                              { icon: 'Heart', title: 'Loving Care', description: 'Individual attention daily' },
-                              { icon: 'Award', title: '15+ Years Experience', description: 'Trusted by thousands' }
-                            ]).filter((_: any, i: number) => i !== index);
-                            setData({ ...data, whyChooseUsFeatures: newFeatures });
-                          }}
-                          className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-700">Feature {index + 1}</span>
-                        <div className="flex items-center gap-1">
-                          {feature.isNew && isComplete && (
-                            <Button
-                              size="sm"
-                              onClick={() => {
-                                const newFeatures = [...(data.whyChooseUsFeatures || [])];
-                                newFeatures[index] = { ...newFeatures[index], isNew: false };
-                                setData({ ...data, whyChooseUsFeatures: newFeatures });
-                                toggleExpanded(`why-choose-${index}`);
-                              }}
-                              className="h-7 text-xs bg-green-600 hover:bg-green-700"
-                            >
-                              <Check className="w-3 h-3 mr-1" />
-                              Save
-                            </Button>
-                          )}
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => toggleExpanded(`why-choose-${index}`)}
-                            className="h-7 w-7 p-0"
-                          >
-                            <ChevronUp className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              const newFeatures = (data.whyChooseUsFeatures || [
-                                { icon: 'Shield', title: 'Licensed & Insured', description: 'Fully certified cattery' },
-                                { icon: 'Heart', title: 'Loving Care', description: 'Individual attention daily' },
-                                { icon: 'Award', title: '15+ Years Experience', description: 'Trusted by thousands' }
-                              ]).filter((_: any, i: number) => i !== index);
-                              setData({ ...data, whyChooseUsFeatures: newFeatures });
-                            }}
-                            className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label className="text-xs">Icon</Label>
-                        {renderIconSelect(feature.icon || 'Shield', (value) => {
-                          const newFeatures = [...(data.whyChooseUsFeatures || [
-                            { icon: 'Shield', title: 'Licensed & Insured', description: 'Fully certified cattery' },
-                            { icon: 'Heart', title: 'Loving Care', description: 'Individual attention daily' },
-                            { icon: 'Award', title: '15+ Years Experience', description: 'Trusted by thousands' }
-                          ])];
-                          newFeatures[index] = { ...newFeatures[index], icon: value };
-                          setData({ ...data, whyChooseUsFeatures: newFeatures });
-                        })}
-                      </div>
-
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-xs">Title</Label>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleAIClick(`whyChooseUsFeature${index}Title`)}
-                            disabled={isRegenerating}
-                            className="text-xs h-6"
-                          >
-                            <Wand2 className="w-3 h-3 mr-1" />
-                            AI
-                          </Button>
-                        </div>
-                        <Input
-                          value={feature.title || ''}
-                          onChange={(e) => {
-                            const newFeatures = [...(data.whyChooseUsFeatures || [
-                              { icon: 'Shield', title: 'Licensed & Insured', description: 'Fully certified cattery' },
-                              { icon: 'Heart', title: 'Loving Care', description: 'Individual attention daily' },
-                              { icon: 'Award', title: '15+ Years Experience', description: 'Trusted by thousands' }
-                            ])];
-                            newFeatures[index] = { ...newFeatures[index], title: e.target.value };
-                            setData({ ...data, whyChooseUsFeatures: newFeatures });
-                          }}
-                          placeholder="Feature title"
-                          className="h-9 rounded-lg text-sm"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-xs">Description</Label>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleAIClick(`whyChooseUsFeature${index}Description`)}
-                            disabled={isRegenerating}
-                            className="text-xs h-6"
-                          >
-                            <Wand2 className="w-3 h-3 mr-1" />
-                            AI
-                          </Button>
-                        </div>
-                        <Input
-                          value={feature.description || ''}
-                          onChange={(e) => {
-                            const newFeatures = [...(data.whyChooseUsFeatures || [
-                              { icon: 'Shield', title: 'Licensed & Insured', description: 'Fully certified cattery' },
-                              { icon: 'Heart', title: 'Loving Care', description: 'Individual attention daily' },
-                              { icon: 'Award', title: '15+ Years Experience', description: 'Trusted by thousands' }
-                            ])];
-                            newFeatures[index] = { ...newFeatures[index], description: e.target.value };
-                            setData({ ...data, whyChooseUsFeatures: newFeatures });
-                          }}
-                          placeholder="Feature description"
-                          className="h-9 rounded-lg text-sm"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+            <Textarea
+              value={data.whyChooseUsText || ''}
+              onChange={(e) => setData({ ...data, whyChooseUsText: e.target.value })}
+              placeholder="Tell visitors why this cattery is a good fit"
+              className="rounded-lg"
+              rows={4}
+            />
           </div>
         </AccordionContent>
       </AccordionItem>
@@ -464,6 +603,16 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-2">
+            <Label>Section Eyebrow</Label>
+            <Input
+              value={data.facilitiesEyebrow ?? 'Premium accommodation'}
+              onChange={(e) => setData({ ...data, facilitiesEyebrow: e.target.value })}
+              placeholder="Premium accommodation"
+              className="rounded-lg"
+            />
+          </div>
+
+          <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label>Facilities Heading</Label>
               <Button
@@ -513,164 +662,76 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
             value={data.facilitiesImage || ''}
             onChange={(url) => setData({ ...data, facilitiesImage: url })}
           />
-
-          <div className="space-y-4 mt-4">
-            <div className="flex items-center justify-between">
-              <Label>Facility Features</Label>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  const newFeatures = [...(data.facilityFeatures || []), { title: '', description: '', isNew: true }];
-                  setData({ ...data, facilityFeatures: newFeatures });
-                  toggleExpanded(`facility-${newFeatures.length - 1}`);
-                }}
-                className="text-xs h-7"
-              >
-                <Plus className="w-3 h-3 mr-1" />
-                Add Feature
-              </Button>
-            </div>
-
-            {(data.facilityFeatures || []).map((feature: any, index: number) => {
-              const isExpanded = expandedItems[`facility-${index}`] || feature.isNew;
-              const isComplete = feature.title && feature.description;
-
-              return (
-                <div key={index} className="border rounded-lg bg-gray-50">
-                  {!isExpanded ? (
-                    <div className="flex items-center justify-between p-3">
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <span className="text-sm font-medium text-gray-700">
-                          {feature.title || `Feature ${index + 1}`}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => toggleExpanded(`facility-${index}`)}
-                          className="h-7 w-7 p-0"
-                        >
-                          <ChevronDown className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            const newFeatures = (data.facilityFeatures || []).filter((_: any, i: number) => i !== index);
-                            setData({ ...data, facilityFeatures: newFeatures });
-                          }}
-                          className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="p-4 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-700">Feature {index + 1}</span>
-                        <div className="flex items-center gap-1">
-                          {feature.isNew && isComplete && (
-                            <Button
-                              size="sm"
-                              onClick={() => {
-                                const newFeatures = [...(data.facilityFeatures || [])];
-                                newFeatures[index] = { ...newFeatures[index], isNew: false };
-                                setData({ ...data, facilityFeatures: newFeatures });
-                                toggleExpanded(`facility-${index}`);
-                              }}
-                              className="h-7 text-xs bg-green-600 hover:bg-green-700"
-                            >
-                              <Check className="w-3 h-3 mr-1" />
-                              Save
-                            </Button>
-                          )}
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => toggleExpanded(`facility-${index}`)}
-                            className="h-7 w-7 p-0"
-                          >
-                            <ChevronUp className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              const newFeatures = (data.facilityFeatures || []).filter((_: any, i: number) => i !== index);
-                              setData({ ...data, facilityFeatures: newFeatures });
-                            }}
-                            className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-xs">Feature Title</Label>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleAIClick(`facilityFeature${index}Title`)}
-                            disabled={isRegenerating}
-                            className="text-xs h-6"
-                          >
-                            <Wand2 className="w-3 h-3 mr-1" />
-                            AI
-                          </Button>
-                        </div>
-                        <Input
-                          value={feature.title || ''}
-                          onChange={(e) => {
-                            const newFeatures = [...(data.facilityFeatures || [])];
-                            newFeatures[index] = { ...newFeatures[index], title: e.target.value };
-                            setData({ ...data, facilityFeatures: newFeatures });
-                          }}
-                          placeholder="e.g., Climate Control"
-                          className="h-9 rounded-lg text-sm"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <Label className="text-xs">Description</Label>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleAIClick(`facilityFeature${index}Description`)}
-                            disabled={isRegenerating}
-                            className="text-xs h-6"
-                          >
-                            <Wand2 className="w-3 h-3 mr-1" />
-                            AI
-                          </Button>
-                        </div>
-                        <Input
-                          value={feature.description || ''}
-                          onChange={(e) => {
-                            const newFeatures = [...(data.facilityFeatures || [])];
-                            newFeatures[index] = { ...newFeatures[index], description: e.target.value };
-                            setData({ ...data, facilityFeatures: newFeatures });
-                          }}
-                          placeholder="Feature description"
-                          className="h-9 rounded-lg text-sm"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
         </AccordionContent>
       </AccordionItem>
 
-      {/* 5. SUITES SECTION */}
-      <AccordionItem value="our-suites" className="order-7 border rounded-xl px-4 bg-white">
+      {/* 5. CARE APPROACH CARDS */}
+      <AccordionItem value="care-approach" className="order-5 border rounded-xl px-4 bg-white">
+        <AccordionTrigger className="hover:no-underline py-4">
+          <span className="font-semibold">{sectionTitles.careApproach}</span>
+        </AccordionTrigger>
+        <AccordionContent className="space-y-4 pb-4">
+          <div className="space-y-2">
+            <Label>Section Eyebrow</Label>
+            <Input
+              value={data.careApproachEyebrow ?? 'Care Approach'}
+              onChange={(e) => setData({ ...data, careApproachEyebrow: e.target.value })}
+              placeholder="Care Approach"
+              className="rounded-lg"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Section Heading</Label>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => handleAIClick('careApproachHeading')}
+                disabled={isRegenerating}
+                className="text-xs h-7"
+              >
+                <Wand2 className="w-3 h-3 mr-1" />
+                AI
+              </Button>
+            </div>
+            <Input
+              value={data.careApproachHeading || data.whyChooseUsHeading || 'Why choose us'}
+              onChange={(e) => setData({ ...data, careApproachHeading: e.target.value })}
+              placeholder="Why choose us"
+              className="rounded-lg"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Section Copy</Label>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => handleAIClick('careApproachText')}
+                disabled={isRegenerating}
+                className="text-xs h-7"
+              >
+                <Wand2 className="w-3 h-3 mr-1" />
+                AI
+              </Button>
+            </div>
+            <Textarea
+              value={data.careApproachText ?? data.whyChooseUsText ?? ''}
+              onChange={(e) => setData({ ...data, careApproachText: e.target.value })}
+              placeholder="Describe the care approach these cards support"
+              className="rounded-lg"
+              rows={4}
+            />
+          </div>
+
+          {renderCarePointEditor()}
+        </AccordionContent>
+      </AccordionItem>
+
+      {/* 6. SUITES SECTION */}
+      <AccordionItem value="our-suites" className="order-6 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
           <span className="font-semibold">{sectionTitles.suites}</span>
         </AccordionTrigger>
@@ -704,7 +765,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
                 size="sm"
                 variant="outline"
                 onClick={() => {
-                  const newSuites = [...(data.suites || []), { name: '', description: '', price: '', image: '', isNew: true }];
+                  const newSuites = [...(data.suites || []), { name: '', description: '', price: '', image: '', features: [], amenities: [], isNew: true }];
                   setData({ ...data, suites: newSuites });
                   toggleExpanded(`suite-${newSuites.length - 1}`);
                 }}
@@ -718,6 +779,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
             {(data.suites || []).map((suite: any, index: number) => {
               const isExpanded = expandedItems[`suite-${index}`] || suite.isNew;
               const isComplete = suite.name && suite.description;
+              const suiteBulletPoints = getSuiteBulletPoints(suite);
 
               return (
                 <div key={index} className="border rounded-lg bg-gray-50">
@@ -823,9 +885,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
                         <Input
                           value={suite.name || ''}
                           onChange={(e) => {
-                            const newSuites = [...(data.suites || [])];
-                            newSuites[index] = { ...newSuites[index], name: e.target.value };
-                            setData({ ...data, suites: newSuites });
+                            setSuiteAt(index, { name: e.target.value });
                           }}
                           placeholder="e.g., Standard Suite"
                           className="h-9 rounded-lg text-sm"
@@ -849,9 +909,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
                         <Textarea
                           value={suite.description || ''}
                           onChange={(e) => {
-                            const newSuites = [...(data.suites || [])];
-                            newSuites[index] = { ...newSuites[index], description: e.target.value };
-                            setData({ ...data, suites: newSuites });
+                            setSuiteAt(index, { description: e.target.value });
                           }}
                           placeholder="Suite description"
                           className="rounded-lg text-sm"
@@ -864,9 +922,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
                         <Input
                           value={suite.price || ''}
                           onChange={(e) => {
-                            const newSuites = [...(data.suites || [])];
-                            newSuites[index] = { ...newSuites[index], price: e.target.value };
-                            setData({ ...data, suites: newSuites });
+                            setSuiteAt(index, { price: e.target.value });
                           }}
                           placeholder="e.g., $50/night"
                           className="h-9 rounded-lg text-sm"
@@ -876,12 +932,57 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
                       <ImageUpload
                         label="Suite Image"
                         value={suite.image || ''}
-                        onChange={(url) => {
-                          const newSuites = [...(data.suites || [])];
-                          newSuites[index] = { ...newSuites[index], image: url };
-                          setData({ ...data, suites: newSuites });
+                        onChange={(url, meta) => {
+                          setSuiteAt(index, {
+                            image: url,
+                            imageOwned: meta?.owned,
+                            imageSourceUrl: meta?.sourceUrl,
+                            imageStoragePath: meta?.storagePath,
+                          });
                         }}
                       />
+
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs">Bullet Points</Label>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setSuiteBulletPoints(index, [...suiteBulletPoints, ''])}
+                            className="h-7 text-xs"
+                          >
+                            <Plus className="w-3 h-3 mr-1" />
+                            Add Bullet
+                          </Button>
+                        </div>
+                        <div className="space-y-2">
+                          {suiteBulletPoints.map((feature: string, featureIndex: number) => (
+                            <div key={featureIndex} className="flex items-center gap-2">
+                              <Input
+                                value={feature || ''}
+                                onChange={(e) => {
+                                  const nextBulletPoints = [...suiteBulletPoints];
+                                  nextBulletPoints[featureIndex] = e.target.value;
+                                  setSuiteBulletPoints(index, nextBulletPoints);
+                                }}
+                                placeholder="e.g., Daily care"
+                                className="h-9 rounded-lg text-sm"
+                              />
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  const nextBulletPoints = suiteBulletPoints.filter((_: string, i: number) => i !== featureIndex);
+                                  setSuiteBulletPoints(index, nextBulletPoints);
+                                }}
+                                className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -891,12 +992,22 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
         </AccordionContent>
       </AccordionItem>
 
-      {/* 6. EXTRA CARE / SERVICES SECTION */}
-      <AccordionItem value="additional-services" className="order-8 border rounded-xl px-4 bg-white">
+      {/* 7. EXTRA CARE / SERVICES SECTION */}
+      <AccordionItem value="additional-services" className="order-7 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
           <span className="font-semibold">{sectionTitles.services}</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
+          <div className="space-y-2">
+            <Label>Section Eyebrow</Label>
+            <Input
+              value={data.additionalServicesEyebrow ?? 'Additional Services'}
+              onChange={(e) => setData({ ...data, additionalServicesEyebrow: e.target.value })}
+              placeholder="Additional Services"
+              className="rounded-lg"
+            />
+          </div>
+
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label>Section Heading</Label>
@@ -926,8 +1037,8 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
                 size="sm"
                 variant="outline"
                 onClick={() => {
-                  const newServices = [...(data.additionalServices || []), { title: '', description: '', price: '', isNew: true }];
-                  setData({ ...data, additionalServices: newServices });
+                  const newServices = [...additionalServices, { icon: 'Heart', title: '', description: '', price: '', isNew: true }];
+                  setAdditionalServices(newServices);
                   toggleExpanded(`additional-${newServices.length - 1}`);
                 }}
                 className="text-xs h-7"
@@ -937,20 +1048,34 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
               </Button>
             </div>
 
-            {(Array.isArray(data.additionalServices) ? data.additionalServices : [
-              { title: 'Extra Comfort Check', price: '$8/day', description: 'Additional wellbeing check during the stay' },
-              { title: 'Medication Administration', price: '$10/day', description: 'Careful medication management' },
-              { title: 'Special Diet', price: '$15/day', description: 'Custom meal preparation' },
-              { title: 'Extended Playtime', price: '$20/day', description: 'Extra one-on-one attention' }
-            ]).map((service: any, index: number) => {
+            {additionalServices.map((service: any, index: number) => {
               const isExpanded = expandedItems[`additional-${index}`] || service.isNew;
               const isComplete = service.title && service.description;
 
               return (
-                <div key={index} className="border rounded-lg bg-gray-50">
+                <div
+                  key={index}
+                  draggable={!isExpanded}
+                  onDragStart={(event) => {
+                    setDraggingServiceIndex(index);
+                    event.dataTransfer.effectAllowed = 'move';
+                  }}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = 'move';
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    moveAdditionalService(draggingServiceIndex, index);
+                    setDraggingServiceIndex(null);
+                  }}
+                  onDragEnd={() => setDraggingServiceIndex(null)}
+                  className={`border rounded-lg bg-gray-50 ${draggingServiceIndex === index ? 'opacity-60' : ''}`}
+                >
                   {!isExpanded ? (
                     <div className="flex items-center justify-between p-3">
                       <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <GripVertical className="h-4 w-4 flex-shrink-0 cursor-grab text-gray-400" />
                         <span className="text-sm font-medium text-gray-700">
                           {service.title || `Service ${index + 1}`}
                         </span>
@@ -967,10 +1092,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => {
-                            const newServices = (data.additionalServices || []).filter((_: any, i: number) => i !== index);
-                            setData({ ...data, additionalServices: newServices });
-                          }}
+                          onClick={() => removeAdditionalService(index)}
                           className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
                         >
                           <X className="w-4 h-4" />
@@ -986,9 +1108,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
                             <Button
                               size="sm"
                               onClick={() => {
-                                const newServices = [...(data.additionalServices || [])];
-                                newServices[index] = { ...newServices[index], isNew: false };
-                                setData({ ...data, additionalServices: newServices });
+                                setAdditionalService(index, { isNew: false });
                                 toggleExpanded(`additional-${index}`);
                               }}
                               className="h-7 text-xs bg-green-600 hover:bg-green-700"
@@ -1008,15 +1128,17 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => {
-                              const newServices = (data.additionalServices || []).filter((_: any, i: number) => i !== index);
-                              setData({ ...data, additionalServices: newServices });
-                            }}
+                            onClick={() => removeAdditionalService(index)}
                             className="h-7 w-7 p-0 text-red-500 hover:text-red-700"
                           >
                             <X className="w-4 h-4" />
                           </Button>
                         </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label className="text-xs">Icon</Label>
+                        {renderIconSelect(service.icon || 'Heart', (value) => setAdditionalService(index, { icon: value }))}
                       </div>
 
                       <div className="space-y-2">
@@ -1035,11 +1157,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
                         </div>
                         <Input
                           value={service.title || ''}
-                          onChange={(e) => {
-                            const newServices = [...(data.additionalServices || [])];
-                            newServices[index] = { ...newServices[index], title: e.target.value };
-                            setData({ ...data, additionalServices: newServices });
-                          }}
+                          onChange={(e) => setAdditionalService(index, { title: e.target.value })}
                           placeholder="e.g., Extra Comfort Check"
                           className="h-9 rounded-lg text-sm"
                         />
@@ -1061,11 +1179,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
                         </div>
                         <Textarea
                           value={service.description || ''}
-                          onChange={(e) => {
-                            const newServices = [...(data.additionalServices || [])];
-                            newServices[index] = { ...newServices[index], description: e.target.value };
-                            setData({ ...data, additionalServices: newServices });
-                          }}
+                          onChange={(e) => setAdditionalService(index, { description: e.target.value })}
                           placeholder="Service description"
                           className="rounded-lg text-sm"
                           rows={3}
@@ -1076,11 +1190,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
                         <Label className="text-xs">Price (Optional)</Label>
                         <Input
                           value={service.price || ''}
-                          onChange={(e) => {
-                            const newServices = [...(data.additionalServices || [])];
-                            newServices[index] = { ...newServices[index], price: e.target.value };
-                            setData({ ...data, additionalServices: newServices });
-                          }}
+                          onChange={(e) => setAdditionalService(index, { price: e.target.value })}
                           placeholder="e.g., $25"
                           className="h-9 rounded-lg text-sm"
                         />
@@ -1094,8 +1204,8 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
         </AccordionContent>
       </AccordionItem>
 
-      {/* 7. GALLERY SECTION */}
-      <AccordionItem value="gallery" className="order-6 border rounded-xl px-4 bg-white">
+      {/* 10. GALLERY SECTION */}
+      <AccordionItem value="gallery" className="order-10 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
           <span className="font-semibold">{sectionTitles.gallery}</span>
         </AccordionTrigger>
@@ -1139,14 +1249,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
               </Button>
             </div>
 
-            {(Array.isArray(data.galleryImages) ? data.galleryImages : [
-              'https://images.unsplash.com/photo-1574158622682-e40e69881006?w=800&h=800&fit=crop',
-              'https://images.unsplash.com/photo-1518791841217-8f162f1e1131?w=800&h=800&fit=crop',
-              'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=800&h=800&fit=crop',
-              'https://images.unsplash.com/photo-1548681528-6a5c45b66b42?w=800&h=800&fit=crop',
-              'https://images.unsplash.com/photo-1573865526739-10c1de0e0ef2?w=800&h=800&fit=crop',
-              'https://images.unsplash.com/photo-1519052537078-e6302a4968d4?w=800&h=800&fit=crop'
-            ]).map((img: string, index: number) => (
+            {(Array.isArray(data.galleryImages) ? data.galleryImages : []).map((img: string, index: number) => (
               <div key={index} className="flex gap-2 items-start">
                 <div className="flex-1">
                   <ImageUpload
@@ -1175,12 +1278,22 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
         </AccordionContent>
       </AccordionItem>
 
-      {/* 8. REVIEWS SECTION */}
-      <AccordionItem value="testimonials" className="order-9 border rounded-xl px-4 bg-white">
+      {/* 11. REVIEWS SECTION */}
+      <AccordionItem value="testimonials" className="order-11 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
           <span className="font-semibold">{sectionTitles.reviews}</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
+          <div className="space-y-2">
+            <Label>Section Eyebrow</Label>
+            <Input
+              value={data.testimonialsEyebrow || 'Reviews'}
+              onChange={(e) => setData({ ...data, testimonialsEyebrow: e.target.value })}
+              placeholder="Reviews"
+              className="rounded-lg"
+            />
+          </div>
+
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label>Section Heading</Label>
@@ -1220,11 +1333,13 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
               </Button>
             </div>
 
-            {(Array.isArray(data.testimonials) ? data.testimonials : [
-              { name: 'Sarah M.', text: 'Absolutely wonderful! My cat Whiskers loves it here.', rating: 5 },
-              { name: 'James T.', text: 'Professional, caring, and spotlessly clean. Highly recommend!', rating: 5 },
-              { name: 'Emma L.', text: 'I travel worry-free knowing my cats are in great hands.', rating: 5 }
-            ]).map((testimonial: any, index: number) => (
+            {(Array.isArray(data.testimonials) ? data.testimonials : []).length === 0 ? (
+              <p className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-600">
+                No reviews captured yet.
+              </p>
+            ) : null}
+
+            {(Array.isArray(data.testimonials) ? data.testimonials : []).map((testimonial: any, index: number) => (
               <div key={index} className="border rounded-lg p-4 space-y-3 bg-gray-50">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-gray-700">Testimonial {index + 1}</span>
@@ -1240,6 +1355,20 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
                     <X className="w-4 h-4" />
                   </Button>
                 </div>
+
+                <label className="flex items-center gap-2 text-xs font-medium text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={testimonial.showOnWebsite !== false}
+                    onChange={(e) => {
+                      const testimonials = [...(data.testimonials || [])];
+                      testimonials[index] = { ...testimonials[index], showOnWebsite: e.target.checked };
+                      setData({ ...data, testimonials });
+                    }}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  Show on website
+                </label>
 
                 <div className="space-y-2">
                   <Label className="text-xs">Customer Name</Label>
@@ -1308,11 +1437,21 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       </AccordionItem>
 
       {/* 9. CHATBOT FAQ KNOWLEDGE */}
-      <AccordionItem value="faq" className="order-[14] border rounded-xl px-4 bg-white">
+      <AccordionItem value="faq" className="order-[9] border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
           <span className="font-semibold">{sectionTitles.faq}</span>
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
+          <div className="space-y-2">
+            <Label>Section Eyebrow</Label>
+            <Input
+              value={data.faqEyebrow || 'Questions and answers'}
+              onChange={(e) => setData({ ...data, faqEyebrow: e.target.value })}
+              placeholder="Questions and answers"
+              className="rounded-lg"
+            />
+          </div>
+
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label>Section Heading</Label>
@@ -1352,11 +1491,13 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
               </Button>
             </div>
 
-            {(Array.isArray(data.faqs) ? data.faqs : [
-              { question: 'What are your check-in times?', answer: 'Check-in is between 9 AM - 12 PM, and check-out is 3 PM - 6 PM.' },
-              { question: 'Do you require vaccinations?', answer: 'Yes, all cats must be up-to-date on vaccinations for everyone\'s safety.' },
-              { question: 'Can I visit my cat during their stay?', answer: 'We recommend letting cats settle in, but video updates are sent daily.' }
-            ]).map((faq: any, index: number) => (
+            {(Array.isArray(data.faqs) ? data.faqs : []).length === 0 ? (
+              <p className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 text-sm text-gray-600">
+                No FAQs captured yet.
+              </p>
+            ) : null}
+
+            {(Array.isArray(data.faqs) ? data.faqs : []).map((faq: any, index: number) => (
               <div key={index} className="border rounded-lg p-4 space-y-3 bg-gray-50">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-gray-700">Question {index + 1}</span>
@@ -1372,6 +1513,20 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
                     <X className="w-4 h-4" />
                   </Button>
                 </div>
+
+                <label className="flex items-center gap-2 text-xs font-medium text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={faq.showOnWebsite !== false}
+                    onChange={(e) => {
+                      const faqs = [...(data.faqs || [])];
+                      faqs[index] = { ...faqs[index], showOnWebsite: e.target.checked };
+                      setData({ ...data, faqs });
+                    }}
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
+                  Show on website and chatbot
+                </label>
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
@@ -1431,8 +1586,8 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
         </AccordionContent>
       </AccordionItem>
 
-      {/* 10. OWNER STORY SECTION */}
-      <AccordionItem value="owner-story" className="order-5 border rounded-xl px-4 bg-white">
+      {/* 12. OWNER STORY SECTION */}
+      <AccordionItem value="owner-story" className="order-12 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
           <span className="font-semibold">{sectionTitles.owner}</span>
         </AccordionTrigger>
@@ -1490,8 +1645,8 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
         </AccordionContent>
       </AccordionItem>
 
-      {/* 11. CONTACT / LOCATION SECTION */}
-      <AccordionItem value="contact" className="order-10 border rounded-xl px-4 bg-white">
+      {/* 13. CONTACT / LOCATION SECTION */}
+      <AccordionItem value="contact" className="order-13 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
           <span className="font-semibold">{sectionTitles.contact}</span>
         </AccordionTrigger>
@@ -1530,7 +1685,11 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
             <Label>Hours of Operation</Label>
             <Textarea
               value={data.hours || ''}
-              onChange={(e) => setData({ ...data, hours: e.target.value })}
+              onChange={(e) => setData({
+                ...data,
+                hours: e.target.value,
+                contactData: { ...(data.contactData || {}), hours: e.target.value },
+              })}
               placeholder="Mon-Fri: 9am-6pm&#10;Sat-Sun: 10am-4pm"
               className="rounded-lg"
               rows={3}
@@ -1539,8 +1698,8 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
         </AccordionContent>
       </AccordionItem>
 
-      {/* 12. CUSTOM SECTIONS */}
-      <AccordionItem value="custom-sections" className="order-11 border rounded-xl px-4 bg-white">
+      {/* 8. CUSTOM SECTIONS */}
+      <AccordionItem value="custom-sections" className="order-8 border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
           <span className="font-semibold">{sectionTitles.custom}</span>
         </AccordionTrigger>
@@ -1725,8 +1884,8 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
         </AccordionContent>
       </AccordionItem>
 
-      {/* 13. SOCIAL MEDIA */}
-      <AccordionItem value="social-media" className="order-12 border rounded-xl px-4 bg-white">
+      {/* 15. SOCIAL MEDIA */}
+      <AccordionItem value="social-media" className="order-[15] border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
           <span className="font-semibold">{sectionTitles.social}</span>
         </AccordionTrigger>
@@ -1786,7 +1945,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
       </AccordionItem>
 
       {/* 14. FOOTER */}
-      <AccordionItem value="footer" className="order-[13] border rounded-xl px-4 bg-white">
+      <AccordionItem value="footer" className="order-[14] border rounded-xl px-4 bg-white">
         <AccordionTrigger className="hover:no-underline py-4">
           <span className="font-semibold">{sectionTitles.footer}</span>
         </AccordionTrigger>
@@ -1796,12 +1955,48 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
           </p>
 
           <div className="space-y-2">
-            <Label>Quick Links</Label>
-            <div className="flex flex-wrap gap-2">
-              {['Home', 'About', 'Care', 'Facilities', 'Suites', 'Gallery', 'Reviews', 'Location', data.virtualTourUrl ? 'Virtual Tour' : '', 'Contact'].filter(Boolean).map((label) => (
-                <span key={label} className="rounded-full border border-[#C46A3A]/30 bg-[#F8F7F5] px-3 py-1 text-xs font-semibold text-[#0A1128]">
-                  {label}
-                </span>
+            <div className="flex items-center justify-between">
+              <Label>Quick Links</Label>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setData({
+                  ...data,
+                  footerLinks: [...footerLinks, { label: '', href: '#home' }],
+                })}
+                className="text-xs h-7"
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                Add Link
+              </Button>
+            </div>
+            <div className="space-y-3">
+              {footerLinks.map((link: any, index: number) => (
+                <div key={`${link.label}-${link.href}-${index}`} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                  <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Label</Label>
+                      <Input
+                        value={link.label || ''}
+                        onChange={(e) => setFooterLink(index, { label: e.target.value })}
+                        placeholder="FAQs"
+                        className="h-9 rounded-lg text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Section</Label>
+                      {renderAnchorSelect(link.href || '#home', (value) => setFooterLink(index, { href: value }))}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setData({ ...data, footerLinks: footerLinks.filter((_: any, i: number) => i !== index) })}
+                      className="h-9 w-9 p-0 text-red-500 hover:text-red-700"
+                    >
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
               ))}
             </div>
           </div>
@@ -1819,5 +2014,41 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
         </AccordionContent>
       </AccordionItem>
     </Accordion>
+  );
+}
+
+function numberWithFallback(value: unknown, fallback: number) {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function HeroImageControl({
+  label,
+  value,
+  min,
+  max,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 flex items-center justify-between text-xs font-semibold text-gray-600">
+        <span>{label}</span>
+        <span>{value}</span>
+      </span>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        value={value}
+        onChange={(event) => onChange(Number(event.currentTarget.value))}
+        className="w-full accent-[#C46A3A]"
+      />
+    </label>
   );
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
@@ -53,6 +53,22 @@ export function SmartImport() {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [processingProgress, setProcessingProgress] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const progressIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const mappingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearProcessingTimers = useCallback(() => {
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current);
+      progressIntervalRef.current = null;
+    }
+
+    if (mappingTimeoutRef.current) {
+      clearTimeout(mappingTimeoutRef.current);
+      mappingTimeoutRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => clearProcessingTimers, [clearProcessingTimers]);
   
   // Sample data for field mapping
   const [columnMappings, setColumnMappings] = useState<ColumnMapping[]>([
@@ -111,17 +127,22 @@ export function SmartImport() {
   ];
 
   const handleFileUpload = (file: File) => {
+    clearProcessingTimers();
     setUploadedFile(file);
     setCurrentStep('processing');
+    setProcessingProgress(0);
     
     // Simulate AI processing
     let progress = 0;
-    const interval = setInterval(() => {
+    progressIntervalRef.current = setInterval(() => {
       progress += 10;
       setProcessingProgress(progress);
       if (progress >= 100) {
-        clearInterval(interval);
-        setTimeout(() => setCurrentStep('mapping'), 500);
+        if (progressIntervalRef.current) {
+          clearInterval(progressIntervalRef.current);
+          progressIntervalRef.current = null;
+        }
+        mappingTimeoutRef.current = setTimeout(() => setCurrentStep('mapping'), 500);
       }
     }, 200);
   };
