@@ -12,7 +12,7 @@ Impact:
 
 - Every GitHub note, PR, Replit command, and future chat handoff must state the working ref when work is not on `main`.
 - Deloraine is the first UAT import target for stability. FancyFelines is a regression example for broader importer behavior and must not overwrite the Deloraine baseline.
-- The media catalogue / compact preview storage patch must be committed on this recovery branch before the PR claims it is present.
+- The compact preview storage patch is committed on this branch. The rich PR #6 media catalogue was reviewed as reference only and must be reintroduced later as a deliberate follow-up if needed, not silently merged into this recovery branch.
 - Branch validation should be reported honestly: lightweight local checks can run here, but full Replit UAT remains required.
 
 ## 2026-07-05 - Engineering Standard 001 Low Compute Architecture

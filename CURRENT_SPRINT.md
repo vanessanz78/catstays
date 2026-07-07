@@ -27,7 +27,7 @@ Every GitHub note, PR, Replit handoff, and future chat handoff must name the wor
 - CatStays uses GitHub as the durable source of truth.
 - The expected recovery branch `codex/catstays-source-of-truth-recovery-20260706` was not found locally or on GitHub, so it was recreated cleanly from current `main`.
 - PR #5 is the primary source-of-truth recovery baseline for the current branch.
-- PR #6 is being used only to recover image/media catalogue and compact preview storage pieces.
+- PR #6 was reviewed as the image/media recovery reference. The compatible compact browser storage patch has been applied on this branch; the larger PR #6 rich media catalogue was not wholesale-merged because it conflicts heavily with the recovered PR #5 baseline and would reintroduce mixed branch state.
 - PR #3 is treated as artifact-only context and should not be merged as a runtime baseline.
 - Deloraine remains the first UAT import target. FancyFelines is a regression example for varied source websites and must not overwrite or degrade the Deloraine baseline.
 - Project startup docs live in `docs/README.md` and `docs/project-operating-system.md`.
@@ -70,6 +70,7 @@ Every GitHub note, PR, Replit handoff, and future chat handoff must name the wor
 - Imported source content now produces a `siteContentIndex` for searchable recall. The index is carried through the scraper result, preview import record, onboarding state, and saved Supabase `website_settings` so future templates can map captured content instead of reusing shallow homepage copy.
 - The importer now stores `logoImage` separately from hero imagery and rejects a saved/restored hero image when it matches the known logo/wordmark asset. Logo files can be retained as logos, but top/header imagery must be actual photos.
 - Image filtering now targets logos, wordmarks, favicons, placeholders, and known brand assets without rejecting every wide landscape photo, so legitimate cattery photos remain available for hero, suite, service, gallery, and section placement.
+- On 2026-07-07, preview import record storage was compacted before browser persistence. The saved table keeps the latest 8 preview records, caps stored image/gallery arrays at 48, source-content blocks at 40, and long text at 1800 chars, falling back to compact storage when full session/local storage exceeds browser quota.
 - No root-level Architect Update exists yet.
 
 ## Next Actions

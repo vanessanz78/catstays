@@ -224,6 +224,152 @@ export interface CatstaysTemplateContent {
 }
 
 export const previewImportTableStorageKey = 'catstays_preview_import_table';
+const persistentPreviewRecordLimit = 8;
+const persistentPreviewImageLimit = 48;
+const persistentPreviewSnippetLimit = 80;
+const persistentPreviewBlockLimit = 40;
+const persistentPreviewTextLimit = 1800;
+
+function browserStorage(kind: 'sessionStorage' | 'localStorage'): Storage | undefined {
+  if (typeof window === 'undefined') return undefined;
+  try {
+    return window[kind];
+  } catch {
+    return undefined;
+  }
+}
+
+function safeStorageGet(storage: Storage | undefined, key: string): string | null {
+  try {
+    return storage?.getItem(key) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function safeStorageSet(storage: Storage | undefined, key: string, value: string): boolean {
+  try {
+    storage?.setItem(key, value);
+    return Boolean(storage);
+  } catch {
+    return false;
+  }
+}
+
+function safeStorageRemove(storage: Storage | undefined, key: string) {
+  try {
+    storage?.removeItem(key);
+  } catch {
+    // Storage is optional for preview recovery.
+  }
+}
+
+function compactText(value: string | undefined, limit = persistentPreviewTextLimit): string | undefined {
+  if (!value || value.length <= limit) return value;
+  return `${value.slice(0, limit).trim()}...`;
+}
+
+function compactNestedValue(value: unknown, depth = 0): unknown {
+  if (typeof value === 'string') return compactText(value);
+  if (Array.isArray(value)) {
+    return value.slice(0, persistentPreviewSnippetLimit).map((item) => compactNestedValue(item, depth + 1));
+  }
+  if (!value || typeof value !== 'object' || depth > 8) return value;
+
+  return Object.fromEntries(
+    Object.entries(value).map(([key, nested]) => [key, compactNestedValue(nested, depth + 1)]),
+  );
+}
+
+function compactGalleryImages(
+  images: NonNullable<ImportedCatteryScrape['galleryImages']> = [],
+): NonNullable<ImportedCatteryScrape['galleryImages']> {
+  return images.slice(0, persistentPreviewImageLimit).map((image) => ({
+    ...image,
+    caption: compactText(image.caption, 240),
+  }));
+}
+
+function compactContentLibrary(library: CatterySiteContentLibrary): CatterySiteContentLibrary {
+  return {
+    ...library,
+    blocks: (library.blocks ?? []).slice(0, persistentPreviewBlockLimit).map((block) => ({
+      ...block,
+      text: compactText(block.text),
+      items: block.items?.slice(0, persistentPreviewSnippetLimit).map((item) => ({
+        ...item,
+        text: compactText(item.text),
+        answer: compactText(item.answer),
+        features: item.features?.slice(0, persistentPreviewSnippetLimit),
+        details: item.details?.slice(0, persistentPreviewSnippetLimit),
+      })),
+      images: compactGalleryImages(block.images ?? []),
+      links: block.links?.slice(0, persistentPreviewSnippetLimit),
+    })),
+  };
+}
+
+function compactSiteContentIndex(items: CatterySiteContentIndexItem[] = []): CatterySiteContentIndexItem[] {
+  return items.slice(0, persistentPreviewSnippetLimit).map((item) => ({
+    ...item,
+    text: compactText(item.text) ?? '',
+    keywords: item.keywords.slice(0, 40),
+    imageUrls: item.imageUrls.slice(0, persistentPreviewImageLimit),
+  }));
+}
+
+function compactPreviewImportRecord(record: PreviewImportRecord): PreviewImportRecord {
+  const normalizedPreviewData = compactNestedValue(record.normalizedPreviewData) as DelorainePreviewData;
+
+  return {
+    ...record,
+    media: {
+      ...record.media,
+      images: record.media.images.slice(0, persistentPreviewImageLimit),
+      galleryImages: compactGalleryImages(record.media.galleryImages),
+    },
+    content: {
+      ...record.content,
+      description: compactText(record.content.description) ?? '',
+      heading: compactText(record.content.heading, 320) ?? '',
+      heroHeading: compactText(record.content.heroHeading, 320) ?? '',
+      heroSubheading: compactText(record.content.heroSubheading) ?? '',
+      aboutHeading: compactText(record.content.aboutHeading, 320) ?? '',
+      aboutText: compactText(record.content.aboutText) ?? '',
+      highlights: record.content.highlights.slice(0, persistentPreviewSnippetLimit).map((highlight) => ({
+        ...highlight,
+        description: compactText(highlight.description) ?? '',
+      })),
+    },
+    rooms: (compactNestedValue(record.rooms) as PreviewImportRecord['rooms']).slice(0, persistentPreviewSnippetLimit),
+    services: (compactNestedValue(record.services) as PreviewImportRecord['services']).slice(0, persistentPreviewSnippetLimit),
+    faqs: (compactNestedValue(record.faqs) as PreviewImportRecord['faqs']).slice(0, persistentPreviewSnippetLimit),
+    contentLibrary: compactContentLibrary(record.contentLibrary),
+    contentIndex: compactSiteContentIndex(record.contentIndex),
+    normalizedPreviewData: {
+      ...normalizedPreviewData,
+      siteContentLibrary: normalizedPreviewData.siteContentLibrary
+        ? compactContentLibrary(normalizedPreviewData.siteContentLibrary)
+        : undefined,
+      siteContentIndex: compactSiteContentIndex(normalizedPreviewData.siteContentIndex),
+      galleryData: {
+        ...(normalizedPreviewData.galleryData ?? {}),
+        galleryImages: Array.isArray(normalizedPreviewData.galleryData?.galleryImages)
+          ? compactGalleryImages(normalizedPreviewData.galleryData.galleryImages)
+          : normalizedPreviewData.galleryData?.galleryImages,
+      },
+    },
+  };
+}
+
+function compactPreviewImportTable(table: Record<string, PreviewImportRecord>) {
+  return Object.fromEntries(
+    Object.entries(table)
+      .sort(([, left], [, right]) => Date.parse(right.createdAt) - Date.parse(left.createdAt))
+      .slice(0, persistentPreviewRecordLimit)
+      .map(([id, record]) => [id, compactPreviewImportRecord(record)]),
+  );
+}
 
 export const previewTemplateCards: PreviewTemplateOption[] = [
   {
@@ -399,8 +545,18 @@ export function savePreviewImportRecord(record: PreviewImportRecord) {
   const table = readPreviewImportTable();
   table[record.id] = record;
   const serialized = JSON.stringify(table);
-  sessionStorage.setItem(previewImportTableStorageKey, serialized);
-  localStorage.setItem(previewImportTableStorageKey, serialized);
+  const compactSerialized = JSON.stringify(compactPreviewImportTable(table));
+  const session = browserStorage('sessionStorage');
+  const local = browserStorage('localStorage');
+
+  if (!safeStorageSet(session, previewImportTableStorageKey, serialized)) {
+    safeStorageSet(session, previewImportTableStorageKey, compactSerialized);
+  }
+
+  if (!safeStorageSet(local, previewImportTableStorageKey, serialized)) {
+    safeStorageRemove(local, previewImportTableStorageKey);
+    safeStorageSet(local, previewImportTableStorageKey, compactSerialized);
+  }
 }
 
 export function markPreviewSelectionLive(currentData: Record<string, any>): Record<string, any> {
@@ -433,7 +589,9 @@ export function markPreviewSelectionLive(currentData: Record<string, any>): Reco
 
 export function readPreviewImportTable(): Record<string, PreviewImportRecord> {
   if (typeof window === 'undefined') return {};
-  const raw = sessionStorage.getItem(previewImportTableStorageKey) || localStorage.getItem(previewImportTableStorageKey);
+  const raw =
+    safeStorageGet(browserStorage('sessionStorage'), previewImportTableStorageKey) ||
+    safeStorageGet(browserStorage('localStorage'), previewImportTableStorageKey);
   if (!raw) return {};
 
   try {

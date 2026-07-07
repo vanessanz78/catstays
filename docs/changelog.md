@@ -6,6 +6,8 @@
 - Applied PR #5 (`codex/recover-import-preview-low-compute`) as the primary recovery baseline.
 - Recorded that PR #6 (`codex/import-preview-image-recovery-20260705`) is used only for image/media recovery pieces and PR #3 (`codex/import-preview-rendering-20260703`) is artifact-only context.
 - Added the working-ref handoff rule to the root sprint and decision docs so GitHub notes, PRs, Replit commands, and future chats always state the exact branch when work is not on `main`.
+- Added compact browser storage for preview import records so oversized scraped image/content payloads fall back to a capped table instead of throwing `catstays_preview_import_table` quota errors.
+- Reviewed PR #6's rich media catalogue as reference only; it was not wholesale-merged into this recovery branch because it conflicts with the PR #5 baseline.
 
 ## 2026-07-02
 
