@@ -185,6 +185,40 @@ export interface CatstaysTemplateContent {
   contentLibrary: CatterySiteContentLibrary;
 }
 
+type ImageImportDebugUrl = {
+  label: string;
+  url: string;
+  reason?: string;
+  blankReason?: string;
+};
+
+function imageImportDebugEnabled() {
+  if (typeof window === 'undefined') return false;
+  try {
+    return (
+      Boolean(import.meta.env?.DEV) ||
+      window.localStorage.getItem('catstays_image_import_debug') === 'true' ||
+      window.sessionStorage.getItem('catstays_image_import_debug') === 'true'
+    );
+  } catch {
+    return Boolean(import.meta.env?.DEV);
+  }
+}
+
+function logImageImportDiagnostics(stage: 'builder' | 'preview', urls: ImageImportDebugUrl[]) {
+  if (!imageImportDebugEnabled()) return;
+  for (const image of urls) {
+    console.info('[catstays:image-import]', {
+      stage,
+      label: image.label,
+      url: image.url,
+      reason: image.reason,
+      blankReason: image.url ? image.blankReason : image.blankReason || 'blank URL',
+      isSupabaseStorageUrl: /supabase\.co\/storage\/v1\/object\//i.test(image.url),
+    });
+  }
+}
+
 export const previewImportTableStorageKey = 'catstays_preview_import_table';
 
 export const previewTemplateCards: PreviewTemplateOption[] = [
@@ -257,7 +291,7 @@ export function buildPreviewImportRecord(scrape: ImportedCatteryScrape): Preview
   const sourceHost = scrape.sourceHost || hostFromUrl(sourceUrl);
   const businessName = normalizedPreviewData.businessName;
 
-  return {
+  const record: PreviewImportRecord = {
     id: `${slugify(sourceHost || businessName)}-${Date.now()}`,
     status: 'preview',
     selectedTemplate: 'original',
@@ -300,6 +334,23 @@ export function buildPreviewImportRecord(scrape: ImportedCatteryScrape): Preview
     contentLibrary: normalizedPreviewData.siteContentLibrary ?? emptyContentLibrary(sourceUrl, sourceHost, businessName),
     normalizedPreviewData,
   };
+
+  logImageImportDiagnostics('builder', [
+    { label: 'Hero image', url: record.media.heroImage || '', reason: 'Written into previewImportRecord.media.heroImage' },
+    { label: 'Logo image', url: record.media.logoImage || '', reason: 'Written into previewImportRecord.media.logoImage' },
+    ...record.media.images.map((url, index) => ({
+      label: `Builder media image ${index + 1}`,
+      url,
+      reason: 'Written into previewImportRecord.media.images',
+    })),
+    ...record.media.galleryImages.map((image, index) => ({
+      label: `Builder gallery image ${index + 1}`,
+      url: image.url,
+      reason: 'Written into previewImportRecord.media.galleryImages',
+    })),
+  ]);
+
+  return record;
 }
 
 export function applyPreviewTemplate(
@@ -331,7 +382,7 @@ export function dataFromPreviewRecord(
   };
   savePreviewImportRecord(updatedRecord);
 
-  return withOnboardingCollections({
+  const nextData: Record<string, any> = withOnboardingCollections({
     ...currentData,
     ...normalized,
     ...templateStyle(selectedTemplate),
@@ -351,6 +402,19 @@ export function dataFromPreviewRecord(
     email: record.contact.email || currentData.email,
     address: record.contact.address || currentData.address,
   }, currentData);
+
+  logImageImportDiagnostics('builder', [
+    { label: 'Builder URL: Hero image', url: stringFrom(nextData.heroImage), reason: 'Written into onboarding builder data' },
+    { label: 'Builder URL: About image', url: stringFrom(nextData.aboutImage), reason: 'Written into onboarding builder data' },
+    { label: 'Builder URL: Facilities image', url: stringFrom(nextData.facilitiesImage), reason: 'Written into onboarding builder data' },
+    ...(Array.isArray(nextData.galleryImages) ? nextData.galleryImages : []).map((url: unknown, index: number) => ({
+      label: `Builder URL: Gallery image ${index + 1}`,
+      url: stringFrom(url),
+      reason: 'Written into onboarding builder data',
+    })),
+  ]);
+
+  return nextData;
 }
 
 export function savePreviewImportRecord(record: PreviewImportRecord) {
@@ -590,7 +654,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     contentLibrary.sourceHost,
   );
 
-  return {
+  const content: CatstaysTemplateContent = {
     business: {
       name: businessName,
       tagline: stringFrom(data.tagline, 'Luxury holiday retreat for cats'),
@@ -699,6 +763,39 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     },
     contentLibrary,
   };
+
+  logImageImportDiagnostics('preview', collectPreviewDiagnosticUrls(content));
+
+  return content;
+}
+
+function collectPreviewDiagnosticUrls(content: CatstaysTemplateContent): ImageImportDebugUrl[] {
+  return [
+    { label: 'Preview URL: Hero image', url: content.hero.image, reason: 'CatstaysTemplateSite hero image' },
+    { label: 'Preview URL: Facilities image', url: content.facilities.image, reason: 'CatstaysTemplateSite facilities image' },
+    { label: 'Preview URL: About image', url: content.about.image, reason: 'CatstaysTemplateSite about image' },
+    { label: 'Preview URL: Owner image', url: content.owner.image, reason: 'CatstaysTemplateSite owner image' },
+    ...content.gallery.map((image, index) => ({
+      label: `Preview URL: Gallery image ${index + 1}`,
+      url: image.image,
+      reason: 'CatstaysTemplateSite gallery image',
+    })),
+    ...content.suites.map((suite, index) => ({
+      label: `Preview URL: Suite image ${index + 1}`,
+      url: suite.image,
+      reason: 'CatstaysTemplateSite suite image',
+    })),
+    ...content.services.map((service, index) => ({
+      label: `Preview URL: Service image ${index + 1}`,
+      url: service.image,
+      reason: 'CatstaysTemplateSite service image',
+    })),
+    ...content.testimonials.map((testimonial, index) => ({
+      label: `Preview URL: Testimonial image ${index + 1}`,
+      url: testimonial.image,
+      reason: 'CatstaysTemplateSite testimonial image',
+    })),
+  ];
 }
 
 function emptyContentLibrary(sourceUrl: string, sourceHost: string, businessName: string): CatterySiteContentLibrary {

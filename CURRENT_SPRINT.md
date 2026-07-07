@@ -1,15 +1,18 @@
 # Current Sprint
 
-Last updated: 2026-07-05
+Last updated: 2026-07-08
 
 ## Goal
 
 Stabilise the CatStays onboarding publish flow and give future Codex chats a root-level sprint entry point.
 
+Current diagnostic branch goal: add image import observability only so the Deloraine image pipeline failure point can be identified before any behavior change.
+
 ## Source Of Truth
 
 - Repository: `vanessanz78/catstays`
-- Branch: `main`
+- Branch: `codex/image-import-observability`
+- Base ref: latest `main` at `759dd27d0070044a0bc2a7ccdf98968ca76a0ad3`
 - Review environment: Replit
 - Deployment environment: Replit / CatStays app environment
 - Operating system entrypoint: `START_HERE.md` in `vanessanz78/codex-operating-system`
@@ -26,6 +29,11 @@ Stabilise the CatStays onboarding publish flow and give future Codex chats a roo
 ## Current State
 
 - CatStays uses GitHub as the durable source of truth.
+- Working ref: `codex/image-import-observability`.
+- The current branch is diagnostic only and must not change layout, templates, builder behavior, onboarding behavior, publish flow, FAQ logic, or image storage behavior.
+- The Deloraine diagnostic run found 1 current image candidate, accepted it by current scraper URL rules, attempted no Supabase upload, created no Supabase Storage URL, and carried external URLs into builder and preview data.
+- The first observed pipeline failure is Stage 3 - Upload: no Supabase Storage copy/upload stage is wired between scrape and builder data.
+- Detailed handoff: `docs/codex-handoffs/2026-07-08-image-import-observability.md`.
 - Project startup docs live in `docs/README.md` and `docs/project-operating-system.md`.
 - On 2026-07-01, the duplicate-email publish loop was fixed in `artifacts/api-server/src/routes/cattery.ts`.
 - The fix changes duplicate signup/provisioning email errors so the Publish step can show an inline error instead of sending the user back to step 1.
@@ -37,6 +45,14 @@ Stabilise the CatStays onboarding publish flow and give future Codex chats a roo
 
 ## Next Actions
 
+Diagnostic branch:
+
+1. Review the diagnostic report in `docs/codex-handoffs/2026-07-08-image-import-observability.md`.
+2. Do not implement a fix on this branch.
+3. Create the smallest follow-up branch for the actual storage replacement work: `codex/image-storage-pipeline-fix`.
+
+Previous publish-flow handoff:
+
 1. Pull `main` into Replit and republish/restart so the Replit public app URL values are active.
 2. In Supabase Authentication > Users, delete or use a different email than any existing Auth user before testing a fresh publish path.
 3. UAT the Publish step with an already-registered email and confirm it stays on Publish with an inline error.
@@ -46,6 +62,8 @@ Stabilise the CatStays onboarding publish flow and give future Codex chats a roo
 
 ## Decisions This Sprint
 
+- Working ref `codex/image-import-observability` is observability-only.
+- The actual image storage fix should be a separate follow-up branch after the flight recorder has been reviewed.
 - Add root-level sprint and decision documents so future Codex chats have a stable project entry point.
 - Treat duplicate-email publish failures as Publish-step errors rather than account-step resets.
 - Treat Supabase Authentication > Users as the source of truth for signup email uniqueness.
@@ -61,8 +79,11 @@ Stabilise the CatStays onboarding publish flow and give future Codex chats a roo
 
 ## Local Cleanup Notes
 
-- No local clone, dependency install, build output, cache, or dev server was created for this document update.
-- Previous temporary sparse checkout work for the publish-loop fix was removed before this sprint document was created.
+- This diagnostic sprint used a shallow local checkout in `work/catstays`.
+- Dependencies were installed temporarily with `pnpm install --frozen-lockfile --ignore-scripts` so targeted typechecks and the debug endpoint could run.
+- Ignored local dependency/build artifacts should be removed before final handoff: `node_modules`, workspace package `node_modules`, `dist`, and `tsconfig.tsbuildinfo`.
+- Previous 2026-07-05 document update note: no local clone, dependency install, build output, cache, or dev server was created for that document-only update.
+- Previous temporary sparse checkout work for the publish-loop fix was removed before the 2026-07-05 sprint document was created.
 
 ## Handoff
 

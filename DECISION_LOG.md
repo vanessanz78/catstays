@@ -1,6 +1,18 @@
 # Decision Log
 
-Last updated: 2026-07-05
+Last updated: 2026-07-08
+
+## 2026-07-08 - Image Import Observability Branch Is Diagnostic Only
+
+Decision: Keep working ref `codex/image-import-observability` limited to image pipeline observability.
+
+Reason: Deloraine image failures need a complete flight recorder before changing storage, builder, preview, publish, layout, templates, onboarding, or FAQ behavior.
+
+Impact:
+
+- The branch may add logs, diagnostics, and a temporary development-only endpoint.
+- The branch must not fix image storage or alter user-facing behavior.
+- The first follow-up fix should happen on a separate branch, recommended as `codex/image-storage-pipeline-fix`.
 
 ## 2026-07-01 - Root Sprint Docs
 

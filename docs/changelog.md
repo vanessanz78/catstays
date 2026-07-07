@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-07-08
+
+- Added diagnostic-only image import observability on working ref `codex/image-import-observability`.
+- Added temporary development endpoint `/api/debug/image-import` to report discovery, validation, upload, builder URL, and preview URL stages.
+- Confirmed the Deloraine import path carries external owner-site URLs into builder/preview data and does not attempt Supabase Storage upload.
+
 ## 2026-07-05
 
 - Clarified that the last known pre-FancyFelines CatStays handoff was on GitHub `main`, not a feature branch.

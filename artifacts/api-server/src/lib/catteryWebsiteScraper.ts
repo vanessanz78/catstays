@@ -3,6 +3,7 @@ import https from 'https';
 import http from 'http';
 import dns from 'dns';
 import net from 'net';
+import type { ImageImportFlightRecorder } from './imageImportDiagnostics';
 
 const FETCH_TIMEOUT_MS = 10_000;
 const MAX_HTML_BYTES = 1_200_000;
@@ -163,7 +164,12 @@ type ScrapedPage = {
   images: string[];
 };
 
-export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsiteScrapeResult> {
+type ScrapeOptions = {
+  diagnostics?: ImageImportFlightRecorder;
+};
+
+export async function scrapeCatteryWebsite(rawUrl: string, options: ScrapeOptions = {}): Promise<CatteryWebsiteScrapeResult> {
+  const diagnostics = options.diagnostics;
   const parsedUrl = normalisePublicUrl(rawUrl);
   const html = await fetchText(parsedUrl, {
     maxBytes: MAX_HTML_BYTES,
@@ -172,7 +178,7 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
 
   const root = parse(html);
   const homeBodyText = readableText(root);
-  const supplementalPages = await fetchSupplementalPages(parsedUrl, root);
+  const supplementalPages = await fetchSupplementalPages(parsedUrl, root, diagnostics);
   const scriptUrls = collectSameOriginScripts(root, parsedUrl).slice(0, 3);
   const scriptTexts: string[] = [];
 
@@ -201,16 +207,21 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
     ...bundleTexts.slice(0, 80),
   ].join(' '));
   const searchableText = cleanText(`${bodyText} ${scriptBundle}`);
-  const bundleImages = collectBundleAssets(scriptBundle, parsedUrl);
+  const bundleImages = collectBundleAssets(scriptBundle, parsedUrl, diagnostics);
   const htmlImages = [
-    ...collectHtmlImages(root, parsedUrl),
+    ...collectHtmlImages(root, parsedUrl, diagnostics, 'home page'),
     ...supplementalPages.flatMap((page) => page.images),
   ];
-  const images = curateImageUrls([
+  if (meta.heroImage) {
+    diagnostics?.discover(meta.heroImage, 'metadata', 'Open Graph/Twitter hero image');
+  }
+  const rawImageCandidates = [
     meta.heroImage,
     ...htmlImages,
     ...bundleImages,
-  ]);
+  ];
+  const images = curateImageUrls(rawImageCandidates);
+  diagnostics?.recordValidation(rawImageCandidates, images);
   const galleryPageImages = curateImageUrls(
     supplementalPages
       .filter((page) => /gallery|photo|images?/i.test(page.url))
@@ -353,7 +364,11 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
   };
 }
 
-async function fetchSupplementalPages(baseUrl: URL, root: ReturnType<typeof parse>): Promise<ScrapedPage[]> {
+async function fetchSupplementalPages(
+  baseUrl: URL,
+  root: ReturnType<typeof parse>,
+  diagnostics?: ImageImportFlightRecorder,
+): Promise<ScrapedPage[]> {
   const urls = await collectSupplementalPageUrls(baseUrl, root);
   const pages = await Promise.all(
     urls.map(async (url) => {
@@ -368,7 +383,7 @@ async function fetchSupplementalPages(baseUrl: URL, root: ReturnType<typeof pars
           title: cleanText(pageRoot.querySelector('title')?.text ?? ''),
           heading: cleanText(pageRoot.querySelector('h1')?.text ?? pageRoot.querySelector('h2')?.text ?? ''),
           bodyText: readableText(pageRoot),
-          images: collectHtmlImages(pageRoot, baseUrl),
+          images: collectHtmlImages(pageRoot, baseUrl, diagnostics, url),
         };
       } catch {
         return null;
@@ -778,45 +793,66 @@ function collectSameOriginScripts(root: ReturnType<typeof parse>, baseUrl: URL):
     .filter((url) => url.origin === baseUrl.origin && /\.m?js$/i.test(url.pathname));
 }
 
-function collectHtmlImages(root: ReturnType<typeof parse>, baseUrl: URL): string[] {
+function collectHtmlImages(
+  root: ReturnType<typeof parse>,
+  baseUrl: URL,
+  diagnostics?: ImageImportFlightRecorder,
+  section = 'html',
+): string[] {
   const images: string[] = [];
   for (const node of root.querySelectorAll('img, [style*="background-image"], [data-src], [data-lazy-src], [data-original], [data-bg], [data-background-image]')) {
     const directCandidates = [
-      node.getAttribute('src'),
-      node.getAttribute('data-src'),
-      node.getAttribute('data-lazy-src'),
-      node.getAttribute('data-original'),
-      node.getAttribute('data-bg'),
-      node.getAttribute('data-background-image'),
-      node.getAttribute('poster'),
-    ].filter(Boolean) as string[];
+      ['src', node.getAttribute('src')],
+      ['data-src', node.getAttribute('data-src')],
+      ['data-lazy-src', node.getAttribute('data-lazy-src')],
+      ['data-original', node.getAttribute('data-original')],
+      ['data-bg', node.getAttribute('data-bg')],
+      ['data-background-image', node.getAttribute('data-background-image')],
+      ['poster', node.getAttribute('poster')],
+    ].filter((candidate): candidate is [string, string] => Boolean(candidate[1]));
 
-    for (const candidate of directCandidates) {
+    for (const [attribute, candidate] of directCandidates) {
       images.push(candidate);
+      const absolute = absoluteUrl(candidate, baseUrl);
+      diagnostics?.discover(absolute, section, `HTML ${attribute} image candidate`);
     }
 
     const srcset = node.getAttribute('srcset') || node.getAttribute('data-srcset');
     if (srcset) {
       for (const candidate of srcset.split(',')) {
         const [candidateUrl] = candidate.trim().split(/\s+/);
-        if (candidateUrl) images.push(candidateUrl);
+        if (candidateUrl) {
+          images.push(candidateUrl);
+          const absolute = absoluteUrl(candidateUrl, baseUrl);
+          diagnostics?.discover(absolute, section, 'HTML srcset image candidate');
+        }
       }
     }
 
     const style = node.getAttribute('style') || '';
     for (const match of style.matchAll(/background-image\s*:\s*url\((['"]?)(.*?)\1\)/gi)) {
-      if (match[2]) images.push(match[2]);
+      if (match[2]) {
+        images.push(match[2]);
+        const absolute = absoluteUrl(match[2], baseUrl);
+        diagnostics?.discover(absolute, section, 'CSS background-image candidate');
+      }
     }
   }
   return images.map((image) => absoluteUrl(image, baseUrl)).filter(Boolean);
 }
 
-function collectBundleAssets(bundle: string, baseUrl: URL): string[] {
+function collectBundleAssets(bundle: string, baseUrl: URL, diagnostics?: ImageImportFlightRecorder): string[] {
   const assets = [
     ...bundle.matchAll(/["'`](\/assets\/[^"'`]+?\.(?:jpe?g|png|webp|avif))["'`]/gi),
     ...bundle.matchAll(/["'`](https?:\/\/[^"'`\s)]+?\.(?:jpe?g|png|webp|avif)(?:\?[^"'`\s)]*)?)["'`]/gi),
   ];
-  return assets.map((match) => absoluteUrl(match[1], baseUrl)).filter(Boolean);
+  return assets
+    .map((match) => absoluteUrl(match[1], baseUrl))
+    .filter(Boolean)
+    .map((asset) => {
+      diagnostics?.discover(asset, 'javascript bundle', 'JavaScript bundle image asset reference');
+      return asset;
+    });
 }
 
 function curateImageUrls(rawImages: string[]): string[] {
