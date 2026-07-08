@@ -171,9 +171,9 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
   });
 
   const root = parse(html);
+  const scriptUrls = collectSameOriginScripts(root, parsedUrl).slice(0, 3);
   const homeBodyText = readableText(root);
   const supplementalPages = await fetchSupplementalPages(parsedUrl, root);
-  const scriptUrls = collectSameOriginScripts(root, parsedUrl).slice(0, 3);
   const scriptTexts: string[] = [];
 
   for (const scriptUrl of scriptUrls) {

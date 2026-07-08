@@ -445,13 +445,15 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     record?.media.images?.[0],
     record?.media.galleryImages?.[0]?.url,
   );
-  const editedGalleryImages = Array.isArray(data.galleryImages) ? data.galleryImages : undefined;
+  const editedGalleryImages = Array.isArray(data.galleryImages) ? data.galleryImages : [];
+  const importedGalleryImages = [
+    ...(record?.media.images ?? []),
+    ...(record?.media.galleryImages ?? []).map((image) => image.url),
+    ...libraryGalleryImages.map((image) => image.url),
+  ];
   const galleryImages = uniqueStrings([
-    ...(editedGalleryImages ?? [
-      ...(record?.media.images ?? []),
-      ...(record?.media.galleryImages ?? []).map((image) => image.url),
-      ...libraryGalleryImages.map((image) => image.url),
-    ]),
+    ...editedGalleryImages,
+    ...importedGalleryImages,
     data.facilitiesImage,
     data.aboutImage,
     data.ownerData?.image,
@@ -1013,6 +1015,9 @@ function isUsableGalleryImage(image: string, logoImage?: string): boolean {
 }
 
 function ensureImageCount(images: string[], heroImage: string): string[] {
+  const importedImages = uniqueStrings([...images, heroImage]);
+  if (importedImages.length) return importedImages;
+
   const fallback = [
     heroImage,
     'https://images.unsplash.com/photo-1543852786-1cf6624b9987?w=1200&h=900&fit=crop',
