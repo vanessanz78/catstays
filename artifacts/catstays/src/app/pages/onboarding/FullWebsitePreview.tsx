@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Smartphone, Monitor, Globe, LayoutDashboard, Home, Calendar, MapPin, Phone, Mail, Star, Tablet, User } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Card } from '../../components/ui/card';
@@ -148,6 +148,8 @@ export function FullWebsitePreview({
           sourceUrl={sourcePreviewUrl}
           title={`${data.businessName || 'Imported cattery'} website preview`}
           fillHeight={fillHeight}
+          fallbackData={data}
+          previewDevice={deviceType}
         />
       );
     }
@@ -596,25 +598,48 @@ function SourceWebsitePreview({
   sourceUrl,
   title,
   fillHeight,
+  fallbackData,
+  previewDevice,
 }: {
   sourceUrl: string;
   title: string;
   fillHeight: boolean;
+  fallbackData: FullWebsitePreviewProps['data'];
+  previewDevice: 'mobile' | 'tablet' | 'desktop';
 }) {
+  const [showFallback, setShowFallback] = useState(false);
+  const loadedRef = useRef(false);
   const heightStyle = fillHeight
     ? { height: '100%' }
     : { height: '900px', minHeight: 'calc(100vh - 170px)' };
 
+  useEffect(() => {
+    loadedRef.current = false;
+    setShowFallback(false);
+    const timeout = window.setTimeout(() => {
+      if (!loadedRef.current) setShowFallback(true);
+    }, 2500);
+    return () => window.clearTimeout(timeout);
+  }, [sourceUrl]);
+
   return (
-    <div className="w-full bg-white" style={heightStyle}>
-      <iframe
-        title={title}
-        src={sourceUrl}
-        className="block h-full min-h-[inherit] w-full border-0 bg-white"
-        referrerPolicy="no-referrer-when-downgrade"
-        sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
-        scrolling="auto"
-      />
+    <div className="relative w-full bg-white" style={heightStyle}>
+      {showFallback ? (
+        <CatstaysTemplateSite data={fallbackData} templateId="conversion-focus" embedded previewDevice={previewDevice} />
+      ) : (
+        <iframe
+          title={title}
+          src={sourceUrl}
+          className="block h-full min-h-[inherit] w-full border-0 bg-white"
+          referrerPolicy="no-referrer-when-downgrade"
+          sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
+          scrolling="auto"
+          onLoad={() => {
+            loadedRef.current = true;
+            setShowFallback(false);
+          }}
+        />
+      )}
     </div>
   );
 }

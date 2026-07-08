@@ -886,16 +886,28 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
   const settings = scrape.websiteSettings ?? {};
   const isDeloraineSource = isDeloraineScrape(scrape);
   const fallbackAssets = isDeloraineSource ? deloraineAssets : genericCatAssets;
-  const images = uniqueImages([
+  const importedImageUrls = uniqueImages([
     scrape.heroImage,
     ...(scrape.images ?? []),
-    ...fallbackAssets,
+    ...(scrape.galleryImages ?? []).map((image) => image.url),
+  ]);
+  const importedImageKeys = new Set(importedImageUrls.map(imageKey));
+  const useImportedImagesOnly = importedImageUrls.length > 0;
+  const isScrapedImage = (image?: string) => Boolean(image && importedImageKeys.has(imageKey(image)));
+  const images = uniqueImages([
+    ...(useImportedImagesOnly ? importedImageUrls : [scrape.heroImage, ...(scrape.images ?? []), ...fallbackAssets]),
   ]);
   const fallbackRooms = isDeloraineSource ? fallbackDeloraineScrape.rooms ?? [] : genericRooms(images);
   const fallbackServices = isDeloraineSource ? fallbackDeloraineScrape.services ?? [] : genericServices(images);
   const fallbackHighlights = isDeloraineSource ? fallbackDeloraineScrape.highlights ?? [] : genericHighlights();
-  const rooms = scrape.rooms?.length ? scrape.rooms : fallbackRooms;
-  const services = (scrape.services?.length ? scrape.services : fallbackServices).slice(0, 12);
+  const rooms = (scrape.rooms?.length ? scrape.rooms : fallbackRooms).map((room, index) => ({
+    ...room,
+    image: useImportedImagesOnly && !isScrapedImage(room.image) ? images[index + 1] || images[0] || '' : room.image,
+  }));
+  const services = (scrape.services?.length ? scrape.services : fallbackServices).slice(0, 12).map((service, index) => ({
+    ...service,
+    image: useImportedImagesOnly && !isScrapedImage(service.image) ? images[index + 2] || images[index] || images[0] || '' : service.image,
+  }));
   const highlights = scrape.highlights?.length ? scrape.highlights : fallbackHighlights;
   const galleryImages =
     scrape.galleryImages?.length
@@ -1470,9 +1482,13 @@ function uniqueImages(images: Array<string | undefined>): string[] {
   return images
     .filter((image): image is string => Boolean(image && /^https?:\/\//i.test(image)))
     .filter((image) => {
-      const key = image.split('?')[0].toLowerCase();
+      const key = imageKey(image);
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
     });
+}
+
+function imageKey(image: string): string {
+  return image.split('?')[0].trim().toLowerCase();
 }

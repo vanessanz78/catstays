@@ -431,6 +431,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const libraryReviews = libraryItems(contentLibrary, 'reviews');
   const libraryFaqs = libraryItems(contentLibrary, 'faqs');
   const libraryGalleryImages = libraryImages(contentLibrary, 'gallery');
+  const importedImageKeys = importedImageKeySet(record);
   const heroBlock = libraryBlock(contentLibrary, 'hero');
   const heroLinks = heroBlock?.links ?? [];
   const whyChooseBlock = libraryBlock(contentLibrary, 'why-choose-us');
@@ -557,7 +558,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     .filter((item) => Boolean(item?.title && item?.text))
     .map((item) => ({ title: item!.title, text: item!.text, icon: item!.icon }))
     .slice(0, 6);
-  const aboutImage = pickUniqueImage(
+  const aboutImage = pickImportedFirstImage(
     usedImages,
     [
       data.aboutImage,
@@ -566,8 +567,9 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       fallbackImages.find((image) => image !== heroImage),
     ],
     fallbackImages,
+    importedImageKeys,
   );
-  const facilityImage = pickUniqueImage(
+  const facilityImage = pickImportedFirstImage(
     usedImages,
     [
       data.facilitiesImage,
@@ -576,8 +578,9 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       fallbackImages[2],
     ],
     fallbackImages,
+    importedImageKeys,
   );
-  const ownerImage = pickUniqueImage(
+  const ownerImage = pickImportedFirstImage(
     usedImages,
     [
       ownerData.image,
@@ -586,6 +589,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       fallbackImages[1],
     ],
     fallbackImages,
+    importedImageKeys,
   );
   const virtualTourUrl = embeddableVirtualTourUrl(
     stringFrom(locationData.virtualTourUrl, normalized.virtualTourUrl, data.virtualTourUrl, data.contactData?.virtualTourUrl),
@@ -639,10 +643,11 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       items: facilityItems.length || editedFacilityItems ? facilityItems : featureItems.slice(0, 4),
     },
     services: services.map((service: any, index: number) => ({
-      image: pickUniqueImage(
+      image: pickImportedFirstImage(
         usedImages,
         [service.image, fallbackImages[index + 3], fallbackImages[index]],
         fallbackImages,
+        importedImageKeys,
       ),
       title: stringFrom(service.title, service.name, `Care service ${index + 1}`),
       text: stringFrom(service.description, service.text, 'Additional support available during the stay.'),
@@ -657,8 +662,8 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       image,
       caption: stringFrom(record?.media.galleryImages?.[index]?.caption, `${businessName} photo ${index + 1}`),
     })),
-    suites: editedRooms && editedRooms.length === 0 ? [] : ensureSuiteCount(rooms, fallbackImages, data.pricePerNight || normalized.pricePerNight, usedImages),
-    testimonials: ensureTestimonials(testimonials, businessName, fallbackImages, heroImage, data.testimonialImage),
+    suites: editedRooms && editedRooms.length === 0 ? [] : ensureSuiteCount(rooms, fallbackImages, data.pricePerNight || normalized.pricePerNight, usedImages, importedImageKeys),
+    testimonials: ensureTestimonials(testimonials, businessName, fallbackImages, heroImage, importedImageKeys.size ? undefined : data.testimonialImage, importedImageKeys),
     faqs: faqs.map((faq: any) => ({
       question: stringFrom(faq.question),
       answer: stringFrom(faq.answer),
@@ -1031,6 +1036,22 @@ function normalizedImageKey(image: string) {
   return image.split('?')[0].trim().toLowerCase();
 }
 
+function importedImageKeySet(record: PreviewImportRecord | null | undefined) {
+  return new Set(
+    uniqueStrings([
+      record?.media.heroImage,
+      ...(record?.media.images ?? []),
+      ...(record?.media.galleryImages ?? []).map((image) => image.url),
+    ])
+      .filter((image) => isUsableGalleryImage(image))
+      .map(normalizedImageKey),
+  );
+}
+
+function isImportedImage(image: string, importedImageKeys: Set<string>) {
+  return importedImageKeys.size === 0 || importedImageKeys.has(normalizedImageKey(image));
+}
+
 function rememberImage(usedImages: Set<string>, image: string) {
   if (!image) return;
   usedImages.add(normalizedImageKey(image));
@@ -1059,6 +1080,21 @@ function pickUniqueImage(usedImages: Set<string>, preferred: unknown[], fallback
   return fallback;
 }
 
+function pickImportedFirstImage(
+  usedImages: Set<string>,
+  preferred: unknown[],
+  fallbackImages: string[],
+  importedImageKeys: Set<string>,
+) {
+  if (!importedImageKeys.size) return pickUniqueImage(usedImages, preferred, fallbackImages);
+
+  return pickUniqueImage(
+    usedImages,
+    uniqueStrings(preferred).filter((image) => isImportedImage(image, importedImageKeys)),
+    fallbackImages.filter((image) => isImportedImage(image, importedImageKeys)),
+  );
+}
+
 function ensureFeatureCount(
   primary: Array<{ title: string; text: string }>,
   secondary: Array<{ title: string; text: string }>,
@@ -1079,7 +1115,13 @@ function ensureFeatureCount(
     }));
 }
 
-function ensureSuiteCount(rooms: any[], images: string[], fallbackPrice?: string, usedImages?: Set<string>) {
+function ensureSuiteCount(
+  rooms: any[],
+  images: string[],
+  fallbackPrice?: string,
+  usedImages?: Set<string>,
+  importedImageKeys = new Set<string>(),
+) {
   const fallbackSuites = [
     { name: 'Standard Suites', description: 'Comfortable and cosy suites perfect for a relaxing stay.' },
     { name: 'Deluxe Suites', description: 'Extra comfort and premium features for added calm.' },
@@ -1097,7 +1139,7 @@ function ensureSuiteCount(rooms: any[], images: string[], fallbackPrice?: string
     const roomImage = stringFrom(room.image);
     return {
       image: usedImages
-        ? pickUniqueImage(usedImages, [isUsableGalleryImage(roomImage) ? roomImage : '', images[index + 1], images[index], images[0]], images)
+        ? pickImportedFirstImage(usedImages, [isUsableGalleryImage(roomImage) ? roomImage : '', images[index + 1], images[index], images[0]], images, importedImageKeys)
         : imageFrom(isUsableGalleryImage(roomImage) ? roomImage : '', images[index + 1], images[index], images[0]),
       title,
       text: stringFrom(room.description, priceLabel ? `${fallback.description} ${priceLabel}.` : fallback.description),
@@ -1117,12 +1159,22 @@ function ensureTestimonials(
   images: string[],
   heroImage: string,
   testimonialImage?: unknown,
+  importedImageKeys = new Set<string>(),
 ) {
+  const imageOptions = importedImageKeys.size
+    ? images.filter((image) => isImportedImage(image, importedImageKeys))
+    : images;
   const mapped = testimonials
     .map((testimonial: any, index: number) => ({
       quote: stringFrom(testimonial.text, testimonial.quote),
       author: stringFrom(testimonial.name, testimonial.author, testimonial.customer, 'Guest family'),
-      image: imageFrom(testimonial.image, index === 0 ? testimonialImage : undefined, images[index + 4], images[index], heroImage),
+      image: imageFrom(
+        isImportedImage(stringFrom(testimonial.image), importedImageKeys) ? testimonial.image : '',
+        index === 0 && !importedImageKeys.size ? testimonialImage : undefined,
+        imageOptions[index + 4],
+        imageOptions[index],
+        heroImage,
+      ),
       location: stringFrom(testimonial.location),
     }))
     .filter((testimonial) => testimonial.quote);
@@ -1133,7 +1185,7 @@ function ensureTestimonials(
     {
       quote: "I built this because I needed it, and now I wouldn't run my cattery without it.",
       author: 'Vanessa',
-      image: imageFrom(testimonialImage, images[3], heroImage),
+      image: imageFrom(importedImageKeys.size ? undefined : testimonialImage, imageOptions[3], heroImage),
       location: businessName,
     },
   ];
