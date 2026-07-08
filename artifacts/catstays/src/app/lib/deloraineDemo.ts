@@ -1,3 +1,11 @@
+import {
+  buildMediaEngineImages,
+  catalogueImageUrls,
+  normalizeMediaCatalogue,
+  preferCatalogueImages,
+  type MediaEngineImages,
+} from './mediaEngine';
+
 export const DELORAINE_SOURCE_URL = 'https://www.delorainecattery.com/';
 export const PREVIEW_URL_STORAGE_KEY = 'catstays_preview_url';
 export const PREVIEW_SOURCE_INTENT_STORAGE_KEY = 'catstays_preview_source_intent';
@@ -200,6 +208,7 @@ export interface DelorainePreviewData {
   selectedTemplate?: string | null;
   heroImage?: string;
   mediaCatalogue?: ImportedMediaCatalogueItem[];
+  mediaAssignments?: MediaEngineImages;
   ctaText?: string;
   headingFont?: string;
   subheadingFont?: string;
@@ -964,12 +973,6 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
     : (settings.testimonialsData?.testimonials ?? (isDeloraineSource ? fallbackDeloraineScrape.reviews ?? [] : []));
   const hours = stringValue(settings.hours) || scrape.hours || (isDeloraineSource ? fallbackDeloraineScrape.hours || '' : '');
   const owner = scrape.owner || settings.ownerData || (isDeloraineSource ? fallbackDeloraineScrape.owner : undefined);
-  const ownerWithCatalogueImage = owner
-    ? {
-        ...owner,
-        image: preferredCatalogueImage(mediaCatalogue, ['Owner', 'About'], 0) || owner.image,
-      }
-    : owner;
   const commitment = scrape.commitment || settings.commitmentData || (isDeloraineSource ? fallbackDeloraineScrape.commitment : undefined);
   const locationDetails = scrape.locationDetails || settings.locationData || (isDeloraineSource ? fallbackDeloraineScrape.locationDetails : undefined);
   const socialLinks = scrape.socialLinks || settings.socialLinks || (isDeloraineSource ? fallbackDeloraineScrape.socialLinks : undefined);
@@ -982,6 +985,34 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
       scrape.sourceHost,
     ) ||
     (isDeloraineSource ? fallbackDeloraineScrape.virtualTourUrl || '' : '');
+  const mediaAssignments = buildMediaEngineImages({
+    mediaCatalogue,
+    logoImage: scrape.logoImage,
+    heroImage: [settings.heroImage, scrape.heroImage],
+    images,
+    galleryImages: galleryImages.map((image) => image.url),
+    aboutImage: [settings.aboutImage, settings.aboutData?.image, owner?.image],
+    facilitiesImage: [
+      settings.facilitiesImage,
+      settings.facilitiesData?.facilitiesImage,
+      settings.facilitiesData?.image,
+    ],
+    ownerImage: owner?.image,
+    contactImage: [settings.contactImage, settings.contactData?.image],
+    suiteImages: rooms.map((room) => room.image),
+    serviceImages: services.map((service) => service.image),
+    suiteCount: rooms.length,
+    serviceCount: services.length,
+    reviewCount: reviews.length || 1,
+    testimonialImage: settings.testimonialImage,
+    fallbackImages: fallbackAssets,
+  });
+  const ownerWithCatalogueImage = owner
+    ? {
+        ...owner,
+        image: mediaAssignments.owner || owner.image,
+      }
+    : owner;
   const siteContentLibrary =
     scrape.siteContentLibrary ||
     siteContentLibraryFromSettings(settings.siteContentLibrary) ||
@@ -994,6 +1025,7 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
       galleryImages,
       reviews,
       faqs: scrape.faqs?.length ? scrape.faqs : fallbackFaqs,
+      heroImage: mediaAssignments.hero,
       hours,
       owner: ownerWithCatalogueImage,
       commitment,
@@ -1027,8 +1059,9 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
     pricePerNight: pricePerNight(rooms),
     pricePerCat: pricePerNight(rooms),
     selectedTemplate: scrape.sourceUrl ? 'original' : 'conversion-focus',
-    heroImage: selectHeroCatalogueImage(mediaCatalogue) || stringValue(settings.heroImage) || images[0],
+    heroImage: mediaAssignments.hero,
     mediaCatalogue,
+    mediaAssignments,
     ctaText: 'Book a stay',
     headingFont: 'playfair',
     subheadingFont: 'inter',
@@ -1046,7 +1079,7 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
       facilitiesText:
         highlights[0]?.description ||
         'Comfortable cat boarding facilities designed around safety, routine, and calm.',
-      facilitiesImage: preferredCatalogueImage(mediaCatalogue, ['Facilities'], 0) || imageByName(images, /building|facility|indoor|communal/i) || images[0],
+      facilitiesImage: mediaAssignments.facilities,
       facilityFeatures: highlights.map((highlight) => ({
         title: highlight.title,
         description: highlight.description,
@@ -1058,7 +1091,7 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
         name: room.name,
         price: room.price && room.priceUnit ? `${room.price}/${room.priceUnit.replace(/^per\s+/i, '')}` : room.price,
         description: room.description,
-        image: room.image || images[index + 1] || images[0],
+        image: mediaAssignments.suites[index] || '',
         popular: index === 0,
         features: room.amenities ?? [],
       })),
@@ -1069,7 +1102,7 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
         icon: ['Heart', 'Clock', 'Shield', 'Home'][index] ?? 'Star',
         title: service.title,
         description: service.price ? `${service.description} ${service.price}.` : service.description,
-        image: service.image || images[index + 2] || images[0],
+        image: mediaAssignments.services[index] || '',
       })),
     },
     galleryData: {
@@ -1178,6 +1211,7 @@ function buildSiteContentLibrary(input: {
   galleryImages: NonNullable<ImportedCatteryScrape['galleryImages']>;
   reviews: NonNullable<ImportedCatteryScrape['reviews']>;
   faqs: NonNullable<ImportedCatteryScrape['faqs']>;
+  heroImage: string;
   hours: string;
   owner?: ImportedCatteryScrape['owner'];
   commitment?: ImportedCatteryScrape['commitment'];
@@ -1193,7 +1227,7 @@ function buildSiteContentLibrary(input: {
       title: scrape.heading || businessName,
       text: scrape.description || `${businessName} has been imported into CatStays.`,
       source: scrape.extractedFrom?.html ? 'scrape' : 'generated',
-      images: input.galleryImages[0] ? [input.galleryImages[0]] : scrape.heroImage ? [{ url: scrape.heroImage, caption: businessName }] : [],
+      images: input.heroImage ? [{ url: input.heroImage, caption: businessName }] : [],
       links: scrape.bookingUrl ? [{ label: 'Book Now', url: scrape.bookingUrl }] : [],
     },
     {
@@ -1403,99 +1437,6 @@ function isDeloraineScrape(scrape: ImportedCatteryScrape): boolean {
   return source.includes('delorainecattery.com');
 }
 
-function normalizeMediaCatalogue(value: unknown): ImportedMediaCatalogueItem[] {
-  if (!Array.isArray(value)) return [];
-  return value
-    .map((item): ImportedMediaCatalogueItem | null => {
-      if (!item || typeof item !== 'object') return null;
-      const candidate = item as Partial<ImportedMediaCatalogueItem>;
-      if (!candidate.originalUrl || typeof candidate.originalUrl !== 'string') return null;
-      return {
-        originalUrl: candidate.originalUrl,
-        supabaseStorageUrl: typeof candidate.supabaseStorageUrl === 'string' ? candidate.supabaseStorageUrl : undefined,
-        category: candidate.category || 'Unknown',
-        confidence: typeof candidate.confidence === 'number' ? candidate.confidence : 0,
-        sourcePage: typeof candidate.sourcePage === 'string' ? candidate.sourcePage : '',
-        altText: typeof candidate.altText === 'string' ? candidate.altText : '',
-        nearbyHeading: typeof candidate.nearbyHeading === 'string' ? candidate.nearbyHeading : '',
-        nearbyParagraph: typeof candidate.nearbyParagraph === 'string' ? candidate.nearbyParagraph : '',
-        isLogo: Boolean(candidate.isLogo),
-        containsVisibleText: Boolean(candidate.containsVisibleText),
-        width: typeof candidate.width === 'number' ? candidate.width : undefined,
-        height: typeof candidate.height === 'number' ? candidate.height : undefined,
-        excludeFromHeroSelection: Boolean(candidate.excludeFromHeroSelection),
-      };
-    })
-    .filter((item): item is ImportedMediaCatalogueItem => Boolean(item));
-}
-
-function selectHeroCatalogueImage(mediaCatalogue: ImportedMediaCatalogueItem[]): string {
-  return (
-    preferredCatalogueImage(mediaCatalogue, ['Hero'], 0, { excludeFromHero: true, requireNoVisibleText: true }) ||
-    preferredCatalogueImage(mediaCatalogue, ['Background'], 0, { excludeFromHero: true, requireNoVisibleText: true, requireHeroContext: true }) ||
-    preferredCatalogueImage(mediaCatalogue, ['Hero'], 0, { excludeFromHero: true }) ||
-    preferredCatalogueImage(mediaCatalogue, ['Facilities'], 0, { excludeFromHero: true, requireNoVisibleText: true }) ||
-    preferredCatalogueImage(mediaCatalogue, ['Social / Open Graph'], 0, { allowOpenGraph: true }) ||
-    ''
-  );
-}
-
-function preferredCatalogueImage(
-  mediaCatalogue: ImportedMediaCatalogueItem[],
-  categories: ImportedMediaCategory[],
-  offset = 0,
-  options: {
-    allowOpenGraph?: boolean;
-    excludeFromHero?: boolean;
-    requireNoVisibleText?: boolean;
-    requireHeroContext?: boolean;
-  } = {},
-): string {
-  const matches = mediaCatalogue
-    .filter((item) => categories.includes(item.category))
-    .filter((item) => !item.isLogo && item.category !== 'Logo' && item.category !== 'Decorative')
-    .filter((item) => options.allowOpenGraph || item.category !== 'Social / Open Graph')
-    .filter((item) => !options.excludeFromHero || !item.excludeFromHeroSelection)
-    .filter((item) => !options.requireNoVisibleText || !item.containsVisibleText)
-    .filter((item) => !options.requireHeroContext || /\b(hero|main|welcome|home|cover)\b/i.test(`${item.originalUrl} ${item.nearbyHeading} ${item.nearbyParagraph}`))
-    .sort((a, b) => {
-      const categoryDelta = categories.indexOf(a.category) - categories.indexOf(b.category);
-      if (categoryDelta !== 0) return categoryDelta;
-      return b.confidence - a.confidence;
-    });
-
-  return mediaDisplayUrl(matches[offset]);
-}
-
-function catalogueImageUrls(mediaCatalogue: ImportedMediaCatalogueItem[]): string[] {
-  const primary = mediaCatalogue
-    .filter((item) => item.category !== 'Logo' && item.category !== 'Decorative' && item.category !== 'Social / Open Graph')
-    .sort((a, b) => b.confidence - a.confidence)
-    .map(mediaDisplayUrl);
-  const openGraph = mediaCatalogue
-    .filter((item) => item.category === 'Social / Open Graph')
-    .sort((a, b) => b.confidence - a.confidence)
-    .map(mediaDisplayUrl);
-
-  return uniqueImages([...primary, ...openGraph]);
-}
-
-function preferCatalogueImages<T extends { image?: string }>(
-  items: T[],
-  mediaCatalogue: ImportedMediaCatalogueItem[],
-  categories: ImportedMediaCategory[],
-): T[] {
-  if (!mediaCatalogue.length) return items;
-  return items.map((item, index) => ({
-    ...item,
-    image: preferredCatalogueImage(mediaCatalogue, categories, index) || item.image,
-  }));
-}
-
-function mediaDisplayUrl(item?: ImportedMediaCatalogueItem): string {
-  return item?.supabaseStorageUrl || item?.originalUrl || '';
-}
-
 function embeddableVirtualTourUrl(rawUrl: string, sourceHost?: string): string {
   if (!rawUrl) return '';
   try {
@@ -1608,10 +1549,6 @@ function genericFaqs(businessName: string): NonNullable<ImportedCatteryScrape['f
       answer: 'Yes. CatStays supports photo updates and messages during a stay.',
     },
   ];
-}
-
-function imageByName(images: string[], pattern: RegExp): string {
-  return images.find((image) => pattern.test(decodeURIComponent(image))) || '';
 }
 
 function uniqueImages(images: Array<string | undefined>): string[] {

@@ -81,7 +81,10 @@ Until upload is restored, selectors should use `supabaseStorageUrl || originalUr
 
 - Scraper catalogue creation: `artifacts/api-server/src/lib/catteryWebsiteScraper.ts`
 - Imported preview normalization: `artifacts/catstays/src/app/lib/deloraineDemo.ts`
-- Template image selection: `artifacts/catstays/src/app/lib/previewTemplates.ts`
+- Media assignment engine: `artifacts/catstays/src/app/lib/mediaEngine.ts`
+- Template rendering: `artifacts/catstays/src/app/pages/onboarding/CatstaysTemplateSite.tsx`
+
+See also: `docs/architecture/media-engine.md`
 
 ## Non-Goals
 
