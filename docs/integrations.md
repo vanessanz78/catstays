@@ -51,6 +51,10 @@ Open items:
 
 Website import exists through the API server. The product goal is to turn an existing cattery website into a previewable CatStays site and setup draft.
 
+Imported images should be saved as a structured media catalogue before preview data is built. Each catalogue item records the original URL, future Supabase Storage URL, category, confidence, source page, nearby text context, logo/text flags, approximate dimensions when known, and whether it must be excluded from hero selection.
+
+Template generation should select images by catalogue category and confidence. Hero selection prioritises real imported hero/background images, then high-confidence hero or facilities images, with Open Graph and placeholder/demo images only used as last resort.
+
 Open items:
 
 - Improve preview sizing and scroll behavior.

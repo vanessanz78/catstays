@@ -25,6 +25,7 @@ Older project notes mention a 7-step onboarding flow. That should be treated as 
 ## Current Strengths
 
 - Website URL import entry point exists.
+- Website import now builds a classified media catalogue before preview templates choose images.
 - Guided setup exists for catteries with no current website.
 - Website builder preview exists.
 - Room setup and booking rules exist.

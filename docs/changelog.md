@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-07-08
+
+- Added a structured website-import media catalogue so discovered images are classified before template generation.
+- Updated imported preview image selection to choose images by media category and confidence instead of raw array position, with Open Graph and seeded/demo images treated as last-resort fallbacks only.
+
 ## 2026-07-05
 
 - Clarified that the last known pre-FancyFelines CatStays handoff was on GitHub `main`, not a feature branch.
