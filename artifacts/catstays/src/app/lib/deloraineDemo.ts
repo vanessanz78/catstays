@@ -80,6 +80,38 @@ export interface CatterySiteContentLibrary {
   blocks: CatterySiteContentBlock[];
 }
 
+export type ImportedMediaCategory =
+  | 'Hero'
+  | 'About'
+  | 'Facilities'
+  | 'Suites / Rooms'
+  | 'Services'
+  | 'Gallery'
+  | 'Reviews'
+  | 'Owner'
+  | 'Contact'
+  | 'Social / Open Graph'
+  | 'Logo'
+  | 'Decorative'
+  | 'Background'
+  | 'Unknown';
+
+export interface ImportedMediaCatalogueItem {
+  originalUrl: string;
+  supabaseStorageUrl?: string;
+  category: ImportedMediaCategory;
+  confidence: number;
+  sourcePage: string;
+  altText: string;
+  nearbyHeading: string;
+  nearbyParagraph: string;
+  isLogo: boolean;
+  containsVisibleText: boolean;
+  width?: number;
+  height?: number;
+  excludeFromHeroSelection: boolean;
+}
+
 export interface ImportedCatteryScrape {
   sourceUrl?: string;
   sourceHost?: string;
@@ -89,6 +121,7 @@ export interface ImportedCatteryScrape {
   heroImage?: string;
   logoImage?: string;
   images?: string[];
+  mediaCatalogue?: ImportedMediaCatalogueItem[];
   galleryImages?: Array<{ url: string; caption?: string }>;
   phone?: string;
   email?: string;
@@ -166,6 +199,7 @@ export interface DelorainePreviewData {
   pricePerCat?: string;
   selectedTemplate?: string | null;
   heroImage?: string;
+  mediaCatalogue?: ImportedMediaCatalogueItem[];
   ctaText?: string;
   headingFont?: string;
   subheadingFont?: string;
@@ -886,16 +920,31 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
   const settings = scrape.websiteSettings ?? {};
   const isDeloraineSource = isDeloraineScrape(scrape);
   const fallbackAssets = isDeloraineSource ? deloraineAssets : genericCatAssets;
-  const images = uniqueImages([
+  const mediaCatalogue = normalizeMediaCatalogue(scrape.mediaCatalogue ?? settings.mediaCatalogue);
+  const importedImages = uniqueImages([
+    ...catalogueImageUrls(mediaCatalogue),
     scrape.heroImage,
     ...(scrape.images ?? []),
-    ...fallbackAssets,
+    ...(scrape.galleryImages ?? []).map((image) => image.url),
+  ]);
+  const hasImportedImages = importedImages.length > 0;
+  const images = uniqueImages([
+    ...importedImages,
+    ...(hasImportedImages ? [] : fallbackAssets),
   ]);
   const fallbackRooms = isDeloraineSource ? fallbackDeloraineScrape.rooms ?? [] : genericRooms(images);
   const fallbackServices = isDeloraineSource ? fallbackDeloraineScrape.services ?? [] : genericServices(images);
   const fallbackHighlights = isDeloraineSource ? fallbackDeloraineScrape.highlights ?? [] : genericHighlights();
-  const rooms = scrape.rooms?.length ? scrape.rooms : fallbackRooms;
-  const services = (scrape.services?.length ? scrape.services : fallbackServices).slice(0, 12);
+  const rooms = preferCatalogueImages(
+    scrape.rooms?.length ? scrape.rooms : fallbackRooms,
+    mediaCatalogue,
+    ['Suites / Rooms', 'Facilities', 'Gallery'],
+  );
+  const services = preferCatalogueImages(
+    (scrape.services?.length ? scrape.services : fallbackServices).slice(0, 12),
+    mediaCatalogue,
+    ['Services', 'Gallery', 'Suites / Rooms'],
+  );
   const highlights = scrape.highlights?.length ? scrape.highlights : fallbackHighlights;
   const galleryImages =
     scrape.galleryImages?.length
@@ -915,6 +964,12 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
     : (settings.testimonialsData?.testimonials ?? (isDeloraineSource ? fallbackDeloraineScrape.reviews ?? [] : []));
   const hours = stringValue(settings.hours) || scrape.hours || (isDeloraineSource ? fallbackDeloraineScrape.hours || '' : '');
   const owner = scrape.owner || settings.ownerData || (isDeloraineSource ? fallbackDeloraineScrape.owner : undefined);
+  const ownerWithCatalogueImage = owner
+    ? {
+        ...owner,
+        image: preferredCatalogueImage(mediaCatalogue, ['Owner', 'About'], 0) || owner.image,
+      }
+    : owner;
   const commitment = scrape.commitment || settings.commitmentData || (isDeloraineSource ? fallbackDeloraineScrape.commitment : undefined);
   const locationDetails = scrape.locationDetails || settings.locationData || (isDeloraineSource ? fallbackDeloraineScrape.locationDetails : undefined);
   const socialLinks = scrape.socialLinks || settings.socialLinks || (isDeloraineSource ? fallbackDeloraineScrape.socialLinks : undefined);
@@ -940,7 +995,7 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
       reviews,
       faqs: scrape.faqs?.length ? scrape.faqs : fallbackFaqs,
       hours,
-      owner,
+      owner: ownerWithCatalogueImage,
       commitment,
       locationDetails,
       socialLinks,
@@ -972,7 +1027,8 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
     pricePerNight: pricePerNight(rooms),
     pricePerCat: pricePerNight(rooms),
     selectedTemplate: scrape.sourceUrl ? 'original' : 'conversion-focus',
-    heroImage: stringValue(settings.heroImage) || images[0],
+    heroImage: selectHeroCatalogueImage(mediaCatalogue) || stringValue(settings.heroImage) || images[0],
+    mediaCatalogue,
     ctaText: 'Book a stay',
     headingFont: 'playfair',
     subheadingFont: 'inter',
@@ -990,7 +1046,7 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
       facilitiesText:
         highlights[0]?.description ||
         'Comfortable cat boarding facilities designed around safety, routine, and calm.',
-      facilitiesImage: imageByName(images, /building|facility|indoor|communal/i) || images[0],
+      facilitiesImage: preferredCatalogueImage(mediaCatalogue, ['Facilities'], 0) || imageByName(images, /building|facility|indoor|communal/i) || images[0],
       facilityFeatures: highlights.map((highlight) => ({
         title: highlight.title,
         description: highlight.description,
@@ -1047,7 +1103,7 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
       locationDetails,
     },
     commitmentData: commitment,
-    ownerData: owner,
+    ownerData: ownerWithCatalogueImage,
     locationData: locationDetails,
     hours,
     socialLinks,
@@ -1345,6 +1401,99 @@ function businessNameFromHost(host: string): string {
 function isDeloraineScrape(scrape: ImportedCatteryScrape): boolean {
   const source = `${scrape.sourceHost || ''} ${scrape.sourceUrl || ''}`.toLowerCase();
   return source.includes('delorainecattery.com');
+}
+
+function normalizeMediaCatalogue(value: unknown): ImportedMediaCatalogueItem[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item): ImportedMediaCatalogueItem | null => {
+      if (!item || typeof item !== 'object') return null;
+      const candidate = item as Partial<ImportedMediaCatalogueItem>;
+      if (!candidate.originalUrl || typeof candidate.originalUrl !== 'string') return null;
+      return {
+        originalUrl: candidate.originalUrl,
+        supabaseStorageUrl: typeof candidate.supabaseStorageUrl === 'string' ? candidate.supabaseStorageUrl : undefined,
+        category: candidate.category || 'Unknown',
+        confidence: typeof candidate.confidence === 'number' ? candidate.confidence : 0,
+        sourcePage: typeof candidate.sourcePage === 'string' ? candidate.sourcePage : '',
+        altText: typeof candidate.altText === 'string' ? candidate.altText : '',
+        nearbyHeading: typeof candidate.nearbyHeading === 'string' ? candidate.nearbyHeading : '',
+        nearbyParagraph: typeof candidate.nearbyParagraph === 'string' ? candidate.nearbyParagraph : '',
+        isLogo: Boolean(candidate.isLogo),
+        containsVisibleText: Boolean(candidate.containsVisibleText),
+        width: typeof candidate.width === 'number' ? candidate.width : undefined,
+        height: typeof candidate.height === 'number' ? candidate.height : undefined,
+        excludeFromHeroSelection: Boolean(candidate.excludeFromHeroSelection),
+      };
+    })
+    .filter((item): item is ImportedMediaCatalogueItem => Boolean(item));
+}
+
+function selectHeroCatalogueImage(mediaCatalogue: ImportedMediaCatalogueItem[]): string {
+  return (
+    preferredCatalogueImage(mediaCatalogue, ['Hero'], 0, { excludeFromHero: true, requireNoVisibleText: true }) ||
+    preferredCatalogueImage(mediaCatalogue, ['Background'], 0, { excludeFromHero: true, requireNoVisibleText: true, requireHeroContext: true }) ||
+    preferredCatalogueImage(mediaCatalogue, ['Hero'], 0, { excludeFromHero: true }) ||
+    preferredCatalogueImage(mediaCatalogue, ['Facilities'], 0, { excludeFromHero: true, requireNoVisibleText: true }) ||
+    preferredCatalogueImage(mediaCatalogue, ['Social / Open Graph'], 0, { allowOpenGraph: true }) ||
+    ''
+  );
+}
+
+function preferredCatalogueImage(
+  mediaCatalogue: ImportedMediaCatalogueItem[],
+  categories: ImportedMediaCategory[],
+  offset = 0,
+  options: {
+    allowOpenGraph?: boolean;
+    excludeFromHero?: boolean;
+    requireNoVisibleText?: boolean;
+    requireHeroContext?: boolean;
+  } = {},
+): string {
+  const matches = mediaCatalogue
+    .filter((item) => categories.includes(item.category))
+    .filter((item) => !item.isLogo && item.category !== 'Logo' && item.category !== 'Decorative')
+    .filter((item) => options.allowOpenGraph || item.category !== 'Social / Open Graph')
+    .filter((item) => !options.excludeFromHero || !item.excludeFromHeroSelection)
+    .filter((item) => !options.requireNoVisibleText || !item.containsVisibleText)
+    .filter((item) => !options.requireHeroContext || /\b(hero|main|welcome|home|cover)\b/i.test(`${item.originalUrl} ${item.nearbyHeading} ${item.nearbyParagraph}`))
+    .sort((a, b) => {
+      const categoryDelta = categories.indexOf(a.category) - categories.indexOf(b.category);
+      if (categoryDelta !== 0) return categoryDelta;
+      return b.confidence - a.confidence;
+    });
+
+  return mediaDisplayUrl(matches[offset]);
+}
+
+function catalogueImageUrls(mediaCatalogue: ImportedMediaCatalogueItem[]): string[] {
+  const primary = mediaCatalogue
+    .filter((item) => item.category !== 'Logo' && item.category !== 'Decorative' && item.category !== 'Social / Open Graph')
+    .sort((a, b) => b.confidence - a.confidence)
+    .map(mediaDisplayUrl);
+  const openGraph = mediaCatalogue
+    .filter((item) => item.category === 'Social / Open Graph')
+    .sort((a, b) => b.confidence - a.confidence)
+    .map(mediaDisplayUrl);
+
+  return uniqueImages([...primary, ...openGraph]);
+}
+
+function preferCatalogueImages<T extends { image?: string }>(
+  items: T[],
+  mediaCatalogue: ImportedMediaCatalogueItem[],
+  categories: ImportedMediaCategory[],
+): T[] {
+  if (!mediaCatalogue.length) return items;
+  return items.map((item, index) => ({
+    ...item,
+    image: preferredCatalogueImage(mediaCatalogue, categories, index) || item.image,
+  }));
+}
+
+function mediaDisplayUrl(item?: ImportedMediaCatalogueItem): string {
+  return item?.supabaseStorageUrl || item?.originalUrl || '';
 }
 
 function embeddableVirtualTourUrl(rawUrl: string, sourceHost?: string): string {

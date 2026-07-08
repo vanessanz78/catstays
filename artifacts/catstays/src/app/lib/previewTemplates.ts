@@ -4,6 +4,8 @@ import {
   type CatterySiteContentLibrary,
   type DelorainePreviewData,
   type ImportedCatteryScrape,
+  type ImportedMediaCatalogueItem,
+  type ImportedMediaCategory,
 } from './deloraineDemo';
 
 export type { ImportedCatteryScrape } from './deloraineDemo';
@@ -43,6 +45,7 @@ export interface PreviewImportRecord {
     heroImage?: string;
     logoImage?: string;
     images: string[];
+    mediaCatalogue: ImportedMediaCatalogueItem[];
     galleryImages: NonNullable<ImportedCatteryScrape['galleryImages']>;
   };
   content: {
@@ -282,6 +285,7 @@ export function buildPreviewImportRecord(scrape: ImportedCatteryScrape): Preview
       heroImage: normalizedPreviewData.heroImage,
       logoImage: scrape.logoImage,
       images: scrape.images ?? [],
+      mediaCatalogue: normalizedPreviewData.mediaCatalogue ?? scrape.mediaCatalogue ?? [],
       galleryImages: scrape.galleryImages ?? [],
     },
     content: {
@@ -438,7 +442,12 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const dailyCareBlock = libraryBlock(contentLibrary, 'daily-care');
   const locationBlock = libraryBlock(contentLibrary, 'location');
   const logoImage = stringFrom(data.logoImage, normalizedRecord.logoImage, record?.media.logoImage);
-  const heroImage = imageFrom(
+  const mediaCatalogue = normalizeMediaCatalogue(
+    record?.media.mediaCatalogue ??
+      normalizedRecord.mediaCatalogue ??
+      data.mediaCatalogue,
+  );
+  const heroImage = selectHeroCatalogueImage(mediaCatalogue) || imageFrom(
     data.heroImage,
     normalized.heroImage,
     record?.media.heroImage,
@@ -447,6 +456,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   );
   const editedGalleryImages = Array.isArray(data.galleryImages) ? data.galleryImages : [];
   const importedGalleryImages = [
+    ...catalogueImageUrls(mediaCatalogue),
     ...(record?.media.images ?? []),
     ...(record?.media.galleryImages ?? []).map((image) => image.url),
     ...libraryGalleryImages.map((image) => image.url),
@@ -563,6 +573,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       data.aboutImage,
       normalizedRecord.aboutImage,
       normalizedRecord.aboutData?.image,
+      preferredCatalogueImage(mediaCatalogue, ['About', 'Owner', 'Gallery'], 0),
       fallbackImages.find((image) => image !== heroImage),
     ],
     fallbackImages,
@@ -571,6 +582,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     usedImages,
     [
       data.facilitiesImage,
+      preferredCatalogueImage(mediaCatalogue, ['Facilities'], 0, { excludeFromHero: true, requireNoVisibleText: true }),
       facilitiesBlock?.images?.[0]?.url,
       normalizedRecord.facilitiesData?.facilitiesImage,
       fallbackImages[2],
@@ -582,6 +594,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     [
       ownerData.image,
       normalizedRecord.ownerData?.image,
+      preferredCatalogueImage(mediaCatalogue, ['Owner', 'About'], 0),
       fallbackImages[5],
       fallbackImages[1],
     ],
@@ -641,7 +654,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     services: services.map((service: any, index: number) => ({
       image: pickUniqueImage(
         usedImages,
-        [service.image, fallbackImages[index + 3], fallbackImages[index]],
+        [preferredCatalogueImage(mediaCatalogue, ['Services', 'Gallery', 'Suites / Rooms'], index), service.image, fallbackImages[index + 3], fallbackImages[index]],
         fallbackImages,
       ),
       title: stringFrom(service.title, service.name, `Care service ${index + 1}`),
@@ -657,7 +670,14 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       image,
       caption: stringFrom(record?.media.galleryImages?.[index]?.caption, `${businessName} photo ${index + 1}`),
     })),
-    suites: editedRooms && editedRooms.length === 0 ? [] : ensureSuiteCount(rooms, fallbackImages, data.pricePerNight || normalized.pricePerNight, usedImages),
+    suites: editedRooms && editedRooms.length === 0
+      ? []
+      : ensureSuiteCount(
+          rooms,
+          categoryFallbackImages(mediaCatalogue, ['Suites / Rooms', 'Facilities', 'Gallery'], fallbackImages),
+          data.pricePerNight || normalized.pricePerNight,
+          usedImages,
+        ),
     testimonials: ensureTestimonials(testimonials, businessName, fallbackImages, heroImage, data.testimonialImage),
     faqs: faqs.map((faq: any) => ({
       question: stringFrom(faq.question),
@@ -863,9 +883,18 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
   const contactBlock = block('contact');
   const locationBlock = block('location');
   const socialBlock = block('social');
+  const mediaCatalogue = normalizeMediaCatalogue(record?.media.mediaCatalogue ?? normalized.mediaCatalogue ?? cleanData.mediaCatalogue);
 
   return {
     ...cleanData,
+    heroImage: selectHeroCatalogueImage(mediaCatalogue) || imageFieldFrom(
+      'heroImage',
+      normalized.heroImage,
+      record?.media.heroImage,
+      record?.media.images?.[0],
+      record?.media.galleryImages?.[0]?.url,
+    ),
+    mediaCatalogue,
     heroPrimaryCtaText: textFrom('heroPrimaryCtaText', heroLinks[0]?.label, cleanData.ctaText, 'Discover Our Suites'),
     heroPrimaryCtaHref: textFrom('heroPrimaryCtaHref', heroLinks[0]?.url, '#suites'),
     heroSecondaryCtaText: textFrom('heroSecondaryCtaText', heroLinks[1]?.label, 'Our Care Approach'),
@@ -878,6 +907,7 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
       'aboutImage',
       normalized.aboutImage,
       normalized.aboutData?.image,
+      preferredCatalogueImage(mediaCatalogue, ['About', 'Owner', 'Gallery'], 0),
       blockImages('gallery')[0]?.url,
       record?.media.galleryImages?.[0]?.url,
       normalized.facilitiesData?.facilitiesImage,
@@ -885,7 +915,13 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
     ),
     facilitiesHeading: textFrom('facilitiesHeading', normalized.facilitiesData?.facilitiesHeading, normalized.facilitiesData?.heading, block('facilities')?.title),
     facilitiesText: textFrom('facilitiesText', normalized.facilitiesData?.facilitiesText, normalized.facilitiesData?.text, block('facilities')?.text),
-    facilitiesImage: imageFieldFrom('facilitiesImage', normalized.facilitiesData?.facilitiesImage, normalized.facilitiesData?.image, blockImages('facilities')[0]?.url),
+    facilitiesImage: imageFieldFrom(
+      'facilitiesImage',
+      preferredCatalogueImage(mediaCatalogue, ['Facilities'], 0, { excludeFromHero: true, requireNoVisibleText: true }),
+      normalized.facilitiesData?.facilitiesImage,
+      normalized.facilitiesData?.image,
+      blockImages('facilities')[0]?.url,
+    ),
     suitesHeading: textFrom('suitesHeading', normalized.suitesData?.suitesHeading, normalized.suitesData?.heading, block('rooms')?.title),
     additionalServicesHeading: textFrom('additionalServicesHeading', normalized.servicesData?.servicesHeading, normalized.servicesData?.heading, block('services')?.title),
     galleryHeading: textFrom('galleryHeading', normalized.galleryData?.galleryHeading, normalized.galleryData?.heading, block('gallery')?.title),
@@ -936,6 +972,7 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
       'galleryImages',
       mapImagesToUrls(normalized.galleryData?.galleryImages ?? []),
       mapImagesToUrls(normalized.galleryData?.images ?? []),
+      catalogueImageUrls(mediaCatalogue),
       mapImagesToUrls(blockImages('gallery')),
       mapImagesToUrls(record?.media.galleryImages ?? []),
       record?.media.images,
@@ -1003,6 +1040,99 @@ function uniqueStrings(values: unknown[]): string[] {
     result.push(text);
   }
   return result;
+}
+
+function normalizeMediaCatalogue(value: unknown): ImportedMediaCatalogueItem[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item): ImportedMediaCatalogueItem | null => {
+      if (!item || typeof item !== 'object') return null;
+      const candidate = item as Partial<ImportedMediaCatalogueItem>;
+      if (!candidate.originalUrl || typeof candidate.originalUrl !== 'string') return null;
+      return {
+        originalUrl: candidate.originalUrl,
+        supabaseStorageUrl: typeof candidate.supabaseStorageUrl === 'string' ? candidate.supabaseStorageUrl : undefined,
+        category: candidate.category || 'Unknown',
+        confidence: typeof candidate.confidence === 'number' ? candidate.confidence : 0,
+        sourcePage: typeof candidate.sourcePage === 'string' ? candidate.sourcePage : '',
+        altText: typeof candidate.altText === 'string' ? candidate.altText : '',
+        nearbyHeading: typeof candidate.nearbyHeading === 'string' ? candidate.nearbyHeading : '',
+        nearbyParagraph: typeof candidate.nearbyParagraph === 'string' ? candidate.nearbyParagraph : '',
+        isLogo: Boolean(candidate.isLogo),
+        containsVisibleText: Boolean(candidate.containsVisibleText),
+        width: typeof candidate.width === 'number' ? candidate.width : undefined,
+        height: typeof candidate.height === 'number' ? candidate.height : undefined,
+        excludeFromHeroSelection: Boolean(candidate.excludeFromHeroSelection),
+      };
+    })
+    .filter((item): item is ImportedMediaCatalogueItem => Boolean(item));
+}
+
+function selectHeroCatalogueImage(mediaCatalogue: ImportedMediaCatalogueItem[]): string {
+  return (
+    preferredCatalogueImage(mediaCatalogue, ['Hero'], 0, { excludeFromHero: true, requireNoVisibleText: true }) ||
+    preferredCatalogueImage(mediaCatalogue, ['Background'], 0, { excludeFromHero: true, requireNoVisibleText: true, requireHeroContext: true }) ||
+    preferredCatalogueImage(mediaCatalogue, ['Hero'], 0, { excludeFromHero: true }) ||
+    preferredCatalogueImage(mediaCatalogue, ['Facilities'], 0, { excludeFromHero: true, requireNoVisibleText: true }) ||
+    preferredCatalogueImage(mediaCatalogue, ['Social / Open Graph'], 0, { allowOpenGraph: true }) ||
+    ''
+  );
+}
+
+function preferredCatalogueImage(
+  mediaCatalogue: ImportedMediaCatalogueItem[],
+  categories: ImportedMediaCategory[],
+  offset = 0,
+  options: {
+    allowOpenGraph?: boolean;
+    excludeFromHero?: boolean;
+    requireNoVisibleText?: boolean;
+    requireHeroContext?: boolean;
+  } = {},
+): string {
+  const matches = mediaCatalogue
+    .filter((item) => categories.includes(item.category))
+    .filter((item) => !item.isLogo && item.category !== 'Logo' && item.category !== 'Decorative')
+    .filter((item) => options.allowOpenGraph || item.category !== 'Social / Open Graph')
+    .filter((item) => !options.excludeFromHero || !item.excludeFromHeroSelection)
+    .filter((item) => !options.requireNoVisibleText || !item.containsVisibleText)
+    .filter((item) => !options.requireHeroContext || /\b(hero|main|welcome|home|cover)\b/i.test(`${item.originalUrl} ${item.nearbyHeading} ${item.nearbyParagraph}`))
+    .sort((a, b) => {
+      const categoryDelta = categories.indexOf(a.category) - categories.indexOf(b.category);
+      if (categoryDelta !== 0) return categoryDelta;
+      return b.confidence - a.confidence;
+    });
+
+  return mediaDisplayUrl(matches[offset]);
+}
+
+function catalogueImageUrls(mediaCatalogue: ImportedMediaCatalogueItem[]): string[] {
+  const primary = mediaCatalogue
+    .filter((item) => item.category !== 'Logo' && item.category !== 'Decorative' && item.category !== 'Social / Open Graph')
+    .sort((a, b) => b.confidence - a.confidence)
+    .map(mediaDisplayUrl);
+  const openGraph = mediaCatalogue
+    .filter((item) => item.category === 'Social / Open Graph')
+    .sort((a, b) => b.confidence - a.confidence)
+    .map(mediaDisplayUrl);
+
+  return uniqueStrings([...primary, ...openGraph]);
+}
+
+function categoryFallbackImages(mediaCatalogue: ImportedMediaCatalogueItem[], categories: ImportedMediaCategory[], fallbackImages: string[]) {
+  return uniqueStrings([
+    ...categories.flatMap((category) =>
+      mediaCatalogue
+        .filter((item) => item.category === category && item.category !== 'Logo' && item.category !== 'Decorative')
+        .sort((a, b) => b.confidence - a.confidence)
+        .map(mediaDisplayUrl),
+    ),
+    ...fallbackImages,
+  ]);
+}
+
+function mediaDisplayUrl(item?: ImportedMediaCatalogueItem): string {
+  return item?.supabaseStorageUrl || item?.originalUrl || '';
 }
 
 function isUsableGalleryImage(image: string, logoImage?: string): boolean {
