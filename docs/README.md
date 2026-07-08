@@ -34,6 +34,7 @@ See [Platform Architecture](./platform-architecture.md) and [Database Architectu
 | --- | --- |
 | [Current State Audit](./current-state.md) | What exists now, what works, what is incomplete, and recommended next actions. |
 | [Platform Architecture](./platform-architecture.md) | Frontend, backend, authentication, routing, and data flow. |
+| [Media Catalogue Architecture](./architecture/media-catalogue.md) | Structured imported-image classification and category-based template image selection. |
 | [Onboarding Flow](./onboarding-flow.md) | Cattery signup, website import, setup, plan selection, publishing, and data import. |
 | [Booking Workflow](./booking-workflow.md) | Public booking requests, dashboard management, payment status, and booking states. |
 | [Boarding Workflow](./boarding-workflow.md) | Arrival, stay management, updates, checkout, and operational gaps. |
