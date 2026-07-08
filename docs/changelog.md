@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-07-08
+
+- Aligned CatStays startup and governance documentation with the central Codex Operating System.
+- Updated future Codex session instructions to read central `START_HERE.md` before project-specific docs.
+- Converted the local project operating system into a CatStays-specific overlay instead of duplicated Operating System guidance.
+- Added `CONTRIBUTING.md` as a short contributor signpost to the central Operating System and CatStays sprint files.
+- Recorded that future CatStays sessions follow the central Operating System for reading order, branch governance, engineering standards, architecture principles, milestone workflow, build verification, UAT, cleanup, and handoff requirements.
+
 ## 2026-07-05
 
 - Clarified that the last known pre-FancyFelines CatStays handoff was on GitHub `main`, not a feature branch.

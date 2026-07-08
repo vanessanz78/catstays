@@ -1,6 +1,20 @@
 # Decision Log
 
-Last updated: 2026-07-05
+Last updated: 2026-07-08
+
+## 2026-07-08 - Central Codex Operating System Governs CatStays
+
+Decision: CatStays Codex sessions are governed by the central Codex Operating System in `vanessanz78/codex-operating-system`, starting with `START_HERE.md`.
+
+Reason: The central Operating System has improved since this repository was first documented. Keeping separate local workflow rules in CatStays would make future sessions more likely to follow outdated instructions.
+
+Impact:
+
+- Every future Codex session must read central `START_HERE.md` before doing anything else.
+- CatStays follows the central Operating System for document reading order, branch governance, engineering standards, architecture principles, milestone workflow, build verification, UAT requirements, cleanup procedures, and handoff requirements.
+- CatStays documentation remains project-specific and should not duplicate the central Operating System.
+- Repository docs may reference the central Operating System as the authoritative source.
+- Replit and GitHub handoffs must still preserve the exact CatStays working ref.
 
 ## 2026-07-01 - Root Sprint Docs
 

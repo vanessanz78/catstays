@@ -1,63 +1,50 @@
 # Project Operating System
 
-Last reviewed: 2026-06-12
+Last reviewed: 2026-07-08
 
-CatStays follows a documentation-first workflow.
+CatStays is governed by the central Codex Operating System in `vanessanz78/codex-operating-system`.
 
-GitHub is the permanent memory of the project. Codex conversations are temporary working memory only.
+This document is a CatStays-specific overlay. It must not duplicate or replace Operating System documentation.
 
-## Core Rule
+## Authoritative Operating System
 
-Never allow important project knowledge to exist only inside a Codex conversation.
+Every Codex session for this repository must begin by reading `START_HERE.md` from the central Codex Operating System repository before doing anything else.
 
-If GitHub documentation and chat history conflict, GitHub documentation wins.
+After that, Codex must follow the central Operating System for:
 
-## Required Workflow
+- document reading order
+- branch governance
+- engineering standards
+- architecture principles
+- milestone workflow
+- build verification
+- UAT requirements
+- cleanup procedures
+- handoff requirements
 
-1. Research and analysis.
-2. Update GitHub documentation.
-3. Commit documentation.
-4. Plan implementation.
-5. Implement changes.
-6. Validate changes.
-7. Update documentation.
-8. Commit documentation updates.
+## CatStays Startup Order
 
-## Operating Flow
+After the central Operating System startup is complete, read the CatStays project documents in this order:
 
-```text
-Chat
-↓
-GitHub Docs
-↓
-Commit
-↓
-Implementation
-↓
-Validation
-↓
-GitHub Docs Updated
-↓
-Commit
-```
+1. `CURRENT_SPRINT.md`
+2. The latest root-level Architect Update, if one exists
+3. `DECISION_LOG.md`
+4. Any project files explicitly referenced by the sprint or decision documents
+5. `docs/README.md` as the project documentation hub when deeper CatStays context is needed
+
+If any local document conflicts with the central Operating System, the central Operating System wins for process. If any chat history conflicts with committed GitHub documentation, the committed documentation wins for project state.
+
+## CatStays-Specific Rules
+
+- GitHub is the durable source of truth for CatStays project state.
+- Codex conversations are temporary working memory only.
+- CatStays documentation should record project-specific product, architecture, database, deployment, onboarding, booking, UAT, and branch/ref context.
+- Every GitHub note, sprint note, decision note, PR note, and Replit handoff must include `Working ref: <main | branch name | commit SHA>`.
+- Do not copy central Operating System procedures into this repository. Link to the central source instead.
 
 ## Documentation Rules
 
-- Architecture decisions must be documented before implementation.
-- Significant implementation changes must update documentation.
-- Roadmap changes must update documentation.
-- Product decisions must update documentation.
-- Database changes must update documentation.
-- Deployment changes must update documentation.
-- Onboarding changes must update documentation.
-- Documentation is part of the deliverable.
-- If documentation is not updated, the task is not complete.
-
-## Session Startup Rule
-
-Any new Codex session should begin by reading:
-
-- [Master Documentation Hub](./README.md)
-- This project operating system document
-
-The master hub is the primary source of truth for current status, documentation structure, active priorities, architecture, roadmap, and project rules.
+- Project-specific architecture decisions must be documented before or with implementation.
+- Significant implementation, roadmap, product, database, deployment, or onboarding changes must update the relevant CatStays docs.
+- Documentation is part of the deliverable when project state changes.
+- End-of-work verification, cleanup, UAT notes, and handoff format are governed by the central Operating System.

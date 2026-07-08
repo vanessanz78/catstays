@@ -7,6 +7,8 @@ Status: handoff checkpoint before local restart
 
 Use GitHub as the single source of truth. Keep local Mac usage light. Do not load or store large screenshots/raw scraped pages unless absolutely needed.
 
+Legacy note: this handoff predates the latest central Codex Operating System. Future sessions must read `START_HERE.md` from `vanessanz78/codex-operating-system` before using this handoff.
+
 ## Current Repo State At Handoff
 
 - Branch: `main`
@@ -100,4 +102,4 @@ pnpm --filter @workspace/api-server run typecheck
 
 Paste this at the top of the next Codex chat:
 
-> Continue CatStays from GitHub as the source of truth. Read `docs/codex-handoffs/2026-06-13-preview-polish-handoff.md` first, then continue the adaptive preview polish. Keep local Mac usage minimal, avoid large screenshots/raw scraped pages, commit/push to GitHub when done, and give me the Replit shell prompt to pull the latest version.
+> Continue CatStays from GitHub as the source of truth. First read `START_HERE.md` from `vanessanz78/codex-operating-system` and follow the central Operating System. If this legacy handoff is still relevant after startup, read `docs/codex-handoffs/2026-06-13-preview-polish-handoff.md`, then continue the adaptive preview polish. Keep local Mac usage minimal, avoid large screenshots/raw scraped pages, commit/push to GitHub when done, and give me the Replit shell prompt to pull the latest version.

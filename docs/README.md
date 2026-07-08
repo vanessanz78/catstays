@@ -4,7 +4,27 @@ CatStays is a specialised SaaS platform for cat boarding businesses. It is built
 
 GitHub is the single source of truth for CatStays. Product decisions, workflow notes, architecture, deployment status, business rules, and implementation decisions should be documented here before they are treated as durable project knowledge.
 
-Every new Codex session should begin by reading this hub and the [Project Operating System](./project-operating-system.md). If GitHub documentation and chat history conflict, GitHub documentation wins.
+Every new Codex session must begin by reading `START_HERE.md` from `vanessanz78/codex-operating-system`, then follow the central Operating System read order into this repository. If GitHub documentation and chat history conflict, GitHub documentation wins.
+
+## Central Operating System Governance
+
+CatStays is governed by the central Codex Operating System in `vanessanz78/codex-operating-system`.
+
+This repository should not duplicate Operating System documentation. Keep central governance in the Operating System repository, and keep CatStays documentation focused on project-specific product decisions, architecture, current sprint state, deployment notes, UAT evidence, and handoffs.
+
+Future Codex sessions must follow the central Operating System for:
+
+- document reading order
+- branch governance
+- engineering standards
+- architecture principles
+- milestone workflow
+- build verification
+- UAT requirements
+- cleanup procedures
+- handoff requirements
+
+After the central Operating System startup read, continue with `CURRENT_SPRINT.md`, the latest Architect Update if one exists, `DECISION_LOG.md`, and any files explicitly referenced by `CURRENT_SPRINT.md`.
 
 ## Current Status
 
@@ -46,9 +66,10 @@ See [Platform Architecture](./platform-architecture.md) and [Database Architectu
 | [UAT Test Plan](./uat-test-plan.md) | Manual user acceptance testing checklist for published Replit builds. |
 | [Changelog](./changelog.md) | Durable project change log. |
 | [Business Rules](./business-rules.md) | Product rules, pricing, trial logic, tenant rules, and scope boundaries. |
-| [Project Operating System](./project-operating-system.md) | Documentation-first workflow and source-of-truth rules for all project work. |
+| [Project Operating System](./project-operating-system.md) | CatStays-specific overlay for the central Codex Operating System. |
 | [Product Foundation](./CATSTAYS_PRODUCT_FOUNDATION.md) | Earlier product foundation and implementation notes. |
 | [Replit Secrets](./CATSTAYS_REPLIT_SECRETS.md) | Replit environment variable checklist. |
+| [Contributing](../CONTRIBUTING.md) | Contributor startup notes that point to the central Codex Operating System. |
 
 ## Active Priorities
 
@@ -64,8 +85,8 @@ See [Platform Architecture](./platform-architecture.md) and [Database Architectu
 
 ## Documentation Rules
 
-- Read this hub before performing project work.
-- Follow the [Project Operating System](./project-operating-system.md) for documentation-first workflow.
+- Read the central Codex Operating System before performing project work.
+- Follow the [Project Operating System](./project-operating-system.md) as the CatStays-specific overlay only after central startup.
 - Update this hub when new docs are added or renamed.
 - Update [Current State Audit](./current-state.md) after meaningful workflow or architecture changes.
 - Update [Changelog](./changelog.md) for significant commits.
