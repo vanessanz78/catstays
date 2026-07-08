@@ -9,6 +9,7 @@ import {
   DELORAINE_SOURCE_URL,
   fallbackDeloraineScrape,
   IMPORT_URL_STORAGE_KEY,
+  migrateDeloraineAssetsInValue,
   PREVIEW_SOURCE_INTENT_STORAGE_KEY,
   PREVIEW_DATA_STORAGE_KEY,
   PREVIEW_URL_STORAGE_KEY,
@@ -155,14 +156,14 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
           throw new Error(payload?.error || 'Import failed');
         }
         if (cancelled) return;
-        const importedPreview = previewDataForScrape(payload as ImportedCatteryScrape);
+        const importedPreview = previewDataForScrape(migrateDeloraineAssetsInValue(payload as ImportedCatteryScrape));
         setPreviewData(importedPreview);
       } catch {
         if (cancelled) return;
         const fallbackScrape = isDeloraineRequest(requestedImportUrl)
           ? fallbackDeloraineScrape
           : buildFallbackScrapeForUrl(requestedImportUrl);
-        const fallbackPreview = previewDataForScrape(fallbackScrape);
+        const fallbackPreview = previewDataForScrape(migrateDeloraineAssetsInValue(fallbackScrape));
         setPreviewData(fallbackPreview);
       }
     }
@@ -514,12 +515,18 @@ function readStoredPreviewData(requestedUrl: string): DelorainePreviewData | nul
 
     const selectedTemplate = readSavedDemoTemplate() || normalizePreviewTemplateId(parsed.selectedTemplate || parsed.previewData.selectedTemplate || 'original');
     if (parsed.scrape) {
-      const record = buildPreviewImportRecord(parsed.scrape);
+      const migratedScrape = migrateDeloraineAssetsInValue(parsed.scrape);
+      const migratedPreviewData = migrateDeloraineAssetsInValue(parsed.previewData);
+      const record = buildPreviewImportRecord(migratedScrape);
       savePreviewImportRecord(record);
-      return dataFromPreviewRecord(record, selectedTemplate, parsed.previewData) as DelorainePreviewData;
+      const repairedPreview = dataFromPreviewRecord(record, selectedTemplate, migratedPreviewData) as DelorainePreviewData;
+      persistPreviewData(repairedPreview);
+      return repairedPreview;
     }
 
-    return dataForTemplate(parsed.previewData, selectedTemplate);
+    const repairedPreview = dataForTemplate(migrateDeloraineAssetsInValue(parsed.previewData), selectedTemplate);
+    persistPreviewData(repairedPreview);
+    return repairedPreview;
   } catch {
     return null;
   }

@@ -4,16 +4,69 @@ export const PREVIEW_SOURCE_INTENT_STORAGE_KEY = 'catstays_preview_source_intent
 export const PREVIEW_DATA_STORAGE_KEY = 'catstays_preview_data';
 export const IMPORT_URL_STORAGE_KEY = 'catstays_import_url';
 
+export const currentDeloraineAssets = {
+  hero: 'https://www.delorainecattery.com/assets/hero-bg-0sOFbiPk.webp',
+  building: 'https://www.delorainecattery.com/assets/building-BCT6VBmp.webp',
+  buildingThumb: 'https://www.delorainecattery.com/assets/building-BViT32N2.webp',
+  privateRoom: 'https://www.delorainecattery.com/assets/private3-BFqRytNH.webp',
+  communalRoom: 'https://www.delorainecattery.com/assets/communal3-DuvzU1nQ.webp',
+  communalGallery: 'https://www.delorainecattery.com/assets/communal3-gallery-BpE4bGOS.webp',
+  indoorRoom: 'https://www.delorainecattery.com/assets/indoor-BROFWTed.webp',
+  kitty: 'https://www.delorainecattery.com/assets/kitty1-DXYnrmu-.webp',
+  kittyGallery: 'https://www.delorainecattery.com/assets/kitty1-gallery-BTXoFn51.webp',
+  wally: 'https://www.delorainecattery.com/assets/wally-DQBaoPHx.webp',
+  lola: 'https://www.delorainecattery.com/assets/lola-BTbxoyVV.webp',
+  grooming: 'https://www.delorainecattery.com/assets/maincoonegroom-DGM1PdpS.webp',
+  owner: 'https://www.delorainecattery.com/assets/paul-vanessa-bali-CKRvcrOP.webp',
+  ownerPortrait: 'https://www.delorainecattery.com/assets/paulandvanessa-PMjFSzlA.webp',
+};
+
 const deloraineAssets = [
-  'https://www.delorainecattery.com/assets/Deloraine%20Cattery%20Building-CX1rWDRb.png',
-  'https://www.delorainecattery.com/assets/Private3-R_9kRTwp.jpg',
-  'https://www.delorainecattery.com/assets/Communal3-CidRKr1N.jpg',
-  'https://www.delorainecattery.com/assets/Indoor-Blew-XJG.jpeg',
-  'https://www.delorainecattery.com/assets/Kitty3-nO3ryPLf.jpg',
-  'https://www.delorainecattery.com/assets/Wally-C97dE8Dg.jpg',
-  'https://www.delorainecattery.com/assets/Lola-c8BpaLTB.jpg',
-  'https://www.delorainecattery.com/assets/Paul%20and%20Vanessa-Dst6H-6-.jpg',
+  currentDeloraineAssets.hero,
+  currentDeloraineAssets.privateRoom,
+  currentDeloraineAssets.communalRoom,
+  currentDeloraineAssets.indoorRoom,
+  currentDeloraineAssets.kitty,
+  currentDeloraineAssets.wally,
+  currentDeloraineAssets.lola,
+  currentDeloraineAssets.owner,
+  currentDeloraineAssets.building,
+  currentDeloraineAssets.grooming,
+  currentDeloraineAssets.kittyGallery,
+  currentDeloraineAssets.communalGallery,
 ];
+
+const obsoleteDeloraineAssetReplacements: Record<string, string> = {
+  'deloraine cattery building-cx1rwdrb.png': currentDeloraineAssets.hero,
+  'private3-r_9krtwp.jpg': currentDeloraineAssets.privateRoom,
+  'communal3-cidrkr1n.jpg': currentDeloraineAssets.communalRoom,
+  'indoor-blew-xjg.jpeg': currentDeloraineAssets.indoorRoom,
+  'kitty3-no3ryplf.jpg': currentDeloraineAssets.kitty,
+  'wally-c97de8dg.jpg': currentDeloraineAssets.wally,
+  'lola-c8bpaltb.jpg': currentDeloraineAssets.lola,
+  'paul and vanessa-dst6h-6-.jpg': currentDeloraineAssets.owner,
+};
+
+export function migrateDeloraineAssetUrl(value: string): string {
+  try {
+    const parsed = new URL(value);
+    const host = parsed.hostname.replace(/^www\./, '').toLowerCase();
+    if (host !== 'delorainecattery.com') return value;
+    const filename = decodeURIComponent(parsed.pathname.split('/').pop() || '').toLowerCase();
+    return obsoleteDeloraineAssetReplacements[filename] || value;
+  } catch {
+    return value;
+  }
+}
+
+export function migrateDeloraineAssetsInValue<T>(value: T): T {
+  if (typeof value === 'string') return migrateDeloraineAssetUrl(value) as T;
+  if (Array.isArray(value)) return value.map((item) => migrateDeloraineAssetsInValue(item)) as T;
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).map(([key, item]) => [key, migrateDeloraineAssetsInValue(item)]),
+  ) as T;
+}
 
 const deloraineVirtualTourEmbedUrl =
   'https://www.google.com/maps/embed?pb=!4v1585042151806!6m8!1m7!1sCAoSLEFGMVFpcE4yclY4ZXBnVTVJTlc4VkVoTEN2dmx5Wk45b201czhtZ3ZUbFpr!2m2!1d-35.72669200000001!2d174.355986!3f20.68!4f-14.75!5f0.4000000000000002';
@@ -882,7 +935,8 @@ export const fallbackDeloraineScrape: ImportedCatteryScrape = {
 
 export const defaultDelorainePreviewData = buildPreviewDataFromScrape(fallbackDeloraineScrape);
 
-export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): DelorainePreviewData {
+export function buildPreviewDataFromScrape(inputScrape: ImportedCatteryScrape): DelorainePreviewData {
+  const scrape = migrateDeloraineAssetsInValue(inputScrape);
   const settings = scrape.websiteSettings ?? {};
   const isDeloraineSource = isDeloraineScrape(scrape);
   const fallbackAssets = isDeloraineSource ? deloraineAssets : genericCatAssets;
@@ -1286,11 +1340,13 @@ function buildSiteContentLibrary(input: {
 export function rememberCatteryPreview(scrape: ImportedCatteryScrape, previewData: DelorainePreviewData) {
   if (typeof window === 'undefined') return;
   try {
-    const payload = JSON.stringify({ scrape, previewData, savedAt: new Date().toISOString() });
+    const migratedScrape = migrateDeloraineAssetsInValue(scrape);
+    const migratedPreviewData = migrateDeloraineAssetsInValue(previewData);
+    const payload = JSON.stringify({ scrape: migratedScrape, previewData: migratedPreviewData, savedAt: new Date().toISOString() });
     sessionStorage.setItem(PREVIEW_DATA_STORAGE_KEY, payload);
     localStorage.setItem(PREVIEW_DATA_STORAGE_KEY, payload);
-    sessionStorage.setItem(IMPORT_URL_STORAGE_KEY, scrape.sourceUrl || DELORAINE_SOURCE_URL);
-    localStorage.setItem(IMPORT_URL_STORAGE_KEY, scrape.sourceUrl || DELORAINE_SOURCE_URL);
+    sessionStorage.setItem(IMPORT_URL_STORAGE_KEY, migratedScrape.sourceUrl || DELORAINE_SOURCE_URL);
+    localStorage.setItem(IMPORT_URL_STORAGE_KEY, migratedScrape.sourceUrl || DELORAINE_SOURCE_URL);
   } catch {
     // Storage is optional; the preview can still render from state.
   }

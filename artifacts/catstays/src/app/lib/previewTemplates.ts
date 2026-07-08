@@ -1,6 +1,8 @@
 import {
   buildPreviewDataFromScrape,
+  currentDeloraineAssets,
   fallbackDeloraineScrape,
+  migrateDeloraineAssetsInValue,
   type CatterySiteContentLibrary,
   type DelorainePreviewData,
   type ImportedCatteryScrape,
@@ -192,26 +194,26 @@ export const previewTemplateCards: PreviewTemplateOption[] = [
     id: 'original',
     name: 'Original',
     description: 'The scraped website exactly as it appears now',
-    image: 'https://www.delorainecattery.com/assets/Deloraine%20Cattery%20Building-CX1rWDRb.png',
+    image: currentDeloraineAssets.hero,
     sourceOnly: true,
   },
   {
     id: 'conversion-focus',
     name: 'Focus',
     description: 'Conversion-first layout with booking widget below the hero',
-    image: 'https://www.delorainecattery.com/assets/Deloraine%20Cattery%20Building-CX1rWDRb.png',
+    image: currentDeloraineAssets.building,
   },
   {
     id: 'editorial-guide',
     name: 'Editorial',
     description: 'Story-led checkerboard sections with magazine-style pacing',
-    image: 'https://www.delorainecattery.com/assets/Paul%20and%20Vanessa-Dst6H-6-.jpg',
+    image: currentDeloraineAssets.owner,
   },
   {
     id: 'modern-showcase',
     name: 'Showcase',
     description: 'Image-first pages with minimal copy and strong visual rhythm',
-    image: 'https://www.delorainecattery.com/assets/Kitty3-nO3ryPLf.jpg',
+    image: currentDeloraineAssets.kitty,
   },
 ];
 
@@ -252,9 +254,10 @@ export function templateOptionsForData(data: Record<string, any>): PreviewTempla
 }
 
 export function buildPreviewImportRecord(scrape: ImportedCatteryScrape): PreviewImportRecord {
-  const normalizedPreviewData = buildPreviewDataFromScrape(scrape);
-  const sourceUrl = scrape.sourceUrl || '';
-  const sourceHost = scrape.sourceHost || hostFromUrl(sourceUrl);
+  const migratedScrape = migrateDeloraineAssetsInValue(scrape);
+  const normalizedPreviewData = buildPreviewDataFromScrape(migratedScrape);
+  const sourceUrl = migratedScrape.sourceUrl || '';
+  const sourceHost = migratedScrape.sourceHost || hostFromUrl(sourceUrl);
   const businessName = normalizedPreviewData.businessName;
 
   return {
@@ -265,7 +268,7 @@ export function buildPreviewImportRecord(scrape: ImportedCatteryScrape): Preview
     source: {
       url: sourceUrl,
       host: sourceHost,
-      extractedFrom: scrape.extractedFrom,
+      extractedFrom: migratedScrape.extractedFrom,
     },
     identity: {
       businessName,
@@ -276,27 +279,27 @@ export function buildPreviewImportRecord(scrape: ImportedCatteryScrape): Preview
       phone: normalizedPreviewData.phone,
       email: normalizedPreviewData.email,
       address: normalizedPreviewData.address,
-      city: scrape.city || normalizedPreviewData.location,
+      city: migratedScrape.city || normalizedPreviewData.location,
     },
     media: {
       heroImage: normalizedPreviewData.heroImage,
-      logoImage: scrape.logoImage,
-      images: scrape.images ?? [],
-      galleryImages: scrape.galleryImages ?? [],
+      logoImage: migratedScrape.logoImage,
+      images: migratedScrape.images ?? [],
+      galleryImages: migratedScrape.galleryImages ?? [],
     },
     content: {
-      title: scrape.title || businessName,
-      description: scrape.description || normalizedPreviewData.aboutText,
-      heading: scrape.heading || normalizedPreviewData.heroHeading,
+      title: migratedScrape.title || businessName,
+      description: migratedScrape.description || normalizedPreviewData.aboutText,
+      heading: migratedScrape.heading || normalizedPreviewData.heroHeading,
       heroHeading: normalizedPreviewData.heroHeading,
       heroSubheading: normalizedPreviewData.heroSubheading,
       aboutHeading: normalizedPreviewData.aboutHeading,
       aboutText: normalizedPreviewData.aboutText,
-      highlights: scrape.highlights ?? [],
+      highlights: migratedScrape.highlights ?? [],
     },
-    rooms: scrape.rooms ?? [],
-    services: scrape.services ?? [],
-    faqs: scrape.faqs ?? [],
+    rooms: migratedScrape.rooms ?? [],
+    services: migratedScrape.services ?? [],
+    faqs: migratedScrape.faqs ?? [],
     contentLibrary: normalizedPreviewData.siteContentLibrary ?? emptyContentLibrary(sourceUrl, sourceHost, businessName),
     normalizedPreviewData,
   };
