@@ -567,45 +567,39 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     .filter((item) => Boolean(item?.title && item?.text))
     .map((item) => ({ title: item!.title, text: item!.text, icon: item!.icon }))
     .slice(0, 6);
-  const aboutImage = pickSectionImage(
+  const aboutImage = pickUniqueImage(
     usedImages,
-    [
-      ...catalogueImageCandidates(mediaCatalogue, ['Facilities'], {
-        pattern: /building|exterior|property|cattery/i,
-      }),
-      ...catalogueImageCandidates(mediaCatalogue, ['Owner']),
-      ...catalogueImageCandidates(mediaCatalogue, ['About']),
-    ],
     [
       data.aboutImage,
       normalizedRecord.aboutImage,
       normalizedRecord.aboutData?.image,
+      preferredCatalogueImage(mediaCatalogue, ['Facilities', 'Owner', 'About'], 0),
+      fallbackImages.find((image) => image !== heroImage),
     ],
-    heroImage,
+    fallbackImages,
   );
-  const facilityImage = pickSectionImage(
+  const facilityImage = pickUniqueImage(
     usedImages,
-    catalogueImageCandidates(mediaCatalogue, ['Facilities']),
     [
       data.facilitiesImage,
+      preferredCatalogueImage(mediaCatalogue, ['Facilities'], 0, { excludeFromHero: true, requireNoVisibleText: true }),
       facilitiesBlock?.images?.[0]?.url,
       normalizedRecord.facilitiesData?.facilitiesImage,
+      fallbackImages[2],
     ],
-    heroImage,
+    fallbackImages,
   );
-  const ownerImage = pickSectionImage(
+  const ownerImage = pickUniqueImage(
     usedImages,
-    catalogueImageCandidates(mediaCatalogue, ['Owner', 'About']),
     [
       ownerData.image,
       normalizedRecord.ownerData?.image,
+      preferredCatalogueImage(mediaCatalogue, ['Owner', 'About'], 0),
+      fallbackImages[5],
+      fallbackImages[1],
     ],
-    heroImage,
+    fallbackImages,
   );
-  const suiteImagePool = catalogueImageCandidates(mediaCatalogue, ['Suites / Rooms']);
-  const serviceImagePool = catalogueImageCandidates(mediaCatalogue, ['Services']);
-  const galleryImagePool = catalogueImageCandidates(mediaCatalogue, ['Gallery']);
-  const reviewImagePool = galleryImagePool;
   const virtualTourUrl = embeddableVirtualTourUrl(
     stringFrom(locationData.virtualTourUrl, normalized.virtualTourUrl, data.virtualTourUrl, data.contactData?.virtualTourUrl),
     contentLibrary.sourceHost,
@@ -658,12 +652,10 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       items: facilityItems.length || editedFacilityItems ? facilityItems : featureItems.slice(0, 4),
     },
     services: services.map((service: any, index: number) => ({
-      image: pickSectionImage(
+      image: pickUniqueImage(
         usedImages,
-        serviceImagePool,
-        [service.image],
-        heroImage,
-        index,
+        [preferredCatalogueImage(mediaCatalogue, ['Services'], index), service.image, fallbackImages[index + 3], fallbackImages[index]],
+        fallbackImages,
       ),
       title: stringFrom(service.title, service.name, `Care service ${index + 1}`),
       text: stringFrom(service.description, service.text, 'Additional support available during the stay.'),
@@ -674,7 +666,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       text: primaryDescription,
       image: aboutImage,
     },
-    gallery: sectionGalleryImages(usedImages, galleryImagePool, heroImage).slice(0, 12).map((image, index) => ({
+    gallery: categoryFallbackImages(mediaCatalogue, ['Gallery'], fallbackImages).filter((image) => !hasSeenImage(usedImages, image)).slice(0, 12).map((image, index) => ({
       image,
       caption: stringFrom(record?.media.galleryImages?.[index]?.caption, `${businessName} photo ${index + 1}`),
     })),
@@ -682,11 +674,11 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       ? []
       : ensureSuiteCount(
           rooms,
-          suiteImagePool.length ? suiteImagePool : heroImage ? [heroImage] : fallbackImages,
+          categoryFallbackImages(mediaCatalogue, ['Suites / Rooms'], fallbackImages),
           data.pricePerNight || normalized.pricePerNight,
           usedImages,
         ),
-    testimonials: ensureTestimonials(testimonials, businessName, reviewImagePool, heroImage, data.testimonialImage),
+    testimonials: ensureTestimonials(testimonials, businessName, categoryFallbackImages(mediaCatalogue, ['Gallery'], fallbackImages), heroImage, data.testimonialImage),
     faqs: faqs.map((faq: any) => ({
       question: stringFrom(faq.question),
       answer: stringFrom(faq.answer),
@@ -913,13 +905,9 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
     aboutText: textFrom('aboutText', normalized.aboutText, normalized.aboutData?.text, block('hero')?.text),
     aboutImage: imageFieldFrom(
       'aboutImage',
-      ...catalogueImageCandidates(mediaCatalogue, ['Facilities'], {
-        pattern: /building|exterior|property|cattery/i,
-      }),
-      ...catalogueImageCandidates(mediaCatalogue, ['Owner']),
-      ...catalogueImageCandidates(mediaCatalogue, ['About']),
       normalized.aboutImage,
       normalized.aboutData?.image,
+      preferredCatalogueImage(mediaCatalogue, ['About', 'Owner', 'Gallery'], 0),
       blockImages('gallery')[0]?.url,
       record?.media.galleryImages?.[0]?.url,
       normalized.facilitiesData?.facilitiesImage,
@@ -929,7 +917,7 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
     facilitiesText: textFrom('facilitiesText', normalized.facilitiesData?.facilitiesText, normalized.facilitiesData?.text, block('facilities')?.text),
     facilitiesImage: imageFieldFrom(
       'facilitiesImage',
-      ...catalogueImageCandidates(mediaCatalogue, ['Facilities']),
+      preferredCatalogueImage(mediaCatalogue, ['Facilities'], 0, { excludeFromHero: true, requireNoVisibleText: true }),
       normalized.facilitiesData?.facilitiesImage,
       normalized.facilitiesData?.image,
       blockImages('facilities')[0]?.url,
@@ -982,9 +970,9 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
     blockOutDates: arrayFrom('blockOutDates'),
     galleryImages: arrayFrom(
       'galleryImages',
-      catalogueImageCandidates(mediaCatalogue, ['Gallery']),
       mapImagesToUrls(normalized.galleryData?.galleryImages ?? []),
       mapImagesToUrls(normalized.galleryData?.images ?? []),
+      catalogueImageUrls(mediaCatalogue),
       mapImagesToUrls(blockImages('gallery')),
       mapImagesToUrls(record?.media.galleryImages ?? []),
       record?.media.images,
@@ -1131,29 +1119,16 @@ function catalogueImageUrls(mediaCatalogue: ImportedMediaCatalogueItem[]): strin
   return uniqueStrings([...primary, ...openGraph]);
 }
 
-function catalogueImageCandidates(
-  mediaCatalogue: ImportedMediaCatalogueItem[],
-  categories: ImportedMediaCategory[],
-  options: {
-    pattern?: RegExp;
-    allowOpenGraph?: boolean;
-  } = {},
-): string[] {
-  return mediaCatalogue
-    .filter((item) => categories.includes(item.category))
-    .filter((item) => !item.isLogo && item.category !== 'Logo' && item.category !== 'Decorative')
-    .filter((item) => options.allowOpenGraph || item.category !== 'Social / Open Graph')
-    .filter((item) => !item.excludeFromHeroSelection || item.category !== 'Hero')
-    .filter((item) => !options.pattern || options.pattern.test(`${item.originalUrl} ${item.altText} ${item.nearbyHeading} ${item.nearbyParagraph}`))
-    .sort((a, b) => {
-      const categoryDelta = categories.indexOf(a.category) - categories.indexOf(b.category);
-      if (categoryDelta !== 0) return categoryDelta;
-      return b.confidence - a.confidence;
-    })
-    .map(mediaDisplayUrl)
-    .filter(Boolean)
-    .filter((image) => isUsableGalleryImage(image))
-    .filter((image, index, images) => images.findIndex((candidate) => normalizedImageKey(candidate) === normalizedImageKey(image)) === index);
+function categoryFallbackImages(mediaCatalogue: ImportedMediaCatalogueItem[], categories: ImportedMediaCategory[], fallbackImages: string[]) {
+  return uniqueStrings([
+    ...categories.flatMap((category) =>
+      mediaCatalogue
+        .filter((item) => item.category === category && item.category !== 'Logo' && item.category !== 'Decorative')
+        .sort((a, b) => b.confidence - a.confidence)
+        .map(mediaDisplayUrl),
+    ),
+    ...fallbackImages,
+  ]);
 }
 
 function mediaDisplayUrl(item?: ImportedMediaCatalogueItem): string {
@@ -1212,45 +1187,6 @@ function pickUniqueImage(usedImages: Set<string>, preferred: unknown[], fallback
   const fallback = preferredImages[0] || fallbackImages[0] || '';
   rememberImage(usedImages, fallback);
   return fallback;
-}
-
-function pickSectionImage(
-  usedImages: Set<string>,
-  sectionImages: string[],
-  legacyImages: unknown[],
-  heroImage: string,
-  offset = 0,
-) {
-  const categoryImages = uniqueStrings(sectionImages).filter((image) => isUsableGalleryImage(image) && normalizedImageKey(image) !== normalizedImageKey(heroImage));
-  if (categoryImages.length) {
-    const ordered = [...categoryImages.slice(offset), ...categoryImages.slice(0, offset)];
-    for (const image of ordered) {
-      if (hasSeenImage(usedImages, image)) continue;
-      rememberImage(usedImages, image);
-      return image;
-    }
-    return categoryImages[offset % categoryImages.length];
-  }
-
-  const legacy = uniqueStrings(legacyImages).filter((image) => isUsableGalleryImage(image) && normalizedImageKey(image) !== normalizedImageKey(heroImage));
-  for (const image of legacy) {
-    if (hasSeenImage(usedImages, image)) continue;
-    rememberImage(usedImages, image);
-    return image;
-  }
-
-  rememberImage(usedImages, heroImage);
-  return heroImage;
-}
-
-function sectionGalleryImages(usedImages: Set<string>, galleryImages: string[], heroImage: string) {
-  const sectionImages = uniqueStrings(galleryImages).filter((image) => isUsableGalleryImage(image) && normalizedImageKey(image) !== normalizedImageKey(heroImage));
-  if (!sectionImages.length) return heroImage ? [heroImage] : [];
-
-  const unused = sectionImages.filter((image) => !hasSeenImage(usedImages, image));
-  const selected = unused.length ? unused : sectionImages;
-  selected.forEach((image) => rememberImage(usedImages, image));
-  return selected;
 }
 
 function ensureFeatureCount(

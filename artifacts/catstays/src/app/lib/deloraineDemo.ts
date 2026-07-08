@@ -938,12 +938,12 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
   const rooms = preferCatalogueImages(
     scrape.rooms?.length ? scrape.rooms : fallbackRooms,
     mediaCatalogue,
-    ['Suites / Rooms'],
+    ['Suites / Rooms', 'Facilities', 'Gallery'],
   );
   const services = preferCatalogueImages(
     (scrape.services?.length ? scrape.services : fallbackServices).slice(0, 12),
     mediaCatalogue,
-    ['Services'],
+    ['Services', 'Gallery', 'Suites / Rooms'],
   );
   const highlights = scrape.highlights?.length ? scrape.highlights : fallbackHighlights;
   const galleryImages =
