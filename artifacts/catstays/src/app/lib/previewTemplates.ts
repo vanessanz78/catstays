@@ -7,8 +7,8 @@ import {
   type ImportedMediaCatalogueItem,
 } from './deloraineDemo';
 import {
-  buildMediaEngineImages,
-  normalizeMediaEngineImages,
+  MEDIA_CATALOGUE_SCHEMA_VERSION,
+  migrateMediaAssignments,
   normalizeMediaCatalogue,
   type MediaEngineImages,
 } from './mediaEngine';
@@ -51,6 +51,7 @@ export interface PreviewImportRecord {
     logoImage?: string;
     images: string[];
     mediaCatalogue: ImportedMediaCatalogueItem[];
+    mediaCatalogueVersion?: number;
     mediaAssignments?: MediaEngineImages;
     galleryImages: NonNullable<ImportedCatteryScrape['galleryImages']>;
   };
@@ -292,6 +293,7 @@ export function buildPreviewImportRecord(scrape: ImportedCatteryScrape): Preview
       logoImage: scrape.logoImage,
       images: scrape.images ?? [],
       mediaCatalogue: normalizedPreviewData.mediaCatalogue ?? scrape.mediaCatalogue ?? [],
+      mediaCatalogueVersion: normalizedPreviewData.mediaCatalogueVersion ?? MEDIA_CATALOGUE_SCHEMA_VERSION,
       mediaAssignments: normalizedPreviewData.mediaAssignments,
       galleryImages: scrape.galleryImages ?? [],
     },
@@ -495,44 +497,41 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     'By appointment',
   );
   const editedGalleryImages = Array.isArray(data.galleryImages) ? data.galleryImages : [];
-  const mediaAssignments =
-    normalizeMediaEngineImages(data.mediaAssignments) ??
-    normalizeMediaEngineImages(normalizedRecord.mediaAssignments) ??
-    normalizeMediaEngineImages(record?.media.mediaAssignments) ??
-    buildMediaEngineImages({
-      mediaCatalogue,
-      logoImage,
-      heroImage: [
-        data.heroImage,
-        normalized.heroImage,
-        record?.media.heroImage,
-      ],
-      images: [
-        ...(record?.media.images ?? []),
-        ...(record?.media.galleryImages ?? []).map((image) => image.url),
-        ...libraryGalleryImages.map((image) => image.url),
-      ],
-      galleryImages: editedGalleryImages,
-      aboutImage: [
-        data.aboutImage,
-        normalizedRecord.aboutImage,
-        normalizedRecord.aboutData?.image,
-        ownerData.image,
-      ],
+  const mediaMigration = migrateMediaAssignments({
+    mediaCatalogue,
+    logoImage,
+    heroImage: [
+      data.heroImage,
+      normalized.heroImage,
+      record?.media.heroImage,
+    ],
+    images: [
+      ...(record?.media.images ?? []),
+      ...(record?.media.galleryImages ?? []).map((image) => image.url),
+      ...libraryGalleryImages.map((image) => image.url),
+    ],
+    galleryImages: editedGalleryImages,
+    aboutImage: [
+      data.aboutImage,
+      normalizedRecord.aboutImage,
+      normalizedRecord.aboutData?.image,
+      ownerData.image,
+    ],
     facilitiesImage: [
       data.facilitiesImage,
       facilitiesBlock?.images?.map((image) => image.url),
       normalizedRecord.facilitiesData?.facilitiesImage,
     ],
-      ownerImage: [ownerData.image, normalizedRecord.ownerData?.image],
-      contactImage: [data.contactImage, normalizedRecord.contactData?.image],
-      suiteImages: rooms.map((room: any) => room?.image),
-      serviceImages: services.map((service: any) => service?.image),
-      suiteCount: rooms.length,
-      serviceCount: services.length,
-      reviewCount: testimonials.length || 1,
-      testimonialImage: data.testimonialImage,
-    });
+    ownerImage: [ownerData.image, normalizedRecord.ownerData?.image],
+    contactImage: [data.contactImage, normalizedRecord.contactData?.image],
+    suiteImages: rooms.map((room: any) => room?.image),
+    serviceImages: services.map((service: any) => service?.image),
+    suiteCount: rooms.length,
+    serviceCount: services.length,
+    reviewCount: testimonials.length || 1,
+    testimonialImage: data.testimonialImage,
+  }, data.mediaAssignments ?? normalizedRecord.mediaAssignments ?? record?.media.mediaAssignments);
+  const mediaAssignments = mediaMigration.mediaAssignments;
   const heroImage = mediaAssignments.hero;
   const aboutImage = mediaAssignments.about;
   const facilityImage = mediaAssignments.facilities;
@@ -883,63 +882,61 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
     mapItemsToServices(blockItems('services')),
     mapItemsToServices(record?.services ?? []),
   );
-  const mediaAssignments =
-    normalizeMediaEngineImages(cleanData.mediaAssignments) ??
-    normalizeMediaEngineImages(normalized.mediaAssignments) ??
-    normalizeMediaEngineImages(record?.media.mediaAssignments) ??
-    buildMediaEngineImages({
-      mediaCatalogue,
-      logoImage: [cleanData.logoImage, normalized.logoImage, record?.media.logoImage],
-      heroImage: [
-        cleanData.heroImage,
-        normalized.heroImage,
-        record?.media.heroImage,
-      ],
-      images: [
-        ...(record?.media.images ?? []),
-        ...(record?.media.galleryImages ?? []).map((image) => image.url),
-        ...mapImagesToUrls(blockImages('gallery')),
-      ],
-      galleryImages: arrayFrom(
-        'galleryImages',
-        mapImagesToUrls(normalized.galleryData?.galleryImages ?? []),
-        mapImagesToUrls(normalized.galleryData?.images ?? []),
-        mapImagesToUrls(blockImages('gallery')),
-        mapImagesToUrls(record?.media.galleryImages ?? []),
-        record?.media.images,
-      ),
-      aboutImage: [
+  const mediaMigration = migrateMediaAssignments({
+    mediaCatalogue,
+    logoImage: [cleanData.logoImage, normalized.logoImage, record?.media.logoImage],
+    heroImage: [
+      cleanData.heroImage,
+      normalized.heroImage,
+      record?.media.heroImage,
+    ],
+    images: [
+      ...(record?.media.images ?? []),
+      ...(record?.media.galleryImages ?? []).map((image) => image.url),
+      ...mapImagesToUrls(blockImages('gallery')),
+    ],
+    galleryImages: arrayFrom(
+      'galleryImages',
+      mapImagesToUrls(normalized.galleryData?.galleryImages ?? []),
+      mapImagesToUrls(normalized.galleryData?.images ?? []),
+      mapImagesToUrls(blockImages('gallery')),
+      mapImagesToUrls(record?.media.galleryImages ?? []),
+      record?.media.images,
+    ),
+    aboutImage: [
       cleanData.aboutImage,
       normalized.aboutImage,
       normalized.aboutData?.image,
       ownerBlock?.images?.map((image) => image.url),
     ],
-      facilitiesImage: [
+    facilitiesImage: [
       cleanData.facilitiesImage,
       normalized.facilitiesData?.facilitiesImage,
       normalized.facilitiesData?.image,
       blockImages('facilities').map((image) => image.url),
     ],
     ownerImage: [cleanData.ownerData?.image, normalized.ownerData?.image, ownerBlock?.images?.map((image) => image.url)],
-      contactImage: [cleanData.contactImage, normalized.contactData?.image],
-      suiteImages: suiteCollection.map((item: any) => item?.image),
-      serviceImages: serviceCollection.map((item: any) => item?.image),
-      suiteCount: suiteCollection.length,
-      serviceCount: serviceCollection.length,
-      reviewCount: arrayFrom(
-        'testimonials',
-        normalized.testimonialsData?.testimonials,
-        mapItemsToReviews(blockItems('reviews')),
-        mapItemsToReviews(record?.contentLibrary?.blocks.find((candidate) => candidate.category === 'reviews')?.items ?? []),
-      ).length || 1,
-      testimonialImage: cleanData.testimonialImage,
-    });
+    contactImage: [cleanData.contactImage, normalized.contactData?.image],
+    suiteImages: suiteCollection.map((item: any) => item?.image),
+    serviceImages: serviceCollection.map((item: any) => item?.image),
+    suiteCount: suiteCollection.length,
+    serviceCount: serviceCollection.length,
+    reviewCount: arrayFrom(
+      'testimonials',
+      normalized.testimonialsData?.testimonials,
+      mapItemsToReviews(blockItems('reviews')),
+      mapItemsToReviews(record?.contentLibrary?.blocks.find((candidate) => candidate.category === 'reviews')?.items ?? []),
+    ).length || 1,
+    testimonialImage: cleanData.testimonialImage,
+  }, cleanData.mediaAssignments ?? normalized.mediaAssignments ?? record?.media.mediaAssignments);
+  const mediaAssignments = mediaMigration.mediaAssignments;
 
   return {
     ...cleanData,
     heroImage: imageFieldFrom('heroImage', mediaAssignments.hero),
     mediaCatalogue,
     mediaAssignments,
+    mediaAssignmentRepairs: mediaMigration.repairedCategories,
     heroPrimaryCtaText: textFrom('heroPrimaryCtaText', heroLinks[0]?.label, cleanData.ctaText, 'Discover Our Suites'),
     heroPrimaryCtaHref: textFrom('heroPrimaryCtaHref', heroLinks[0]?.url, '#suites'),
     heroSecondaryCtaText: textFrom('heroSecondaryCtaText', heroLinks[1]?.label, 'Our Care Approach'),

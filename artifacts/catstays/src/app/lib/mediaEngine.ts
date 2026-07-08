@@ -1,6 +1,11 @@
 import type { ImportedMediaCatalogueItem, ImportedMediaCategory } from './deloraineDemo';
 
+export const MEDIA_CATALOGUE_SCHEMA_VERSION = 1;
+export const MEDIA_ASSIGNMENTS_SCHEMA_VERSION = 1;
+
 export interface MediaEngineImages {
+  schemaVersion: number;
+  mediaCatalogueVersion: number;
   hero: string;
   about: string;
   facilities: string;
@@ -36,6 +41,11 @@ export interface MediaEngineInput {
   suiteCount?: number;
   serviceCount?: number;
   reviewCount?: number;
+}
+
+export interface MediaAssignmentMigrationResult {
+  mediaAssignments: MediaEngineImages;
+  repairedCategories: string[];
 }
 
 interface CatalogueOptions {
@@ -149,6 +159,8 @@ export function buildMediaEngineImages(input: MediaEngineInput): MediaEngineImag
   const contact = imageFrom(input.contactImage, facilities, about, hero);
 
   return {
+    schemaVersion: MEDIA_ASSIGNMENTS_SCHEMA_VERSION,
+    mediaCatalogueVersion: MEDIA_CATALOGUE_SCHEMA_VERSION,
     hero,
     about,
     facilities,
@@ -211,6 +223,8 @@ export function normalizeMediaEngineImages(value: unknown): MediaEngineImages | 
   const candidate = value as Partial<MediaEngineImages>;
   if (typeof candidate.hero !== 'string') return null;
   return {
+    schemaVersion: typeof candidate.schemaVersion === 'number' ? candidate.schemaVersion : 0,
+    mediaCatalogueVersion: typeof candidate.mediaCatalogueVersion === 'number' ? candidate.mediaCatalogueVersion : 0,
     hero: candidate.hero,
     about: typeof candidate.about === 'string' ? candidate.about : '',
     facilities: typeof candidate.facilities === 'string' ? candidate.facilities : '',
@@ -228,6 +242,58 @@ export function normalizeMediaEngineImages(value: unknown): MediaEngineImages | 
       pool: [],
     },
   };
+}
+
+export function migrateMediaAssignments(input: MediaEngineInput, existingValue: unknown): MediaAssignmentMigrationResult {
+  const fresh = buildMediaEngineImages(input);
+  const existing = normalizeMediaEngineImages(existingValue);
+  if (!existing) {
+    return {
+      mediaAssignments: fresh,
+      repairedCategories: ['Hero', 'About', 'Facilities', 'Suites', 'Services', 'Gallery', 'Reviews', 'Contact'],
+    };
+  }
+
+  const schemaOutdated =
+    existing.schemaVersion !== MEDIA_ASSIGNMENTS_SCHEMA_VERSION ||
+    existing.mediaCatalogueVersion !== MEDIA_CATALOGUE_SCHEMA_VERSION;
+  const repairedCategories: string[] = [];
+  const suiteCount = Math.max(input.suiteCount ?? 0, fresh.suites.length);
+  const serviceCount = Math.max(input.serviceCount ?? 0, fresh.services.length);
+  const reviewCount = Math.max(input.reviewCount ?? 0, fresh.reviews.length);
+
+  const repaired: MediaEngineImages = {
+    ...fresh,
+    hero: validScalar(existing.hero) && !schemaOutdated ? existing.hero : repairScalar('Hero', fresh.hero),
+    about: validScalar(existing.about) && !schemaOutdated ? existing.about : repairScalar('About', fresh.about),
+    facilities: validScalar(existing.facilities) && !schemaOutdated ? existing.facilities : repairScalar('Facilities', fresh.facilities),
+    suites: validArray(existing.suites, suiteCount) && !schemaOutdated ? existing.suites : repairArray('Suites', fresh.suites),
+    services: validArray(existing.services, serviceCount) && !schemaOutdated ? existing.services : repairArray('Services', fresh.services),
+    gallery: validArray(existing.gallery, 1) && !schemaOutdated ? existing.gallery : repairArray('Gallery', fresh.gallery),
+    reviews: validArray(existing.reviews, reviewCount) && !schemaOutdated ? existing.reviews : repairArray('Reviews', fresh.reviews),
+    contact: validScalar(existing.contact) && !schemaOutdated ? existing.contact : repairScalar('Contact', fresh.contact),
+    owner: validScalar(existing.owner) && !schemaOutdated ? existing.owner : fresh.owner,
+    logo: typeof existing.logo === 'string' && !schemaOutdated ? existing.logo : fresh.logo,
+  };
+
+  if (schemaOutdated) {
+    repairedCategories.splice(0, repairedCategories.length, 'Hero', 'About', 'Facilities', 'Suites', 'Services', 'Gallery', 'Reviews', 'Contact');
+  }
+
+  return {
+    mediaAssignments: repaired,
+    repairedCategories: [...new Set(repairedCategories)],
+  };
+
+  function repairScalar(category: string, value: string) {
+    repairedCategories.push(category);
+    return value;
+  }
+
+  function repairArray(category: string, value: string[]) {
+    repairedCategories.push(category);
+    return value;
+  }
 }
 
 export function selectHeroCatalogueImage(mediaCatalogue: ImportedMediaCatalogueItem[]): string {
@@ -329,6 +395,21 @@ function mediaDisplayUrl(item?: ImportedMediaCatalogueItem): string {
 
 function imageFrom(...values: unknown[]): string {
   return imageUrlFrom(values) || defaultPlaceholderImages[0];
+}
+
+function validScalar(value: unknown): value is string {
+  return typeof value === 'string' && isValidImageUrl(value);
+}
+
+function validArray(value: unknown, minimumLength: number): value is string[] {
+  if (!Array.isArray(value) || value.length < minimumLength) return false;
+  return value.every((item) => isValidImageUrl(item));
+}
+
+function isValidImageUrl(value: unknown) {
+  if (typeof value !== 'string') return false;
+  const image = value.trim();
+  return /^https?:\/\//i.test(image) || /^data:image\//i.test(image);
 }
 
 function ensureImagePool(images: string[], heroImage: string): string[] {

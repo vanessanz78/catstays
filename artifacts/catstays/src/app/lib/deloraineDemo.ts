@@ -1,6 +1,7 @@
 import {
   buildMediaEngineImages,
   catalogueImageUrls,
+  MEDIA_CATALOGUE_SCHEMA_VERSION,
   normalizeMediaCatalogue,
   preferCatalogueImages,
   type MediaEngineImages,
@@ -208,7 +209,9 @@ export interface DelorainePreviewData {
   selectedTemplate?: string | null;
   heroImage?: string;
   mediaCatalogue?: ImportedMediaCatalogueItem[];
+  mediaCatalogueVersion?: number;
   mediaAssignments?: MediaEngineImages;
+  mediaAssignmentRepairs?: string[];
   ctaText?: string;
   headingFont?: string;
   subheadingFont?: string;
@@ -1061,6 +1064,7 @@ export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): Delor
     selectedTemplate: scrape.sourceUrl ? 'original' : 'conversion-focus',
     heroImage: mediaAssignments.hero,
     mediaCatalogue,
+    mediaCatalogueVersion: MEDIA_CATALOGUE_SCHEMA_VERSION,
     mediaAssignments,
     ctaText: 'Book a stay',
     headingFont: 'playfair',

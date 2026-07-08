@@ -18,6 +18,7 @@ import {
   type ImportedCatteryScrape,
 } from '../../lib/deloraineDemo';
 import {
+  applyPreviewTemplate,
   buildPreviewImportRecord,
   dataFromPreviewRecord,
   normalizePreviewTemplateId,
@@ -427,10 +428,7 @@ function dataForTemplate(data: DelorainePreviewData, template: PreviewTemplateId
     return nextData;
   }
 
-  return {
-    ...data,
-    selectedTemplate,
-  };
+  return applyPreviewTemplate(data, selectedTemplate) as DelorainePreviewData;
 }
 
 function readSavedDemoTemplate(): PreviewTemplateId | null {
@@ -516,10 +514,14 @@ function readStoredPreviewData(requestedUrl: string): DelorainePreviewData | nul
     if (parsed.scrape) {
       const record = buildPreviewImportRecord(parsed.scrape);
       savePreviewImportRecord(record);
-      return dataFromPreviewRecord(record, selectedTemplate, parsed.previewData) as DelorainePreviewData;
+      const repairedPreview = dataFromPreviewRecord(record, selectedTemplate, parsed.previewData) as DelorainePreviewData;
+      persistPreviewData(repairedPreview);
+      return repairedPreview;
     }
 
-    return dataForTemplate(parsed.previewData, selectedTemplate);
+    const repairedPreview = dataForTemplate(parsed.previewData, selectedTemplate);
+    persistPreviewData(repairedPreview);
+    return repairedPreview;
   } catch {
     return null;
   }
