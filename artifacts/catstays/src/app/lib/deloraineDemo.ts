@@ -18,7 +18,7 @@ export const currentDeloraineAssets = {
   lola: 'https://www.delorainecattery.com/assets/lola-BTbxoyVV.webp',
   grooming: 'https://www.delorainecattery.com/assets/maincoonegroom-DGM1PdpS.webp',
   owner: 'https://www.delorainecattery.com/assets/paul-vanessa-bali-CKRvcrOP.webp',
-  ownerPortrait: 'https://www.delorainecattery.com/assets/paulandvanessa-PMjFSzlA.webp',
+  ownerPortrait: 'https://www.delorainecattery.com/assets/paulandvanessa-DIIjU60g.webp',
 };
 
 const deloraineAssets = [
@@ -30,7 +30,9 @@ const deloraineAssets = [
   currentDeloraineAssets.wally,
   currentDeloraineAssets.lola,
   currentDeloraineAssets.owner,
+  currentDeloraineAssets.ownerPortrait,
   currentDeloraineAssets.building,
+  currentDeloraineAssets.buildingThumb,
   currentDeloraineAssets.grooming,
   currentDeloraineAssets.kittyGallery,
   currentDeloraineAssets.communalGallery,

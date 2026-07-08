@@ -434,6 +434,16 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const libraryReviews = libraryItems(contentLibrary, 'reviews');
   const libraryFaqs = libraryItems(contentLibrary, 'faqs');
   const libraryGalleryImages = libraryImages(contentLibrary, 'gallery');
+  const isDeloraineSource = isDelorainePreview(record, contentLibrary, businessName);
+  const deloraineSemanticImages = isDeloraineSource
+    ? [currentDeloraineAssets.ownerPortrait, currentDeloraineAssets.buildingThumb, currentDeloraineAssets.grooming]
+    : [];
+  const importedMediaImages = uniqueStrings([
+    ...(record?.media.images ?? []),
+    ...(record?.media.galleryImages ?? []).map((image) => image.url),
+    ...libraryGalleryImages.map((image) => image.url),
+    ...deloraineSemanticImages,
+  ]);
   const heroBlock = libraryBlock(contentLibrary, 'hero');
   const heroLinks = heroBlock?.links ?? [];
   const whyChooseBlock = libraryBlock(contentLibrary, 'why-choose-us');
@@ -441,22 +451,21 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const dailyCareBlock = libraryBlock(contentLibrary, 'daily-care');
   const locationBlock = libraryBlock(contentLibrary, 'location');
   const logoImage = stringFrom(data.logoImage, normalizedRecord.logoImage, record?.media.logoImage);
-  const heroImage = imageFrom(
-    data.heroImage,
-    normalized.heroImage,
-    record?.media.heroImage,
-    record?.media.images?.[0],
-    record?.media.galleryImages?.[0]?.url,
+  const heroImage = selectHeroImage(
+    [
+      data.heroImage,
+      normalized.heroImage,
+      heroBlock?.images?.[0]?.url,
+      record?.media.heroImage,
+      record?.media.images?.[0],
+      record?.media.galleryImages?.[0]?.url,
+    ],
+    importedMediaImages,
   );
   const editedGalleryImages = Array.isArray(data.galleryImages) ? data.galleryImages : [];
-  const importedGalleryImages = [
-    ...(record?.media.images ?? []),
-    ...(record?.media.galleryImages ?? []).map((image) => image.url),
-    ...libraryGalleryImages.map((image) => image.url),
-  ];
   const galleryImages = uniqueStrings([
     ...editedGalleryImages,
-    ...importedGalleryImages,
+    ...importedMediaImages,
     data.facilitiesImage,
     data.aboutImage,
     data.ownerData?.image,
@@ -560,12 +569,18 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     .filter((item) => Boolean(item?.title && item?.text))
     .map((item) => ({ title: item!.title, text: item!.text, icon: item!.icon }))
     .slice(0, 6);
+  const ownerImageCandidates = imagesMatching(fallbackImages, /paul|vanessa|owner|portrait|host|team|staff/i);
+  const facilityImageCandidates = imagesMatching(fallbackImages, /building|facility|exterior|accommodation/i);
+  const serviceImageCandidates = imagesMatching(fallbackImages, /groom|brush|medicine|service|transport|airport|vet|flea|worm/i);
   const aboutImage = pickUniqueImage(
     usedImages,
     [
-      data.aboutImage,
-      normalizedRecord.aboutImage,
-      normalizedRecord.aboutData?.image,
+      ownerData.image,
+      normalizedRecord.ownerData?.image,
+      ...ownerImageCandidates,
+      imageMatches(data.aboutImage, /paul|vanessa|owner|portrait|host|team|staff/i) ? data.aboutImage : '',
+      imageMatches(normalizedRecord.aboutImage, /paul|vanessa|owner|portrait|host|team|staff/i) ? normalizedRecord.aboutImage : '',
+      imageMatches(normalizedRecord.aboutData?.image, /paul|vanessa|owner|portrait|host|team|staff/i) ? normalizedRecord.aboutData?.image : '',
       fallbackImages.find((image) => image !== heroImage),
     ],
     fallbackImages,
@@ -573,9 +588,10 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const facilityImage = pickUniqueImage(
     usedImages,
     [
-      data.facilitiesImage,
-      facilitiesBlock?.images?.[0]?.url,
-      normalizedRecord.facilitiesData?.facilitiesImage,
+      ...facilityImageCandidates,
+      imageMatches(data.facilitiesImage, /building|facility|exterior|accommodation/i) ? data.facilitiesImage : '',
+      imageMatches(facilitiesBlock?.images?.[0]?.url, /building|facility|exterior|accommodation/i) ? facilitiesBlock?.images?.[0]?.url : '',
+      imageMatches(normalizedRecord.facilitiesData?.facilitiesImage, /building|facility|exterior|accommodation/i) ? normalizedRecord.facilitiesData?.facilitiesImage : '',
       fallbackImages[2],
     ],
     fallbackImages,
@@ -585,6 +601,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     [
       ownerData.image,
       normalizedRecord.ownerData?.image,
+      ...ownerImageCandidates,
       fallbackImages[5],
       fallbackImages[1],
     ],
@@ -594,6 +611,22 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     stringFrom(locationData.virtualTourUrl, normalized.virtualTourUrl, data.virtualTourUrl, data.contactData?.virtualTourUrl),
     contentLibrary.sourceHost,
   );
+  const suiteContent = editedRooms && editedRooms.length === 0
+    ? []
+    : ensureSuiteCount(rooms, fallbackImages, data.pricePerNight || normalized.pricePerNight, usedImages);
+  const serviceContent = services.map((service: any, index: number) => ({
+    image: serviceImageFor(service, serviceImageCandidates),
+    title: stringFrom(service.title, service.name, `Care service ${index + 1}`),
+    text: stringFrom(service.description, service.text, 'Additional support available during the stay.'),
+    price: stringFrom(service.price),
+  }));
+  const remainingGalleryImages = fallbackImages.filter((image) => !hasSeenImage(usedImages, image));
+  const galleryPreferredImages = imagesMatching(remainingGalleryImages, /kitty|wally|lola|gallery/i);
+  const gallerySourceImages = galleryPreferredImages.length ? galleryPreferredImages : remainingGalleryImages.length ? remainingGalleryImages : fallbackImages;
+  const galleryContent = gallerySourceImages.slice(0, 12).map((image, index) => ({
+    image,
+    caption: stringFrom(record?.media.galleryImages?.[index]?.caption, `${businessName} photo ${index + 1}`),
+  }));
 
   return {
     business: {
@@ -641,26 +674,14 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       image: facilityImage,
       items: facilityItems.length || editedFacilityItems ? facilityItems : featureItems.slice(0, 4),
     },
-    services: services.map((service: any, index: number) => ({
-      image: pickUniqueImage(
-        usedImages,
-        [service.image, fallbackImages[index + 3], fallbackImages[index]],
-        fallbackImages,
-      ),
-      title: stringFrom(service.title, service.name, `Care service ${index + 1}`),
-      text: stringFrom(service.description, service.text, 'Additional support available during the stay.'),
-      price: stringFrom(service.price),
-    })),
+    services: serviceContent,
     about: {
       title: stringFrom(data.aboutHeading, normalized.aboutHeading, record?.content.aboutHeading, `About ${businessName}`),
       text: primaryDescription,
       image: aboutImage,
     },
-    gallery: fallbackImages.filter((image) => !hasSeenImage(usedImages, image)).slice(0, 12).map((image, index) => ({
-      image,
-      caption: stringFrom(record?.media.galleryImages?.[index]?.caption, `${businessName} photo ${index + 1}`),
-    })),
-    suites: editedRooms && editedRooms.length === 0 ? [] : ensureSuiteCount(rooms, fallbackImages, data.pricePerNight || normalized.pricePerNight, usedImages),
+    gallery: galleryContent,
+    suites: suiteContent,
     testimonials: ensureTestimonials(testimonials, businessName, fallbackImages, heroImage, data.testimonialImage),
     faqs: faqs.map((faq: any) => ({
       question: stringFrom(faq.question),
@@ -975,6 +996,60 @@ function imageFrom(...values: unknown[]): string {
     if (/^https?:\/\//i.test(image) || /^data:image\//i.test(image)) return image;
   }
   return 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=1200&h=900&fit=crop';
+}
+
+function selectHeroImage(preferred: unknown[], allImages: string[]): string {
+  const candidates = uniqueStrings([...preferred, ...allImages]).filter((image) => isUsableGalleryImage(image));
+  const nonOpenGraphImages = candidates.filter((image) => !imageMatches(image, /(?:^|[-_/])og(?:[-_.]|image)|open.?graph|social.?card/i));
+  return imageFrom(
+    imagesMatching(nonOpenGraphImages, /hero|banner|background|bg/i)[0],
+    imagesMatching(nonOpenGraphImages, /building|exterior|facility/i)[0],
+    nonOpenGraphImages[0],
+    candidates[0],
+  );
+}
+
+function isDelorainePreview(
+  record: PreviewImportRecord | null | undefined,
+  contentLibrary: CatterySiteContentLibrary,
+  businessName: string,
+) {
+  const source = `${record?.source.host || ''} ${contentLibrary.sourceHost || ''} ${businessName}`;
+  return /delorainecattery\.com|deloraine cattery/i.test(source);
+}
+
+function imageMatches(value: unknown, pattern: RegExp): boolean {
+  const image = stringFrom(value);
+  if (!image) return false;
+  try {
+    return pattern.test(decodeURIComponent(image));
+  } catch {
+    return pattern.test(image);
+  }
+}
+
+function imagesMatching(images: string[], pattern: RegExp): string[] {
+  return images.filter((image) => imageMatches(image, pattern));
+}
+
+function serviceImageFor(service: any, serviceImages: string[]) {
+  const title = stringFrom(service.title, service.name);
+  const currentImage = stringFrom(service.image);
+  const titlePattern = serviceTitlePattern(title);
+  if (titlePattern) {
+    return (imageMatches(currentImage, titlePattern) ? currentImage : '') || imagesMatching(serviceImages, titlePattern)[0] || '';
+  }
+
+  const specificServiceImage = imagesMatching([currentImage], /groom|brush|medicine|medical|vet|transport|airport|flea|worm/i)[0];
+  return specificServiceImage || '';
+}
+
+function serviceTitlePattern(title: string): RegExp | null {
+  if (/groom|brush|matting/i.test(title)) return /groom|brush|maincoone|matting/i;
+  if (/medicine|medication|medical|vet/i.test(title)) return /medicine|medical|vet|stethoscope/i;
+  if (/transport|pickup|drop.?off|airport/i.test(title)) return /transport|pickup|airport|vehicle/i;
+  if (/flea|worm/i.test(title)) return /flea|worm/i;
+  return null;
 }
 
 function embeddableVirtualTourUrl(rawUrl: string, sourceHost?: string): string {
