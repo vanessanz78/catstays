@@ -67,15 +67,14 @@ import {
   type PreviewTemplateId,
   type ImportedCatteryScrape,
 } from '../../lib/previewTemplates';
-import { normalizeImportUrl } from '../../lib/deloraineDemo';
+import { DELORAINE_SOURCE_URL } from '../../lib/deloraineDemo';
+import { normalizeWebsiteImportUrl } from '../../lib/websiteImportUrl';
 
 const logoIcon = '/assets/b463d12091f20e48be52186dedd2a0f6707d0b66.png';
 
 function sourceUrlForTemplateSnapshot(data: Record<string, any>) {
   const sourceUrl = data.previewImportRecord?.source?.url || data.importSourceUrl || data.sourceUrl;
-  const trimmedUrl = String(sourceUrl || '').trim();
-  if (!trimmedUrl) return 'https://www.delorainecattery.com/';
-  return normalizeImportUrl(trimmedUrl);
+  return normalizeWebsiteImportUrl(String(sourceUrl || ''), DELORAINE_SOURCE_URL);
 }
 
 function lightweightOnboardingState(data: Record<string, any>) {
@@ -475,7 +474,7 @@ export function OnboardingWizard() {
 
   const handleImportWebsite = async () => {
     try {
-      const normalizedWebsiteUrl = normalizeImportUrl(data.websiteUrl);
+      const normalizedWebsiteUrl = normalizeWebsiteImportUrl(data.websiteUrl);
       setData(prev => ({ ...prev, websiteUrl: normalizedWebsiteUrl, isImporting: true, importError: '' }));
 
       const res = await fetch('/api/website/scrape', {
@@ -1393,10 +1392,16 @@ export function OnboardingWizard() {
                       <div className="flex gap-3">
                         <Input
                           id="websiteUrl"
-                          type="url"
+                          type="text"
                           placeholder="https://yourwebsite.com"
                           value={data.websiteUrl}
                           onChange={(e) => setData({ ...data, websiteUrl: e.target.value })}
+                          onBlur={() =>
+                            setData({
+                              ...data,
+                              websiteUrl: normalizeWebsiteImportUrl(data.websiteUrl),
+                            })
+                          }
                           className="rounded-xl h-12 text-lg flex-1"
                           disabled={data.isImporting || data.importComplete}
                         />

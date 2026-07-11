@@ -1,3 +1,5 @@
+import { normalizeWebsiteImportUrl } from './websiteImportUrl';
+
 export const DELORAINE_SOURCE_URL = 'https://www.delorainecattery.com/';
 export const PREVIEW_URL_STORAGE_KEY = 'catstays_preview_url';
 export const PREVIEW_SOURCE_INTENT_STORAGE_KEY = 'catstays_preview_source_intent';
@@ -1424,14 +1426,8 @@ function embeddableVirtualTourUrl(rawUrl: string, sourceHost?: string): string {
   return '';
 }
 
-export function normalizeImportUrl(rawUrl: string): string {
-  const trimmedUrl = rawUrl.trim();
-  if (!trimmedUrl) return DELORAINE_SOURCE_URL;
-  return normaliseSourceUrl(trimmedUrl).toString();
-}
-
 function normaliseSourceUrl(rawUrl: string): URL {
-  return new URL(/^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`);
+  return new URL(normalizeWebsiteImportUrl(rawUrl, DELORAINE_SOURCE_URL));
 }
 
 function slugify(value: string): string {

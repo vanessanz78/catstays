@@ -10,7 +10,6 @@ import {
   fallbackDeloraineScrape,
   IMPORT_URL_STORAGE_KEY,
   migrateDeloraineAssetsInValue,
-  normalizeImportUrl,
   PREVIEW_SOURCE_INTENT_STORAGE_KEY,
   PREVIEW_URL_STORAGE_KEY,
   rememberCatteryPreview,
@@ -26,6 +25,7 @@ import {
   type PreviewImportRecord,
   type PreviewTemplateId,
 } from '../../lib/previewTemplates';
+import { normalizeWebsiteImportUrl } from '../../lib/websiteImportUrl';
 
 type DemoMode = 'website' | 'dashboard' | 'client';
 type DeviceMode = 'mobile' | 'tablet' | 'desktop';
@@ -451,7 +451,7 @@ function readRequestedImportUrl(): string {
   const sourceParam = new URLSearchParams(window.location.search).get('source');
   const sourceIntent = window.sessionStorage.getItem(PREVIEW_SOURCE_INTENT_STORAGE_KEY);
   const explicitPreviewSource = sourceIntent === 'form-submit';
-  const requestedUrl = normalizeImportUrl(
+  const requestedUrl = normalizeWebsiteImportUrl(
     explicitPreviewSource
       ? window.sessionStorage.getItem(PREVIEW_URL_STORAGE_KEY) ||
         window.localStorage.getItem(PREVIEW_URL_STORAGE_KEY) ||
@@ -460,6 +460,7 @@ function readRequestedImportUrl(): string {
         sourceParam ||
         DELORAINE_SOURCE_URL
       : DELORAINE_SOURCE_URL,
+    DELORAINE_SOURCE_URL,
   );
 
   window.localStorage.setItem(PREVIEW_URL_STORAGE_KEY, requestedUrl);
