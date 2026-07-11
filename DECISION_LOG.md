@@ -1,6 +1,32 @@
 # Decision Log
 
-Last updated: 2026-07-05
+Last updated: 2026-07-11
+
+## 2026-07-11 - Open Home Architecture Frozen
+
+Decision: Freeze ADR-001 Open Home Content Platform as the approved architecture for website generation.
+
+Reason: ADR-001 and ADR-002 were merged into one canonical architecture, then Phase 1 schema and Phase 1.5 security hardening were validated against the CatStays development Supabase project.
+
+Impact:
+
+- Future implementation must follow ADR-001.
+- ADR-001 must not be silently evolved.
+- If implementation reveals a genuine structural deficiency, create ADR-003.
+- Phase 2 is implementation, not further architecture design.
+
+## 2026-07-11 - Open Home Roadmap Is Canonical Implementation Tracker
+
+Decision: Use root `ROADMAP.md` as the canonical implementation tracker for Open Home Content Platform work.
+
+Reason: The project has moved from architecture into implementation. Future Codex sessions need a durable, phase-based tracker that prevents overlapping work and keeps implementation aligned with the approved lifecycle.
+
+Impact:
+
+- Only one implementation phase may be active at a time.
+- Each implementation branch must cover one roadmap phase only.
+- A phase is not complete until it passes UAT, merges to `main`, is tagged, and has its branch deleted.
+- Future completed phase tags should follow `open-home-platform-phase-<number>-complete`.
 
 ## 2026-07-01 - Root Sprint Docs
 
@@ -66,5 +92,4 @@ Impact:
 
 ## Open Decisions
 
-- Whether to add a formal root-level Architect Update file for CatStays.
 - Whether the client-side publish handler should also be hardened so no future account/provisioning error can force a step-1 reset.

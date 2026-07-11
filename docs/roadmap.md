@@ -2,6 +2,8 @@
 
 Last reviewed: 2026-06-12
 
+This is the broader CatStays product roadmap. The canonical Open Home Content Platform implementation tracker now lives at root [ROADMAP.md](../ROADMAP.md).
+
 ## Phase 1: Documentation And Source Of Truth
 
 - Create documentation hub.
