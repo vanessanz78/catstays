@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 import { ImageWithFallback } from '../../components/figma/ImageWithFallback';
 import {
+  DELORAINE_SOURCE_URL,
+  normalizeImportUrl,
   PREVIEW_SOURCE_INTENT_STORAGE_KEY,
   PREVIEW_URL_STORAGE_KEY,
 } from '../../lib/deloraineDemo';
@@ -23,7 +25,7 @@ const dashboardPreview = '/assets/marketing/catstays-dashboard-preview.png';
 import { useState } from 'react';
 import { SignupModal } from '../../components/SignupModal';
 
-const defaultPreviewWebsiteUrl = 'delorainecattery.com';
+const defaultPreviewWebsiteUrl = DELORAINE_SOURCE_URL;
 
 export function MarketingHome() {
   const navigate = useNavigate();
@@ -48,7 +50,7 @@ export function MarketingHome() {
 
   const handleGeneratePreview = (event: React.FormEvent) => {
     event.preventDefault();
-    const url = websiteUrl.trim() || defaultPreviewWebsiteUrl;
+    const url = normalizeImportUrl(websiteUrl || defaultPreviewWebsiteUrl);
     localStorage.setItem(PREVIEW_URL_STORAGE_KEY, url);
     sessionStorage.setItem(PREVIEW_URL_STORAGE_KEY, url);
     sessionStorage.setItem(PREVIEW_SOURCE_INTENT_STORAGE_KEY, 'form-submit');

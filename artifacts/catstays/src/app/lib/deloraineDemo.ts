@@ -1424,8 +1424,14 @@ function embeddableVirtualTourUrl(rawUrl: string, sourceHost?: string): string {
   return '';
 }
 
+export function normalizeImportUrl(rawUrl: string): string {
+  const trimmedUrl = rawUrl.trim();
+  if (!trimmedUrl) return DELORAINE_SOURCE_URL;
+  return normaliseSourceUrl(trimmedUrl).toString();
+}
+
 function normaliseSourceUrl(rawUrl: string): URL {
-  return new URL(rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`);
+  return new URL(/^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`);
 }
 
 function slugify(value: string): string {

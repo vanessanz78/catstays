@@ -67,6 +67,7 @@ import {
   type PreviewTemplateId,
   type ImportedCatteryScrape,
 } from '../../lib/previewTemplates';
+import { normalizeImportUrl } from '../../lib/deloraineDemo';
 
 const logoIcon = '/assets/b463d12091f20e48be52186dedd2a0f6707d0b66.png';
 
@@ -74,7 +75,7 @@ function sourceUrlForTemplateSnapshot(data: Record<string, any>) {
   const sourceUrl = data.previewImportRecord?.source?.url || data.importSourceUrl || data.sourceUrl;
   const trimmedUrl = String(sourceUrl || '').trim();
   if (!trimmedUrl) return 'https://www.delorainecattery.com/';
-  return /^https?:\/\//i.test(trimmedUrl) ? trimmedUrl : `https://${trimmedUrl}`;
+  return normalizeImportUrl(trimmedUrl);
 }
 
 function lightweightOnboardingState(data: Record<string, any>) {
@@ -473,13 +474,14 @@ export function OnboardingWizard() {
   };
 
   const handleImportWebsite = async () => {
-    setData(prev => ({ ...prev, isImporting: true, importError: '' }));
-
     try {
+      const normalizedWebsiteUrl = normalizeImportUrl(data.websiteUrl);
+      setData(prev => ({ ...prev, websiteUrl: normalizedWebsiteUrl, isImporting: true, importError: '' }));
+
       const res = await fetch('/api/website/scrape', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: data.websiteUrl }),
+        body: JSON.stringify({ url: normalizedWebsiteUrl }),
       });
 
       const payload = await res.json() as ImportedCatteryScrape & { error?: string };
