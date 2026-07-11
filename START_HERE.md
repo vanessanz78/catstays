@@ -7,16 +7,19 @@ Every Codex session for this repository must begin by reading `START_HERE.md` fr
 After the central Operating System has been read, continue with this repository's local startup order:
 
 1. `ROADMAP.md`
-2. `docs/README.md`
-3. `docs/project-operating-system.md`
-4. `docs/adr/ADR-001-open-home-content-platform.md`
-5. `CURRENT_SPRINT.md`
+2. `PLATFORM_PRINCIPLES.md`
+3. `docs/README.md`
+4. `docs/project-operating-system.md`
+5. `docs/adr/ADR-001-open-home-content-platform.md`
+6. `CURRENT_SPRINT.md`
 
 ## Current Platform Mode
 
 CatStays is now in Open Home Content Platform implementation mode.
 
 ADR-001 Open Home Content Platform is approved and frozen. Do not evolve ADR-001 during implementation. If implementation reveals a genuine structural deficiency, create ADR-003 and keep ADR-001 unchanged.
+
+`PLATFORM_PRINCIPLES.md` is the permanent engineering philosophy for Open Home implementation. Use it to protect the approved architecture while implementing roadmap phases.
 
 ## Implementation Rule
 
@@ -48,9 +51,13 @@ Every implementation branch must follow:
 ```text
 One branch
 ->
-One phase
+One roadmap phase
 ->
-UAT
+Implementation
+->
+Validation
+->
+Visual UAT, where applicable
 ->
 Merge to main
 ->
@@ -67,6 +74,7 @@ No implementation branch may be merged until:
 
 - typecheck passes
 - build passes
+- database migration passes, where applicable
 - UAT passes
 - regression checks pass
 - visual approval is complete, where applicable

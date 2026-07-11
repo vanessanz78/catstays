@@ -28,6 +28,23 @@ Impact:
 - A phase is not complete until it passes UAT, merges to `main`, is tagged, and has its branch deleted.
 - Future completed phase tags should follow `open-home-platform-phase-<number>-complete`.
 
+## 2026-07-11 - Open Home Platform Principles
+
+Decision: Create `PLATFORM_PRINCIPLES.md` as the permanent engineering philosophy and implementation charter for Open Home.
+
+Reason: Architecture is complete and implementation now needs guardrails that protect the approved platform instead of continuing to redesign it.
+
+Impact:
+
+- The browser is not a source of truth.
+- Generated data is immutable.
+- Derived data is disposable and regeneratable.
+- Media and Content are first-class platform entities.
+- The Assignment Engine decides and the Renderer renders.
+- Products consume platform capabilities instead of redefining them.
+- Structural changes require ADR-003 or a later ADR.
+- `main` must remain releasable.
+
 ## 2026-07-01 - Root Sprint Docs
 
 Decision: Create root-level `CURRENT_SPRINT.md` and `DECISION_LOG.md` for future Codex chats.

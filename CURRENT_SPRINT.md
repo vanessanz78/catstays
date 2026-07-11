@@ -15,6 +15,7 @@ Transition CatStays from Open Home Content Platform architecture into governed i
 - Operating system entrypoint: `START_HERE.md` in `vanessanz78/codex-operating-system`
 - Local startup entrypoint: `START_HERE.md`
 - Canonical implementation tracker: `ROADMAP.md`
+- Platform implementation charter: `PLATFORM_PRINCIPLES.md`
 
 ## Branch / Ref Handoff Rule
 
@@ -34,6 +35,7 @@ Transition CatStays from Open Home Content Platform architecture into governed i
 - Phase 1.5 Security And Validation is complete.
 - The schema and security model were validated against the CatStays development Supabase project.
 - The permanent Open Home implementation tracker is `ROADMAP.md`.
+- The permanent Open Home engineering philosophy is `PLATFORM_PRINCIPLES.md`.
 - Future implementation must follow one branch -> one phase -> UAT -> merge -> tag -> delete branch.
 - Do not begin Phase 2 until explicitly instructed.
 
@@ -48,6 +50,7 @@ Transition CatStays from Open Home Content Platform architecture into governed i
 - ADR-001 is frozen and must not be silently evolved.
 - If implementation reveals a genuine structural deficiency, create ADR-003.
 - `ROADMAP.md` is the canonical Open Home implementation tracker.
+- `PLATFORM_PRINCIPLES.md` is the canonical Open Home implementation charter.
 - One implementation phase may be active at a time.
 - Every completed Open Home phase must be tagged.
 
@@ -68,10 +71,11 @@ Future chats should read:
 1. `START_HERE.md` from `vanessanz78/codex-operating-system`.
 2. Local `START_HERE.md`.
 3. `ROADMAP.md`.
-4. `docs/README.md`.
-5. `docs/project-operating-system.md`.
-6. `docs/adr/ADR-001-open-home-content-platform.md`.
-7. `CURRENT_SPRINT.md`.
-8. `DECISION_LOG.md`.
+4. `PLATFORM_PRINCIPLES.md`.
+5. `docs/README.md`.
+6. `docs/project-operating-system.md`.
+7. `docs/adr/ADR-001-open-home-content-platform.md`.
+8. `CURRENT_SPRINT.md`.
+9. `DECISION_LOG.md`.
 
 Then preserve the exact working ref in any new GitHub note and follow the active roadmap phase only.

@@ -16,15 +16,16 @@ If GitHub documentation and chat history conflict, GitHub documentation wins.
 
 1. Read the central Codex Operating System.
 2. Read the local startup guide and roadmap.
-3. Confirm the active phase.
-4. Research and analysis.
-5. Implement only the active phase.
-6. Validate changes.
-7. Complete UAT.
-8. Update documentation.
-9. Merge to `main`.
-10. Tag the phase.
-11. Delete the implementation branch.
+3. Read the platform principles.
+4. Confirm the active phase.
+5. Research and analysis.
+6. Implement only the active phase.
+7. Validate changes.
+8. Complete UAT.
+9. Update documentation.
+10. Merge to `main`.
+11. Tag the phase.
+12. Delete the implementation branch.
 
 ## Operating Flow
 
@@ -70,6 +71,7 @@ Any new Codex session should begin by reading:
 - `START_HERE.md` from the central `vanessanz78/codex-operating-system` repository
 - [Local Startup Guide](../START_HERE.md)
 - [Open Home Implementation Roadmap](../ROADMAP.md)
+- [Open Home Platform Principles](../PLATFORM_PRINCIPLES.md)
 - [Master Documentation Hub](./README.md)
 - This project operating system document
 - [ADR-001 Open Home Content Platform](./adr/ADR-001-open-home-content-platform.md)
@@ -104,6 +106,7 @@ No implementation branch may merge until:
 
 - typecheck passes
 - build passes
+- database migration passes, where applicable
 - UAT passes
 - regression checks pass
 - visual approval is complete, where applicable

@@ -2,6 +2,7 @@
 
 ## 2026-07-11
 
+- Added Open Home platform principles and implementation charter to formalise the transition from architecture to implementation.
 - Added the permanent Open Home Content Platform implementation roadmap and startup governance for phase-based implementation.
 - Froze ADR-001 as the canonical Open Home Content Platform architecture.
 - Added the Phase 1 schema foundation for content sources, media library, content library, drafts, assignments, previews, published versions, and website events.
