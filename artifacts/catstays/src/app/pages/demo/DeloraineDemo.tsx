@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { ArrowLeft, CheckCircle, Globe, LayoutDashboard, Monitor, Smartphone, Tablet, UserRound } from 'lucide-react';
 import { Button } from '../../components/ui/button';
@@ -111,12 +111,19 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
   };
 
   const selectedTemplate = normalizePreviewTemplateId(previewData.selectedTemplate || 'original');
+  const selectedTemplateRef = useRef<PreviewTemplateId>(selectedTemplate);
+
+  useEffect(() => {
+    selectedTemplateRef.current = selectedTemplate;
+  }, [selectedTemplate]);
+
   const modeHref = (href: string) => href;
 
   const selectTemplate = (template: PreviewTemplateId) => {
+    selectedTemplateRef.current = template;
+    saveSelectedDemoTemplate(template);
     const nextData = dataForTemplate(previewData, template);
     setPreviewData(nextData);
-    saveSelectedDemoTemplate(template);
   };
 
   const persistSelectedPreviewForSignup = () => {
@@ -149,14 +156,14 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
         }
         if (cancelled) return;
         const importedPreview = previewDataForScrape(migrateDeloraineAssetsInValue(payload as ImportedCatteryScrape));
-        setPreviewData(importedPreview);
+        setPreviewData(dataForTemplate(importedPreview, selectedTemplateRef.current));
       } catch {
         if (cancelled) return;
         const fallbackScrape = isDeloraineRequest(requestedImportUrl)
           ? fallbackDeloraineScrape
           : buildFallbackScrapeForUrl(requestedImportUrl);
         const fallbackPreview = previewDataForScrape(migrateDeloraineAssetsInValue(fallbackScrape));
-        setPreviewData(fallbackPreview);
+        setPreviewData(dataForTemplate(fallbackPreview, selectedTemplateRef.current));
       }
     }
 

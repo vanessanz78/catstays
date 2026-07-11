@@ -142,7 +142,7 @@ export function FullWebsitePreview({
   // Render the imported customer website exactly when a source URL exists.
   const renderWebsitePreview = (fillHeight = true) => {
     const sourcePreviewUrl = importedPreviewUrl(data);
-    if (sourcePreviewUrl && isOriginalTemplate(data.selectedTemplate)) {
+    if (sourcePreviewUrl && isOriginalTemplate(data.selectedTemplate) && !isEmbeddedDemoSurface) {
       return (
         <SourceWebsitePreview
           sourceUrl={sourcePreviewUrl}
@@ -363,9 +363,7 @@ export function FullWebsitePreview({
     );
   };
 
-  const isOriginalWebsitePreview = previewMode === 'website' && isOriginalTemplate(data.selectedTemplate);
-
-  if (isEmbeddedDemoSurface && deviceType === 'desktop' && previewMode === 'website' && !isOriginalWebsitePreview) {
+  if (isEmbeddedDemoSurface && deviceType === 'desktop' && previewMode === 'website') {
     return (
       <div
         className="w-full overflow-visible bg-white"
