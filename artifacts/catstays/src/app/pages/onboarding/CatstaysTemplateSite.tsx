@@ -324,7 +324,7 @@ function EditorialTemplate({
               <div className="my-6 h-px w-14 bg-[#b58b4a]" />
               <p className="max-w-lg text-base leading-7">{section.text}</p>
             </div>
-            <img src={section.image} alt="" style={imageFocalStyle(section.image)} className="catstays-template-section-image h-full min-h-[420px] w-full object-cover md:min-h-[560px]" />
+            <img src={section.image} alt="" style={imageFocalStyle(section.image)} className="catstays-template-section-image h-[420px] w-full object-cover md:h-[560px]" />
           </section>
         ))}
 
