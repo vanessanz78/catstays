@@ -1,4 +1,4 @@
-import { Router, type IRouter } from 'express';
+import { Router, type IRouter, type Request } from 'express';
 import {
   fetchSourceWebsitePreviewAsset,
   fetchSourceWebsitePreviewHtml,
@@ -65,7 +65,7 @@ router.get('/website/source-preview', async (req, res) => {
   }
 
   try {
-    const result = await fetchSourceWebsitePreviewHtml(url);
+    const result = await fetchSourceWebsitePreviewHtml(url, requestOrigin(req));
     res
       .status(200)
       .set('Content-Type', 'text/html; charset=utf-8')
@@ -85,7 +85,7 @@ router.get('/website/source-asset', async (req, res) => {
   }
 
   try {
-    const result = await fetchSourceWebsitePreviewAsset(url);
+    const result = await fetchSourceWebsitePreviewAsset(url, requestOrigin(req));
     res
       .status(200)
       .set('Content-Type', result.contentType || 'application/octet-stream')
@@ -96,6 +96,19 @@ router.get('/website/source-asset', async (req, res) => {
     res.status(404).send('Asset not available.');
   }
 });
+
+function requestOrigin(req: Request): string {
+  const forwardedProto = firstForwardedValue(req.get('x-forwarded-proto'));
+  const forwardedHost = firstForwardedValue(req.get('x-forwarded-host'));
+  const protocol = forwardedProto || req.protocol || 'http';
+  const host = forwardedHost || req.get('host') || '';
+
+  return host ? `${protocol}://${host}` : '';
+}
+
+function firstForwardedValue(value: string | undefined): string {
+  return value?.split(',')[0]?.trim() ?? '';
+}
 
 router.post('/website/chat', async (req, res) => {
   const { question, businessName, knowledge, history } = req.body as {

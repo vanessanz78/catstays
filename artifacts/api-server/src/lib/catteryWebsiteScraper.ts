@@ -358,7 +358,10 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
   };
 }
 
-export async function fetchSourceWebsitePreviewHtml(rawUrl: string): Promise<{ sourceUrl: string; html: string }> {
+export async function fetchSourceWebsitePreviewHtml(
+  rawUrl: string,
+  previewOrigin = '',
+): Promise<{ sourceUrl: string; html: string }> {
   const parsedUrl = normalisePublicUrl(rawUrl);
   const html = await fetchText(parsedUrl, {
     maxBytes: MAX_HTML_BYTES,
@@ -367,15 +370,18 @@ export async function fetchSourceWebsitePreviewHtml(rawUrl: string): Promise<{ s
 
   return {
     sourceUrl: parsedUrl.toString(),
-    html: rewriteSourcePreviewHtml(html, parsedUrl),
+    html: rewriteSourcePreviewHtml(html, parsedUrl, previewOrigin),
   };
 }
 
-export async function fetchSourceWebsitePreviewAsset(rawUrl: string): Promise<{ body: Buffer; contentType: string }> {
+export async function fetchSourceWebsitePreviewAsset(
+  rawUrl: string,
+  previewOrigin = '',
+): Promise<{ body: Buffer; contentType: string }> {
   const parsedUrl = normalisePublicUrl(rawUrl);
   const result = await fetchBytes(parsedUrl, { maxBytes: MAX_ASSET_BYTES });
   return {
-    body: rewritePreviewAsset(result.body, result.contentType, parsedUrl),
+    body: rewritePreviewAsset(result.body, result.contentType, parsedUrl, previewOrigin),
     contentType: result.contentType,
   };
 }
@@ -954,13 +960,14 @@ function collectHtmlImages(root: ReturnType<typeof parse>, baseUrl: URL): string
   return images.map((image) => absoluteUrl(image, baseUrl)).filter(Boolean);
 }
 
-function rewriteSourcePreviewHtml(html: string, baseUrl: URL): string {
+function rewriteSourcePreviewHtml(html: string, baseUrl: URL, previewOrigin: string): string {
   const root = parse(html);
   root.querySelectorAll('base').forEach((node) => node.remove());
 
   const head = root.querySelector('head');
   if (head) {
     head.insertAdjacentHTML('afterbegin', `<base href="${escapeHtml(baseUrl.toString())}">`);
+    head.insertAdjacentHTML('beforeend', `<script>${sourcePreviewBootstrapScript(baseUrl, previewOrigin)}</script>`);
     head.insertAdjacentHTML(
       'beforeend',
       '<style>[src*="replit-dev-banner"], replit-dev-banner { display: none !important; }</style>',
@@ -974,7 +981,7 @@ function rewriteSourcePreviewHtml(html: string, baseUrl: URL): string {
       script.remove();
       continue;
     }
-    script.setAttribute('src', sourcePreviewAssetUrl(source));
+    script.setAttribute('src', sourcePreviewAssetUrl(source, previewOrigin));
     script.removeAttribute('integrity');
     script.removeAttribute('crossorigin');
   }
@@ -984,7 +991,7 @@ function rewriteSourcePreviewHtml(html: string, baseUrl: URL): string {
     if (!/(stylesheet|preload|modulepreload)/i.test(rel)) continue;
     const href = absoluteUrl(link.getAttribute('href') ?? '', baseUrl);
     if (!href) continue;
-    link.setAttribute('href', sourcePreviewAssetUrl(href));
+    link.setAttribute('href', sourcePreviewAssetUrl(href, previewOrigin));
     link.removeAttribute('integrity');
     link.removeAttribute('crossorigin');
   }
@@ -992,7 +999,11 @@ function rewriteSourcePreviewHtml(html: string, baseUrl: URL): string {
   return `<!doctype html>\n${root.toString()}`;
 }
 
-function rewritePreviewAsset(body: Buffer, contentType: string, assetUrl: URL): Buffer {
+function rewritePreviewAsset(body: Buffer, contentType: string, assetUrl: URL, previewOrigin: string): Buffer {
+  if (/javascript/i.test(contentType)) {
+    return rewritePreviewScriptAsset(body, assetUrl, previewOrigin);
+  }
+
   if (!/text\/css/i.test(contentType)) return body;
   const css = body.toString('utf8').replace(/url\((['"]?)(.*?)\1\)/gi, (match, quote: string, rawUrl: string) => {
     if (!rawUrl || /^(data:|#)/i.test(rawUrl)) return match;
@@ -1003,8 +1014,77 @@ function rewritePreviewAsset(body: Buffer, contentType: string, assetUrl: URL): 
   return Buffer.from(css, 'utf8');
 }
 
-function sourcePreviewAssetUrl(url: string): string {
-  return `/api/website/source-asset?url=${encodeURIComponent(url)}`;
+function rewritePreviewScriptAsset(body: Buffer, assetUrl: URL, previewOrigin: string): Buffer {
+  const script = body
+    .toString('utf8')
+    .replace(
+      /import\((["'`])((?:\.{1,2}\/|\/assets\/)[^"'`]+?\.js(?:\?[^"'`]*)?)\1\)/g,
+      (match, quote: string, rawUrl: string) => {
+        const absolute = absoluteUrl(rawUrl, assetUrl);
+        if (!absolute) return match;
+        return `import(${quote}${sourcePreviewAssetUrl(absolute, previewOrigin)}${quote})`;
+      },
+    )
+    .replace(
+      /\b(from\s*)(["'`])((?:\.{1,2}\/|\/assets\/)[^"'`]+?\.js(?:\?[^"'`]*)?)\2/g,
+      (match, prefix: string, quote: string, rawUrl: string) => {
+        const absolute = absoluteUrl(rawUrl, assetUrl);
+        if (!absolute) return match;
+        return `${prefix}${quote}${sourcePreviewAssetUrl(absolute, previewOrigin)}${quote}`;
+      },
+    )
+    .replace(
+      /\b(import\s*)(["'`])((?:\.{1,2}\/|\/assets\/)[^"'`]+?\.js(?:\?[^"'`]*)?)\2/g,
+      (match, prefix: string, quote: string, rawUrl: string) => {
+        const absolute = absoluteUrl(rawUrl, assetUrl);
+        if (!absolute) return match;
+        return `${prefix}${quote}${sourcePreviewAssetUrl(absolute, previewOrigin)}${quote}`;
+      },
+    );
+
+  return Buffer.from(script, 'utf8');
+}
+
+function sourcePreviewAssetUrl(url: string, previewOrigin: string): string {
+  const path = `/api/website/source-asset?url=${encodeURIComponent(url)}`;
+  if (!previewOrigin) return path;
+
+  try {
+    return new URL(path, previewOrigin).toString();
+  } catch {
+    return path;
+  }
+}
+
+function sourcePreviewBootstrapScript(baseUrl: URL, previewOrigin: string): string {
+  const sourceOrigin = JSON.stringify(baseUrl.origin);
+  const sourcePath = JSON.stringify(`${baseUrl.pathname}${baseUrl.search}${baseUrl.hash}` || '/');
+  const proxyOrigin = JSON.stringify(previewOrigin);
+
+  return `
+(() => {
+  const sourceOrigin = ${sourceOrigin};
+  const sourcePath = ${sourcePath};
+  const configuredProxyOrigin = ${proxyOrigin};
+  const proxyOrigin = configuredProxyOrigin || window.location.origin;
+  window.history.replaceState(window.history.state, document.title, new URL(sourcePath || '/', window.location.origin));
+
+  const originalFetch = window.fetch.bind(window);
+  window.fetch = (input, init) => {
+    const rawUrl = typeof input === 'string' || input instanceof URL ? String(input) : input?.url;
+    if (!rawUrl) return originalFetch(input, init);
+
+    const requestUrl = new URL(rawUrl, window.location.href);
+    if (requestUrl.origin === window.location.origin && requestUrl.pathname.startsWith('/api/')) {
+      const sourceUrl = new URL(requestUrl.pathname + requestUrl.search + requestUrl.hash, sourceOrigin).toString();
+      const proxyUrl = proxyOrigin + '/api/website/source-asset?url=' + encodeURIComponent(sourceUrl);
+      return originalFetch(proxyUrl, init);
+    }
+
+    return originalFetch(input, init);
+  };
+})();
+`.trim().replace(/</g, '\\u003c');
 }
 
 function collectBundleAssets(bundle: string, baseUrl: URL): string[] {
