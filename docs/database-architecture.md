@@ -1,6 +1,10 @@
 # Database Architecture
 
-Last reviewed: 2026-06-12
+Last reviewed: 2026-07-11
+
+## Canonical Architecture
+
+[ADR-001 Open Home Content Platform](./adr/ADR-001-open-home-content-platform.md) is the frozen architecture for the Website Generation Platform. Future work should implement that ADR rather than continuing to evolve preview persistence through browser storage or `catteries.website_settings`.
 
 ## Current Supabase Tables
 
@@ -34,6 +38,7 @@ Later migrations add:
 - Stripe customer and subscription fields.
 - Public booking request fields.
 - Room capacity and amenities.
+- Open Home Content Platform schema foundation for content sources, media library, content library, drafts, assignments, previews, published versions, and website events.
 
 ## RLS Status
 
@@ -61,6 +66,8 @@ The product likely needs future tables for:
 - Domain requests.
 - Audit logs.
 - Subscription entitlements.
+
+The Open Home Content Platform tables are now represented in migration `006_open_home_content_platform_schema.sql`; later phases still need RLS policies, service APIs, migration from browser storage, and event-writing behavior.
 
 ## Type Drift Risk
 

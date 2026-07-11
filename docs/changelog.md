@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-07-11
+
+- Froze ADR-001 as the canonical Open Home Content Platform architecture.
+- Added the Phase 1 schema foundation for content sources, media library, content library, drafts, assignments, previews, published versions, and website events.
+- Added Phase 1.5 database hardening for the Open Home Content Platform, including RLS policies, explicit grants, lifecycle enums, and operational indexes.
+
 ## 2026-07-05
 
 - Clarified that the last known pre-FancyFelines CatStays handoff was on GitHub `main`, not a feature branch.
