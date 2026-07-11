@@ -339,7 +339,7 @@ function EditorialTemplate({
         <VirtualTourSection content={content} />
         <ContactFormSection content={content} onPreviewContactAction={onPreviewContactAction} />
       </main>
-      <TemplateFooter content={content} onPreviewAnchorClick={onPreviewAnchorClick} />
+      <TemplateFooter content={content} dark onPreviewAnchorClick={onPreviewAnchorClick} />
       <ChatWidget accentColor={content.theme.accentColor} businessName={content.business.name} knowledge={content} />
     </div>
   );
@@ -399,7 +399,7 @@ function ShowcaseTemplate({
         <VirtualTourSection content={content} />
         <ContactFormSection content={content} onPreviewContactAction={onPreviewContactAction} />
       </main>
-      <TemplateFooter content={content} onPreviewAnchorClick={onPreviewAnchorClick} />
+      <TemplateFooter content={content} dark onPreviewAnchorClick={onPreviewAnchorClick} />
       <ChatWidget accentColor={content.theme.accentColor} businessName={content.business.name} knowledge={content} />
     </div>
   );

@@ -436,7 +436,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const libraryGalleryImages = libraryImages(contentLibrary, 'gallery');
   const isDeloraineSource = isDelorainePreview(record, contentLibrary, businessName);
   const deloraineSemanticImages = isDeloraineSource
-    ? [currentDeloraineAssets.ownerPortrait, currentDeloraineAssets.buildingThumb, currentDeloraineAssets.grooming]
+    ? [currentDeloraineAssets.hero, currentDeloraineAssets.ownerPortrait, currentDeloraineAssets.buildingThumb, currentDeloraineAssets.grooming]
     : [];
   const importedMediaImages = uniqueStrings([
     ...(record?.media.images ?? []),
@@ -614,15 +614,16 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const suiteContent = editedRooms && editedRooms.length === 0
     ? []
     : ensureSuiteCount(rooms, fallbackImages, data.pricePerNight || normalized.pricePerNight, usedImages);
+  const usedServiceImages = new Set<string>();
   const serviceContent = services.map((service: any, index: number) => ({
-    image: serviceImageFor(service, serviceImageCandidates),
+    image: serviceImageFor(service, serviceImageCandidates, usedServiceImages),
     title: stringFrom(service.title, service.name, `Care service ${index + 1}`),
     text: stringFrom(service.description, service.text, 'Additional support available during the stay.'),
     price: stringFrom(service.price),
   }));
   const remainingGalleryImages = fallbackImages.filter((image) => !hasSeenImage(usedImages, image));
   const galleryPreferredImages = imagesMatching(remainingGalleryImages, /kitty|wally|lola|gallery/i);
-  const gallerySourceImages = galleryPreferredImages.length ? galleryPreferredImages : remainingGalleryImages.length ? remainingGalleryImages : fallbackImages;
+  const gallerySourceImages = uniqueImagesByKey(galleryPreferredImages.length ? galleryPreferredImages : remainingGalleryImages.length ? remainingGalleryImages : fallbackImages);
   const galleryContent = gallerySourceImages.slice(0, 12).map((image, index) => ({
     image,
     caption: stringFrom(record?.media.galleryImages?.[index]?.caption, `${businessName} photo ${index + 1}`),
@@ -1032,16 +1033,28 @@ function imagesMatching(images: string[], pattern: RegExp): string[] {
   return images.filter((image) => imageMatches(image, pattern));
 }
 
-function serviceImageFor(service: any, serviceImages: string[]) {
+function serviceImageFor(service: any, serviceImages: string[], usedServiceImages?: Set<string>) {
   const title = stringFrom(service.title, service.name);
   const currentImage = stringFrom(service.image);
   const titlePattern = serviceTitlePattern(title);
+  const firstUnused = (images: string[]) => {
+    for (const image of images) {
+      if (!image || usedServiceImages?.has(normalizedImageKey(image))) continue;
+      usedServiceImages?.add(normalizedImageKey(image));
+      return image;
+    }
+    return '';
+  };
+
   if (titlePattern) {
-    return (imageMatches(currentImage, titlePattern) ? currentImage : '') || imagesMatching(serviceImages, titlePattern)[0] || '';
+    return firstUnused([
+      imageMatches(currentImage, titlePattern) ? currentImage : '',
+      ...imagesMatching(serviceImages, titlePattern),
+    ]);
   }
 
   const specificServiceImage = imagesMatching([currentImage], /groom|brush|medicine|medical|vet|transport|airport|flea|worm/i)[0];
-  return specificServiceImage || '';
+  return firstUnused([specificServiceImage]);
 }
 
 function serviceTitlePattern(title: string): RegExp | null {
@@ -1079,6 +1092,19 @@ function uniqueStrings(values: unknown[]): string[] {
     if (!text || seen.has(text)) continue;
     seen.add(text);
     result.push(text);
+  }
+  return result;
+}
+
+function uniqueImagesByKey(images: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const image of images) {
+    if (!image) continue;
+    const key = normalizedImageKey(image);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(image);
   }
   return result;
 }
@@ -1173,10 +1199,11 @@ function ensureSuiteCount(rooms: any[], images: string[], fallbackPrice?: string
     const priceUnit = stringFrom(room.priceUnit);
     const priceLabel = price && priceUnit ? `${price} ${priceUnit}` : price;
     const roomImage = stringFrom(room.image);
+    const roomImageCandidates = suiteImageCandidates(title, roomImage, images);
     return {
       image: usedImages
-        ? pickUniqueImage(usedImages, [isUsableGalleryImage(roomImage) ? roomImage : '', images[index + 1], images[index], images[0]], images)
-        : imageFrom(isUsableGalleryImage(roomImage) ? roomImage : '', images[index + 1], images[index], images[0]),
+        ? pickUniqueImage(usedImages, [...roomImageCandidates, images[index + 1], images[index], images[0]], images)
+        : imageFrom(...roomImageCandidates, images[index + 1], images[index], images[0]),
       title,
       text: stringFrom(room.description, priceLabel ? `${fallback.description} ${priceLabel}.` : fallback.description),
       price: priceLabel,
@@ -1187,6 +1214,25 @@ function ensureSuiteCount(rooms: any[], images: string[], fallbackPrice?: string
           : [],
     };
   });
+}
+
+function suiteImageCandidates(title: string, currentImage: string, images: string[]) {
+  const semanticPattern = suiteTitlePattern(title);
+  const candidates = semanticPattern
+    ? [
+        imageMatches(currentImage, semanticPattern) ? currentImage : '',
+        ...imagesMatching(images, semanticPattern),
+      ]
+    : [isUsableGalleryImage(currentImage) ? currentImage : ''];
+
+  return uniqueImagesByKey(candidates.filter(Boolean));
+}
+
+function suiteTitlePattern(title: string): RegExp | null {
+  if (/private/i.test(title)) return /private/i;
+  if (/indoor/i.test(title)) return /indoor/i;
+  if (/communal|shared/i.test(title)) return /communal|shared/i;
+  return null;
 }
 
 function ensureTestimonials(
