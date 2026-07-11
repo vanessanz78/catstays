@@ -14,6 +14,8 @@ CatStays has a working React/Vite frontend, Supabase-backed authentication and c
 
 The Open Home Content Platform architecture is now approved, validated, and frozen. Phase 1 and Phase 1.5 are complete. Future implementation must follow [ROADMAP.md](../ROADMAP.md) and must not redesign ADR-001.
 
+[PLATFORM_PRINCIPLES.md](../PLATFORM_PRINCIPLES.md) is the permanent engineering philosophy and implementation charter for Open Home.
+
 The platform is still in active build mode. The strongest current areas are marketing/onboarding prototypes, public booking requests, tenant provisioning, and mobile-first dashboard concepts. The biggest gaps are live tenant isolation across every dashboard page, production-ready customer portal auth, complete boarding stay workflows, tightened RLS policies, desktop dashboard polish, premium website templates, and verified production deployment health.
 
 The full audit is here: [Current State Audit](./current-state.md).
@@ -36,6 +38,7 @@ See [ADR-001 Open Home Content Platform](./adr/ADR-001-open-home-content-platfor
 | --- | --- |
 | [Current State Audit](./current-state.md) | What exists now, what works, what is incomplete, and recommended next actions. |
 | [Open Home Implementation Roadmap](../ROADMAP.md) | Canonical phase tracker for implementing the frozen Open Home Content Platform architecture. |
+| [Open Home Platform Principles](../PLATFORM_PRINCIPLES.md) | Permanent engineering philosophy, phase gates, implementation charter, and platform capability boundaries. |
 | [Platform Architecture](./platform-architecture.md) | Frontend, backend, authentication, routing, and data flow. |
 | [ADR-001 Open Home Content Platform](./adr/ADR-001-open-home-content-platform.md) | Frozen Website Generation Platform architecture for content sources, media, content library, assignments, drafts, previews, publishing, lineage, and audit history. |
 | [Onboarding Flow](./onboarding-flow.md) | Cattery signup, website import, setup, plan selection, publishing, and data import. |

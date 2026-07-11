@@ -6,6 +6,8 @@ This is the canonical implementation tracker for the Open Home Content Platform 
 
 ADR-001 Open Home Content Platform is approved and frozen. Future work must implement the approved architecture. Do not redesign ADR-001. If implementation reveals a genuine architectural deficiency, create ADR-003.
 
+`PLATFORM_PRINCIPLES.md` is the permanent engineering philosophy and implementation charter for this roadmap.
+
 ## Governance
 
 Only one phase may be active at a time.
@@ -15,9 +17,13 @@ Each phase must follow:
 ```text
 One branch
 ->
-One phase
+One roadmap phase
 ->
-UAT
+Implementation
+->
+Validation
+->
+Visual UAT, where applicable
 ->
 Merge to main
 ->
@@ -28,12 +34,15 @@ Tag milestone
 
 No long-lived implementation branches. No overlapping phases. No implementation branch should span multiple roadmap phases.
 
+Every implementation phase should belong to the GitHub milestone `Open Home Platform v1`.
+
 ## Merge Criteria
 
 No implementation branch may merge until:
 
 - typecheck passes
 - build passes
+- database migration passes, where applicable
 - UAT passes
 - regression checks pass
 - visual approval is complete, where applicable
@@ -76,6 +85,16 @@ Audit History
 ```
 
 Do not bypass this lifecycle.
+
+## Platform Freeze
+
+Architecture work is complete.
+
+Implementation may improve code, performance, maintainability, tests, and operational safety.
+
+Implementation may not redesign the architecture.
+
+Any genuine structural change requires ADR-003 or a later ADR. ADR-001 must remain frozen.
 
 ## Phase 1: Platform Schema
 
