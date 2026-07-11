@@ -324,7 +324,7 @@ function EditorialTemplate({
               <div className="my-6 h-px w-14 bg-[#b58b4a]" />
               <p className="max-w-lg text-base leading-7">{section.text}</p>
             </div>
-            <img src={section.image} alt="" className="catstays-template-section-image h-full min-h-[420px] w-full object-cover md:min-h-[560px]" />
+            <img src={section.image} alt="" style={imageFocalStyle(section.image)} className="catstays-template-section-image h-full min-h-[420px] w-full object-cover md:min-h-[560px]" />
           </section>
         ))}
 
@@ -436,12 +436,15 @@ function careIconFor(icon: string | undefined, index: number) {
   return trustIcons[index] || ShieldCheck;
 }
 
+function imageFocalStyle(image: string): CSSProperties | undefined {
+  if (!/paul|vanessa|owner|portrait/i.test(image)) return undefined;
+  return { objectPosition: '50% 42%' };
+}
+
 function ShowcaseGalleryRail({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
   const railRef = useRef<HTMLDivElement | null>(null);
-  const images = content.gallery
-    .filter((item) => item.image !== content.hero.image)
-    .slice(0, 8);
-  const railImages = images.length >= 3 ? images : content.gallery.slice(0, 8);
+  const images = content.gallery.filter((item) => item.image !== content.hero.image);
+  const railImages = images.length >= 3 ? images : content.gallery;
 
   const scrollRail = (direction: -1 | 1) => {
     railRef.current?.scrollBy({ left: direction * 420, behavior: 'smooth' });
@@ -485,7 +488,7 @@ function AboutSplit({
 }) {
   return (
     <section id="about" className="catstays-stack mx-auto grid max-w-[1400px] scroll-mt-28 md:grid-cols-2">
-      <img src={content.about.image} alt="" className={`catstays-template-section-image h-[460px] w-full object-cover ${imageFirst ? '' : 'md:order-2'}`} />
+      <img src={content.about.image} alt="" style={imageFocalStyle(content.about.image)} className={`catstays-template-section-image h-[460px] w-full object-cover ${imageFirst ? '' : 'md:order-2'}`} />
       <div className="flex flex-col justify-center bg-white px-8 py-14 md:px-20">
         <p className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-[#8c7b63]">About {content.business.name}</p>
         <h2 className="text-3xl leading-[1.12] md:text-5xl">{content.about.title}</h2>
@@ -604,7 +607,7 @@ function ConversionBanner({
 
 function GalleryStrip({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
   const railRef = useRef<HTMLDivElement | null>(null);
-  const images = content.gallery.slice(0, 16);
+  const images = content.gallery;
   if (!images.length) return null;
 
   const scrollRail = (direction: -1 | 1) => {
@@ -758,7 +761,7 @@ function OwnerStorySection({ content }: { content: ReturnType<typeof buildCatsta
 
   return (
     <section id="owner" className="catstays-stack mx-auto grid max-w-[1400px] scroll-mt-28 gap-8 bg-white px-6 py-10 md:grid-cols-[0.9fr_1.1fr] md:items-center md:px-0 md:py-0">
-      <img src={content.owner.image} alt="" className="catstays-owner-image h-[360px] w-full rounded-md object-cover object-[50%_58%] sm:h-[420px] md:h-[460px] md:max-h-[500px] lg:h-[500px]" />
+      <img src={content.owner.image} alt="" style={imageFocalStyle(content.owner.image)} className="catstays-owner-image h-[360px] w-full rounded-md object-cover object-[50%_58%] sm:h-[420px] md:h-[460px] md:max-h-[500px] lg:h-[500px]" />
       <div className="flex flex-col justify-center px-8 py-14 md:px-20">
         <p className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">The people behind the care</p>
         <h2 className="text-3xl leading-[1.12] md:text-5xl">{content.owner.title}</h2>
@@ -1129,13 +1132,13 @@ function CatstaysPreviewDeviceStyles() {
       [data-catstays-preview-device="mobile"] .catstays-owner-image {
         height: 340px !important;
         min-height: 0 !important;
-        object-position: 50% 60% !important;
+        object-position: 50% 42% !important;
       }
 
       [data-catstays-preview-device="tablet"] .catstays-owner-image {
         height: 520px !important;
         min-height: 0 !important;
-        object-position: 50% 60% !important;
+        object-position: 50% 42% !important;
       }
 
       [data-catstays-preview-device="mobile"] .catstays-booking-strip {

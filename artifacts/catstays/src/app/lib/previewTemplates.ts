@@ -444,9 +444,15 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     ],
     importedMediaImages,
   );
-  const editedGalleryImages = Array.isArray(data.galleryImages) ? data.galleryImages : [];
+  const editedGalleryImages = Array.isArray(data.galleryImages)
+    ? data.galleryImages.map((image: any) => stringFrom(image?.url, image))
+    : [];
+  const galleryDataImages = Array.isArray(data.galleryData?.galleryImages)
+    ? data.galleryData.galleryImages.map((image: any) => stringFrom(image?.url, image))
+    : [];
   const galleryImages = uniqueStrings([
     ...editedGalleryImages,
+    ...galleryDataImages,
     ...importedMediaImages,
     data.facilitiesImage,
     data.aboutImage,
@@ -603,10 +609,12 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     text: stringFrom(service.description, service.text, 'Additional support available during the stay.'),
     price: stringFrom(service.price),
   }));
-  const remainingGalleryImages = fallbackImages.filter((image) => !hasSeenImage(usedImages, image));
-  const galleryPreferredImages = imagesMatching(remainingGalleryImages, /kitty|wally|lola|gallery/i);
-  const gallerySourceImages = uniqueImagesByKey(galleryPreferredImages.length ? galleryPreferredImages : remainingGalleryImages.length ? remainingGalleryImages : fallbackImages);
-  const galleryContent = gallerySourceImages.slice(0, 12).map((image, index) => ({
+  const galleryPreferredImages = imagesMatching(galleryImages, /kitty|wally|lola|gallery/i);
+  const gallerySourceImages = uniqueImagesByKey([
+    ...galleryPreferredImages,
+    ...galleryImages,
+  ]);
+  const galleryContent = gallerySourceImages.map((image, index) => ({
     image,
     caption: stringFrom(record?.media.galleryImages?.[index]?.caption, `${businessName} photo ${index + 1}`),
   }));
