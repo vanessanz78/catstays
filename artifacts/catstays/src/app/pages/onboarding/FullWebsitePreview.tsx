@@ -142,6 +142,13 @@ export function FullWebsitePreview({
   // Render the imported customer website exactly when a source URL exists.
   const renderWebsitePreview = (fillHeight = true) => {
     const sourcePreviewUrl = importedPreviewUrl(data);
+    console.info('[CatStays Original trace]', {
+      file: 'FullWebsitePreview.tsx',
+      function: 'renderWebsitePreview',
+      selectedTemplate: data.selectedTemplate,
+      sourcePreviewUrl,
+      route: sourcePreviewUrl && isOriginalTemplate(data.selectedTemplate) ? 'SourceWebsitePreview' : 'CatstaysTemplateSite',
+    });
     if (sourcePreviewUrl && isOriginalTemplate(data.selectedTemplate)) {
       return (
         <SourceWebsitePreview
@@ -603,6 +610,14 @@ function SourceWebsitePreview({
     ? { height: '100%' }
     : { height: '900px', minHeight: 'calc(100vh - 170px)' };
   const previewUrl = `/api/website/source-preview?url=${encodeURIComponent(sourceUrl)}`;
+  console.info('[CatStays Original trace]', {
+    file: 'FullWebsitePreview.tsx',
+    function: 'SourceWebsitePreview',
+    selectedTemplate: 'original',
+    sourcePreviewUrl: sourceUrl,
+    previewUrl,
+    finalIframeSrc: previewUrl,
+  });
 
   return (
     <div className="w-full bg-white" style={heightStyle}>

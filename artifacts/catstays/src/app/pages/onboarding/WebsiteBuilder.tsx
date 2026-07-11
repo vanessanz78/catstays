@@ -247,6 +247,15 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
     const sourcePreviewUrl = importedPreviewUrl(data);
 
     if (template === 'original' && sourcePreviewUrl) {
+      console.info('[CatStays Original trace]', {
+        file: 'WebsiteBuilder.tsx',
+        function: 'renderPreviewLayout',
+        selectedTemplate: template,
+        sourcePreviewUrl,
+        previewUrl: sourcePreviewUrl,
+        finalIframeSrc: sourcePreviewUrl,
+        route: 'direct external iframe',
+      });
       return (
         <div className="min-h-[720px] w-full bg-white">
           <iframe
