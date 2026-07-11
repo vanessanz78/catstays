@@ -51,7 +51,25 @@ export function ConfirmEmail() {
         const onboardingData = localStorage.getItem('catstays_onboarding');
         if (onboardingData) {
           const saved = JSON.parse(onboardingData);
-          saved.data = { ...(saved.data || {}), emailConfirmed: true };
+          const savedData = saved.data || {};
+          saved.data = {
+            name: savedData.name,
+            email: savedData.email,
+            emailConfirmed: true,
+            businessName: savedData.businessName,
+            location: savedData.location,
+            websiteUrl: savedData.websiteUrl,
+            importSourceUrl: savedData.importSourceUrl,
+            sourceUrl: savedData.sourceUrl,
+            sourceHost: savedData.sourceHost,
+            previewImportRecordId: savedData.previewImportRecordId,
+            previewRecordStatus: savedData.previewRecordStatus,
+            selectedTemplate: savedData.selectedTemplate,
+            liveTemplate: savedData.liveTemplate,
+            subdomain: savedData.subdomain,
+            importComplete: savedData.importComplete,
+            importError: savedData.importError,
+          };
           localStorage.setItem('catstays_onboarding', JSON.stringify(saved));
         }
 

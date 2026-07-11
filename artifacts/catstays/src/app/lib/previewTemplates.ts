@@ -187,8 +187,6 @@ export interface CatstaysTemplateContent {
   contentLibrary: CatterySiteContentLibrary;
 }
 
-export const previewImportTableStorageKey = 'catstays_preview_import_table';
-
 export const previewTemplateCards: PreviewTemplateOption[] = [
   {
     id: 'original',
@@ -332,8 +330,6 @@ export function dataFromPreviewRecord(
     status: 'in_progress',
     selectedTemplate,
   };
-  savePreviewImportRecord(updatedRecord);
-
   return withOnboardingCollections({
     ...currentData,
     ...normalized,
@@ -356,13 +352,9 @@ export function dataFromPreviewRecord(
   }, currentData);
 }
 
-export function savePreviewImportRecord(record: PreviewImportRecord) {
-  if (typeof window === 'undefined') return;
-  const table = readPreviewImportTable();
-  table[record.id] = record;
-  const serialized = JSON.stringify(table);
-  sessionStorage.setItem(previewImportTableStorageKey, serialized);
-  localStorage.setItem(previewImportTableStorageKey, serialized);
+export function savePreviewImportRecord(_record: PreviewImportRecord) {
+  // Preview records are platform-owned. Keep full records in memory for the
+  // current render, but never persist preview payloads to browser storage.
 }
 
 export function markPreviewSelectionLive(currentData: Record<string, any>): Record<string, any> {
@@ -382,8 +374,6 @@ export function markPreviewSelectionLive(currentData: Record<string, any>): Reco
     status: 'live',
     selectedTemplate,
   };
-  savePreviewImportRecord(liveRecord);
-
   return withOnboardingCollections({
     ...currentData,
     previewImportRecord: liveRecord,
@@ -394,15 +384,7 @@ export function markPreviewSelectionLive(currentData: Record<string, any>): Reco
 }
 
 export function readPreviewImportTable(): Record<string, PreviewImportRecord> {
-  if (typeof window === 'undefined') return {};
-  const raw = sessionStorage.getItem(previewImportTableStorageKey) || localStorage.getItem(previewImportTableStorageKey);
-  if (!raw) return {};
-
-  try {
-    return JSON.parse(raw) as Record<string, PreviewImportRecord>;
-  } catch {
-    return {};
-  }
+  return {};
 }
 
 export function isOriginalTemplate(templateId: unknown) {

@@ -11,10 +11,8 @@ import {
   IMPORT_URL_STORAGE_KEY,
   migrateDeloraineAssetsInValue,
   PREVIEW_SOURCE_INTENT_STORAGE_KEY,
-  PREVIEW_DATA_STORAGE_KEY,
   PREVIEW_URL_STORAGE_KEY,
   rememberCatteryPreview,
-  sourceMatchesRequest,
   type DelorainePreviewData,
   type ImportedCatteryScrape,
 } from '../../lib/deloraineDemo';
@@ -119,21 +117,15 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
     const nextData = dataForTemplate(previewData, template);
     setPreviewData(nextData);
     saveSelectedDemoTemplate(template);
-    persistPreviewData(nextData);
   };
 
   const persistSelectedPreviewForSignup = () => {
     const nextData = dataForTemplate(previewData, selectedTemplate);
     saveSelectedDemoTemplate(selectedTemplate);
-    persistPreviewData(nextData);
     try {
       window.localStorage.setItem('catstays_onboarding', JSON.stringify({
         step: 2,
-        data: {
-          ...nextData,
-          websiteUrl: (nextData as any).importSourceUrl || nextData.sourceUrl || requestedImportUrl,
-          importComplete: true,
-        },
+        data: lightweightPreviewState(nextData, requestedImportUrl),
         accountCreated: false,
       }));
     } catch {
@@ -411,7 +403,6 @@ function templateDescription(template: PreviewTemplateId) {
 
 function previewDataForScrape(scrape: ImportedCatteryScrape): DelorainePreviewData {
   const record = buildPreviewImportRecord(scrape);
-  savePreviewImportRecord(record);
   const selectedTemplate = readSavedDemoTemplate() || record.selectedTemplate;
   const previewData = dataFromPreviewRecord(record, selectedTemplate, record.normalizedPreviewData) as DelorainePreviewData;
   rememberCatteryPreview(scrape, previewData);
@@ -424,7 +415,6 @@ function dataForTemplate(data: DelorainePreviewData, template: PreviewTemplateId
 
   if (record) {
     const nextData = dataFromPreviewRecord(record, selectedTemplate, data) as DelorainePreviewData;
-    savePreviewImportRecord((nextData as any).previewImportRecord as PreviewImportRecord);
     return nextData;
   }
 
@@ -445,27 +435,6 @@ function saveSelectedDemoTemplate(template: PreviewTemplateId) {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(demoTemplateStorageKey, template);
   window.sessionStorage.setItem(demoTemplateStorageKey, template);
-}
-
-function persistPreviewData(previewData: DelorainePreviewData) {
-  if (typeof window === 'undefined') return;
-
-  try {
-    const existingRaw =
-      window.sessionStorage.getItem(PREVIEW_DATA_STORAGE_KEY) ||
-      window.localStorage.getItem(PREVIEW_DATA_STORAGE_KEY);
-    const existing = existingRaw ? JSON.parse(existingRaw) : {};
-    const payload = JSON.stringify({
-      ...existing,
-      previewData,
-      selectedTemplate: previewData.selectedTemplate,
-      savedAt: new Date().toISOString(),
-    });
-    window.sessionStorage.setItem(PREVIEW_DATA_STORAGE_KEY, payload);
-    window.localStorage.setItem(PREVIEW_DATA_STORAGE_KEY, payload);
-  } catch {
-    // Storage is optional; the live in-memory preview is still updated.
-  }
 }
 
 function readRequestedImportUrl(): string {
@@ -490,48 +459,24 @@ function readRequestedImportUrl(): string {
 }
 
 function readInitialPreviewData(requestedUrl: string): DelorainePreviewData {
-  const storedPreview = readStoredPreviewData(requestedUrl);
-  if (storedPreview) return storedPreview;
   if (isDeloraineRequest(requestedUrl)) return previewDataForScrape(fallbackDeloraineScrape);
   return previewDataForScrape(buildFallbackScrapeForUrl(requestedUrl));
 }
 
-function readStoredPreviewData(requestedUrl: string): DelorainePreviewData | null {
-  if (typeof window === 'undefined') return null;
-
-  const raw =
-    window.sessionStorage.getItem(PREVIEW_DATA_STORAGE_KEY) ||
-    window.localStorage.getItem(PREVIEW_DATA_STORAGE_KEY);
-  if (!raw) return null;
-
-  try {
-    const parsed = JSON.parse(raw) as {
-      scrape?: ImportedCatteryScrape;
-      previewData?: DelorainePreviewData;
-      selectedTemplate?: string;
-    };
-    const sourceUrl = parsed.scrape?.sourceUrl || parsed.previewData?.sourceUrl || (parsed.previewData as any)?.importSourceUrl;
-    if (!parsed.previewData || !sourceMatchesRequest(sourceUrl, requestedUrl)) return null;
-
-    const selectedTemplate = readSavedDemoTemplate() || normalizePreviewTemplateId(parsed.selectedTemplate || parsed.previewData.selectedTemplate || 'original');
-    if (parsed.scrape) {
-      const migratedScrape = migrateDeloraineAssetsInValue(parsed.scrape);
-      const migratedPreviewData = migrateDeloraineAssetsInValue(parsed.previewData);
-      const record = buildPreviewImportRecord(migratedScrape);
-      savePreviewImportRecord(record);
-      const repairedPreview = dataFromPreviewRecord(record, selectedTemplate, migratedPreviewData) as DelorainePreviewData;
-      persistPreviewData(repairedPreview);
-      return repairedPreview;
-    }
-
-    const repairedPreview = dataForTemplate(migrateDeloraineAssetsInValue(parsed.previewData), selectedTemplate);
-    persistPreviewData(repairedPreview);
-    return repairedPreview;
-  } catch {
-    return null;
-  }
+function isDeloraineRequest(requestedUrl: string): boolean {
+  return /delorainecattery\.com/i.test(requestedUrl);
 }
 
-function isDeloraineRequest(requestedUrl: string): boolean {
-  return sourceMatchesRequest(DELORAINE_SOURCE_URL, requestedUrl);
+function lightweightPreviewState(previewData: DelorainePreviewData, requestedUrl: string) {
+  const record = (previewData as any).previewImportRecord as PreviewImportRecord | undefined;
+  return {
+    websiteUrl: (previewData as any).importSourceUrl || previewData.sourceUrl || requestedUrl,
+    importSourceUrl: (previewData as any).importSourceUrl || previewData.sourceUrl || requestedUrl,
+    sourceUrl: previewData.sourceUrl || requestedUrl,
+    sourceHost: (previewData as any).sourceHost,
+    selectedTemplate: previewData.selectedTemplate,
+    previewImportRecordId: record?.id || (previewData as any).previewImportRecordId || '',
+    previewRecordStatus: (previewData as any).previewRecordStatus || record?.status || 'preview',
+    importComplete: true,
+  };
 }

@@ -1,7 +1,6 @@
 export const DELORAINE_SOURCE_URL = 'https://www.delorainecattery.com/';
 export const PREVIEW_URL_STORAGE_KEY = 'catstays_preview_url';
 export const PREVIEW_SOURCE_INTENT_STORAGE_KEY = 'catstays_preview_source_intent';
-export const PREVIEW_DATA_STORAGE_KEY = 'catstays_preview_data';
 export const IMPORT_URL_STORAGE_KEY = 'catstays_import_url';
 
 export const currentDeloraineAssets = {
@@ -1339,14 +1338,10 @@ function buildSiteContentLibrary(input: {
   };
 }
 
-export function rememberCatteryPreview(scrape: ImportedCatteryScrape, previewData: DelorainePreviewData) {
+export function rememberCatteryPreview(scrape: ImportedCatteryScrape, _previewData: DelorainePreviewData) {
   if (typeof window === 'undefined') return;
   try {
     const migratedScrape = migrateDeloraineAssetsInValue(scrape);
-    const migratedPreviewData = migrateDeloraineAssetsInValue(previewData);
-    const payload = JSON.stringify({ scrape: migratedScrape, previewData: migratedPreviewData, savedAt: new Date().toISOString() });
-    sessionStorage.setItem(PREVIEW_DATA_STORAGE_KEY, payload);
-    localStorage.setItem(PREVIEW_DATA_STORAGE_KEY, payload);
     sessionStorage.setItem(IMPORT_URL_STORAGE_KEY, migratedScrape.sourceUrl || DELORAINE_SOURCE_URL);
     localStorage.setItem(IMPORT_URL_STORAGE_KEY, migratedScrape.sourceUrl || DELORAINE_SOURCE_URL);
   } catch {
