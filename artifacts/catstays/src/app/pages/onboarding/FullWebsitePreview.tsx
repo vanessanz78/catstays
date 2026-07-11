@@ -142,7 +142,7 @@ export function FullWebsitePreview({
   // Render the imported customer website exactly when a source URL exists.
   const renderWebsitePreview = (fillHeight = true) => {
     const sourcePreviewUrl = importedPreviewUrl(data);
-    if (sourcePreviewUrl && isOriginalTemplate(data.selectedTemplate) && !isEmbeddedDemoSurface) {
+    if (sourcePreviewUrl && isOriginalTemplate(data.selectedTemplate)) {
       return (
         <SourceWebsitePreview
           sourceUrl={sourcePreviewUrl}
@@ -606,11 +606,12 @@ function SourceWebsitePreview({
   return (
     <div className="w-full bg-white" style={heightStyle}>
       <iframe
+        key={sourceUrl}
         title={title}
         src={sourceUrl}
         className="block h-full min-h-[inherit] w-full border-0 bg-white"
+        loading="eager"
         referrerPolicy="no-referrer-when-downgrade"
-        sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
         scrolling="auto"
       />
     </div>
