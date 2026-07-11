@@ -609,10 +609,14 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     text: stringFrom(service.description, service.text, 'Additional support available during the stay.'),
     price: stringFrom(service.price),
   }));
-  const galleryPreferredImages = imagesMatching(galleryImages, /kitty|wally|lola|gallery/i);
+  for (const service of serviceContent) {
+    rememberImage(usedImages, service.image);
+  }
+  const galleryAvailableImages = galleryImages.filter((image) => !hasSeenImage(usedImages, image) && !isOpenGraphImage(image));
+  const galleryPreferredImages = imagesMatching(galleryAvailableImages, /kitty|wally|lola|gallery/i);
   const gallerySourceImages = uniqueImagesByKey([
     ...galleryPreferredImages,
-    ...galleryImages,
+    ...galleryAvailableImages,
   ]);
   const galleryContent = gallerySourceImages.map((image, index) => ({
     image,
@@ -1017,6 +1021,10 @@ function imageMatches(value: unknown, pattern: RegExp): boolean {
   } catch {
     return pattern.test(image);
   }
+}
+
+function isOpenGraphImage(image: string): boolean {
+  return imageMatches(image, /(?:^|[-_/])og(?:[-_.]|image)|open.?graph|social.?card/i);
 }
 
 function imagesMatching(images: string[], pattern: RegExp): string[] {
