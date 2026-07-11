@@ -155,6 +155,10 @@ interface FetchTextOptions {
   allowByPath?: RegExp;
 }
 
+interface FetchBytesOptions {
+  maxBytes?: number;
+}
+
 type ScrapedPage = {
   url: string;
   title: string;
@@ -211,6 +215,7 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
     ...htmlImages,
     ...bundleImages,
   ]);
+  const structuredGalleryImages = collectStructuredBundleGalleryImages(scriptBundle, parsedUrl);
   const galleryPageImages = curateImageUrls(
     supplementalPages
       .filter((page) => /gallery|photo|images?/i.test(page.url))
@@ -233,7 +238,7 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
   const highlights = buildHighlights(scriptBundle, bodyText, supplementalPages, homeBodyText, hours);
   const faqs = buildFaqs(scriptBundle, supplementalPages, searchableText, hours);
   const reviews = buildReviews(scriptBundle, bodyText, supplementalPages);
-  const galleryImages = buildGalleryImages(scriptBundle, images, logoImage, galleryPageImages);
+  const galleryImages = buildGalleryImages(scriptBundle, images, logoImage, galleryPageImages, structuredGalleryImages);
   const title = cleanText(meta.title || supplementalPages[0]?.title || firstText(bundleTexts, /Deloraine Cattery|Cattery/i) || 'Your Cattery');
   const businessName = deriveBusinessName(root, meta, supplementalPages, title, bodyText);
   const headingCandidate = cleanText(meta.heading || '');
@@ -350,6 +355,28 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
       source_url: parsedUrl.toString(),
     },
     demoRooms: rooms,
+  };
+}
+
+export async function fetchSourceWebsitePreviewHtml(rawUrl: string): Promise<{ sourceUrl: string; html: string }> {
+  const parsedUrl = normalisePublicUrl(rawUrl);
+  const html = await fetchText(parsedUrl, {
+    maxBytes: MAX_HTML_BYTES,
+    acceptedContent: /text\/html|application\/xhtml\+xml/i,
+  });
+
+  return {
+    sourceUrl: parsedUrl.toString(),
+    html: rewriteSourcePreviewHtml(html, parsedUrl),
+  };
+}
+
+export async function fetchSourceWebsitePreviewAsset(rawUrl: string): Promise<{ body: Buffer; contentType: string }> {
+  const parsedUrl = normalisePublicUrl(rawUrl);
+  const result = await fetchBytes(parsedUrl, { maxBytes: MAX_ASSET_BYTES });
+  return {
+    body: rewritePreviewAsset(result.body, result.contentType, parsedUrl),
+    contentType: result.contentType,
   };
 }
 
@@ -588,6 +615,44 @@ async function fetchText(startUrl: URL, options: FetchTextOptions = {}): Promise
   throw new TypeError('TOO_MANY_REDIRECTS');
 }
 
+async function fetchBytes(
+  startUrl: URL,
+  options: FetchBytesOptions = {},
+): Promise<{ body: Buffer; contentType: string }> {
+  let currentUrl = startUrl;
+  let currentIp = await resolveSafeIp(startUrl.hostname);
+  let redirects = 0;
+
+  while (redirects <= MAX_REDIRECTS) {
+    const result = await fetchBytesOnce(currentUrl, currentIp, options.maxBytes ?? MAX_ASSET_BYTES);
+
+    if (result.status >= 300 && result.status < 400) {
+      if (!result.location) throw new TypeError('REDIRECT_NO_LOCATION');
+      redirects++;
+      if (redirects > MAX_REDIRECTS) throw new TypeError('TOO_MANY_REDIRECTS');
+
+      const nextUrl = new URL(result.location, currentUrl.href);
+      if (nextUrl.protocol !== 'http:' && nextUrl.protocol !== 'https:') {
+        throw new TypeError('REDIRECT_BAD_SCHEME');
+      }
+      if (net.isIP(nextUrl.hostname)) {
+        throw new TypeError('DIRECT_IP');
+      }
+
+      currentIp = await resolveSafeIp(nextUrl.hostname);
+      currentUrl = nextUrl;
+      continue;
+    }
+
+    return {
+      body: result.body,
+      contentType: result.contentType,
+    };
+  }
+
+  throw new TypeError('TOO_MANY_REDIRECTS');
+}
+
 function fetchOnce(
   targetUrl: URL,
   resolvedIp: string,
@@ -653,6 +718,84 @@ function fetchOnce(
           }
         });
         res.on('end', () => settle(resolve, { status, contentType, location, body }));
+      },
+    );
+
+    req.on('timeout', () => {
+      req.destroy();
+      settle(reject, new TypeError('TIMEOUT'));
+    });
+    req.on('error', (err) => settle(reject, err));
+    req.end();
+  });
+}
+
+function fetchBytesOnce(
+  targetUrl: URL,
+  resolvedIp: string,
+  maxBytes: number,
+): Promise<{ status: number; contentType: string; location: string; body: Buffer }> {
+  return new Promise((resolve, reject) => {
+    const isHttps = targetUrl.protocol === 'https:';
+    const port = targetUrl.port ? Number(targetUrl.port) : isHttps ? 443 : 80;
+    const module_ = isHttps ? https : http;
+    let settled = false;
+    let byteLength = 0;
+    const chunks: Buffer[] = [];
+
+    const settle = (
+      callback: typeof resolve | typeof reject,
+      value: Parameters<typeof resolve>[0] | Error,
+    ) => {
+      if (settled) return;
+      settled = true;
+      callback(value as never);
+    };
+
+    const req = module_.request(
+      {
+        hostname: resolvedIp,
+        port,
+        path: targetUrl.pathname + targetUrl.search,
+        method: 'GET',
+        headers: {
+          Host: targetUrl.hostname,
+          'User-Agent':
+            'Mozilla/5.0 (compatible; CatStays-source-preview/1.0; +https://catstays.app)',
+          Accept:
+            'text/css,application/javascript,text/javascript,image/avif,image/webp,image/png,image/jpeg,*/*;q=0.8',
+          'Accept-Language': 'en-NZ,en;q=0.9',
+          Connection: 'close',
+        },
+        servername: targetUrl.hostname,
+        timeout: FETCH_TIMEOUT_MS,
+      },
+      (res) => {
+        const status = res.statusCode ?? 0;
+        const contentType = String(res.headers['content-type'] ?? '');
+        const location = String(res.headers.location ?? '');
+
+        if (status >= 300 && status < 400) {
+          req.destroy();
+          settle(resolve, { status, contentType, location, body: Buffer.alloc(0) });
+          return;
+        }
+
+        if (status < 200 || status >= 400) {
+          req.destroy();
+          settle(reject, new TypeError(`HTTP_${status}`));
+          return;
+        }
+
+        res.on('data', (chunk: Buffer) => {
+          byteLength += chunk.length;
+          chunks.push(chunk);
+          if (byteLength > maxBytes) {
+            req.destroy();
+            settle(reject, new TypeError('ASSET_TOO_LARGE'));
+          }
+        });
+        res.on('end', () => settle(resolve, { status, contentType, location, body: Buffer.concat(chunks) }));
       },
     );
 
@@ -811,12 +954,88 @@ function collectHtmlImages(root: ReturnType<typeof parse>, baseUrl: URL): string
   return images.map((image) => absoluteUrl(image, baseUrl)).filter(Boolean);
 }
 
+function rewriteSourcePreviewHtml(html: string, baseUrl: URL): string {
+  const root = parse(html);
+  root.querySelectorAll('base').forEach((node) => node.remove());
+
+  const head = root.querySelector('head');
+  if (head) {
+    head.insertAdjacentHTML('afterbegin', `<base href="${escapeHtml(baseUrl.toString())}">`);
+    head.insertAdjacentHTML(
+      'beforeend',
+      '<style>[src*="replit-dev-banner"], replit-dev-banner { display: none !important; }</style>',
+    );
+  }
+
+  for (const script of root.querySelectorAll('script[src]')) {
+    const source = absoluteUrl(script.getAttribute('src') ?? '', baseUrl);
+    if (!source) continue;
+    if (/replit-dev-banner|cloudflareinsights|beacon\.min\.js/i.test(source)) {
+      script.remove();
+      continue;
+    }
+    script.setAttribute('src', sourcePreviewAssetUrl(source));
+    script.removeAttribute('integrity');
+    script.removeAttribute('crossorigin');
+  }
+
+  for (const link of root.querySelectorAll('link[href]')) {
+    const rel = (link.getAttribute('rel') ?? '').toLowerCase();
+    if (!/(stylesheet|preload|modulepreload)/i.test(rel)) continue;
+    const href = absoluteUrl(link.getAttribute('href') ?? '', baseUrl);
+    if (!href) continue;
+    link.setAttribute('href', sourcePreviewAssetUrl(href));
+    link.removeAttribute('integrity');
+    link.removeAttribute('crossorigin');
+  }
+
+  return `<!doctype html>\n${root.toString()}`;
+}
+
+function rewritePreviewAsset(body: Buffer, contentType: string, assetUrl: URL): Buffer {
+  if (!/text\/css/i.test(contentType)) return body;
+  const css = body.toString('utf8').replace(/url\((['"]?)(.*?)\1\)/gi, (match, quote: string, rawUrl: string) => {
+    if (!rawUrl || /^(data:|#)/i.test(rawUrl)) return match;
+    const absolute = absoluteUrl(rawUrl, assetUrl);
+    if (!absolute) return match;
+    return `url(${quote}${absolute}${quote})`;
+  });
+  return Buffer.from(css, 'utf8');
+}
+
+function sourcePreviewAssetUrl(url: string): string {
+  return `/api/website/source-asset?url=${encodeURIComponent(url)}`;
+}
+
 function collectBundleAssets(bundle: string, baseUrl: URL): string[] {
   const assets = [
     ...bundle.matchAll(/["'`](\/assets\/[^"'`]+?\.(?:jpe?g|png|webp|avif))["'`]/gi),
     ...bundle.matchAll(/["'`](https?:\/\/[^"'`\s)]+?\.(?:jpe?g|png|webp|avif)(?:\?[^"'`\s)]*)?)["'`]/gi),
   ];
   return assets.map((match) => absoluteUrl(match[1], baseUrl)).filter(Boolean);
+}
+
+function collectStructuredBundleGalleryImages(bundle: string, baseUrl: URL): Array<{ url: string; caption: string }> {
+  const assetsByVariable = new Map<string, string>();
+  for (const match of bundle.matchAll(
+    /\b([A-Za-z_$][\w$]*)\s*=\s*["'`]((?:\/assets\/|https?:\/\/)[^"'`]+?\.(?:jpe?g|png|webp|avif)(?:\?[^"'`]*)?)["'`]/gi,
+  )) {
+    assetsByVariable.set(match[1], absoluteUrl(match[2], baseUrl));
+  }
+
+  const images: Array<{ url: string; caption: string }> = [];
+  for (const match of bundle.matchAll(
+    /\{src:([A-Za-z_$][\w$]*),thumbSrc:([A-Za-z_$][\w$]*),alt:"([^"]*)",title:"([^"]*)"[\s\S]*?\}/g,
+  )) {
+    const url = assetsByVariable.get(match[1]);
+    if (!url) continue;
+    images.push({
+      url,
+      caption: cleanText(decodeJsString(match[4]) || decodeJsString(match[3]) || captionForImage(url, new Map())),
+    });
+  }
+
+  return uniqueGalleryImages(images);
 }
 
 function curateImageUrls(rawImages: string[]): string[] {
@@ -852,7 +1071,15 @@ function buildGalleryImages(
   images: string[],
   logoImage: string,
   preferredImages: string[] = [],
+  structuredGalleryImages: Array<{ url: string; caption: string }> = [],
 ): Array<{ url: string; caption: string }> {
+  if (structuredGalleryImages.length) {
+    const logoKey = imageKey(logoImage);
+    return uniqueGalleryImages(structuredGalleryImages)
+      .filter((image) => imageKey(image.url) !== logoKey)
+      .filter((image) => !/og-image/i.test(image.url));
+  }
+
   const captionsByAsset = new Map<string, string>();
   const galleryMatches = bundle.matchAll(/src:([A-Za-z0-9_$]+),alt:"([^"]*)",title:"([^"]*)"/g);
   for (const match of galleryMatches) {
@@ -862,11 +1089,31 @@ function buildGalleryImages(
   const logoKey = imageKey(logoImage);
   return uniqueUrls([...preferredImages, ...images])
     .filter((image) => imageKey(image) !== logoKey)
-    .slice(0, 12)
+    .filter((image) => !/og-image/i.test(image))
+    .slice(0, 30)
     .map((url, index) => ({
       url,
       caption: captionForImage(url, captionsByAsset) || `Cattery photo ${index + 1}`,
     }));
+}
+
+function uniqueGalleryImages(images: Array<{ url: string; caption: string }>): Array<{ url: string; caption: string }> {
+  const byKey = new Map<string, { url: string; caption: string }>();
+  for (const image of images) {
+    if (!image.url) continue;
+    const key = imageKey(image.url);
+    if (!key || byKey.has(key)) continue;
+    byKey.set(key, image);
+  }
+  return Array.from(byKey.values());
+}
+
+function decodeJsString(value: string): string {
+  try {
+    return JSON.parse(`"${value.replace(/"/g, '\\"')}"`);
+  } catch {
+    return value;
+  }
 }
 
 function captionForImage(image: string, captionsByAsset: Map<string, string>): string {
@@ -1954,6 +2201,14 @@ function slugify(value: string): string {
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
 function cleanText(value: string): string {

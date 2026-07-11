@@ -602,16 +602,18 @@ function SourceWebsitePreview({
   const heightStyle = fillHeight
     ? { height: '100%' }
     : { height: '900px', minHeight: 'calc(100vh - 170px)' };
+  const previewUrl = `/api/website/source-preview?url=${encodeURIComponent(sourceUrl)}`;
 
   return (
     <div className="w-full bg-white" style={heightStyle}>
       <iframe
         key={sourceUrl}
         title={title}
-        src={sourceUrl}
+        src={previewUrl}
         className="block h-full min-h-[inherit] w-full border-0 bg-white"
         loading="eager"
         referrerPolicy="no-referrer-when-downgrade"
+        sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox allow-scripts"
         scrolling="auto"
       />
     </div>

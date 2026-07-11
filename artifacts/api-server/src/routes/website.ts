@@ -1,5 +1,9 @@
 import { Router, type IRouter } from 'express';
-import { scrapeCatteryWebsite } from '../lib/catteryWebsiteScraper';
+import {
+  fetchSourceWebsitePreviewAsset,
+  fetchSourceWebsitePreviewHtml,
+  scrapeCatteryWebsite,
+} from '../lib/catteryWebsiteScraper';
 
 const router: IRouter = Router();
 
@@ -49,6 +53,47 @@ router.post('/website/scrape', async (req, res) => {
       });
     }
     return;
+  }
+});
+
+router.get('/website/source-preview', async (req, res) => {
+  const url = typeof req.query.url === 'string' ? req.query.url : '';
+
+  if (!url) {
+    res.status(400).send('url is required');
+    return;
+  }
+
+  try {
+    const result = await fetchSourceWebsitePreviewHtml(url);
+    res
+      .status(200)
+      .set('Content-Type', 'text/html; charset=utf-8')
+      .set('Cache-Control', 'no-store')
+      .send(result.html);
+  } catch {
+    res.status(422).send('Unable to load the source website preview.');
+  }
+});
+
+router.get('/website/source-asset', async (req, res) => {
+  const url = typeof req.query.url === 'string' ? req.query.url : '';
+
+  if (!url) {
+    res.status(400).send('url is required');
+    return;
+  }
+
+  try {
+    const result = await fetchSourceWebsitePreviewAsset(url);
+    res
+      .status(200)
+      .set('Content-Type', result.contentType || 'application/octet-stream')
+      .set('Access-Control-Allow-Origin', '*')
+      .set('Cache-Control', 'public, max-age=300')
+      .send(result.body);
+  } catch {
+    res.status(404).send('Asset not available.');
   }
 });
 
