@@ -37,6 +37,31 @@ const deloraineAssets = [
   currentDeloraineAssets.communalGallery,
 ];
 
+const originalDeloraineGalleryImages = [
+  { url: 'https://www.delorainecattery.com/assets/20250102_103130-ClAG3xaC.webp', caption: 'Gorgeous Tortoiseshell Guest' },
+  { url: 'https://www.delorainecattery.com/assets/kitty3-jpkCuTAj.webp', caption: 'Adorable White Kittens' },
+  { url: 'https://www.delorainecattery.com/assets/wally-DQBaoPHx.webp', caption: 'Wally - Beautiful Siamese' },
+  { url: 'https://www.delorainecattery.com/assets/lola-BTbxoyVV.webp', caption: 'Lola at Playtime' },
+  { url: 'https://www.delorainecattery.com/assets/foxy-DWmNnDVP.webp', caption: 'Foxy Enjoying Fresh Air' },
+  { url: 'https://www.delorainecattery.com/assets/maincoonegroom-DGM1PdpS.webp', caption: 'Evening Daily Brushing Service' },
+  { url: 'https://www.delorainecattery.com/assets/monty-Kw66NG5E.webp', caption: 'Handsome Monty' },
+  { url: 'https://www.delorainecattery.com/assets/toby-ByV3z4Lb.webp', caption: 'Toby Watching the World' },
+  { url: 'https://www.delorainecattery.com/assets/bellaandminnie-BwvF6lNU.webp', caption: 'Bella and Our Young Visitor' },
+  { url: 'https://www.delorainecattery.com/assets/kitty-DZxNyP3l.webp', caption: 'Bath Time Comfort' },
+  { url: 'https://www.delorainecattery.com/assets/mainecoon-BgBP12uy.webp', caption: 'Magnificent Maine Coon' },
+  { url: 'https://www.delorainecattery.com/assets/kaiaandindi-Co4ggGc9.webp', caption: 'Kaia and Indi - Best Friends' },
+  { url: 'https://www.delorainecattery.com/assets/window-Z3oqqldV.webp', caption: 'Window Watching' },
+  { url: 'https://www.delorainecattery.com/assets/hillorayandharlo-eYisCtIy.webp', caption: 'Hilloray and Harlo - Special Visitors' },
+  { url: 'https://www.delorainecattery.com/assets/catincommunalroom-DSqIA0wz.webp', caption: 'Happy in the Communal Room' },
+  { url: 'https://www.delorainecattery.com/assets/paulandvanessa-PMjFSzlA.webp', caption: 'Your Caring Hosts - Paul & Vanessa' },
+  { url: 'https://www.delorainecattery.com/assets/kaiaandmelody-B0bc8yLB.webp', caption: 'Kaia and Melody - Gentle Friends' },
+  { url: 'https://www.delorainecattery.com/assets/building-BCT6VBmp.webp', caption: 'Our Beautiful Facility' },
+  { url: 'https://www.delorainecattery.com/assets/communal3-gallery-BpE4bGOS.webp', caption: 'Communal Play Area' },
+  { url: 'https://www.delorainecattery.com/assets/indoor-gallery-xEtDecwe.webp', caption: 'Comfortable Indoor Suites' },
+  { url: 'https://www.delorainecattery.com/assets/private3-gallery-BKhnvRUd.webp', caption: 'Private Boarding Rooms' },
+  { url: 'https://www.delorainecattery.com/assets/kitty1-gallery-BTXoFn51.webp', caption: 'Sweet Tabby Kittens' },
+];
+
 const obsoleteDeloraineAssetReplacements: Record<string, string> = {
   'deloraine cattery building-cx1rwdrb.png': currentDeloraineAssets.hero,
   'private3-r_9krtwp.jpg': currentDeloraineAssets.privateRoom,
@@ -272,21 +297,8 @@ export const fallbackDeloraineScrape: ImportedCatteryScrape = {
     'Professional cat boarding facility providing exceptional care for your feline friends. Deloraine Cattery offers comfortable accommodations and personalized attention.',
   heading: 'Deloraine Cattery',
   heroImage: deloraineAssets[0],
-  images: deloraineAssets,
-  galleryImages: deloraineAssets.map((url, index) => ({
-    url,
-    caption:
-      [
-        'Deloraine Cattery building',
-        'Private boarding rooms',
-        'Communal play area',
-        'Indoor boarding suites',
-        'Happy white kittens',
-        'Wally the Siamese cat',
-        'Lola at playtime',
-        'Paul and Vanessa Wilson',
-      ][index] || 'Deloraine Cattery photo',
-  })),
+  images: Array.from(new Set([...deloraineAssets, ...originalDeloraineGalleryImages.map((image) => image.url)])),
+  galleryImages: originalDeloraineGalleryImages,
   phone: '021 463 616',
   email: 'enquiry@delorainecattery.com',
   address: '50 Konini Street, Abbey Caves, Whangarei',
@@ -751,14 +763,7 @@ export const fallbackDeloraineScrape: ImportedCatteryScrape = {
         title: 'Happy Cats at Deloraine',
         text: 'A gallery of the facilities and cats who love staying at Deloraine Cattery.',
         source: 'scrape',
-        images: [
-          { url: deloraineAssets[4], caption: 'Happy kittens at Deloraine' },
-          { url: deloraineAssets[5], caption: 'Wally relaxing' },
-          { url: deloraineAssets[6], caption: 'Lola at playtime' },
-          { url: deloraineAssets[2], caption: 'Communal room with outdoor views' },
-          { url: deloraineAssets[1], caption: 'Private boarding room' },
-          { url: deloraineAssets[3], caption: 'Indoor room accommodation' },
-        ],
+        images: originalDeloraineGalleryImages,
       },
       {
         id: 'reviews',

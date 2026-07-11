@@ -450,6 +450,10 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const galleryDataImages = Array.isArray(data.galleryData?.galleryImages)
     ? data.galleryData.galleryImages.map((image: any) => stringFrom(image?.url, image))
     : [];
+  const explicitGalleryImages = uniqueImagesByKey([
+    ...editedGalleryImages,
+    ...galleryDataImages,
+  ]).filter((image) => isUsableGalleryImage(image, logoImage) && !isOpenGraphImage(image));
   const galleryImages = uniqueStrings([
     ...editedGalleryImages,
     ...galleryDataImages,
@@ -609,15 +613,19 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     text: stringFrom(service.description, service.text, 'Additional support available during the stay.'),
     price: stringFrom(service.price),
   }));
-  for (const service of serviceContent) {
-    rememberImage(usedImages, service.image);
-  }
-  const galleryAvailableImages = galleryImages.filter((image) => !hasSeenImage(usedImages, image) && !isOpenGraphImage(image));
-  const galleryPreferredImages = imagesMatching(galleryAvailableImages, /kitty|wally|lola|gallery/i);
-  const gallerySourceImages = uniqueImagesByKey([
-    ...galleryPreferredImages,
-    ...galleryAvailableImages,
-  ]);
+  const gallerySourceImages = explicitGalleryImages.length
+    ? explicitGalleryImages
+    : (() => {
+        for (const service of serviceContent) {
+          rememberImage(usedImages, service.image);
+        }
+        const galleryAvailableImages = galleryImages.filter((image) => !hasSeenImage(usedImages, image) && !isOpenGraphImage(image));
+        const galleryPreferredImages = imagesMatching(galleryAvailableImages, /kitty|wally|lola|gallery/i);
+        return uniqueImagesByKey([
+          ...galleryPreferredImages,
+          ...galleryAvailableImages,
+        ]);
+      })();
   const galleryContent = gallerySourceImages.map((image, index) => ({
     image,
     caption: stringFrom(record?.media.galleryImages?.[index]?.caption, `${businessName} photo ${index + 1}`),
