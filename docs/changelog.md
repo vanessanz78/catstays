@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-07-12
+
+- Added a durable Replit handoff rule: every future Replit pull command should include a stop/start block so testing does not continue against stale Vite, TSX, or Node processes.
+- Updated Replit pull examples to fetch, checkout, pull, stop old runtime processes, and restart the CatStays frontend with the repository-specific command.
+
 ## 2026-07-11
 
 - Added Open Home platform principles and implementation charter to formalise the transition from architecture to implementation.

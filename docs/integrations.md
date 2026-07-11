@@ -1,6 +1,6 @@
 # Integrations
 
-Last reviewed: 2026-06-12
+Last reviewed: 2026-07-12
 
 ## Supabase
 
@@ -17,12 +17,18 @@ Open items:
 
 Replit is the development and deployment surface. The repo includes `.replit` configuration for modules, deployment, post-merge setup, and environment variables.
 
-Replit should pull from GitHub:
+Replit should pull from GitHub and restart the running frontend process. Replace `main` with the active branch when testing a feature branch:
 
 ```bash
+git fetch origin
+git checkout main
 git pull --ff-only origin main
-pnpm install
+
+pkill -f "vite|tsx|node" || true
+pnpm --filter @workspace/catstays run dev
 ```
+
+Every future Replit pull command in handoffs should include the stop/start block so UAT is not run against stale Vite, TSX, or Node processes.
 
 If Replit reports diverged branches, stop before resetting or merging.
 

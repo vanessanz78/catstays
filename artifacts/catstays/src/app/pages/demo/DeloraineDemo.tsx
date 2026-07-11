@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import { ArrowLeft, CheckCircle, Globe, LayoutDashboard, Monitor, Smartphone, Tablet, UserRound } from 'lucide-react';
 import { Button } from '../../components/ui/button';
@@ -9,11 +9,10 @@ import {
   DELORAINE_SOURCE_URL,
   fallbackDeloraineScrape,
   IMPORT_URL_STORAGE_KEY,
+  migrateDeloraineAssetsInValue,
   PREVIEW_SOURCE_INTENT_STORAGE_KEY,
-  PREVIEW_DATA_STORAGE_KEY,
   PREVIEW_URL_STORAGE_KEY,
   rememberCatteryPreview,
-  sourceMatchesRequest,
   type DelorainePreviewData,
   type ImportedCatteryScrape,
 } from '../../lib/deloraineDemo';
@@ -26,6 +25,7 @@ import {
   type PreviewImportRecord,
   type PreviewTemplateId,
 } from '../../lib/previewTemplates';
+import { normalizeWebsiteImportUrl } from '../../lib/websiteImportUrl';
 
 type DemoMode = 'website' | 'dashboard' | 'client';
 type DeviceMode = 'mobile' | 'tablet' | 'desktop';
@@ -112,27 +112,28 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
   };
 
   const selectedTemplate = normalizePreviewTemplateId(previewData.selectedTemplate || 'original');
+  const selectedTemplateRef = useRef<PreviewTemplateId>(selectedTemplate);
+
+  useEffect(() => {
+    selectedTemplateRef.current = selectedTemplate;
+  }, [selectedTemplate]);
+
   const modeHref = (href: string) => href;
 
   const selectTemplate = (template: PreviewTemplateId) => {
+    selectedTemplateRef.current = template;
+    saveSelectedDemoTemplate(template);
     const nextData = dataForTemplate(previewData, template);
     setPreviewData(nextData);
-    saveSelectedDemoTemplate(template);
-    persistPreviewData(nextData);
   };
 
   const persistSelectedPreviewForSignup = () => {
     const nextData = dataForTemplate(previewData, selectedTemplate);
     saveSelectedDemoTemplate(selectedTemplate);
-    persistPreviewData(nextData);
     try {
       window.localStorage.setItem('catstays_onboarding', JSON.stringify({
         step: 2,
-        data: {
-          ...nextData,
-          websiteUrl: (nextData as any).importSourceUrl || nextData.sourceUrl || requestedImportUrl,
-          importComplete: true,
-        },
+        data: lightweightPreviewState(nextData, requestedImportUrl),
         accountCreated: false,
       }));
     } catch {
@@ -155,15 +156,15 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
           throw new Error(payload?.error || 'Import failed');
         }
         if (cancelled) return;
-        const importedPreview = previewDataForScrape(payload as ImportedCatteryScrape);
-        setPreviewData(importedPreview);
+        const importedPreview = previewDataForScrape(migrateDeloraineAssetsInValue(payload as ImportedCatteryScrape));
+        setPreviewData(dataForTemplate(importedPreview, selectedTemplateRef.current));
       } catch {
         if (cancelled) return;
         const fallbackScrape = isDeloraineRequest(requestedImportUrl)
           ? fallbackDeloraineScrape
           : buildFallbackScrapeForUrl(requestedImportUrl);
-        const fallbackPreview = previewDataForScrape(fallbackScrape);
-        setPreviewData(fallbackPreview);
+        const fallbackPreview = previewDataForScrape(migrateDeloraineAssetsInValue(fallbackScrape));
+        setPreviewData(dataForTemplate(fallbackPreview, selectedTemplateRef.current));
       }
     }
 
@@ -410,7 +411,6 @@ function templateDescription(template: PreviewTemplateId) {
 
 function previewDataForScrape(scrape: ImportedCatteryScrape): DelorainePreviewData {
   const record = buildPreviewImportRecord(scrape);
-  savePreviewImportRecord(record);
   const selectedTemplate = readSavedDemoTemplate() || record.selectedTemplate;
   const previewData = dataFromPreviewRecord(record, selectedTemplate, record.normalizedPreviewData) as DelorainePreviewData;
   rememberCatteryPreview(scrape, previewData);
@@ -423,7 +423,6 @@ function dataForTemplate(data: DelorainePreviewData, template: PreviewTemplateId
 
   if (record) {
     const nextData = dataFromPreviewRecord(record, selectedTemplate, data) as DelorainePreviewData;
-    savePreviewImportRecord((nextData as any).previewImportRecord as PreviewImportRecord);
     return nextData;
   }
 
@@ -446,34 +445,13 @@ function saveSelectedDemoTemplate(template: PreviewTemplateId) {
   window.sessionStorage.setItem(demoTemplateStorageKey, template);
 }
 
-function persistPreviewData(previewData: DelorainePreviewData) {
-  if (typeof window === 'undefined') return;
-
-  try {
-    const existingRaw =
-      window.sessionStorage.getItem(PREVIEW_DATA_STORAGE_KEY) ||
-      window.localStorage.getItem(PREVIEW_DATA_STORAGE_KEY);
-    const existing = existingRaw ? JSON.parse(existingRaw) : {};
-    const payload = JSON.stringify({
-      ...existing,
-      previewData,
-      selectedTemplate: previewData.selectedTemplate,
-      savedAt: new Date().toISOString(),
-    });
-    window.sessionStorage.setItem(PREVIEW_DATA_STORAGE_KEY, payload);
-    window.localStorage.setItem(PREVIEW_DATA_STORAGE_KEY, payload);
-  } catch {
-    // Storage is optional; the live in-memory preview is still updated.
-  }
-}
-
 function readRequestedImportUrl(): string {
   if (typeof window === 'undefined') return DELORAINE_SOURCE_URL;
 
   const sourceParam = new URLSearchParams(window.location.search).get('source');
   const sourceIntent = window.sessionStorage.getItem(PREVIEW_SOURCE_INTENT_STORAGE_KEY);
   const explicitPreviewSource = sourceIntent === 'form-submit';
-  const requestedUrl =
+  const requestedUrl = normalizeWebsiteImportUrl(
     explicitPreviewSource
       ? window.sessionStorage.getItem(PREVIEW_URL_STORAGE_KEY) ||
         window.localStorage.getItem(PREVIEW_URL_STORAGE_KEY) ||
@@ -481,7 +459,9 @@ function readRequestedImportUrl(): string {
         window.localStorage.getItem(IMPORT_URL_STORAGE_KEY) ||
         sourceParam ||
         DELORAINE_SOURCE_URL
-      : DELORAINE_SOURCE_URL;
+      : DELORAINE_SOURCE_URL,
+    DELORAINE_SOURCE_URL,
+  );
 
   window.localStorage.setItem(PREVIEW_URL_STORAGE_KEY, requestedUrl);
   window.sessionStorage.setItem(PREVIEW_URL_STORAGE_KEY, requestedUrl);
@@ -489,42 +469,24 @@ function readRequestedImportUrl(): string {
 }
 
 function readInitialPreviewData(requestedUrl: string): DelorainePreviewData {
-  const storedPreview = readStoredPreviewData(requestedUrl);
-  if (storedPreview) return storedPreview;
   if (isDeloraineRequest(requestedUrl)) return previewDataForScrape(fallbackDeloraineScrape);
   return previewDataForScrape(buildFallbackScrapeForUrl(requestedUrl));
 }
 
-function readStoredPreviewData(requestedUrl: string): DelorainePreviewData | null {
-  if (typeof window === 'undefined') return null;
-
-  const raw =
-    window.sessionStorage.getItem(PREVIEW_DATA_STORAGE_KEY) ||
-    window.localStorage.getItem(PREVIEW_DATA_STORAGE_KEY);
-  if (!raw) return null;
-
-  try {
-    const parsed = JSON.parse(raw) as {
-      scrape?: ImportedCatteryScrape;
-      previewData?: DelorainePreviewData;
-      selectedTemplate?: string;
-    };
-    const sourceUrl = parsed.scrape?.sourceUrl || parsed.previewData?.sourceUrl || (parsed.previewData as any)?.importSourceUrl;
-    if (!parsed.previewData || !sourceMatchesRequest(sourceUrl, requestedUrl)) return null;
-
-    const selectedTemplate = readSavedDemoTemplate() || normalizePreviewTemplateId(parsed.selectedTemplate || parsed.previewData.selectedTemplate || 'original');
-    if (parsed.scrape) {
-      const record = buildPreviewImportRecord(parsed.scrape);
-      savePreviewImportRecord(record);
-      return dataFromPreviewRecord(record, selectedTemplate, parsed.previewData) as DelorainePreviewData;
-    }
-
-    return dataForTemplate(parsed.previewData, selectedTemplate);
-  } catch {
-    return null;
-  }
+function isDeloraineRequest(requestedUrl: string): boolean {
+  return /delorainecattery\.com/i.test(requestedUrl);
 }
 
-function isDeloraineRequest(requestedUrl: string): boolean {
-  return sourceMatchesRequest(DELORAINE_SOURCE_URL, requestedUrl);
+function lightweightPreviewState(previewData: DelorainePreviewData, requestedUrl: string) {
+  const record = (previewData as any).previewImportRecord as PreviewImportRecord | undefined;
+  return {
+    websiteUrl: (previewData as any).importSourceUrl || previewData.sourceUrl || requestedUrl,
+    importSourceUrl: (previewData as any).importSourceUrl || previewData.sourceUrl || requestedUrl,
+    sourceUrl: previewData.sourceUrl || requestedUrl,
+    sourceHost: (previewData as any).sourceHost,
+    selectedTemplate: previewData.selectedTemplate,
+    previewImportRecordId: record?.id || (previewData as any).previewImportRecordId || '',
+    previewRecordStatus: (previewData as any).previewRecordStatus || record?.status || 'preview',
+    importComplete: true,
+  };
 }

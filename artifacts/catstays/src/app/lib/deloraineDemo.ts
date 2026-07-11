@@ -1,19 +1,100 @@
+import { normalizeWebsiteImportUrl } from './websiteImportUrl';
+
 export const DELORAINE_SOURCE_URL = 'https://www.delorainecattery.com/';
 export const PREVIEW_URL_STORAGE_KEY = 'catstays_preview_url';
 export const PREVIEW_SOURCE_INTENT_STORAGE_KEY = 'catstays_preview_source_intent';
-export const PREVIEW_DATA_STORAGE_KEY = 'catstays_preview_data';
 export const IMPORT_URL_STORAGE_KEY = 'catstays_import_url';
 
+export const currentDeloraineAssets = {
+  hero: 'https://www.delorainecattery.com/assets/hero-bg-0sOFbiPk.webp',
+  building: 'https://www.delorainecattery.com/assets/building-BCT6VBmp.webp',
+  buildingThumb: 'https://www.delorainecattery.com/assets/building-BViT32N2.webp',
+  privateRoom: 'https://www.delorainecattery.com/assets/private3-BFqRytNH.webp',
+  communalRoom: 'https://www.delorainecattery.com/assets/communal3-DuvzU1nQ.webp',
+  communalGallery: 'https://www.delorainecattery.com/assets/communal3-gallery-BpE4bGOS.webp',
+  indoorRoom: 'https://www.delorainecattery.com/assets/indoor-BROFWTed.webp',
+  kitty: 'https://www.delorainecattery.com/assets/kitty1-DXYnrmu-.webp',
+  kittyGallery: 'https://www.delorainecattery.com/assets/kitty1-gallery-BTXoFn51.webp',
+  wally: 'https://www.delorainecattery.com/assets/wally-DQBaoPHx.webp',
+  lola: 'https://www.delorainecattery.com/assets/lola-BTbxoyVV.webp',
+  grooming: 'https://www.delorainecattery.com/assets/maincoonegroom-DGM1PdpS.webp',
+  owner: 'https://www.delorainecattery.com/assets/paul-vanessa-bali-CKRvcrOP.webp',
+  ownerPortrait: 'https://www.delorainecattery.com/assets/paulandvanessa-DIIjU60g.webp',
+};
+
 const deloraineAssets = [
-  'https://www.delorainecattery.com/assets/Deloraine%20Cattery%20Building-CX1rWDRb.png',
-  'https://www.delorainecattery.com/assets/Private3-R_9kRTwp.jpg',
-  'https://www.delorainecattery.com/assets/Communal3-CidRKr1N.jpg',
-  'https://www.delorainecattery.com/assets/Indoor-Blew-XJG.jpeg',
-  'https://www.delorainecattery.com/assets/Kitty3-nO3ryPLf.jpg',
-  'https://www.delorainecattery.com/assets/Wally-C97dE8Dg.jpg',
-  'https://www.delorainecattery.com/assets/Lola-c8BpaLTB.jpg',
-  'https://www.delorainecattery.com/assets/Paul%20and%20Vanessa-Dst6H-6-.jpg',
+  currentDeloraineAssets.hero,
+  currentDeloraineAssets.privateRoom,
+  currentDeloraineAssets.communalRoom,
+  currentDeloraineAssets.indoorRoom,
+  currentDeloraineAssets.kitty,
+  currentDeloraineAssets.wally,
+  currentDeloraineAssets.lola,
+  currentDeloraineAssets.owner,
+  currentDeloraineAssets.ownerPortrait,
+  currentDeloraineAssets.building,
+  currentDeloraineAssets.buildingThumb,
+  currentDeloraineAssets.grooming,
+  currentDeloraineAssets.kittyGallery,
+  currentDeloraineAssets.communalGallery,
 ];
+
+const originalDeloraineGalleryImages = [
+  { url: 'https://www.delorainecattery.com/assets/20250102_103130-ClAG3xaC.webp', caption: 'Gorgeous Tortoiseshell Guest' },
+  { url: 'https://www.delorainecattery.com/assets/kitty3-jpkCuTAj.webp', caption: 'Adorable White Kittens' },
+  { url: 'https://www.delorainecattery.com/assets/wally-DQBaoPHx.webp', caption: 'Wally - Beautiful Siamese' },
+  { url: 'https://www.delorainecattery.com/assets/lola-BTbxoyVV.webp', caption: 'Lola at Playtime' },
+  { url: 'https://www.delorainecattery.com/assets/foxy-DWmNnDVP.webp', caption: 'Foxy Enjoying Fresh Air' },
+  { url: 'https://www.delorainecattery.com/assets/maincoonegroom-DGM1PdpS.webp', caption: 'Evening Daily Brushing Service' },
+  { url: 'https://www.delorainecattery.com/assets/monty-Kw66NG5E.webp', caption: 'Handsome Monty' },
+  { url: 'https://www.delorainecattery.com/assets/toby-ByV3z4Lb.webp', caption: 'Toby Watching the World' },
+  { url: 'https://www.delorainecattery.com/assets/bellaandminnie-BwvF6lNU.webp', caption: 'Bella and Our Young Visitor' },
+  { url: 'https://www.delorainecattery.com/assets/kitty-DZxNyP3l.webp', caption: 'Bath Time Comfort' },
+  { url: 'https://www.delorainecattery.com/assets/mainecoon-BgBP12uy.webp', caption: 'Magnificent Maine Coon' },
+  { url: 'https://www.delorainecattery.com/assets/kaiaandindi-Co4ggGc9.webp', caption: 'Kaia and Indi - Best Friends' },
+  { url: 'https://www.delorainecattery.com/assets/window-Z3oqqldV.webp', caption: 'Window Watching' },
+  { url: 'https://www.delorainecattery.com/assets/hillorayandharlo-eYisCtIy.webp', caption: 'Hilloray and Harlo - Special Visitors' },
+  { url: 'https://www.delorainecattery.com/assets/catincommunalroom-DSqIA0wz.webp', caption: 'Happy in the Communal Room' },
+  { url: 'https://www.delorainecattery.com/assets/paulandvanessa-PMjFSzlA.webp', caption: 'Your Caring Hosts - Paul & Vanessa' },
+  { url: 'https://www.delorainecattery.com/assets/kaiaandmelody-B0bc8yLB.webp', caption: 'Kaia and Melody - Gentle Friends' },
+  { url: 'https://www.delorainecattery.com/assets/building-BCT6VBmp.webp', caption: 'Our Beautiful Facility' },
+  { url: 'https://www.delorainecattery.com/assets/communal3-gallery-BpE4bGOS.webp', caption: 'Communal Play Area' },
+  { url: 'https://www.delorainecattery.com/assets/indoor-gallery-xEtDecwe.webp', caption: 'Comfortable Indoor Suites' },
+  { url: 'https://www.delorainecattery.com/assets/private3-gallery-BKhnvRUd.webp', caption: 'Private Boarding Rooms' },
+  { url: 'https://www.delorainecattery.com/assets/kitty1-gallery-BTXoFn51.webp', caption: 'Sweet Tabby Kittens' },
+];
+
+const obsoleteDeloraineAssetReplacements: Record<string, string> = {
+  'deloraine cattery building-cx1rwdrb.png': currentDeloraineAssets.hero,
+  'private3-r_9krtwp.jpg': currentDeloraineAssets.privateRoom,
+  'communal3-cidrkr1n.jpg': currentDeloraineAssets.communalRoom,
+  'indoor-blew-xjg.jpeg': currentDeloraineAssets.indoorRoom,
+  'kitty3-no3ryplf.jpg': currentDeloraineAssets.kitty,
+  'wally-c97de8dg.jpg': currentDeloraineAssets.wally,
+  'lola-c8bpaltb.jpg': currentDeloraineAssets.lola,
+  'paul and vanessa-dst6h-6-.jpg': currentDeloraineAssets.owner,
+};
+
+export function migrateDeloraineAssetUrl(value: string): string {
+  try {
+    const parsed = new URL(value);
+    const host = parsed.hostname.replace(/^www\./, '').toLowerCase();
+    if (host !== 'delorainecattery.com') return value;
+    const filename = decodeURIComponent(parsed.pathname.split('/').pop() || '').toLowerCase();
+    return obsoleteDeloraineAssetReplacements[filename] || value;
+  } catch {
+    return value;
+  }
+}
+
+export function migrateDeloraineAssetsInValue<T>(value: T): T {
+  if (typeof value === 'string') return migrateDeloraineAssetUrl(value) as T;
+  if (Array.isArray(value)) return value.map((item) => migrateDeloraineAssetsInValue(item)) as T;
+  if (!value || typeof value !== 'object') return value;
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).map(([key, item]) => [key, migrateDeloraineAssetsInValue(item)]),
+  ) as T;
+}
 
 const deloraineVirtualTourEmbedUrl =
   'https://www.google.com/maps/embed?pb=!4v1585042151806!6m8!1m7!1sCAoSLEFGMVFpcE4yclY4ZXBnVTVJTlc4VkVoTEN2dmx5Wk45b201czhtZ3ZUbFpr!2m2!1d-35.72669200000001!2d174.355986!3f20.68!4f-14.75!5f0.4000000000000002';
@@ -218,21 +299,8 @@ export const fallbackDeloraineScrape: ImportedCatteryScrape = {
     'Professional cat boarding facility providing exceptional care for your feline friends. Deloraine Cattery offers comfortable accommodations and personalized attention.',
   heading: 'Deloraine Cattery',
   heroImage: deloraineAssets[0],
-  images: deloraineAssets,
-  galleryImages: deloraineAssets.map((url, index) => ({
-    url,
-    caption:
-      [
-        'Deloraine Cattery building',
-        'Private boarding rooms',
-        'Communal play area',
-        'Indoor boarding suites',
-        'Happy white kittens',
-        'Wally the Siamese cat',
-        'Lola at playtime',
-        'Paul and Vanessa Wilson',
-      ][index] || 'Deloraine Cattery photo',
-  })),
+  images: Array.from(new Set([...deloraineAssets, ...originalDeloraineGalleryImages.map((image) => image.url)])),
+  galleryImages: originalDeloraineGalleryImages,
   phone: '021 463 616',
   email: 'enquiry@delorainecattery.com',
   address: '50 Konini Street, Abbey Caves, Whangarei',
@@ -697,14 +765,7 @@ export const fallbackDeloraineScrape: ImportedCatteryScrape = {
         title: 'Happy Cats at Deloraine',
         text: 'A gallery of the facilities and cats who love staying at Deloraine Cattery.',
         source: 'scrape',
-        images: [
-          { url: deloraineAssets[4], caption: 'Happy kittens at Deloraine' },
-          { url: deloraineAssets[5], caption: 'Wally relaxing' },
-          { url: deloraineAssets[6], caption: 'Lola at playtime' },
-          { url: deloraineAssets[2], caption: 'Communal room with outdoor views' },
-          { url: deloraineAssets[1], caption: 'Private boarding room' },
-          { url: deloraineAssets[3], caption: 'Indoor room accommodation' },
-        ],
+        images: originalDeloraineGalleryImages,
       },
       {
         id: 'reviews',
@@ -882,7 +943,8 @@ export const fallbackDeloraineScrape: ImportedCatteryScrape = {
 
 export const defaultDelorainePreviewData = buildPreviewDataFromScrape(fallbackDeloraineScrape);
 
-export function buildPreviewDataFromScrape(scrape: ImportedCatteryScrape): DelorainePreviewData {
+export function buildPreviewDataFromScrape(inputScrape: ImportedCatteryScrape): DelorainePreviewData {
+  const scrape = migrateDeloraineAssetsInValue(inputScrape);
   const settings = scrape.websiteSettings ?? {};
   const isDeloraineSource = isDeloraineScrape(scrape);
   const fallbackAssets = isDeloraineSource ? deloraineAssets : genericCatAssets;
@@ -1283,14 +1345,12 @@ function buildSiteContentLibrary(input: {
   };
 }
 
-export function rememberCatteryPreview(scrape: ImportedCatteryScrape, previewData: DelorainePreviewData) {
+export function rememberCatteryPreview(scrape: ImportedCatteryScrape, _previewData: DelorainePreviewData) {
   if (typeof window === 'undefined') return;
   try {
-    const payload = JSON.stringify({ scrape, previewData, savedAt: new Date().toISOString() });
-    sessionStorage.setItem(PREVIEW_DATA_STORAGE_KEY, payload);
-    localStorage.setItem(PREVIEW_DATA_STORAGE_KEY, payload);
-    sessionStorage.setItem(IMPORT_URL_STORAGE_KEY, scrape.sourceUrl || DELORAINE_SOURCE_URL);
-    localStorage.setItem(IMPORT_URL_STORAGE_KEY, scrape.sourceUrl || DELORAINE_SOURCE_URL);
+    const migratedScrape = migrateDeloraineAssetsInValue(scrape);
+    sessionStorage.setItem(IMPORT_URL_STORAGE_KEY, migratedScrape.sourceUrl || DELORAINE_SOURCE_URL);
+    localStorage.setItem(IMPORT_URL_STORAGE_KEY, migratedScrape.sourceUrl || DELORAINE_SOURCE_URL);
   } catch {
     // Storage is optional; the preview can still render from state.
   }
@@ -1367,7 +1427,7 @@ function embeddableVirtualTourUrl(rawUrl: string, sourceHost?: string): string {
 }
 
 function normaliseSourceUrl(rawUrl: string): URL {
-  return new URL(rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`);
+  return new URL(normalizeWebsiteImportUrl(rawUrl, DELORAINE_SOURCE_URL));
 }
 
 function slugify(value: string): string {

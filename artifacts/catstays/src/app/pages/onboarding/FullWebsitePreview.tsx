@@ -142,6 +142,13 @@ export function FullWebsitePreview({
   // Render the imported customer website exactly when a source URL exists.
   const renderWebsitePreview = (fillHeight = true) => {
     const sourcePreviewUrl = importedPreviewUrl(data);
+    console.info('[CatStays Original trace]', {
+      file: 'FullWebsitePreview.tsx',
+      function: 'renderWebsitePreview',
+      selectedTemplate: data.selectedTemplate,
+      sourcePreviewUrl,
+      route: sourcePreviewUrl && isOriginalTemplate(data.selectedTemplate) ? 'SourceWebsitePreview' : 'CatstaysTemplateSite',
+    });
     if (sourcePreviewUrl && isOriginalTemplate(data.selectedTemplate)) {
       return (
         <SourceWebsitePreview
@@ -363,9 +370,7 @@ export function FullWebsitePreview({
     );
   };
 
-  const isOriginalWebsitePreview = previewMode === 'website' && isOriginalTemplate(data.selectedTemplate);
-
-  if (isEmbeddedDemoSurface && deviceType === 'desktop' && previewMode === 'website' && !isOriginalWebsitePreview) {
+  if (isEmbeddedDemoSurface && deviceType === 'desktop' && previewMode === 'website') {
     return (
       <div
         className="w-full overflow-visible bg-white"
@@ -604,15 +609,26 @@ function SourceWebsitePreview({
   const heightStyle = fillHeight
     ? { height: '100%' }
     : { height: '900px', minHeight: 'calc(100vh - 170px)' };
+  const previewUrl = `/api/website/source-preview?url=${encodeURIComponent(sourceUrl)}`;
+  console.info('[CatStays Original trace]', {
+    file: 'FullWebsitePreview.tsx',
+    function: 'SourceWebsitePreview',
+    selectedTemplate: 'original',
+    sourcePreviewUrl: sourceUrl,
+    previewUrl,
+    finalIframeSrc: previewUrl,
+  });
 
   return (
     <div className="w-full bg-white" style={heightStyle}>
       <iframe
+        key={sourceUrl}
         title={title}
-        src={sourceUrl}
+        src={previewUrl}
         className="block h-full min-h-[inherit] w-full border-0 bg-white"
+        loading="eager"
         referrerPolicy="no-referrer-when-downgrade"
-        sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"
+        sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox allow-scripts"
         scrolling="auto"
       />
     </div>

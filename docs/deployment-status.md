@@ -1,6 +1,6 @@
 # Deployment Status
 
-Last reviewed: 2026-06-12
+Last reviewed: 2026-07-12
 
 ## GitHub
 
@@ -12,12 +12,18 @@ GitHub is the source of truth. Replit should pull from GitHub rather than acting
 
 Replit configuration exists in `.replit`.
 
-Use this in the Replit shell to pull the latest GitHub version:
+Use this in the Replit shell to pull the latest GitHub version and restart the visible CatStays frontend. Replace `main` with the active branch when testing a feature branch:
 
 ```bash
+git fetch origin
+git checkout main
 git pull --ff-only origin main
-pnpm install
+
+pkill -f "vite|tsx|node" || true
+pnpm --filter @workspace/catstays run dev
 ```
+
+Every future Replit pull handoff should include both the pull commands and the stop/start block. This prevents Replit from continuing to serve old frontend code after a branch switch or pull.
 
 If Replit says branches have diverged, stop and decide whether to preserve Replit-only changes before resetting or merging.
 

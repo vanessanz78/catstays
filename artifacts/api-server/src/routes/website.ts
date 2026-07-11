@@ -1,5 +1,9 @@
-import { Router, type IRouter } from 'express';
-import { scrapeCatteryWebsite } from '../lib/catteryWebsiteScraper';
+import { Router, type IRouter, type Request } from 'express';
+import {
+  fetchSourceWebsitePreviewAsset,
+  fetchSourceWebsitePreviewHtml,
+  scrapeCatteryWebsite,
+} from '../lib/catteryWebsiteScraper';
 
 const router: IRouter = Router();
 
@@ -51,6 +55,60 @@ router.post('/website/scrape', async (req, res) => {
     return;
   }
 });
+
+router.get('/website/source-preview', async (req, res) => {
+  const url = typeof req.query.url === 'string' ? req.query.url : '';
+
+  if (!url) {
+    res.status(400).send('url is required');
+    return;
+  }
+
+  try {
+    const result = await fetchSourceWebsitePreviewHtml(url, requestOrigin(req));
+    res
+      .status(200)
+      .set('Content-Type', 'text/html; charset=utf-8')
+      .set('Cache-Control', 'no-store')
+      .send(result.html);
+  } catch {
+    res.status(422).send('Unable to load the source website preview.');
+  }
+});
+
+router.get('/website/source-asset', async (req, res) => {
+  const url = typeof req.query.url === 'string' ? req.query.url : '';
+
+  if (!url) {
+    res.status(400).send('url is required');
+    return;
+  }
+
+  try {
+    const result = await fetchSourceWebsitePreviewAsset(url, requestOrigin(req));
+    res
+      .status(200)
+      .set('Content-Type', result.contentType || 'application/octet-stream')
+      .set('Access-Control-Allow-Origin', '*')
+      .set('Cache-Control', 'public, max-age=300')
+      .send(result.body);
+  } catch {
+    res.status(404).send('Asset not available.');
+  }
+});
+
+function requestOrigin(req: Request): string {
+  const forwardedProto = firstForwardedValue(req.get('x-forwarded-proto'));
+  const forwardedHost = firstForwardedValue(req.get('x-forwarded-host'));
+  const protocol = forwardedProto || req.protocol || 'http';
+  const host = forwardedHost || req.get('host') || '';
+
+  return host ? `${protocol}://${host}` : '';
+}
+
+function firstForwardedValue(value: string | undefined): string {
+  return value?.split(',')[0]?.trim() ?? '';
+}
 
 router.post('/website/chat', async (req, res) => {
   const { question, businessName, knowledge, history } = req.body as {

@@ -10,9 +10,11 @@ import {
 } from 'lucide-react';
 import { ImageWithFallback } from '../../components/figma/ImageWithFallback';
 import {
+  DELORAINE_SOURCE_URL,
   PREVIEW_SOURCE_INTENT_STORAGE_KEY,
   PREVIEW_URL_STORAGE_KEY,
 } from '../../lib/deloraineDemo';
+import { normalizeWebsiteImportUrl } from '../../lib/websiteImportUrl';
 const logoIcon = '/assets/b463d12091f20e48be52186dedd2a0f6707d0b66.png';
 const logoWordmark = '/assets/9900b394e20a5e059447324d58daad1b1bf43ed6.png';
 const testimonialImage = '/assets/marketing/vanessa-with-cat.png';
@@ -23,7 +25,7 @@ const dashboardPreview = '/assets/marketing/catstays-dashboard-preview.png';
 import { useState } from 'react';
 import { SignupModal } from '../../components/SignupModal';
 
-const defaultPreviewWebsiteUrl = 'delorainecattery.com';
+const defaultPreviewWebsiteUrl = DELORAINE_SOURCE_URL;
 
 export function MarketingHome() {
   const navigate = useNavigate();
@@ -33,9 +35,10 @@ export function MarketingHome() {
   const [websiteUrl, setWebsiteUrl] = useState(() => {
     if (typeof window === 'undefined') return defaultPreviewWebsiteUrl;
     const sourceIntent = window.sessionStorage.getItem(PREVIEW_SOURCE_INTENT_STORAGE_KEY);
-    return sourceIntent === 'form-submit'
+    const savedUrl = sourceIntent === 'form-submit'
       ? window.localStorage.getItem(PREVIEW_URL_STORAGE_KEY) || defaultPreviewWebsiteUrl
       : defaultPreviewWebsiteUrl;
+    return normalizeWebsiteImportUrl(savedUrl, defaultPreviewWebsiteUrl);
   });
 
   const scrollToSection = (sectionId: string) => {
@@ -48,11 +51,16 @@ export function MarketingHome() {
 
   const handleGeneratePreview = (event: React.FormEvent) => {
     event.preventDefault();
-    const url = websiteUrl.trim() || defaultPreviewWebsiteUrl;
+    const url = normalizeWebsiteImportUrl(websiteUrl, defaultPreviewWebsiteUrl);
+    setWebsiteUrl(url);
     localStorage.setItem(PREVIEW_URL_STORAGE_KEY, url);
     sessionStorage.setItem(PREVIEW_URL_STORAGE_KEY, url);
     sessionStorage.setItem(PREVIEW_SOURCE_INTENT_STORAGE_KEY, 'form-submit');
     navigate('/demo/deloraine');
+  };
+
+  const handleWebsiteUrlBlur = () => {
+    setWebsiteUrl(normalizeWebsiteImportUrl(websiteUrl, defaultPreviewWebsiteUrl));
   };
 
   const handleStartFresh = () => {
@@ -161,8 +169,9 @@ export function MarketingHome() {
                     type="text"
                     value={websiteUrl}
                     onChange={(event) => setWebsiteUrl(event.target.value)}
+                    onBlur={handleWebsiteUrlBlur}
                     className="h-14 w-full rounded-xl border border-white/60 bg-white px-4 text-base font-semibold text-[#0A1128] shadow-inner outline-none transition focus:border-[#A85A30] focus:ring-4 focus:ring-white/25"
-                    placeholder="yourcattery.com"
+                    placeholder="https://yourcattery.com"
                   />
                 </div>
                 <Button
@@ -632,8 +641,9 @@ export function MarketingHome() {
                 type="text"
                 value={websiteUrl}
                 onChange={(event) => setWebsiteUrl(event.target.value)}
+                onBlur={handleWebsiteUrlBlur}
                 className="h-14 flex-1 rounded-xl border border-white/60 bg-white px-4 text-base font-semibold text-[#0A1128] shadow-inner outline-none transition focus:border-[#A85A30] focus:ring-4 focus:ring-white/25"
-                placeholder="yourcattery.com"
+                placeholder="https://yourcattery.com"
               />
               <Button
                 type="submit"

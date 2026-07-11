@@ -63,19 +63,47 @@ import {
   dataFromPreviewRecord,
   markPreviewSelectionLive,
   normalizePreviewTemplateId,
-  savePreviewImportRecord,
   templateOptionsForData,
   type PreviewTemplateId,
   type ImportedCatteryScrape,
 } from '../../lib/previewTemplates';
+import { DELORAINE_SOURCE_URL } from '../../lib/deloraineDemo';
+import { normalizeWebsiteImportUrl } from '../../lib/websiteImportUrl';
 
 const logoIcon = '/assets/b463d12091f20e48be52186dedd2a0f6707d0b66.png';
 
 function sourceUrlForTemplateSnapshot(data: Record<string, any>) {
   const sourceUrl = data.previewImportRecord?.source?.url || data.importSourceUrl || data.sourceUrl;
-  const trimmedUrl = String(sourceUrl || '').trim();
-  if (!trimmedUrl) return 'https://www.delorainecattery.com/';
-  return /^https?:\/\//i.test(trimmedUrl) ? trimmedUrl : `https://${trimmedUrl}`;
+  return normalizeWebsiteImportUrl(String(sourceUrl || ''), DELORAINE_SOURCE_URL);
+}
+
+function lightweightOnboardingState(data: Record<string, any>) {
+  return {
+    name: data.name,
+    email: data.email,
+    emailConfirmed: data.emailConfirmed,
+    businessName: data.businessName,
+    location: data.location,
+    websiteUrl: data.websiteUrl,
+    importSourceUrl: data.importSourceUrl,
+    sourceUrl: data.sourceUrl,
+    sourceHost: data.sourceHost,
+    previewImportRecordId: data.previewImportRecordId,
+    previewRecordStatus: data.previewRecordStatus,
+    selectedTemplate: data.selectedTemplate,
+    liveTemplate: data.liveTemplate,
+    subdomain: data.subdomain,
+    importComplete: data.importComplete,
+    importError: data.importError,
+  };
+}
+
+function saveOnboardingUiState(step: number, data: Record<string, any>, accountCreated: boolean) {
+  localStorage.setItem('catstays_onboarding', JSON.stringify({
+    step,
+    data: lightweightOnboardingState(data),
+    accountCreated,
+  }));
 }
 
 function OnboardingTemplateSnapshot({
@@ -439,19 +467,20 @@ export function OnboardingWizard() {
     };
     setAccountCreated(true);
     localStorage.setItem('catstays_account', JSON.stringify(draftAccount));
-    localStorage.setItem('catstays_onboarding', JSON.stringify({ step: 2, data, accountCreated: true }));
+    saveOnboardingUiState(2, data, true);
     setIsSaving(false);
     setStep(2);
   };
 
   const handleImportWebsite = async () => {
-    setData(prev => ({ ...prev, isImporting: true, importError: '' }));
-
     try {
+      const normalizedWebsiteUrl = normalizeWebsiteImportUrl(data.websiteUrl);
+      setData(prev => ({ ...prev, websiteUrl: normalizedWebsiteUrl, isImporting: true, importError: '' }));
+
       const res = await fetch('/api/website/scrape', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: data.websiteUrl }),
+        body: JSON.stringify({ url: normalizedWebsiteUrl }),
       });
 
       const payload = await res.json() as ImportedCatteryScrape & { error?: string };
@@ -466,7 +495,6 @@ export function OnboardingWizard() {
       }
 
       const previewRecord = buildPreviewImportRecord(payload);
-      savePreviewImportRecord(previewRecord);
 
       setData(prev => ({
         ...dataFromPreviewRecord(previewRecord, 'original', prev),
@@ -486,7 +514,7 @@ export function OnboardingWizard() {
   const handleSaveProgress = async () => {
     setIsSaving(true);
     // Always save locally for resilience
-    localStorage.setItem('catstays_onboarding', JSON.stringify({ step, data, accountCreated }));
+    saveOnboardingUiState(step, data, accountCreated);
 
     // Save cattery profile + website settings to Supabase if logged in
     if (cattery?.id) {
@@ -532,7 +560,6 @@ export function OnboardingWizard() {
         importSourceUrl: data.importSourceUrl,
         sourceUrl: data.sourceUrl,
         sourceHost: data.sourceHost,
-        previewImportRecord: data.previewImportRecord,
         previewImportRecordId: data.previewImportRecordId,
         previewRecordStatus: data.previewRecordStatus,
         liveTemplate: data.selectedTemplate,
@@ -687,22 +714,14 @@ export function OnboardingWizard() {
   // Keep local progress synced so returning owners land on the correct step.
   useEffect(() => {
     if (!accountCreated && step <= 1) return;
-    localStorage.setItem('catstays_onboarding', JSON.stringify({
-      step,
-      data,
-      accountCreated,
-    }));
+    saveOnboardingUiState(step, data, accountCreated);
   }, [step, data, accountCreated]);
 
   // Auto-save on unmount (when leaving the page)
   useEffect(() => {
     return () => {
       if (step > 1 && accountCreated) {
-        localStorage.setItem('catstays_onboarding', JSON.stringify({ 
-          step, 
-          data, 
-          accountCreated 
-        }));
+        saveOnboardingUiState(step, data, accountCreated);
       }
     };
   }, [step, data, accountCreated]);
@@ -930,7 +949,7 @@ export function OnboardingWizard() {
     const nextData = applyPreviewTemplate(data, template);
     setData(nextData);
     setShowTemplateSelection(false);
-    localStorage.setItem('catstays_onboarding', JSON.stringify({ step, data: nextData, accountCreated }));
+    saveOnboardingUiState(step, nextData, accountCreated);
     setStep(Math.min(step + 1, totalSteps));
   };
 
@@ -950,7 +969,7 @@ export function OnboardingWizard() {
           return;
         }
 
-        localStorage.setItem('catstays_onboarding', JSON.stringify({ step, data: liveData, accountCreated: true }));
+        saveOnboardingUiState(step, liveData, true);
 
         const response = await fetch('/api/cattery/provision', {
           method: 'POST',
@@ -1043,11 +1062,7 @@ export function OnboardingWizard() {
         await refreshCattery();
       }
 
-      localStorage.setItem('catstays_onboarding', JSON.stringify({
-        step: 8,
-        data: liveData,
-        accountCreated: true,
-      }));
+      saveOnboardingUiState(8, liveData, true);
 
       // Move to success screen
       setStep(8);
@@ -1377,10 +1392,16 @@ export function OnboardingWizard() {
                       <div className="flex gap-3">
                         <Input
                           id="websiteUrl"
-                          type="url"
+                          type="text"
                           placeholder="https://yourwebsite.com"
                           value={data.websiteUrl}
                           onChange={(e) => setData({ ...data, websiteUrl: e.target.value })}
+                          onBlur={() =>
+                            setData({
+                              ...data,
+                              websiteUrl: normalizeWebsiteImportUrl(data.websiteUrl),
+                            })
+                          }
                           className="rounded-xl h-12 text-lg flex-1"
                           disabled={data.isImporting || data.importComplete}
                         />
@@ -1970,11 +1991,7 @@ export function OnboardingWizard() {
             onGoToWebsite={() => window.open(`https://${data.subdomain}.catstays.app`, '_blank', 'noopener,noreferrer')}
             onContinueToDataImport={() => {
               setStep(9);
-              localStorage.setItem('catstays_onboarding', JSON.stringify({
-                step: 9,
-                data,
-                accountCreated,
-              }));
+              saveOnboardingUiState(9, data, accountCreated);
             }}
             businessData={data}
             subscriptionTier={selectedPlan}

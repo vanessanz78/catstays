@@ -66,17 +66,18 @@ The publish provisioning route reads `CATSTAYS_APP_URL` for email confirmation r
 
 ## After adding secrets in Replit
 
-Pull the latest GitHub version in Replit:
+Pull the latest GitHub version in Replit and restart the visible CatStays frontend. Replace `main` with the active branch when testing a feature branch:
 
 ```bash
+git fetch origin
+git checkout main
 git pull --ff-only origin main
+
+pkill -f "vite|tsx|node" || true
+pnpm --filter @workspace/catstays run dev
 ```
 
-Install and restart:
-
-```bash
-pnpm install
-```
+Every future Replit pull handoff should include the stop/start block. This keeps Replit from continuing to serve an old Vite, TSX, or Node process after the Git ref changes.
 
 Supabase Auth email templates are versioned in:
 

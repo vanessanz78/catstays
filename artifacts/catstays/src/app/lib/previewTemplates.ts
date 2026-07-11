@@ -1,6 +1,8 @@
 import {
   buildPreviewDataFromScrape,
+  currentDeloraineAssets,
   fallbackDeloraineScrape,
+  migrateDeloraineAssetsInValue,
   type CatterySiteContentLibrary,
   type DelorainePreviewData,
   type ImportedCatteryScrape,
@@ -185,33 +187,31 @@ export interface CatstaysTemplateContent {
   contentLibrary: CatterySiteContentLibrary;
 }
 
-export const previewImportTableStorageKey = 'catstays_preview_import_table';
-
 export const previewTemplateCards: PreviewTemplateOption[] = [
   {
     id: 'original',
     name: 'Original',
     description: 'The scraped website exactly as it appears now',
-    image: 'https://www.delorainecattery.com/assets/Deloraine%20Cattery%20Building-CX1rWDRb.png',
+    image: currentDeloraineAssets.hero,
     sourceOnly: true,
   },
   {
     id: 'conversion-focus',
     name: 'Focus',
     description: 'Conversion-first layout with booking widget below the hero',
-    image: 'https://www.delorainecattery.com/assets/Deloraine%20Cattery%20Building-CX1rWDRb.png',
+    image: currentDeloraineAssets.building,
   },
   {
     id: 'editorial-guide',
     name: 'Editorial',
     description: 'Story-led checkerboard sections with magazine-style pacing',
-    image: 'https://www.delorainecattery.com/assets/Paul%20and%20Vanessa-Dst6H-6-.jpg',
+    image: currentDeloraineAssets.owner,
   },
   {
     id: 'modern-showcase',
     name: 'Showcase',
     description: 'Image-first pages with minimal copy and strong visual rhythm',
-    image: 'https://www.delorainecattery.com/assets/Kitty3-nO3ryPLf.jpg',
+    image: currentDeloraineAssets.kitty,
   },
 ];
 
@@ -252,9 +252,10 @@ export function templateOptionsForData(data: Record<string, any>): PreviewTempla
 }
 
 export function buildPreviewImportRecord(scrape: ImportedCatteryScrape): PreviewImportRecord {
-  const normalizedPreviewData = buildPreviewDataFromScrape(scrape);
-  const sourceUrl = scrape.sourceUrl || '';
-  const sourceHost = scrape.sourceHost || hostFromUrl(sourceUrl);
+  const migratedScrape = migrateDeloraineAssetsInValue(scrape);
+  const normalizedPreviewData = buildPreviewDataFromScrape(migratedScrape);
+  const sourceUrl = migratedScrape.sourceUrl || '';
+  const sourceHost = migratedScrape.sourceHost || hostFromUrl(sourceUrl);
   const businessName = normalizedPreviewData.businessName;
 
   return {
@@ -265,7 +266,7 @@ export function buildPreviewImportRecord(scrape: ImportedCatteryScrape): Preview
     source: {
       url: sourceUrl,
       host: sourceHost,
-      extractedFrom: scrape.extractedFrom,
+      extractedFrom: migratedScrape.extractedFrom,
     },
     identity: {
       businessName,
@@ -276,27 +277,27 @@ export function buildPreviewImportRecord(scrape: ImportedCatteryScrape): Preview
       phone: normalizedPreviewData.phone,
       email: normalizedPreviewData.email,
       address: normalizedPreviewData.address,
-      city: scrape.city || normalizedPreviewData.location,
+      city: migratedScrape.city || normalizedPreviewData.location,
     },
     media: {
       heroImage: normalizedPreviewData.heroImage,
-      logoImage: scrape.logoImage,
-      images: scrape.images ?? [],
-      galleryImages: scrape.galleryImages ?? [],
+      logoImage: migratedScrape.logoImage,
+      images: migratedScrape.images ?? [],
+      galleryImages: migratedScrape.galleryImages ?? [],
     },
     content: {
-      title: scrape.title || businessName,
-      description: scrape.description || normalizedPreviewData.aboutText,
-      heading: scrape.heading || normalizedPreviewData.heroHeading,
+      title: migratedScrape.title || businessName,
+      description: migratedScrape.description || normalizedPreviewData.aboutText,
+      heading: migratedScrape.heading || normalizedPreviewData.heroHeading,
       heroHeading: normalizedPreviewData.heroHeading,
       heroSubheading: normalizedPreviewData.heroSubheading,
       aboutHeading: normalizedPreviewData.aboutHeading,
       aboutText: normalizedPreviewData.aboutText,
-      highlights: scrape.highlights ?? [],
+      highlights: migratedScrape.highlights ?? [],
     },
-    rooms: scrape.rooms ?? [],
-    services: scrape.services ?? [],
-    faqs: scrape.faqs ?? [],
+    rooms: migratedScrape.rooms ?? [],
+    services: migratedScrape.services ?? [],
+    faqs: migratedScrape.faqs ?? [],
     contentLibrary: normalizedPreviewData.siteContentLibrary ?? emptyContentLibrary(sourceUrl, sourceHost, businessName),
     normalizedPreviewData,
   };
@@ -329,8 +330,6 @@ export function dataFromPreviewRecord(
     status: 'in_progress',
     selectedTemplate,
   };
-  savePreviewImportRecord(updatedRecord);
-
   return withOnboardingCollections({
     ...currentData,
     ...normalized,
@@ -353,13 +352,9 @@ export function dataFromPreviewRecord(
   }, currentData);
 }
 
-export function savePreviewImportRecord(record: PreviewImportRecord) {
-  if (typeof window === 'undefined') return;
-  const table = readPreviewImportTable();
-  table[record.id] = record;
-  const serialized = JSON.stringify(table);
-  sessionStorage.setItem(previewImportTableStorageKey, serialized);
-  localStorage.setItem(previewImportTableStorageKey, serialized);
+export function savePreviewImportRecord(_record: PreviewImportRecord) {
+  // Preview records are platform-owned. Keep full records in memory for the
+  // current render, but never persist preview payloads to browser storage.
 }
 
 export function markPreviewSelectionLive(currentData: Record<string, any>): Record<string, any> {
@@ -379,8 +374,6 @@ export function markPreviewSelectionLive(currentData: Record<string, any>): Reco
     status: 'live',
     selectedTemplate,
   };
-  savePreviewImportRecord(liveRecord);
-
   return withOnboardingCollections({
     ...currentData,
     previewImportRecord: liveRecord,
@@ -391,15 +384,7 @@ export function markPreviewSelectionLive(currentData: Record<string, any>): Reco
 }
 
 export function readPreviewImportTable(): Record<string, PreviewImportRecord> {
-  if (typeof window === 'undefined') return {};
-  const raw = sessionStorage.getItem(previewImportTableStorageKey) || localStorage.getItem(previewImportTableStorageKey);
-  if (!raw) return {};
-
-  try {
-    return JSON.parse(raw) as Record<string, PreviewImportRecord>;
-  } catch {
-    return {};
-  }
+  return {};
 }
 
 export function isOriginalTemplate(templateId: unknown) {
@@ -431,6 +416,16 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const libraryReviews = libraryItems(contentLibrary, 'reviews');
   const libraryFaqs = libraryItems(contentLibrary, 'faqs');
   const libraryGalleryImages = libraryImages(contentLibrary, 'gallery');
+  const isDeloraineSource = isDelorainePreview(record, contentLibrary, businessName);
+  const deloraineSemanticImages = isDeloraineSource
+    ? [currentDeloraineAssets.hero, currentDeloraineAssets.ownerPortrait, currentDeloraineAssets.buildingThumb, currentDeloraineAssets.grooming]
+    : [];
+  const importedMediaImages = uniqueStrings([
+    ...(record?.media.images ?? []),
+    ...(record?.media.galleryImages ?? []).map((image) => image.url),
+    ...libraryGalleryImages.map((image) => image.url),
+    ...deloraineSemanticImages,
+  ]);
   const heroBlock = libraryBlock(contentLibrary, 'hero');
   const heroLinks = heroBlock?.links ?? [];
   const whyChooseBlock = libraryBlock(contentLibrary, 'why-choose-us');
@@ -438,22 +433,31 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const dailyCareBlock = libraryBlock(contentLibrary, 'daily-care');
   const locationBlock = libraryBlock(contentLibrary, 'location');
   const logoImage = stringFrom(data.logoImage, normalizedRecord.logoImage, record?.media.logoImage);
-  const heroImage = imageFrom(
-    data.heroImage,
-    normalized.heroImage,
-    record?.media.heroImage,
-    record?.media.images?.[0],
-    record?.media.galleryImages?.[0]?.url,
+  const heroImage = selectHeroImage(
+    [
+      data.heroImage,
+      normalized.heroImage,
+      heroBlock?.images?.[0]?.url,
+      record?.media.heroImage,
+      record?.media.images?.[0],
+      record?.media.galleryImages?.[0]?.url,
+    ],
+    importedMediaImages,
   );
-  const editedGalleryImages = Array.isArray(data.galleryImages) ? data.galleryImages : [];
-  const importedGalleryImages = [
-    ...(record?.media.images ?? []),
-    ...(record?.media.galleryImages ?? []).map((image) => image.url),
-    ...libraryGalleryImages.map((image) => image.url),
-  ];
+  const editedGalleryImages = Array.isArray(data.galleryImages)
+    ? data.galleryImages.map((image: any) => stringFrom(image?.url, image))
+    : [];
+  const galleryDataImages = Array.isArray(data.galleryData?.galleryImages)
+    ? data.galleryData.galleryImages.map((image: any) => stringFrom(image?.url, image))
+    : [];
+  const explicitGalleryImages = uniqueImagesByKey([
+    ...editedGalleryImages,
+    ...galleryDataImages,
+  ]).filter((image) => isUsableGalleryImage(image, logoImage) && !isOpenGraphImage(image));
   const galleryImages = uniqueStrings([
     ...editedGalleryImages,
-    ...importedGalleryImages,
+    ...galleryDataImages,
+    ...importedMediaImages,
     data.facilitiesImage,
     data.aboutImage,
     data.ownerData?.image,
@@ -557,12 +561,18 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     .filter((item) => Boolean(item?.title && item?.text))
     .map((item) => ({ title: item!.title, text: item!.text, icon: item!.icon }))
     .slice(0, 6);
+  const ownerImageCandidates = imagesMatching(fallbackImages, /paul|vanessa|owner|portrait|host|team|staff/i);
+  const facilityImageCandidates = imagesMatching(fallbackImages, /building|facility|exterior|accommodation/i);
+  const serviceImageCandidates = imagesMatching(fallbackImages, /groom|brush|medicine|service|transport|airport|vet|flea|worm/i);
   const aboutImage = pickUniqueImage(
     usedImages,
     [
-      data.aboutImage,
-      normalizedRecord.aboutImage,
-      normalizedRecord.aboutData?.image,
+      ownerData.image,
+      normalizedRecord.ownerData?.image,
+      ...ownerImageCandidates,
+      imageMatches(data.aboutImage, /paul|vanessa|owner|portrait|host|team|staff/i) ? data.aboutImage : '',
+      imageMatches(normalizedRecord.aboutImage, /paul|vanessa|owner|portrait|host|team|staff/i) ? normalizedRecord.aboutImage : '',
+      imageMatches(normalizedRecord.aboutData?.image, /paul|vanessa|owner|portrait|host|team|staff/i) ? normalizedRecord.aboutData?.image : '',
       fallbackImages.find((image) => image !== heroImage),
     ],
     fallbackImages,
@@ -570,9 +580,10 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const facilityImage = pickUniqueImage(
     usedImages,
     [
-      data.facilitiesImage,
-      facilitiesBlock?.images?.[0]?.url,
-      normalizedRecord.facilitiesData?.facilitiesImage,
+      ...facilityImageCandidates,
+      imageMatches(data.facilitiesImage, /building|facility|exterior|accommodation/i) ? data.facilitiesImage : '',
+      imageMatches(facilitiesBlock?.images?.[0]?.url, /building|facility|exterior|accommodation/i) ? facilitiesBlock?.images?.[0]?.url : '',
+      imageMatches(normalizedRecord.facilitiesData?.facilitiesImage, /building|facility|exterior|accommodation/i) ? normalizedRecord.facilitiesData?.facilitiesImage : '',
       fallbackImages[2],
     ],
     fallbackImages,
@@ -582,6 +593,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     [
       ownerData.image,
       normalizedRecord.ownerData?.image,
+      ...ownerImageCandidates,
       fallbackImages[5],
       fallbackImages[1],
     ],
@@ -591,6 +603,33 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     stringFrom(locationData.virtualTourUrl, normalized.virtualTourUrl, data.virtualTourUrl, data.contactData?.virtualTourUrl),
     contentLibrary.sourceHost,
   );
+  const suiteContent = editedRooms && editedRooms.length === 0
+    ? []
+    : ensureSuiteCount(rooms, fallbackImages, data.pricePerNight || normalized.pricePerNight, usedImages);
+  const usedServiceImages = new Set<string>();
+  const serviceContent = services.map((service: any, index: number) => ({
+    image: serviceImageFor(service, serviceImageCandidates, usedServiceImages),
+    title: stringFrom(service.title, service.name, `Care service ${index + 1}`),
+    text: stringFrom(service.description, service.text, 'Additional support available during the stay.'),
+    price: stringFrom(service.price),
+  }));
+  const gallerySourceImages = explicitGalleryImages.length
+    ? explicitGalleryImages
+    : (() => {
+        for (const service of serviceContent) {
+          rememberImage(usedImages, service.image);
+        }
+        const galleryAvailableImages = galleryImages.filter((image) => !hasSeenImage(usedImages, image) && !isOpenGraphImage(image));
+        const galleryPreferredImages = imagesMatching(galleryAvailableImages, /kitty|wally|lola|gallery/i);
+        return uniqueImagesByKey([
+          ...galleryPreferredImages,
+          ...galleryAvailableImages,
+        ]);
+      })();
+  const galleryContent = gallerySourceImages.map((image, index) => ({
+    image,
+    caption: stringFrom(record?.media.galleryImages?.[index]?.caption, `${businessName} photo ${index + 1}`),
+  }));
 
   return {
     business: {
@@ -638,26 +677,14 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       image: facilityImage,
       items: facilityItems.length || editedFacilityItems ? facilityItems : featureItems.slice(0, 4),
     },
-    services: services.map((service: any, index: number) => ({
-      image: pickUniqueImage(
-        usedImages,
-        [service.image, fallbackImages[index + 3], fallbackImages[index]],
-        fallbackImages,
-      ),
-      title: stringFrom(service.title, service.name, `Care service ${index + 1}`),
-      text: stringFrom(service.description, service.text, 'Additional support available during the stay.'),
-      price: stringFrom(service.price),
-    })),
+    services: serviceContent,
     about: {
       title: stringFrom(data.aboutHeading, normalized.aboutHeading, record?.content.aboutHeading, `About ${businessName}`),
       text: primaryDescription,
       image: aboutImage,
     },
-    gallery: fallbackImages.filter((image) => !hasSeenImage(usedImages, image)).slice(0, 12).map((image, index) => ({
-      image,
-      caption: stringFrom(record?.media.galleryImages?.[index]?.caption, `${businessName} photo ${index + 1}`),
-    })),
-    suites: editedRooms && editedRooms.length === 0 ? [] : ensureSuiteCount(rooms, fallbackImages, data.pricePerNight || normalized.pricePerNight, usedImages),
+    gallery: galleryContent,
+    suites: suiteContent,
     testimonials: ensureTestimonials(testimonials, businessName, fallbackImages, heroImage, data.testimonialImage),
     faqs: faqs.map((faq: any) => ({
       question: stringFrom(faq.question),
@@ -974,6 +1001,76 @@ function imageFrom(...values: unknown[]): string {
   return 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=1200&h=900&fit=crop';
 }
 
+function selectHeroImage(preferred: unknown[], allImages: string[]): string {
+  const candidates = uniqueStrings([...preferred, ...allImages]).filter((image) => isUsableGalleryImage(image));
+  const nonOpenGraphImages = candidates.filter((image) => !imageMatches(image, /(?:^|[-_/])og(?:[-_.]|image)|open.?graph|social.?card/i));
+  return imageFrom(
+    imagesMatching(nonOpenGraphImages, /hero|banner|background|bg/i)[0],
+    imagesMatching(nonOpenGraphImages, /building|exterior|facility/i)[0],
+    nonOpenGraphImages[0],
+    candidates[0],
+  );
+}
+
+function isDelorainePreview(
+  record: PreviewImportRecord | null | undefined,
+  contentLibrary: CatterySiteContentLibrary,
+  businessName: string,
+) {
+  const source = `${record?.source.host || ''} ${contentLibrary.sourceHost || ''} ${businessName}`;
+  return /delorainecattery\.com|deloraine cattery/i.test(source);
+}
+
+function imageMatches(value: unknown, pattern: RegExp): boolean {
+  const image = stringFrom(value);
+  if (!image) return false;
+  try {
+    return pattern.test(decodeURIComponent(image));
+  } catch {
+    return pattern.test(image);
+  }
+}
+
+function isOpenGraphImage(image: string): boolean {
+  return imageMatches(image, /(?:^|[-_/])og(?:[-_.]|image)|open.?graph|social.?card/i);
+}
+
+function imagesMatching(images: string[], pattern: RegExp): string[] {
+  return images.filter((image) => imageMatches(image, pattern));
+}
+
+function serviceImageFor(service: any, serviceImages: string[], usedServiceImages?: Set<string>) {
+  const title = stringFrom(service.title, service.name);
+  const currentImage = stringFrom(service.image);
+  const titlePattern = serviceTitlePattern(title);
+  const firstUnused = (images: string[]) => {
+    for (const image of images) {
+      if (!image || usedServiceImages?.has(normalizedImageKey(image))) continue;
+      usedServiceImages?.add(normalizedImageKey(image));
+      return image;
+    }
+    return '';
+  };
+
+  if (titlePattern) {
+    return firstUnused([
+      imageMatches(currentImage, titlePattern) ? currentImage : '',
+      ...imagesMatching(serviceImages, titlePattern),
+    ]);
+  }
+
+  const specificServiceImage = imagesMatching([currentImage], /groom|brush|medicine|medical|vet|transport|airport|flea|worm/i)[0];
+  return firstUnused([specificServiceImage]);
+}
+
+function serviceTitlePattern(title: string): RegExp | null {
+  if (/groom|brush|matting/i.test(title)) return /groom|brush|maincoone|matting/i;
+  if (/medicine|medication|medical|vet/i.test(title)) return /medicine|medical|vet|stethoscope/i;
+  if (/transport|pickup|drop.?off|airport/i.test(title)) return /transport|pickup|airport|vehicle/i;
+  if (/flea|worm/i.test(title)) return /flea|worm/i;
+  return null;
+}
+
 function embeddableVirtualTourUrl(rawUrl: string, sourceHost?: string): string {
   if (!rawUrl) return '';
   try {
@@ -1001,6 +1098,19 @@ function uniqueStrings(values: unknown[]): string[] {
     if (!text || seen.has(text)) continue;
     seen.add(text);
     result.push(text);
+  }
+  return result;
+}
+
+function uniqueImagesByKey(images: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const image of images) {
+    if (!image) continue;
+    const key = normalizedImageKey(image);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(image);
   }
   return result;
 }
@@ -1095,10 +1205,11 @@ function ensureSuiteCount(rooms: any[], images: string[], fallbackPrice?: string
     const priceUnit = stringFrom(room.priceUnit);
     const priceLabel = price && priceUnit ? `${price} ${priceUnit}` : price;
     const roomImage = stringFrom(room.image);
+    const roomImageCandidates = suiteImageCandidates(title, roomImage, images);
     return {
       image: usedImages
-        ? pickUniqueImage(usedImages, [isUsableGalleryImage(roomImage) ? roomImage : '', images[index + 1], images[index], images[0]], images)
-        : imageFrom(isUsableGalleryImage(roomImage) ? roomImage : '', images[index + 1], images[index], images[0]),
+        ? pickUniqueImage(usedImages, [...roomImageCandidates, images[index + 1], images[index], images[0]], images)
+        : imageFrom(...roomImageCandidates, images[index + 1], images[index], images[0]),
       title,
       text: stringFrom(room.description, priceLabel ? `${fallback.description} ${priceLabel}.` : fallback.description),
       price: priceLabel,
@@ -1109,6 +1220,25 @@ function ensureSuiteCount(rooms: any[], images: string[], fallbackPrice?: string
           : [],
     };
   });
+}
+
+function suiteImageCandidates(title: string, currentImage: string, images: string[]) {
+  const semanticPattern = suiteTitlePattern(title);
+  const candidates = semanticPattern
+    ? [
+        imageMatches(currentImage, semanticPattern) ? currentImage : '',
+        ...imagesMatching(images, semanticPattern),
+      ]
+    : [isUsableGalleryImage(currentImage) ? currentImage : ''];
+
+  return uniqueImagesByKey(candidates.filter(Boolean));
+}
+
+function suiteTitlePattern(title: string): RegExp | null {
+  if (/private/i.test(title)) return /private/i;
+  if (/indoor/i.test(title)) return /indoor/i;
+  if (/communal|shared/i.test(title)) return /communal|shared/i;
+  return null;
 }
 
 function ensureTestimonials(
