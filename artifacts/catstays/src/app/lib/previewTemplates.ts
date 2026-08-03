@@ -28,6 +28,10 @@ export interface PreviewImportRecord {
   source: {
     url: string;
     host: string;
+    contentSourceId?: string;
+    contentHash?: string;
+    importVersion?: string;
+    persistedAt?: string;
     extractedFrom?: ImportedCatteryScrape['extractedFrom'];
   };
   identity: {
@@ -266,6 +270,10 @@ export function buildPreviewImportRecord(scrape: ImportedCatteryScrape): Preview
     source: {
       url: sourceUrl,
       host: sourceHost,
+      contentSourceId: migratedScrape.contentSourceId,
+      contentHash: migratedScrape.contentHash,
+      importVersion: migratedScrape.importVersion,
+      persistedAt: migratedScrape.persistedAt,
       extractedFrom: migratedScrape.extractedFrom,
     },
     identity: {
@@ -338,6 +346,9 @@ export function dataFromPreviewRecord(
     selectedTemplate,
     previewImportRecord: updatedRecord,
     previewImportRecordId: record.id,
+    contentSourceId: record.source.contentSourceId,
+    contentSourceHash: record.source.contentHash,
+    contentSourceImportVersion: record.source.importVersion,
     previewRecordStatus: 'in_progress',
     importComplete: true,
     importSourceUrl: record.source.url,

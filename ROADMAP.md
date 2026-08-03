@@ -174,7 +174,9 @@ Merge Criteria:
 
 ## Phase 2: Content Sources
 
-Status: Not started
+Status: In progress
+
+Working ref: `phase2/content-sources-20260803`
 
 Objective:
 
@@ -187,16 +189,16 @@ Dependencies:
 
 Deliverables:
 
-- Server-side Content Source service.
-- Import source persistence into `content_sources`.
-- Source hash/version handling.
-- Source status transitions.
-- Audit event writing for source lifecycle actions.
-- Tests for source creation, lookup, and status transitions.
+- Server-side Content Source service. Implemented on `phase2/content-sources-20260803`.
+- Import source persistence into `content_sources`. Implemented for authenticated scrape requests with a known cattery and onboarding provision after cattery creation.
+- Source hash/version handling. Implemented using deterministic SHA-256 source hashes and import versions.
+- Source status transitions. Implemented through the Content Source service and API status route.
+- Audit event writing for source lifecycle actions. Implemented through `website_events`.
+- Tests for source creation, lookup, and status transitions. Implemented in API-server service tests.
 
 UAT:
 
-- Importing a website creates a durable Content Source record.
+- Importing a website creates a durable Content Source record. Pending Replit runtime UAT.
 - Existing catteries are unaffected.
 - No preview payload is written to browser Local Storage as a source of truth.
 

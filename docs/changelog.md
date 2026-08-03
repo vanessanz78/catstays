@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-08-03
+
+- Started Phase 2 Content Sources on `phase2/content-sources-20260803`.
+- Added the server-side Content Source service for durable source creation, retrieval, deterministic source hashing/import versioning, status transitions, and `website_events` audit entries.
+- Added authenticated Content Source API routes and wired website scrape persistence for authenticated imports with a known cattery.
+- Wired onboarding publish/provision to persist captured website imports into `content_sources` after the cattery record exists.
+- Added focused API-server tests for source hashing, creation, lookup, and status transition behaviour.
+
 ## 2026-07-12
 
 - Added a durable Replit handoff rule: every future Replit pull command should include a stop/start block so testing does not continue against stale Vite, TSX, or Node processes.

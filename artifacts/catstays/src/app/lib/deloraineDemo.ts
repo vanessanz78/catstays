@@ -162,6 +162,10 @@ export interface CatterySiteContentLibrary {
 }
 
 export interface ImportedCatteryScrape {
+  contentSourceId?: string;
+  contentHash?: string;
+  importVersion?: string;
+  persistedAt?: string;
   sourceUrl?: string;
   sourceHost?: string;
   title?: string;

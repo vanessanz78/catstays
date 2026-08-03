@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from 'express';
 import dns from 'dns/promises';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createContentSourceFromOnboardingDraft } from '../lib/openHomeContentSources';
 
 const router: IRouter = Router();
 
@@ -75,6 +76,9 @@ const websiteSettingKeys = [
   'sourceHost',
   'previewImportRecord',
   'previewImportRecordId',
+  'contentSourceId',
+  'contentSourceHash',
+  'contentSourceImportVersion',
   'previewRecordStatus',
   'liveTemplate',
   'testimonials',
@@ -291,6 +295,19 @@ router.post('/cattery/provision', async (req: Request, res: Response) => {
     }
 
     const websiteSettings = pickWebsiteSettings(draft);
+    const contentSource = await createContentSourceFromOnboardingDraft(serviceClient, {
+      catteryId: cattery.id,
+      draft,
+      actorId: user.id,
+    });
+
+    if (contentSource) {
+      websiteSettings.previewImportRecordId = contentSource.id;
+      websiteSettings.contentSourceId = contentSource.id;
+      websiteSettings.contentSourceHash = contentSource.content_hash;
+      websiteSettings.contentSourceImportVersion = contentSource.import_version;
+    }
+
     const { error: updateError } = await serviceClient
       .from('catteries')
       .update({
@@ -332,6 +349,7 @@ router.post('/cattery/provision', async (req: Request, res: Response) => {
       success: true,
       userId: user.id,
       catteryId: cattery.id,
+      contentSourceId: contentSource?.id ?? null,
       slug: requestedSlug,
       emailConfirmationSent: true,
     });

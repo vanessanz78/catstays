@@ -1,6 +1,20 @@
 # Decision Log
 
-Last updated: 2026-07-11
+Last updated: 2026-08-03
+
+## 2026-08-03 - Phase 2 Content Sources Started
+
+Decision: Start Phase 2 Content Sources on `phase2/content-sources-20260803`.
+
+Reason: Vanessa explicitly instructed Codex to start Phase 2 after the Open Home architecture, schema, and security foundation were already complete and frozen.
+
+Impact:
+
+- Phase 2 is limited to durable Content Source creation, retrieval, source hashing/versioning, status transitions, and audit events.
+- ADR-001 remains frozen and unchanged.
+- Phase 3 Media Library must not begin until Phase 2 passes UAT, merges to `main`, is tagged, and the branch is deleted.
+- Unauthenticated website scraping remains preview-only; durable source writes require authenticated owner access or backend provisioning.
+- Onboarding publish/provision now persists the captured website import into `content_sources` after the cattery row exists.
 
 ## 2026-07-11 - Open Home Architecture Frozen
 

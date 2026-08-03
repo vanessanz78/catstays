@@ -1,14 +1,24 @@
 import { Router, type IRouter, type Request } from 'express';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import {
   fetchSourceWebsitePreviewAsset,
   fetchSourceWebsitePreviewHtml,
   scrapeCatteryWebsite,
 } from '../lib/catteryWebsiteScraper';
+import {
+  createContentSource,
+  createWebsiteContentSourceFromScrape,
+  getContentSource,
+  listContentSources,
+  updateContentSourceStatus,
+  type OpenHomeContentSourceStatus,
+  type OpenHomeContentSourceType,
+} from '../lib/openHomeContentSources';
 
 const router: IRouter = Router();
 
 router.post('/website/scrape', async (req, res) => {
-  const { url } = req.body as { url?: string };
+  const { url, catteryId } = req.body as { url?: string; catteryId?: string };
 
   if (!url || typeof url !== 'string') {
     res.status(400).json({ error: 'url is required' });
@@ -17,6 +27,40 @@ router.post('/website/scrape', async (req, res) => {
 
   try {
     const result = await scrapeCatteryWebsite(url);
+
+    if (typeof catteryId === 'string' && catteryId.trim()) {
+      const supabase = createAuthenticatedClient(req);
+      if (!supabase) {
+        res.status(401).json({ error: 'Authentication is required to persist a Content Source.' });
+        return;
+      }
+
+      let source;
+      try {
+        const actorId = await authenticatedUserId(supabase);
+        source = await createWebsiteContentSourceFromScrape(supabase, {
+          catteryId: catteryId.trim(),
+          scrape: result,
+          actorId,
+        });
+      } catch (persistError) {
+        res.status(403).json({
+          error: 'The website was imported, but the Content Source could not be saved.',
+          detail: (persistError as Error).message,
+        });
+        return;
+      }
+
+      res.json({
+        ...result,
+        contentSourceId: source.id,
+        contentHash: source.content_hash,
+        importVersion: source.import_version,
+        persistedAt: source.created_at,
+      });
+      return;
+    }
+
     res.json(result);
   } catch (err) {
     const msg = (err as Error).message;
@@ -53,6 +97,119 @@ router.post('/website/scrape', async (req, res) => {
       });
     }
     return;
+  }
+});
+
+router.get('/website/content-sources', async (req, res) => {
+  const catteryId = typeof req.query.catteryId === 'string' ? req.query.catteryId.trim() : '';
+  if (!catteryId) {
+    res.status(400).json({ error: 'catteryId is required' });
+    return;
+  }
+
+  const supabase = createAuthenticatedClient(req);
+  if (!supabase) {
+    res.status(401).json({ error: 'Authentication is required.' });
+    return;
+  }
+
+  try {
+    const sources = await listContentSources(supabase, catteryId);
+    res.json({ sources });
+  } catch (err) {
+    res.status(403).json({ error: (err as Error).message || 'Unable to read Content Sources.' });
+  }
+});
+
+router.post('/website/content-sources', async (req, res) => {
+  const body = req.body as {
+    catteryId?: string;
+    sourceType?: OpenHomeContentSourceType;
+    sourceUrl?: string;
+    sourceName?: string;
+    rawData?: unknown;
+    normalizedData?: unknown;
+    status?: OpenHomeContentSourceStatus;
+  };
+  const catteryId = typeof body.catteryId === 'string' ? body.catteryId.trim() : '';
+  if (!catteryId) {
+    res.status(400).json({ error: 'catteryId is required' });
+    return;
+  }
+
+  const supabase = createAuthenticatedClient(req);
+  if (!supabase) {
+    res.status(401).json({ error: 'Authentication is required.' });
+    return;
+  }
+
+  try {
+    const actorId = await authenticatedUserId(supabase);
+    const source = await createContentSource(supabase, {
+      catteryId,
+      sourceType: body.sourceType ?? 'manual',
+      sourceUrl: body.sourceUrl,
+      sourceName: body.sourceName,
+      rawData: body.rawData,
+      normalizedData: body.normalizedData,
+      status: body.status ?? 'ready',
+      actorId,
+    });
+    res.status(201).json({ source });
+  } catch (err) {
+    res.status(403).json({ error: (err as Error).message || 'Unable to create Content Source.' });
+  }
+});
+
+router.get('/website/content-sources/:sourceId', async (req, res) => {
+  const sourceId = req.params.sourceId;
+  const supabase = createAuthenticatedClient(req);
+  if (!supabase) {
+    res.status(401).json({ error: 'Authentication is required.' });
+    return;
+  }
+
+  try {
+    const source = await getContentSource(supabase, sourceId);
+    if (!source) {
+      res.status(404).json({ error: 'Content Source not found.' });
+      return;
+    }
+    res.json({ source });
+  } catch (err) {
+    res.status(403).json({ error: (err as Error).message || 'Unable to read Content Source.' });
+  }
+});
+
+router.patch('/website/content-sources/:sourceId/status', async (req, res) => {
+  const sourceId = req.params.sourceId;
+  const { status, eventData } = req.body as {
+    status?: OpenHomeContentSourceStatus;
+    eventData?: Record<string, unknown>;
+  };
+
+  if (!isContentSourceStatus(status)) {
+    res.status(400).json({ error: 'A valid status is required.' });
+    return;
+  }
+
+  const supabase = createAuthenticatedClient(req);
+  if (!supabase) {
+    res.status(401).json({ error: 'Authentication is required.' });
+    return;
+  }
+
+  try {
+    const actorId = await authenticatedUserId(supabase);
+    const source = await updateContentSourceStatus(supabase, {
+      sourceId,
+      status,
+      actorId,
+      eventData,
+    });
+    res.json({ source });
+  } catch (err) {
+    res.status(403).json({ error: (err as Error).message || 'Unable to update Content Source.' });
   }
 });
 
@@ -108,6 +265,44 @@ function requestOrigin(req: Request): string {
 
 function firstForwardedValue(value: string | undefined): string {
   return value?.split(',')[0]?.trim() ?? '';
+}
+
+function readEnvValue(...keys: string[]) {
+  for (const key of keys) {
+    const raw = process.env[key];
+    if (!raw) continue;
+    const value = raw.trim();
+    if (!value || /^\$[A-Z0-9_]+$/i.test(value)) continue;
+    return value;
+  }
+  return undefined;
+}
+
+function createAuthenticatedClient(req: Request): SupabaseClient | null {
+  const supabaseUrl = readEnvValue('VITE_SUPABASE_URL');
+  const supabaseAnonKey = readEnvValue('VITE_SUPABASE_ANON_KEY');
+  const authorization = req.headers.authorization;
+
+  if (!supabaseUrl || !supabaseAnonKey || !authorization) return null;
+
+  return createClient(supabaseUrl, supabaseAnonKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+    global: { headers: { Authorization: authorization } },
+  });
+}
+
+async function authenticatedUserId(supabase: SupabaseClient): Promise<string | null> {
+  const { data, error } = await supabase.auth.getUser();
+  if (error) throw error;
+  return data.user?.id ?? null;
+}
+
+function isContentSourceStatus(value: unknown): value is OpenHomeContentSourceStatus {
+  return value === 'pending' ||
+    value === 'importing' ||
+    value === 'ready' ||
+    value === 'failed' ||
+    value === 'archived';
 }
 
 router.post('/website/chat', async (req, res) => {
