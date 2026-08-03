@@ -8,6 +8,7 @@
 - Wired onboarding publish/provision to persist captured website imports into `content_sources` after the cattery record exists.
 - Added focused API-server tests for source hashing, creation, lookup, and status transition behaviour.
 - Defaulted the API server dev script to port `8080` when Replit does not provide `PORT`.
+- Fixed the Replit onboarding resume crash after the first signup screen by preserving full default form state around the lightweight saved progress payload.
 
 ## 2026-07-12
 

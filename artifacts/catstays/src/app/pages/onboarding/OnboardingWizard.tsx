@@ -715,7 +715,7 @@ export function OnboardingWizard() {
       try {
         const { step: savedStep, data: savedData, accountCreated: savedAccountCreated } = JSON.parse(saved);
         setStep(savedStep);
-        setData(savedData);
+        setData(prev => ({ ...prev, ...(savedData || {}) }));
         if (savedAccountCreated) setAccountCreated(savedAccountCreated);
       } catch (e) {
         console.error('Failed to load saved progress');

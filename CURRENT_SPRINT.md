@@ -40,6 +40,7 @@ Implement Phase 2 Content Sources for the Open Home Content Platform without sta
 - Authenticated website scrapes with a known cattery can persist a Content Source immediately.
 - Onboarding publish/provision persists the imported website source after the cattery row exists.
 - Existing browser storage remains lightweight for onboarding resume state; full preview import records are not written to Local Storage as the source of truth.
+- Replit onboarding resume now merges lightweight saved state over full defaults so the first post-signup screen does not crash on sparse browser state.
 - The permanent Open Home implementation tracker is `ROADMAP.md`.
 - The permanent Open Home engineering philosophy is `PLATFORM_PRINCIPLES.md`.
 - Future implementation must follow one branch -> one phase -> UAT -> merge -> tag -> delete branch.
@@ -75,6 +76,7 @@ Implement Phase 2 Content Sources for the Open Home Content Platform without sta
 - `pnpm run typecheck`, the focused API-server test, and `pnpm run build` were run locally.
 - `node_modules` and generated build artifacts were removed after validation to keep the MacBook Air footprint small.
 - Replit first UAT attempt showed the API server needs a `PORT`; the API dev script now defaults to `8080` when Replit does not provide one.
+- Replit onboarding UAT then exposed a sparse saved-state crash after the first signup screen; the restore path now keeps defaults and the location autocomplete tolerates empty values.
 
 ## Handoff
 

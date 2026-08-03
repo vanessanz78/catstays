@@ -20,7 +20,7 @@ interface NominatimResult {
 }
 
 interface AddressAutocompleteProps {
-  value: string;
+  value?: string;
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
@@ -54,7 +54,7 @@ export function AddressAutocomplete({
   className = '',
   id,
 }: AddressAutocompleteProps) {
-  const [query, setQuery] = useState(value);
+  const [query, setQuery] = useState(value || '');
   const [suggestions, setSuggestions] = useState<NominatimResult[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -64,7 +64,7 @@ export function AddressAutocomplete({
   const suppressFetchRef = useRef(false);
 
   useEffect(() => {
-    setQuery(value);
+    setQuery(value || '');
   }, [value]);
 
   useEffect(() => {
