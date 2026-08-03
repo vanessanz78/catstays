@@ -13,6 +13,9 @@
 - Restored the Auth-to-cattery trigger in Supabase and backfilled users that were missing cattery records.
 - Fixed the imported website handoff so "Continue to Website Builder" opens an editable CatStays template seeded from the imported content instead of landing on the preview-only Original reference.
 - Expanded onboarding draft persistence to keep normalized imported content, gallery images, services, rooms, FAQs, owner/location data, and template fields through reloads and back/forward navigation.
+- Fixed Phase 2 UAT import persistence so provisional onboarding draft saves create a durable `content_sources` row before the Website Builder opens, preserving imported text, images, hero media, galleries, rooms, FAQs, and normalized builder state.
+- Updated Supabase Auth email templates to a shared CatStays-branded layout with cream header, logo/wordmark, friendlier copy, terracotta calls to action, and navy support footer.
+- Adjusted signup confirmation redirect resolution so localhost remains valid for development while production uses the configured CatStays public app URL.
 
 ## 2026-07-12
 

@@ -19,6 +19,10 @@ function readEnvValue(...keys: string[]) {
   return undefined;
 }
 
+function isLocalhostUrl(value: string) {
+  return /^https?:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0)(?::\d+)?(?:\/|$)/i.test(value.trim());
+}
+
 function hasPlaceholderEnvValue(...keys: string[]) {
   return keys.some((key) => {
     const raw = process.env[key];
@@ -26,16 +30,39 @@ function hasPlaceholderEnvValue(...keys: string[]) {
   });
 }
 
-function resolvePublicAppUrl() {
-  const configured =
-    readEnvValue('CATSTAYS_APP_URL', 'PUBLIC_APP_URL', 'VITE_PUBLIC_APP_URL') || 'https://catstays.app';
-  if (/^https?:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0)(?::\d+)?(?:\/|$)/i.test(configured)) {
-    return 'https://catstays.app';
+function originFromRequest(req?: Request) {
+  const forwardedHost = req?.get('x-forwarded-host');
+  const forwardedProto = req?.get('x-forwarded-proto')?.split(',')[0]?.trim();
+  const origin = req?.get('origin');
+
+  if (forwardedHost) {
+    return `${forwardedProto || 'https'}://${forwardedHost.split(',')[0].trim()}`;
   }
-  return configured.replace(/\/$/, '');
+
+  return origin || '';
 }
 
-const PUBLIC_APP_URL = resolvePublicAppUrl();
+function resolvePublicAppUrl(req?: Request) {
+  const configured = readEnvValue('CATSTAYS_APP_URL', 'PUBLIC_APP_URL', 'VITE_PUBLIC_APP_URL');
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  if (configured) {
+    if (isProduction && isLocalhostUrl(configured)) {
+      return `https://${ROOT_DOMAIN}`;
+    }
+    return configured.replace(/\/$/, '');
+  }
+
+  const requestOrigin = originFromRequest(req);
+  if (requestOrigin) {
+    if (!isProduction || !isLocalhostUrl(requestOrigin)) {
+      return requestOrigin.replace(/\/$/, '');
+    }
+  }
+
+  return isProduction ? `https://${ROOT_DOMAIN}` : 'http://localhost:5173';
+}
+
 const supabaseUrl = readEnvValue('VITE_SUPABASE_URL', 'SUPABASE_URL', 'SUPABASE_PROJECT_URL');
 const supabaseAnonKey = readEnvValue('VITE_SUPABASE_ANON_KEY', 'SUPABASE_ANON_KEY', 'SUPABASE_PUBLISHABLE_KEY');
 const supabaseServiceKey = readEnvValue(
@@ -234,6 +261,35 @@ function pickWebsiteSettings(data: OnboardingDraft) {
   }, {});
 }
 
+function stringSetting(value: unknown) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function hasExistingContentSource(settings: Record<string, unknown>) {
+  return Boolean(
+    stringSetting(settings.contentSourceId) ||
+      stringSetting(settings.previewImportRecordId) ||
+      stringSetting(settings.contentSourceHash),
+  );
+}
+
+function hasImportPayload(draft: OnboardingDraft) {
+  const record = draft.previewImportRecord;
+  if (record && typeof record === 'object' && !Array.isArray(record)) {
+    const source = (record as Record<string, unknown>).source;
+    if (source && typeof source === 'object' && !Array.isArray(source)) {
+      return Boolean(stringSetting((source as Record<string, unknown>).url));
+    }
+  }
+
+  return Boolean(
+    stringSetting(draft.importSourceUrl) ||
+      stringSetting(draft.sourceUrl) ||
+      draft.siteContentLibrary ||
+      draft.contentLibrary,
+  );
+}
+
 function createOnboardingDraftToken() {
   return crypto.randomBytes(32).toString('base64url');
 }
@@ -339,7 +395,7 @@ router.post('/cattery/provision', async (req: Request, res: Response) => {
           full_name: ownerName,
           business_name: businessName,
         },
-        emailRedirectTo: `${PUBLIC_APP_URL}/confirm-email`,
+        emailRedirectTo: `${resolvePublicAppUrl(req)}/confirm-email`,
       },
     });
 
@@ -503,7 +559,7 @@ router.patch('/cattery/draft-progress', async (req: Request, res: Response) => {
     };
 
     let contentSource: Awaited<ReturnType<typeof createContentSourceFromOnboardingDraft>> = null;
-    if (shouldPublish) {
+    if (hasImportPayload(draft) && !hasExistingContentSource(websiteSettings)) {
       contentSource = await createContentSourceFromOnboardingDraft(serviceClient, {
         catteryId,
         draft,
@@ -516,7 +572,9 @@ router.patch('/cattery/draft-progress', async (req: Request, res: Response) => {
         websiteSettings.contentSourceHash = contentSource.content_hash;
         websiteSettings.contentSourceImportVersion = contentSource.import_version;
       }
+    }
 
+    if (shouldPublish) {
       const { data: existingRooms } = await serviceClient
         .from('rooms')
         .select('id')

@@ -27,6 +27,12 @@ Templates included:
 
 Paste each HTML file into Supabase Dashboard under Authentication > Emails.
 
+Regenerate the Supabase Auth HTML from the shared CatStays layout with:
+
+```bash
+pnpm run build:supabase-email-templates
+```
+
 ## App Transactional Emails
 
 CatStays app emails are generated from:
@@ -64,5 +70,6 @@ For Supabase Auth emails, keep the hosted Auth settings aligned with production:
 
 - Site URL: `https://catstays.app`
 - Additional Redirect URLs: include `https://catstays.app/confirm-email`
+- Support email in footer copy: `support@catstays.app`
 
-If either setting drifts back to `http://localhost:3000`, confirmation emails and password reset links will open the wrong destination.
+If either hosted Auth setting drifts back to `http://localhost:3000`, confirmation emails and password reset links can open the wrong destination even when the email HTML looks correct.

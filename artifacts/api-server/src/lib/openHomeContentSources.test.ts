@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   buildContentSourceHash,
   createContentSource,
+  createContentSourceFromOnboardingDraft,
   getContentSource,
   listContentSources,
   updateContentSourceStatus,
@@ -64,6 +65,41 @@ describe('openHomeContentSources', () => {
       id: 'cattery-1',
       update: { current_source_id: 'source-1' },
     });
+  });
+
+  it('persists rich onboarding preview imports as website content sources', async () => {
+    const supabase = mockSupabase();
+
+    const source = await createContentSourceFromOnboardingDraft(supabase, {
+      catteryId: 'cattery-1',
+      actorId: 'user-1',
+      draft: {
+        previewImportRecord: {
+          source: { url: 'https://delorainecattery.com/' },
+          identity: { businessName: 'Deloraine Cattery' },
+          media: {
+            heroImage: 'https://delorainecattery.com/hero.jpg',
+            galleryImages: [{ url: 'https://delorainecattery.com/cat.jpg', caption: 'Cat suite' }],
+          },
+          normalizedPreviewData: {
+            heroImage: 'https://delorainecattery.com/hero.jpg',
+            siteContentLibrary: {
+              blocks: [{ id: 'hero', type: 'hero', title: 'A calm country cattery' }],
+            },
+          },
+        },
+      },
+    });
+
+    assert.equal(source?.source_url, 'https://delorainecattery.com/');
+    assert.equal(source?.source_name, 'Deloraine Cattery');
+    assert.deepEqual(source?.normalized_data, {
+      heroImage: 'https://delorainecattery.com/hero.jpg',
+      siteContentLibrary: {
+        blocks: [{ id: 'hero', type: 'hero', title: 'A calm country cattery' }],
+      },
+    });
+    assert.equal(supabase.events[0].event_type, 'content_source.created');
   });
 
   it('lists and reads source records through the service layer', async () => {

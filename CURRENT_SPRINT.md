@@ -39,6 +39,7 @@ Implement Phase 2 Content Sources for the Open Home Content Platform without sta
 - Implemented server-side Content Source creation, retrieval, source hashing/import versioning, status transitions, and audit event writing.
 - Authenticated website scrapes with a known cattery can persist a Content Source immediately.
 - Onboarding publish/provision persists the imported website source after the cattery row exists.
+- Provisional onboarding draft progress now persists imported website content into `content_sources` before the Website Builder opens, so the builder hydrates from saved imported text, images, gallery, rooms, FAQs, and normalized website sections rather than a preview-only in-memory payload.
 - Existing browser storage remains lightweight for onboarding resume state; full preview import records are not written to Local Storage as the source of truth.
 - Replit onboarding resume now merges lightweight saved state over full defaults so the first post-signup screen does not crash on sparse browser state.
 - Full `/signup` now provisions the real Supabase Auth user and cattery record through the server before entering onboarding, then carries the known business/account details into step 2.
@@ -66,7 +67,7 @@ Implement Phase 2 Content Sources for the Open Home Content Platform without sta
 - `PLATFORM_PRINCIPLES.md` is the canonical Open Home implementation charter.
 - One implementation phase may be active at a time.
 - Phase 2 uses `content_sources` as the durable source identity for website imports; existing preview rendering remains unchanged.
-- Unauthenticated website scraping remains preview-only. Durable Content Source writes require authenticated owner access or backend provisioning with the service role.
+- Unauthenticated website scraping remains preview-only. Durable Content Source writes require authenticated owner access or backend provisioning/draft-progress validation with the service role.
 - Every completed Open Home phase must be tagged.
 
 ## Risks Or Blockers

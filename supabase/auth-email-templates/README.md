@@ -2,6 +2,12 @@
 
 These templates keep Supabase Auth emails visually consistent with CatStays app emails.
 
+The HTML files are generated from one shared layout:
+
+```bash
+pnpm run build:supabase-email-templates
+```
+
 Use them in Supabase Dashboard under Authentication > Emails. Paste each HTML file into the matching email template:
 
 - `confirmation.html` - Confirm signup
@@ -26,7 +32,7 @@ Legacy filenames are retained for compatibility:
 - `confirm-signup.html` mirrors `confirmation.html`
 - `reset-password.html` mirrors `recovery.html`
 
-The templates use Supabase Auth variables such as `{{ .ConfirmationURL }}`, `{{ .Token }}`, `{{ .Email }}`, `{{ .SiteURL }}`, and `{{ .RedirectTo }}`.
+The templates use Supabase Auth variables such as `{{ .ConfirmationURL }}`, `{{ .Token }}`, `{{ .Email }}`, `{{ .SiteURL }}`, and `{{ .RedirectTo }}`. Do not replace `{{ .ConfirmationURL }}` with a literal localhost or production URL; Supabase generates that URL from the Site URL, allowed redirect URLs, and the app-provided `emailRedirectTo`.
 
 Logo source:
 
@@ -38,6 +44,7 @@ Recommended production values:
 - Redirect URLs: include `https://catstays.app/confirm-email`
 - Sender name: `CatStays`
 - Sender email: the verified CatStays transactional sender
+- Support email: `support@catstays.app`
 
 App transactional emails are generated from:
 

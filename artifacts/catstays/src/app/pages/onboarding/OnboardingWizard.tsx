@@ -570,13 +570,37 @@ export function OnboardingWizard() {
       }
 
       const previewRecord = buildPreviewImportRecord(payload);
-
-      setData(prev => ({
-        ...dataFromPreviewRecord(previewRecord, 'original', prev),
+      const importedData: Record<string, any> = {
+        ...dataFromPreviewRecord(previewRecord, 'original', {
+          ...data,
+          websiteUrl: normalizedWebsiteUrl,
+        }),
         isImporting: false,
         importComplete: true,
         importError: '',
-      }));
+      };
+
+      setData(importedData);
+      saveOnboardingUiState(2, importedData, accountCreated);
+
+      if (importedData.provisionedCatteryId && importedData.onboardingDraftToken) {
+        void saveProvisionedDraftProgress(importedData)
+          .then((progress) => {
+            if (!progress?.contentSourceId) return;
+            setData(prev => {
+              const updated = {
+                ...prev,
+                contentSourceId: progress.contentSourceId,
+                previewImportRecordId: progress.contentSourceId,
+              };
+              saveOnboardingUiState(2, updated, accountCreated);
+              return updated;
+            });
+          })
+          .catch((error) => {
+            console.error('Failed to save imported website preview', error);
+          });
+      }
     } catch {
       setData(prev => ({
         ...prev,
@@ -1116,11 +1140,11 @@ export function OnboardingWizard() {
     setStep(Math.min(step + 1, totalSteps));
   };
 
-  const handleContinueImportedWebsite = () => {
+  const handleContinueImportedWebsite = async () => {
     const nextData = data.previewImportRecord
       ? applyPreviewTemplate(data, 'conversion-focus')
       : data;
-    const builderData = {
+    let builderData = {
       ...nextData,
       importComplete: true,
       importError: '',
@@ -1130,9 +1154,20 @@ export function OnboardingWizard() {
     setData(builderData);
     saveOnboardingUiState(3, builderData, accountCreated);
     if (builderData.provisionedCatteryId && builderData.onboardingDraftToken) {
-      void saveProvisionedDraftProgress(builderData).catch((error) => {
+      try {
+        const progress = await saveProvisionedDraftProgress(builderData);
+        if (progress?.contentSourceId) {
+          builderData = {
+            ...builderData,
+            contentSourceId: progress.contentSourceId,
+            previewImportRecordId: progress.contentSourceId,
+          };
+          setData(builderData);
+          saveOnboardingUiState(3, builderData, accountCreated);
+        }
+      } catch (error) {
         console.error('Failed to save imported website builder draft', error);
-      });
+      }
     }
     setStep(3);
   };

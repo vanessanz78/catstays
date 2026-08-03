@@ -10,8 +10,11 @@ const templateRoot = path.join(repoRoot, 'supabase', 'auth-email-templates');
 
 type TemplateKey =
   | 'mailer_templates_confirmation_content'
+  | 'mailer_templates_invite_content'
   | 'mailer_templates_magic_link_content'
-  | 'mailer_templates_recovery_content';
+  | 'mailer_templates_email_change_content'
+  | 'mailer_templates_recovery_content'
+  | 'mailer_templates_reauthentication_content';
 
 async function readTemplate(fileName: string) {
   return readFile(path.join(templateRoot, fileName), 'utf8');
@@ -51,11 +54,17 @@ async function main() {
 
   const payload = {
     mailer_subjects_confirmation: 'Confirm your CatStays account',
-    mailer_templates_confirmation_content: await readTemplate('confirm-signup.html'),
+    mailer_templates_confirmation_content: await readTemplate('confirmation.html'),
+    mailer_subjects_invite: 'Welcome to CatStays',
+    mailer_templates_invite_content: await readTemplate('invite.html'),
     mailer_subjects_magic_link: 'Sign in to CatStays',
     mailer_templates_magic_link_content: await readTemplate('magic-link.html'),
+    mailer_subjects_email_change: 'Confirm your new CatStays email',
+    mailer_templates_email_change_content: await readTemplate('email-change.html'),
     mailer_subjects_recovery: 'Reset your CatStays password',
-    mailer_templates_recovery_content: await readTemplate('reset-password.html'),
+    mailer_templates_recovery_content: await readTemplate('recovery.html'),
+    mailer_subjects_reauthentication: 'Your CatStays security code',
+    mailer_templates_reauthentication_content: await readTemplate('reauthentication.html'),
   };
 
   await requestSupabase<Record<string, unknown>>(projectRef, accessToken, {
@@ -69,8 +78,11 @@ async function main() {
 
   const templateKeys: TemplateKey[] = [
     'mailer_templates_confirmation_content',
+    'mailer_templates_invite_content',
     'mailer_templates_magic_link_content',
+    'mailer_templates_email_change_content',
     'mailer_templates_recovery_content',
+    'mailer_templates_reauthentication_content',
   ];
 
   const mismatchedKeys = templateKeys.filter((key) => updatedConfig[key] !== payload[key]);
