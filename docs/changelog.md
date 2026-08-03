@@ -9,6 +9,8 @@
 - Added focused API-server tests for source hashing, creation, lookup, and status transition behaviour.
 - Defaulted the API server dev script to port `8080` when Replit does not provide `PORT`.
 - Fixed the Replit onboarding resume crash after the first signup screen by preserving full default form state around the lightweight saved progress payload.
+- Reworked `/signup` to provision the Supabase Auth user and cattery before onboarding, carry the signup details into step 2, and save unconfirmed onboarding progress through a server-side draft token.
+- Restored the Auth-to-cattery trigger in Supabase and backfilled users that were missing cattery records.
 
 ## 2026-07-12
 

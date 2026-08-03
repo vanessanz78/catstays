@@ -41,6 +41,9 @@ Implement Phase 2 Content Sources for the Open Home Content Platform without sta
 - Onboarding publish/provision persists the imported website source after the cattery row exists.
 - Existing browser storage remains lightweight for onboarding resume state; full preview import records are not written to Local Storage as the source of truth.
 - Replit onboarding resume now merges lightweight saved state over full defaults so the first post-signup screen does not crash on sparse browser state.
+- Full `/signup` now provisions the real Supabase Auth user and cattery record through the server before entering onboarding, then carries the known business/account details into step 2.
+- Onboarding draft progress can save back to the provisioned cattery before email confirmation by using a one-time draft token stored server-side as a hash.
+- Restored the live Auth-to-cattery trigger and backfilled Auth users that were missing cattery rows; the migration is recorded as `008_restore_auth_cattery_trigger.sql`.
 - The permanent Open Home implementation tracker is `ROADMAP.md`.
 - The permanent Open Home engineering philosophy is `PLATFORM_PRINCIPLES.md`.
 - Future implementation must follow one branch -> one phase -> UAT -> merge -> tag -> delete branch.
@@ -77,6 +80,7 @@ Implement Phase 2 Content Sources for the Open Home Content Platform without sta
 - `node_modules` and generated build artifacts were removed after validation to keep the MacBook Air footprint small.
 - Replit first UAT attempt showed the API server needs a `PORT`; the API dev script now defaults to `8080` when Replit does not provide one.
 - Replit onboarding UAT then exposed a sparse saved-state crash after the first signup screen; the restore path now keeps defaults and the location autocomplete tolerates empty values.
+- Replit signup UAT showed the `/signup` page duplicated account/cattery questions and depended on a missing live Supabase trigger. The live trigger was restored and verified; the app now enters onboarding from a provisioned cattery draft.
 
 ## Handoff
 

@@ -1,4 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from 'express';
+import crypto from 'crypto';
 import dns from 'dns/promises';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { createContentSourceFromOnboardingDraft } from '../lib/openHomeContentSources';
@@ -54,6 +55,8 @@ type OnboardingDraft = {
   address?: string;
   phone?: string;
   subdomain?: string;
+  provisionedCatteryId?: string;
+  onboardingDraftToken?: string;
   roomTypes?: RoomTypeDraft[];
   pricingRates?: PricingRateDraft[];
   [key: string]: unknown;
@@ -157,6 +160,21 @@ function pickWebsiteSettings(data: OnboardingDraft) {
     if (data[key] !== undefined) settings[key] = data[key];
     return settings;
   }, {});
+}
+
+function createOnboardingDraftToken() {
+  return crypto.randomBytes(32).toString('base64url');
+}
+
+function hashOnboardingDraftToken(token: string) {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+function tokensMatch(token: string, expectedHash: unknown) {
+  if (typeof expectedHash !== 'string' || !token) return false;
+  const actual = Buffer.from(hashOnboardingDraftToken(token), 'hex');
+  const expected = Buffer.from(expectedHash, 'hex');
+  return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
 }
 
 function toPositiveNumber(value: string | number | undefined, fallback: number) {
@@ -295,6 +313,9 @@ router.post('/cattery/provision', async (req: Request, res: Response) => {
     }
 
     const websiteSettings = pickWebsiteSettings(draft);
+    const onboardingDraftToken = createOnboardingDraftToken();
+    websiteSettings.onboardingDraftTokenHash = hashOnboardingDraftToken(onboardingDraftToken);
+    websiteSettings.onboardingDraftTokenCreatedAt = new Date().toISOString();
     const contentSource = await createContentSourceFromOnboardingDraft(serviceClient, {
       catteryId: cattery.id,
       draft,
@@ -349,6 +370,7 @@ router.post('/cattery/provision', async (req: Request, res: Response) => {
       success: true,
       userId: user.id,
       catteryId: cattery.id,
+      onboardingDraftToken,
       contentSourceId: contentSource?.id ?? null,
       slug: requestedSlug,
       emailConfirmationSent: true,
@@ -356,6 +378,120 @@ router.post('/cattery/provision', async (req: Request, res: Response) => {
   } catch (err: unknown) {
     console.error('[cattery/provision]', err);
     const message = err instanceof Error ? err.message : 'Failed to provision cattery.';
+    res.status(500).json({ error: message });
+  }
+});
+
+router.patch('/cattery/draft-progress', async (req: Request, res: Response) => {
+  const publicClient = createPublicClient();
+  const serviceClient = createServiceClient();
+
+  if (!publicClient || !serviceClient) {
+    res.status(500).json({ error: 'Supabase is not configured for draft progress.' });
+    return;
+  }
+
+  const catteryId = typeof req.body?.catteryId === 'string' ? req.body.catteryId : '';
+  const onboardingDraftToken = typeof req.body?.onboardingDraftToken === 'string' ? req.body.onboardingDraftToken : '';
+  const draft = (req.body?.data ?? {}) as OnboardingDraft;
+  const plan = normalizePlan(req.body?.plan);
+  const shouldPublish = req.body?.publish === true;
+
+  if (!catteryId || !onboardingDraftToken) {
+    res.status(400).json({ error: 'Cattery draft details are required.' });
+    return;
+  }
+
+  try {
+    await ensureProvisioningClientsReady(publicClient, serviceClient);
+
+    const { data: cattery, error: catteryError } = await serviceClient
+      .from('catteries')
+      .select('id, owner_id, slug, email, phone, address, city, website_settings')
+      .eq('id', catteryId)
+      .maybeSingle();
+
+    if (catteryError) throw catteryError;
+    if (!cattery) {
+      res.status(404).json({ error: 'Cattery draft was not found.' });
+      return;
+    }
+
+    const existingSettings = (cattery.website_settings as Record<string, unknown> | null) ?? {};
+    if (!tokensMatch(onboardingDraftToken, existingSettings.onboardingDraftTokenHash)) {
+      res.status(403).json({ error: 'This onboarding draft is no longer available.' });
+      return;
+    }
+
+    const businessName = (draft.businessName || '').trim();
+    const requestedSlug = slugify(String(draft.subdomain || cattery.slug || businessName || 'my-cattery'));
+    const websiteSettings = {
+      ...existingSettings,
+      ...pickWebsiteSettings(draft),
+    };
+
+    let contentSource: Awaited<ReturnType<typeof createContentSourceFromOnboardingDraft>> = null;
+    if (shouldPublish) {
+      contentSource = await createContentSourceFromOnboardingDraft(serviceClient, {
+        catteryId,
+        draft,
+        actorId: cattery.owner_id,
+      });
+
+      if (contentSource) {
+        websiteSettings.previewImportRecordId = contentSource.id;
+        websiteSettings.contentSourceId = contentSource.id;
+        websiteSettings.contentSourceHash = contentSource.content_hash;
+        websiteSettings.contentSourceImportVersion = contentSource.import_version;
+      }
+
+      const { data: existingRooms } = await serviceClient
+        .from('rooms')
+        .select('id')
+        .eq('cattery_id', catteryId)
+        .limit(1);
+
+      const roomInserts = roomInsertsForDraft(catteryId, draft);
+      if ((!existingRooms || existingRooms.length === 0) && roomInserts.length > 0) {
+        const { error: roomsError } = await serviceClient.from('rooms').insert(roomInserts);
+        if (roomsError) {
+          const message = roomsError.message.toLowerCase();
+          if (message.includes('capacity') || message.includes('amenities')) {
+            const legacyRoomInserts = roomInserts.map(({ capacity: _capacity, amenities: _amenities, ...room }) => room);
+            const { error: legacyRoomsError } = await serviceClient.from('rooms').insert(legacyRoomInserts);
+            if (legacyRoomsError) throw legacyRoomsError;
+          } else {
+            throw roomsError;
+          }
+        }
+      }
+    }
+
+    const { error: updateError } = await serviceClient
+      .from('catteries')
+      .update({
+        name: businessName || undefined,
+        email: draft.email || cattery.email,
+        phone: draft.phone || cattery.phone,
+        address: draft.address || cattery.address,
+        city: draft.location || cattery.city,
+        slug: requestedSlug || cattery.slug,
+        website_settings: websiteSettings,
+        ...(shouldPublish ? { subscription_status: `trial_${plan}` } : {}),
+      })
+      .eq('id', catteryId);
+
+    if (updateError) throw updateError;
+
+    res.json({
+      success: true,
+      catteryId,
+      slug: requestedSlug || cattery.slug,
+      contentSourceId: contentSource?.id ?? websiteSettings.contentSourceId ?? null,
+    });
+  } catch (err: unknown) {
+    console.error('[cattery/draft-progress]', err);
+    const message = err instanceof Error ? err.message : 'Failed to save onboarding progress.';
     res.status(500).json({ error: message });
   }
 });

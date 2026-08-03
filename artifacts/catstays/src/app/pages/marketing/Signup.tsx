@@ -5,14 +5,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { ArrowRight, Eye, EyeOff, Loader2 } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
 
 const logoIcon = '/assets/b463d12091f20e48be52186dedd2a0f6707d0b66.png';
 const logoText = '/assets/9900b394e20a5e059447324d58daad1b1bf43ed6.png';
 
 export function Signup() {
   const navigate = useNavigate();
-  const { signUp } = useAuth();
   const [formData, setFormData] = useState({
     businessName: '',
     ownerName: '',
@@ -28,27 +26,77 @@ export function Signup() {
     setError('');
     setIsLoading(true);
 
-    if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters');
+    if (formData.password.length < 8) {
+      setError('Password must be at least 8 characters');
       setIsLoading(false);
       return;
     }
 
-    const { error } = await signUp(
-      formData.email,
-      formData.password,
-      formData.businessName,
-      formData.ownerName
-    );
+    const onboardingData = {
+      businessName: formData.businessName.trim(),
+      name: formData.ownerName.trim(),
+      email: formData.email.trim().toLowerCase(),
+      password: formData.password,
+      emailConfirmed: false,
+    };
 
-    if (error) {
-      setError(error.message || 'Failed to create account');
+    try {
+      const response = await fetch('/api/cattery/provision', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: onboardingData, plan: 'professional' }),
+      });
+
+      const rawPayload = await response.text();
+      let payload: {
+        error?: string;
+        catteryId?: string;
+        onboardingDraftToken?: string;
+        slug?: string;
+      } = {};
+
+      try {
+        payload = rawPayload ? JSON.parse(rawPayload) : {};
+      } catch {
+        payload = {};
+      }
+
+      if (!response.ok) {
+        setError(payload.error || 'Failed to create account');
+        setIsLoading(false);
+        return;
+      }
+
+      const savedData = {
+        ...onboardingData,
+        password: '',
+        provisionedCatteryId: payload.catteryId || '',
+        onboardingDraftToken: payload.onboardingDraftToken || '',
+        subdomain: payload.slug || '',
+      };
+
+      localStorage.setItem('catstays_account', JSON.stringify({
+        name: savedData.name,
+        email: savedData.email,
+        businessName: savedData.businessName,
+        catteryId: savedData.provisionedCatteryId,
+        slug: savedData.subdomain,
+        createdAt: new Date().toISOString(),
+        emailConfirmed: false,
+        status: 'confirmation_sent',
+      }));
+      localStorage.setItem('catstays_onboarding', JSON.stringify({
+        step: 2,
+        data: savedData,
+        accountCreated: true,
+      }));
+
+      navigate('/onboarding');
+    } catch {
+      setError('The signup service is not available in this preview. Please restart the preview and try again.');
+    } finally {
       setIsLoading(false);
-      return;
     }
-
-    navigate('/onboarding');
-    setIsLoading(false);
   };
 
   return (
@@ -116,7 +164,7 @@ export function Signup() {
                 <Input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
-                  placeholder="Min. 6 characters"
+                  placeholder="Min. 8 characters"
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   required
