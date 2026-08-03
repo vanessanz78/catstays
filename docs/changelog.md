@@ -11,6 +11,8 @@
 - Fixed the Replit onboarding resume crash after the first signup screen by preserving full default form state around the lightweight saved progress payload.
 - Reworked `/signup` to provision the Supabase Auth user and cattery before onboarding, carry the signup details into step 2, and save unconfirmed onboarding progress through a server-side draft token.
 - Restored the Auth-to-cattery trigger in Supabase and backfilled users that were missing cattery records.
+- Fixed the imported website handoff so "Continue to Website Builder" opens an editable CatStays template seeded from the imported content instead of landing on the preview-only Original reference.
+- Expanded onboarding draft persistence to keep normalized imported content, gallery images, services, rooms, FAQs, owner/location data, and template fields through reloads and back/forward navigation.
 
 ## 2026-07-12
 

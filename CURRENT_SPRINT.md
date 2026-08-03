@@ -84,6 +84,7 @@ Implement Phase 2 Content Sources for the Open Home Content Platform without sta
 - Replit onboarding UAT then exposed a sparse saved-state crash after the first signup screen; the restore path now keeps defaults and the location autocomplete tolerates empty values.
 - Replit signup UAT showed the `/signup` page duplicated account/cattery questions and depended on a missing live Supabase trigger. The live trigger was restored and verified; the app now enters onboarding from a provisioned cattery draft.
 - Replit follow-up showed `Supabase is not configured for provisioning`; ensure Replit Secrets include `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and canonical `SUPABASE_SERVICE_ROLE_KEY`.
+- Replit import UAT showed imported website content rendered in the original preview but disappeared in the editable website builder. The root cause was a preview-only "Original" handoff plus a draft save list that did not preserve all normalized builder content/images. The import continue action now opens an editable generated template seeded from the scrape, and draft saves keep the normalized builder fields.
 - The visible Replit Secrets were present, but checked-in `.replit` still set `SUPABASE_SERVICE_ROLE_KEY = "$SUPABASE_SERVICE_ROLE_KEY"`, which shadowed the real secret with placeholder text. That placeholder entry was removed.
 
 ## Handoff

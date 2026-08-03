@@ -78,7 +78,7 @@ function sourceUrlForTemplateSnapshot(data: Record<string, any>) {
 }
 
 function lightweightOnboardingState(data: Record<string, any>) {
-  return {
+  const state: Record<string, any> = {
     name: data.name,
     email: data.email,
     emailConfirmed: data.emailConfirmed,
@@ -101,6 +101,12 @@ function lightweightOnboardingState(data: Record<string, any>) {
     importComplete: data.importComplete,
     importError: data.importError,
   };
+
+  for (const key of websiteBuilderDraftKeys) {
+    if (data[key] !== undefined) state[key] = data[key];
+  }
+
+  return state;
 }
 
 function saveOnboardingUiState(step: number, data: Record<string, any>, accountCreated: boolean) {
@@ -110,6 +116,62 @@ function saveOnboardingUiState(step: number, data: Record<string, any>, accountC
     accountCreated,
   }));
 }
+
+const websiteBuilderDraftKeys = [
+  'primaryColor',
+  'accentColor',
+  'backgroundColor',
+  'typography',
+  'headingFont',
+  'subheadingFont',
+  'bodyFont',
+  'logo',
+  'logoImage',
+  'heroImage',
+  'heroHeading',
+  'heroSubheading',
+  'heroPrimaryCtaText',
+  'heroPrimaryCtaHref',
+  'heroSecondaryCtaText',
+  'heroSecondaryCtaHref',
+  'aboutText',
+  'aboutHeading',
+  'aboutImage',
+  'whyChooseUsData',
+  'whyChooseUsHeading',
+  'whyChooseUsText',
+  'whyChooseUsFeatures',
+  'facilitiesData',
+  'facilitiesHeading',
+  'facilitiesText',
+  'facilitiesImage',
+  'facilityFeatures',
+  'suitesData',
+  'suitesHeading',
+  'suites',
+  'servicesData',
+  'additionalServicesHeading',
+  'additionalServices',
+  'galleryData',
+  'galleryHeading',
+  'galleryImages',
+  'testimonialsData',
+  'testimonialsHeading',
+  'testimonials',
+  'faqData',
+  'faqHeading',
+  'faqs',
+  'commitmentData',
+  'ownerData',
+  'locationData',
+  'contactData',
+  'socialLinks',
+  'virtualTourUrl',
+  'footerAbout',
+  'siteContentLibrary',
+  'contentLibrary',
+  'sectionsOrder',
+] as const;
 
 function OnboardingTemplateSnapshot({
   template,
@@ -579,6 +641,7 @@ export function OnboardingWizard() {
           subheadingFont: data.subheadingFont,
           bodyFont: data.bodyFont,
           logo: data.logo,
+          logoImage: data.logoImage,
           heroImage: data.heroImage,
           heroHeading: data.heroHeading,
           heroSubheading: data.heroSubheading,
@@ -588,21 +651,32 @@ export function OnboardingWizard() {
           heroSecondaryCtaHref: data.heroSecondaryCtaHref,
           aboutText: data.aboutText,
           aboutHeading: data.aboutHeading,
+          aboutImage: data.aboutImage,
+          whyChooseUsData: data.whyChooseUsData,
           whyChooseUsHeading: data.whyChooseUsHeading,
+          whyChooseUsText: data.whyChooseUsText,
           whyChooseUsFeatures: data.whyChooseUsFeatures,
+          facilitiesData: data.facilitiesData,
           facilitiesHeading: data.facilitiesHeading,
           facilitiesText: data.facilitiesText,
           facilitiesImage: data.facilitiesImage,
           facilityFeatures: data.facilityFeatures,
+          suitesData: data.suitesData,
           suitesHeading: data.suitesHeading,
           suites: data.suites,
+          servicesData: data.servicesData,
           additionalServicesHeading: data.additionalServicesHeading,
+          galleryData: data.galleryData,
           galleryHeading: data.galleryHeading,
           galleryImages: data.galleryImages,
+          testimonialsData: data.testimonialsData,
           testimonialsHeading: data.testimonialsHeading,
+          faqData: data.faqData,
           faqHeading: data.faqHeading,
+          commitmentData: data.commitmentData,
           ownerData: data.ownerData,
           locationData: data.locationData,
+          contactData: data.contactData,
           socialLinks: data.socialLinks,
           virtualTourUrl: data.virtualTourUrl,
           footerAbout: data.footerAbout,
@@ -688,6 +762,7 @@ export function OnboardingWizard() {
         subheadingFont: ws.subheadingFont || prev.subheadingFont,
         bodyFont: ws.bodyFont || prev.bodyFont,
         logo: ws.logo || prev.logo,
+        logoImage: ws.logoImage || prev.logoImage,
         heroImage: ws.heroImage || prev.heroImage,
         heroHeading: ws.heroHeading || prev.heroHeading,
         heroSubheading: ws.heroSubheading || prev.heroSubheading,
@@ -697,24 +772,35 @@ export function OnboardingWizard() {
         heroSecondaryCtaHref: ws.heroSecondaryCtaHref || prev.heroSecondaryCtaHref,
         aboutText: ws.aboutText || prev.aboutText,
         aboutHeading: ws.aboutHeading || prev.aboutHeading,
+        aboutImage: ws.aboutImage || prev.aboutImage,
+        whyChooseUsData: ws.whyChooseUsData || prev.whyChooseUsData,
         whyChooseUsHeading: ws.whyChooseUsHeading || prev.whyChooseUsHeading,
+        whyChooseUsText: ws.whyChooseUsText || prev.whyChooseUsText,
         whyChooseUsFeatures: ws.whyChooseUsFeatures ?? prev.whyChooseUsFeatures,
+        facilitiesData: ws.facilitiesData || prev.facilitiesData,
         facilitiesHeading: ws.facilitiesHeading || prev.facilitiesHeading,
         facilitiesText: ws.facilitiesText || prev.facilitiesText,
         facilitiesImage: ws.facilitiesImage || prev.facilitiesImage,
         facilityFeatures: ws.facilityFeatures ?? prev.facilityFeatures,
+        suitesData: ws.suitesData || prev.suitesData,
         suitesHeading: ws.suitesHeading || prev.suitesHeading,
         suites: ws.suites ?? prev.suites,
+        servicesData: ws.servicesData || prev.servicesData,
         additionalServicesHeading: ws.additionalServicesHeading || prev.additionalServicesHeading,
+        galleryData: ws.galleryData || prev.galleryData,
         galleryHeading: ws.galleryHeading || prev.galleryHeading,
         galleryImages: ws.galleryImages ?? prev.galleryImages,
+        testimonialsData: ws.testimonialsData || prev.testimonialsData,
         testimonialsHeading: ws.testimonialsHeading || prev.testimonialsHeading,
         testimonials: ws.testimonials ?? prev.testimonials,
+        faqData: ws.faqData || prev.faqData,
         faqHeading: ws.faqHeading || prev.faqHeading,
         faqs: ws.faqs ?? prev.faqs,
         additionalServices: ws.additionalServices ?? prev.additionalServices,
+        commitmentData: ws.commitmentData || prev.commitmentData,
         ownerData: ws.ownerData || prev.ownerData,
         locationData: ws.locationData || prev.locationData,
+        contactData: ws.contactData || prev.contactData,
         socialLinks: ws.socialLinks || prev.socialLinks,
         virtualTourUrl: ws.virtualTourUrl || prev.virtualTourUrl,
         footerAbout: ws.footerAbout || prev.footerAbout,
@@ -1028,6 +1114,27 @@ export function OnboardingWizard() {
     setShowTemplateSelection(false);
     saveOnboardingUiState(step, nextData, accountCreated);
     setStep(Math.min(step + 1, totalSteps));
+  };
+
+  const handleContinueImportedWebsite = () => {
+    const nextData = data.previewImportRecord
+      ? applyPreviewTemplate(data, 'conversion-focus')
+      : data;
+    const builderData = {
+      ...nextData,
+      importComplete: true,
+      importError: '',
+      isImporting: false,
+    };
+
+    setData(builderData);
+    saveOnboardingUiState(3, builderData, accountCreated);
+    if (builderData.provisionedCatteryId && builderData.onboardingDraftToken) {
+      void saveProvisionedDraftProgress(builderData).catch((error) => {
+        console.error('Failed to save imported website builder draft', error);
+      });
+    }
+    setStep(3);
   };
 
   const handlePublish = async () => {
@@ -1570,7 +1677,7 @@ export function OnboardingWizard() {
                         </p>
                         <div className="flex items-center gap-4 flex-wrap">
                           <Button
-                            onClick={handleNext}
+                            onClick={handleContinueImportedWebsite}
                             className="bg-[#C46A3A] hover:bg-[#A85A30] text-white rounded-xl"
                           >
                             Continue to Website Builder
