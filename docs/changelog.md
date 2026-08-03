@@ -7,6 +7,7 @@
 - Added authenticated Content Source API routes and wired website scrape persistence for authenticated imports with a known cattery.
 - Wired onboarding publish/provision to persist captured website imports into `content_sources` after the cattery record exists.
 - Added focused API-server tests for source hashing, creation, lookup, and status transition behaviour.
+- Defaulted the API server dev script to port `8080` when Replit does not provide `PORT`.
 
 ## 2026-07-12
 

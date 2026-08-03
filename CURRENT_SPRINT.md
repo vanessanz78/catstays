@@ -74,6 +74,7 @@ Implement Phase 2 Content Sources for the Open Home Content Platform without sta
 - Local working copy created at `/Users/vanessa/Documents/Codex/2026-08-03/catstays-phase2-content-sources`.
 - `pnpm run typecheck`, the focused API-server test, and `pnpm run build` were run locally.
 - `node_modules` and generated build artifacts were removed after validation to keep the MacBook Air footprint small.
+- Replit first UAT attempt showed the API server needs a `PORT`; the API dev script now defaults to `8080` when Replit does not provide one.
 
 ## Handoff
 
