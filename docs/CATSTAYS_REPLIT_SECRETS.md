@@ -52,7 +52,7 @@ STRIPE_API_KEY = "$STRIPE_SECRET_KEY"
 
 So in Replit Secrets, add `STRIPE_SECRET_KEY`, not `STRIPE_API_KEY`.
 
-The app code reads `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`, and `STRIPE_WEBHOOK_SECRET` directly, so those Replit Secret names must match exactly.
+The app code reads `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`, and `STRIPE_WEBHOOK_SECRET` directly, so those Replit Secret names must match exactly. For Supabase provisioning, the API server also accepts `SUPABASE_SERVICE_KEY` or `SUPABASE_SECRET_KEY` as compatibility aliases, but `SUPABASE_SERVICE_ROLE_KEY` is the canonical name.
 
 The publish provisioning route reads `CATSTAYS_APP_URL` for email confirmation redirects. The frontend reads `VITE_PUBLIC_APP_URL` for public app links.
 

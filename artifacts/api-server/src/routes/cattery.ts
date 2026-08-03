@@ -29,9 +29,23 @@ function resolvePublicAppUrl() {
 }
 
 const PUBLIC_APP_URL = resolvePublicAppUrl();
-const supabaseUrl = readEnvValue('VITE_SUPABASE_URL');
-const supabaseAnonKey = readEnvValue('VITE_SUPABASE_ANON_KEY');
-const supabaseServiceKey = readEnvValue('SUPABASE_SERVICE_ROLE_KEY');
+const supabaseUrl = readEnvValue('VITE_SUPABASE_URL', 'SUPABASE_URL', 'SUPABASE_PROJECT_URL');
+const supabaseAnonKey = readEnvValue('VITE_SUPABASE_ANON_KEY', 'SUPABASE_ANON_KEY', 'SUPABASE_PUBLISHABLE_KEY');
+const supabaseServiceKey = readEnvValue(
+  'SUPABASE_SERVICE_ROLE_KEY',
+  'SUPABASE_SERVICE_KEY',
+  'SUPABASE_SECRET_KEY',
+);
+
+function missingSupabaseConfigMessage() {
+  const missing = [
+    supabaseUrl ? null : 'VITE_SUPABASE_URL',
+    supabaseAnonKey ? null : 'VITE_SUPABASE_ANON_KEY',
+    supabaseServiceKey ? null : 'SUPABASE_SERVICE_ROLE_KEY',
+  ].filter(Boolean);
+
+  return `Supabase provisioning is missing Replit secret${missing.length === 1 ? '' : 's'}: ${missing.join(', ')}.`;
+}
 
 type PlanTier = 'starter' | 'professional' | 'premium';
 
@@ -239,7 +253,7 @@ router.post('/cattery/provision', async (req: Request, res: Response) => {
   const serviceClient = createServiceClient();
 
   if (!publicClient || !serviceClient) {
-    res.status(500).json({ error: 'Supabase is not configured for provisioning.' });
+    res.status(500).json({ error: missingSupabaseConfigMessage() });
     return;
   }
 
@@ -387,7 +401,7 @@ router.patch('/cattery/draft-progress', async (req: Request, res: Response) => {
   const serviceClient = createServiceClient();
 
   if (!publicClient || !serviceClient) {
-    res.status(500).json({ error: 'Supabase is not configured for draft progress.' });
+    res.status(500).json({ error: missingSupabaseConfigMessage() });
     return;
   }
 

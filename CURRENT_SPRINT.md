@@ -44,6 +44,7 @@ Implement Phase 2 Content Sources for the Open Home Content Platform without sta
 - Full `/signup` now provisions the real Supabase Auth user and cattery record through the server before entering onboarding, then carries the known business/account details into step 2.
 - Onboarding draft progress can save back to the provisioned cattery before email confirmation by using a one-time draft token stored server-side as a hash.
 - Restored the live Auth-to-cattery trigger and backfilled Auth users that were missing cattery rows; the migration is recorded as `008_restore_auth_cattery_trigger.sql`.
+- Replit signup provisioning now reports the exact missing Supabase secret and accepts common Supabase URL/key aliases, while keeping `SUPABASE_SERVICE_ROLE_KEY` as the canonical secret.
 - The permanent Open Home implementation tracker is `ROADMAP.md`.
 - The permanent Open Home engineering philosophy is `PLATFORM_PRINCIPLES.md`.
 - Future implementation must follow one branch -> one phase -> UAT -> merge -> tag -> delete branch.
@@ -81,6 +82,7 @@ Implement Phase 2 Content Sources for the Open Home Content Platform without sta
 - Replit first UAT attempt showed the API server needs a `PORT`; the API dev script now defaults to `8080` when Replit does not provide one.
 - Replit onboarding UAT then exposed a sparse saved-state crash after the first signup screen; the restore path now keeps defaults and the location autocomplete tolerates empty values.
 - Replit signup UAT showed the `/signup` page duplicated account/cattery questions and depended on a missing live Supabase trigger. The live trigger was restored and verified; the app now enters onboarding from a provisioned cattery draft.
+- Replit follow-up showed `Supabase is not configured for provisioning`; ensure Replit Secrets include `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and canonical `SUPABASE_SERVICE_ROLE_KEY`.
 
 ## Handoff
 
