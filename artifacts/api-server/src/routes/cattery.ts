@@ -19,6 +19,13 @@ function readEnvValue(...keys: string[]) {
   return undefined;
 }
 
+function hasPlaceholderEnvValue(...keys: string[]) {
+  return keys.some((key) => {
+    const raw = process.env[key];
+    return raw ? /^\$[A-Z0-9_]+$/i.test(raw.trim()) : false;
+  });
+}
+
 function resolvePublicAppUrl() {
   const configured =
     readEnvValue('CATSTAYS_APP_URL', 'PUBLIC_APP_URL', 'VITE_PUBLIC_APP_URL') || 'https://catstays.app';
@@ -39,12 +46,24 @@ const supabaseServiceKey = readEnvValue(
 
 function missingSupabaseConfigMessage() {
   const missing = [
-    supabaseUrl ? null : 'VITE_SUPABASE_URL',
-    supabaseAnonKey ? null : 'VITE_SUPABASE_ANON_KEY',
-    supabaseServiceKey ? null : 'SUPABASE_SERVICE_ROLE_KEY',
+    supabaseUrl
+      ? null
+      : hasPlaceholderEnvValue('VITE_SUPABASE_URL', 'SUPABASE_URL', 'SUPABASE_PROJECT_URL')
+        ? 'VITE_SUPABASE_URL is set to a placeholder configuration'
+        : 'VITE_SUPABASE_URL',
+    supabaseAnonKey
+      ? null
+      : hasPlaceholderEnvValue('VITE_SUPABASE_ANON_KEY', 'SUPABASE_ANON_KEY', 'SUPABASE_PUBLISHABLE_KEY')
+        ? 'VITE_SUPABASE_ANON_KEY is set to a placeholder configuration'
+        : 'VITE_SUPABASE_ANON_KEY',
+    supabaseServiceKey
+      ? null
+      : hasPlaceholderEnvValue('SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_SERVICE_KEY', 'SUPABASE_SECRET_KEY')
+        ? 'SUPABASE_SERVICE_ROLE_KEY is set to a placeholder configuration'
+        : 'SUPABASE_SERVICE_ROLE_KEY',
   ].filter(Boolean);
 
-  return `Supabase provisioning is missing Replit secret${missing.length === 1 ? '' : 's'}: ${missing.join(', ')}.`;
+  return `Supabase provisioning cannot read the real Replit secret${missing.length === 1 ? '' : 's'}: ${missing.join(', ')}.`;
 }
 
 type PlanTier = 'starter' | 'professional' | 'premium';
