@@ -6,24 +6,7 @@ import { ConfirmEmail } from './pages/onboarding/ConfirmEmail';
 import { TenantHome } from './pages/tenant/Home';
 import { BookingFlow } from './pages/tenant/BookingFlow';
 import { StaffDashboard } from './pages/staff/StaffDashboard';
-import { AdminBookings } from './pages/admin/Bookings';
-import { AdminCustomers } from './pages/admin/Customers';
-import { AdminCalendar } from './pages/admin/Calendar';
-import { RoomPlannerDashboard } from './pages/rooms/RoomPlannerDashboard';
-import { SmartImport } from './pages/admin/SmartImport';
-import { SmartDataImport } from './pages/admin/SmartDataImport';
-import { AdminAccounting } from './pages/admin/Accounting';
-import { AdminMessages } from './pages/admin/Messages';
-import { AdminPromotions } from './pages/admin/Promotions';
-import { AdminSocial } from './pages/admin/Social';
-import { CatUpdateGenerator } from './pages/admin/CatUpdateGenerator';
-import { AdminInsights } from './pages/admin/Insights';
-import { AdminSettings } from './pages/admin/Settings';
-import { BookingSetup } from './pages/admin/BookingSetup';
-import { PaymentIntegration } from './pages/admin/PaymentIntegration';
 import { DashboardWebsiteEditor } from './pages/admin/WebsiteEditor';
-import { MarketingKit } from './pages/admin/MarketingKit';
-import { Subscription } from './pages/admin/Subscription';
 import { ClientPortalEntry } from './pages/customer/ClientPortalEntry';
 
 function TenantHomeSection({ section }: { section: string }) {
@@ -56,6 +39,27 @@ function TenantHomeSection({ section }: { section: string }) {
   return <TenantHome />;
 }
 
+const staffDashboardRoutes = [
+  '/staff-dashboard',
+  '/staff-dashboard/bookings',
+  '/staff-dashboard/customers',
+  '/staff-dashboard/calendar',
+  '/staff-dashboard/room-planner',
+  '/staff-dashboard/smart-import',
+  '/staff-dashboard/smart-data-import',
+  '/staff-dashboard/accounting',
+  '/staff-dashboard/messages',
+  '/staff-dashboard/promotions',
+  '/staff-dashboard/social',
+  '/staff-dashboard/cat-update-generator',
+  '/staff-dashboard/insights',
+  '/staff-dashboard/settings',
+  '/staff-dashboard/booking-setup',
+  '/staff-dashboard/payment',
+  '/staff-dashboard/marketing',
+  '/staff-dashboard/subscription',
+].map((path) => ({ path, Component: StaffDashboard }));
+
 export const subdomainRouter = createBrowserRouter([
   { path: '/', Component: TenantHome },
   { path: '/login', Component: Login },
@@ -75,25 +79,8 @@ export const subdomainRouter = createBrowserRouter([
   { path: '/contact', element: <TenantHomeSection section="contact" /> },
   { path: '/booking-flow', Component: BookingFlow },
   { path: '/booking', element: <TenantHomeSection section="booking" /> },
-  { path: '/staff-dashboard', Component: StaffDashboard },
-  { path: '/staff-dashboard/bookings', Component: AdminBookings },
-  { path: '/staff-dashboard/customers', Component: AdminCustomers },
-  { path: '/staff-dashboard/calendar', Component: AdminCalendar },
-  { path: '/staff-dashboard/room-planner', Component: RoomPlannerDashboard },
-  { path: '/staff-dashboard/smart-import', Component: SmartImport },
-  { path: '/staff-dashboard/smart-data-import', Component: SmartDataImport },
-  { path: '/staff-dashboard/accounting', Component: AdminAccounting },
-  { path: '/staff-dashboard/messages', Component: AdminMessages },
-  { path: '/staff-dashboard/promotions', Component: AdminPromotions },
-  { path: '/staff-dashboard/social', Component: AdminSocial },
-  { path: '/staff-dashboard/cat-update-generator', Component: CatUpdateGenerator },
-  { path: '/staff-dashboard/insights', Component: AdminInsights },
-  { path: '/staff-dashboard/settings', Component: AdminSettings },
-  { path: '/staff-dashboard/booking-setup', Component: BookingSetup },
-  { path: '/staff-dashboard/payment', Component: PaymentIntegration },
+  ...staffDashboardRoutes,
   { path: '/staff-dashboard/website-editor', Component: DashboardWebsiteEditor },
-  { path: '/staff-dashboard/marketing', Component: MarketingKit },
-  { path: '/staff-dashboard/subscription', Component: Subscription },
   { path: '/client-portal', Component: ClientPortalEntry },
   { path: '/client-portal/bookings', Component: ClientPortalEntry },
   { path: '/client-portal/profile', Component: ClientPortalEntry },
