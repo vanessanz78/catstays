@@ -9,9 +9,70 @@ import { ImageWithFallback } from '../../components/figma/ImageWithFallback';
 import { ChatWidget } from '../../components/ChatWidget';
 import { useTenantCattery } from '@/hooks/useTenantCattery';
 import { sendContactEnquiry } from '@/utils/email';
+import { CatstaysTemplateSite } from '../onboarding/CatstaysTemplateSite';
+import { isOriginalTemplate, normalizePreviewTemplateId } from '../../lib/previewTemplates';
 
 const DEFAULT_HERO = 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080';
 const ABOUT_IMG = 'https://images.unsplash.com/photo-1573865526739-10c1dd7aa736?w=1200&q=80';
+
+function importedPreviewUrl(data: Record<string, any>) {
+  const rawUrl = data.importSourceUrl || data.sourceUrl;
+  if (!rawUrl || typeof rawUrl !== 'string') return '';
+
+  try {
+    const url = new URL(rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return '';
+    return url.toString();
+  } catch {
+    return '';
+  }
+}
+
+function hasPublishedBuilderSettings(settings: Record<string, any>) {
+  return Boolean(
+    settings.liveTemplate ||
+      settings.selectedTemplate ||
+      settings.previewRecordStatus === 'live' ||
+      settings.siteContentLibrary ||
+      settings.contentLibrary ||
+      settings.importSourceUrl ||
+      settings.sourceUrl,
+  );
+}
+
+function buildPublishedWebsiteData(cattery: NonNullable<ReturnType<typeof useTenantCattery>['cattery']>, settings: Record<string, any>) {
+  const selectedTemplate = normalizePreviewTemplateId(settings.liveTemplate || settings.selectedTemplate || 'conversion-focus');
+
+  return {
+    ...settings,
+    businessName: settings.businessName || cattery.name,
+    location: settings.location || cattery.city || '',
+    subdomain: settings.subdomain || cattery.slug || '',
+    phone: settings.phone || cattery.phone || '',
+    email: settings.email || cattery.email || '',
+    address: settings.address || cattery.address || cattery.city || '',
+    selectedTemplate,
+    liveTemplate: selectedTemplate,
+  };
+}
+
+function PublishedOriginalWebsite({ data }: { data: Record<string, any> }) {
+  const sourceUrl = importedPreviewUrl(data);
+  const previewUrl = `/api/website/source-preview?url=${encodeURIComponent(sourceUrl)}`;
+
+  return (
+    <div className="min-h-screen bg-white">
+      <iframe
+        title={`${data.businessName || 'Imported cattery'} website`}
+        src={previewUrl}
+        className="block min-h-screen w-full border-0 bg-white"
+        loading="eager"
+        referrerPolicy="no-referrer-when-downgrade"
+        sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox allow-scripts"
+      />
+    </div>
+  );
+}
 
 export function TenantHome() {
   const { tenantId } = useParams();
@@ -68,6 +129,22 @@ export function TenantHome() {
   const heroHeading = ws.heroHeading || 'A Peaceful Retreat for Your Cat';
   const heroSubheading = ws.heroSubheading || `Luxury cat boarding in ${cattery.city || 'New Zealand'}. Your cat's comfort, safety, and happiness is our priority.`;
   const previewRooms = rooms.slice(0, 3);
+  const publishedWebsiteData = buildPublishedWebsiteData(cattery, ws);
+  const publishedTemplate = normalizePreviewTemplateId(publishedWebsiteData.liveTemplate || publishedWebsiteData.selectedTemplate);
+  const sourcePreviewUrl = importedPreviewUrl(publishedWebsiteData);
+
+  if (hasPublishedBuilderSettings(ws)) {
+    if (isOriginalTemplate(publishedTemplate) && sourcePreviewUrl) {
+      return <PublishedOriginalWebsite data={publishedWebsiteData} />;
+    }
+
+    return (
+      <CatstaysTemplateSite
+        data={publishedWebsiteData}
+        templateId={publishedTemplate}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-cream">
