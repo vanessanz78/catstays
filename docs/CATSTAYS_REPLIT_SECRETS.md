@@ -46,7 +46,7 @@ STRIPE_PUBLIC_KEY=pk_live_51TE1rTB3RIUlHBEr7mKyoXvhRRZX8kfO7cUc8f5f8CJLPXVFwJS9p
 
 Keep direct private secrets out of `[userenv.shared]` in `.replit`. Values such as `$SUPABASE_SERVICE_ROLE_KEY` can be exposed to the runtime as literal placeholder text instead of resolving to the Replit Secret.
 
-The app code reads `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`, `STRIPE_API_KEY`, and `STRIPE_WEBHOOK_SECRET` directly, so those Replit Secret names must match exactly. For Supabase provisioning, the API server also accepts `SUPABASE_SERVICE_KEY` or `SUPABASE_SECRET_KEY` as compatibility aliases, but `SUPABASE_SERVICE_ROLE_KEY` is the canonical name.
+The app code reads `SUPABASE_SERVICE_ROLE_KEY`, `RESEND_API_KEY`, and `STRIPE_WEBHOOK_SECRET` directly. For Stripe billing, the API server accepts `STRIPE_API_KEY`, `STRIPE_SECRET_KEY`, or `STRIPE_LIVE_SECRET_KEY` so existing Replit secret names keep working. For Supabase provisioning, the API server also accepts `SUPABASE_SERVICE_KEY` or `SUPABASE_SECRET_KEY` as compatibility aliases, but `SUPABASE_SERVICE_ROLE_KEY` is the canonical name.
 
 Do not add a Replit Configuration with the same name as a Replit Secret and a value like `$SUPABASE_SERVICE_ROLE_KEY`. That placeholder can shadow the real secret at runtime. If a direct secret exists, delete the matching placeholder Configuration row or checked-in `.replit` entry.
 

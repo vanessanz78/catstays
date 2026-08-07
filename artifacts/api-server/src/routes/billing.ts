@@ -5,14 +5,17 @@ import express from 'express';
 
 const router: IRouter = Router();
 
-const stripeKey = process.env['STRIPE_API_KEY'];
+const stripeKey =
+  process.env['STRIPE_API_KEY'] ||
+  process.env['STRIPE_SECRET_KEY'] ||
+  process.env['STRIPE_LIVE_SECRET_KEY'];
 const supabaseUrl = process.env['VITE_SUPABASE_URL']!;
 const supabaseAnonKey = process.env['VITE_SUPABASE_ANON_KEY']!;
 const supabaseServiceKey = process.env['SUPABASE_SERVICE_ROLE_KEY'];
 const webhookSecret = process.env['STRIPE_WEBHOOK_SECRET'];
 
 if (!stripeKey) {
-  console.warn('[billing] STRIPE_API_KEY not set — billing routes will fail');
+  console.warn('[billing] Stripe secret key not set — add STRIPE_API_KEY, STRIPE_SECRET_KEY, or STRIPE_LIVE_SECRET_KEY');
 }
 
 const stripe = stripeKey ? new Stripe(stripeKey, { apiVersion: '2026-02-25.clover' }) : null;
