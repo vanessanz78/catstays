@@ -16,6 +16,7 @@ The demo dashboard remains a sales and product preview for visitors who want to 
 The signed-up cattery dashboard uses the newer responsive dashboard shell, but it must be backed only by that tenant's own data.
 
 - Route: `/staff-dashboard` on the tenant host, for example `https://delorainecattery.catstays.app/staff-dashboard`
+- All `/staff-dashboard/*` tenant workspace routes, except `/staff-dashboard/website-editor`, render through the production `StaffDashboard` shell. Legacy admin components stay on `/admin/*` only.
 - Uses the authenticated cattery context and tenant-scoped hooks
 - Starts blank when the tenant has no bookings, customers, rooms, or occupancy data
 - Must not contain demo names, sample revenue, sample bookings, or shared mock occupancy
