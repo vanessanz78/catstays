@@ -50,6 +50,7 @@ export function ResendEmailButton({ email }: ResendEmailButtonProps) {
           {errorMsg || 'Failed to resend. Please try again.'}
         </p>
         <button
+          type="button"
           onClick={handleResend}
           className="text-sm text-[#C46A3A] hover:text-[#A85A30] underline transition-colors"
         >
@@ -61,6 +62,7 @@ export function ResendEmailButton({ email }: ResendEmailButtonProps) {
 
   return (
     <button
+      type="button"
       onClick={handleResend}
       disabled={status === 'loading'}
       className="flex items-center gap-1.5 text-sm text-[#C46A3A] hover:text-[#A85A30] underline transition-colors disabled:opacity-50 disabled:cursor-not-allowed"

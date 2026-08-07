@@ -31,6 +31,10 @@ export function getConfirmEmailUrl() {
   return `${getPublicAppUrl()}/confirm-email`;
 }
 
+export function getResetPasswordUrl() {
+  return `${getPublicAppUrl()}/reset-password`;
+}
+
 function isDevelopmentPreviewHost(hostname: string) {
   return (
     hostname === 'localhost' ||

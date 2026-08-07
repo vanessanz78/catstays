@@ -7,6 +7,7 @@ import { MarketingPricing } from "./pages/marketing/Pricing";
 import { MarketingDemo } from "./pages/marketing/Demo";
 import { Signup } from "./pages/marketing/Signup";
 import { Login } from "./pages/marketing/Login";
+import { ResetPassword } from "./pages/marketing/ResetPassword";
 
 // Onboarding
 import { OnboardingWizard } from "./pages/onboarding/OnboardingWizard";
@@ -130,6 +131,11 @@ export const router = createBrowserRouter([
   {
     path: "/login",
     Component: Login,
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
+    path: "/reset-password",
+    Component: ResetPassword,
     ErrorBoundary: RootErrorBoundary,
   },
   {

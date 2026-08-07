@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router';
 import { Login } from './pages/marketing/Login';
+import { ResetPassword } from './pages/marketing/ResetPassword';
+import { ConfirmEmail } from './pages/onboarding/ConfirmEmail';
 import { TenantHome } from './pages/tenant/Home';
 import { BookingFlow } from './pages/tenant/BookingFlow';
 import { StaffDashboard } from './pages/staff/StaffDashboard';
@@ -57,6 +59,8 @@ function TenantHomeSection({ section }: { section: string }) {
 export const subdomainRouter = createBrowserRouter([
   { path: '/', Component: TenantHome },
   { path: '/login', Component: Login },
+  { path: '/reset-password', Component: ResetPassword },
+  { path: '/confirm-email', Component: ConfirmEmail },
   { path: '/host-login', element: <Navigate to="/login" replace /> },
   { path: '/dashboard', element: <Navigate to="/staff-dashboard" replace /> },
   { path: '/admin', element: <Navigate to="/staff-dashboard" replace /> },

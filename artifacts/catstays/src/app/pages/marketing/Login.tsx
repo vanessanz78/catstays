@@ -6,6 +6,7 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Heart, ArrowRight, X, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { ResendEmailButton } from '../onboarding/ResendEmailButton';
 
 const logoIcon = '/assets/b463d12091f20e48be52186dedd2a0f6707d0b66.png';
 const logoText = '/assets/9900b394e20a5e059447324d58daad1b1bf43ed6.png';
@@ -18,6 +19,7 @@ export function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const trimmedEmail = email.trim();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,7 +29,7 @@ export function Login() {
     const { error } = await signIn(email, password);
 
     if (error) {
-      setError(error.message || 'Invalid email or password');
+      setError('We could not sign you in. If this is your first time logging in, please confirm your email first. Otherwise, reset your password and try again.');
       setIsLoading(false);
       return;
     }
@@ -74,8 +76,14 @@ export function Login() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-                {error}
+              <div className="space-y-3 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                <p>{error}</p>
+                <div className="flex flex-wrap items-center gap-3">
+                  {trimmedEmail && <ResendEmailButton email={trimmedEmail} />}
+                  <Link to="/reset-password" className="text-[#C46A3A] hover:underline font-medium">
+                    Reset password
+                  </Link>
+                </div>
               </div>
             )}
 
@@ -112,6 +120,12 @@ export function Login() {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+            </div>
+
+            <div className="flex justify-end">
+              <Link to="/reset-password" className="text-sm text-[#C46A3A] hover:underline font-medium">
+                Forgot password?
+              </Link>
             </div>
 
             <Button
