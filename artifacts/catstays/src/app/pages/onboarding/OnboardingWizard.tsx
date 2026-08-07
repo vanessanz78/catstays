@@ -173,6 +173,112 @@ const websiteBuilderDraftKeys = [
   'sectionsOrder',
 ] as const;
 
+const onboardingArrayKeys = [
+  'galleryImages',
+  'testimonials',
+  'faqs',
+  'additionalServices',
+  'sectionsOrder',
+  'whyChooseUsFeatures',
+  'facilityFeatures',
+  'suites',
+  'roomTypes',
+  'pricingRates',
+  'discounts',
+  'blockOutDates',
+  'customSections',
+] as const;
+
+const onboardingStringKeys = [
+  'name',
+  'email',
+  'password',
+  'businessName',
+  'location',
+  'websiteUrl',
+  'importSourceUrl',
+  'sourceUrl',
+  'sourceHost',
+  'previewImportRecordId',
+  'contentSourceId',
+  'contentSourceHash',
+  'contentSourceImportVersion',
+  'previewRecordStatus',
+  'subdomain',
+  'provisionedCatteryId',
+  'onboardingDraftToken',
+  'primaryColor',
+  'accentColor',
+  'backgroundColor',
+  'typography',
+  'heroImage',
+  'heroHeading',
+  'heroSubheading',
+  'heroPrimaryCtaText',
+  'heroPrimaryCtaHref',
+  'heroSecondaryCtaText',
+  'heroSecondaryCtaHref',
+  'aboutText',
+  'aboutHeading',
+  'phone',
+  'address',
+  'virtualTourUrl',
+  'footerAbout',
+  'bookingInterval',
+  'morningStart',
+  'morningEnd',
+  'afternoonStart',
+  'afternoonEnd',
+  'depositType',
+  'depositAmount',
+  'cleaningBuffer',
+  'pricingPer',
+  'taxRate',
+  'taxType',
+  'privateRooms',
+  'indoorRooms',
+  'communalRooms',
+  'pricePerCat',
+] as const;
+
+function normalizeOnboardingStep(value: unknown, fallback = 1) {
+  const step = Number(value);
+  return Number.isInteger(step) && step >= 1 && step <= 9 ? step : fallback;
+}
+
+function normalizeOnboardingData(input: unknown, fallback: Record<string, any>) {
+  const incoming =
+    input && typeof input === 'object' && !Array.isArray(input)
+      ? (input as Record<string, any>)
+      : {};
+  const normalized = { ...fallback, ...incoming };
+
+  for (const key of onboardingArrayKeys) {
+    if (!Array.isArray(normalized[key])) {
+      normalized[key] = Array.isArray(fallback[key]) ? fallback[key] : [];
+    }
+  }
+
+  for (const key of onboardingStringKeys) {
+    if (typeof normalized[key] !== 'string') {
+      normalized[key] = typeof fallback[key] === 'string' ? fallback[key] : '';
+    }
+  }
+
+  if (normalized.previewImportRecord && typeof normalized.previewImportRecord !== 'object') {
+    normalized.previewImportRecord = null;
+  }
+
+  if (typeof normalized.importComplete !== 'boolean') normalized.importComplete = Boolean(fallback.importComplete);
+  if (typeof normalized.isImporting !== 'boolean') normalized.isImporting = false;
+  if (typeof normalized.emailConfirmed !== 'boolean') normalized.emailConfirmed = Boolean(fallback.emailConfirmed);
+  if (typeof normalized.openByAppointmentOnly !== 'boolean') normalized.openByAppointmentOnly = Boolean(fallback.openByAppointmentOnly);
+  if (typeof normalized.cleaningBufferEnabled !== 'boolean') normalized.cleaningBufferEnabled = Boolean(fallback.cleaningBufferEnabled);
+  if (typeof normalized.chargeTax !== 'boolean') normalized.chargeTax = Boolean(fallback.chargeTax);
+
+  return normalized;
+}
+
 function OnboardingTemplateSnapshot({
   template,
   data,
@@ -771,7 +877,7 @@ export function OnboardingWizard() {
     if (cattery) {
       setAccountCreated(true);
       const ws = cattery.website_settings as Record<string, any> || {};
-      setData(prev => ({
+      setData(prev => normalizeOnboardingData({
         ...prev,
         businessName: cattery.name || prev.businessName,
         phone: cattery.phone || prev.phone,
@@ -842,7 +948,7 @@ export function OnboardingWizard() {
         previewRecordStatus: ws.previewRecordStatus || prev.previewRecordStatus,
         liveTemplate: ws.liveTemplate || prev.liveTemplate,
         selectedTemplate: ws.selectedTemplate || ws.liveTemplate || prev.selectedTemplate,
-      }));
+      }, prev));
     }
   }, [cattery?.id]);
 
@@ -889,11 +995,12 @@ export function OnboardingWizard() {
     if (saved) {
       try {
         const { step: savedStep, data: savedData, accountCreated: savedAccountCreated } = JSON.parse(saved);
-        setStep(savedStep);
-        setData(prev => ({ ...prev, ...(savedData || {}) }));
+        setStep(normalizeOnboardingStep(savedStep));
+        setData(prev => normalizeOnboardingData(savedData, prev));
         if (savedAccountCreated) setAccountCreated(savedAccountCreated);
       } catch (e) {
         console.error('Failed to load saved progress');
+        localStorage.removeItem('catstays_onboarding');
       }
     }
   }, []);
