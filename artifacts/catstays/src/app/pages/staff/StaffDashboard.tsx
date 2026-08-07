@@ -1,19 +1,19 @@
 import { useEffect, useMemo } from 'react';
 import { Link } from 'react-router';
 import {
+  Bell,
+  BookOpen,
   CalendarDays,
   Cat,
   CheckCircle2,
   Clock,
-  CreditCard,
   Home,
   Mail,
-  Menu,
   Plus,
   Users,
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { Card, CardContent } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBookings } from '@/hooks/useBookings';
@@ -43,12 +43,94 @@ function getTenantStaffDashboardUrl(slug: string) {
   return `https://${safeSlug}.${ROOT_DOMAIN}/staff-dashboard`;
 }
 
+function getLocalDateKey(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 function formatDate(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
+function formatTodayLabel() {
+  return new Date().toLocaleDateString(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+function getCatNames(booking: { booking_cats?: { cat?: { name?: string | null } | null }[] }) {
+  const names = booking.booking_cats
+    ?.map((entry) => entry.cat?.name)
+    .filter((name): name is string => Boolean(name));
+
+  return names && names.length > 0 ? names.join(', ') : 'Cat guest';
+}
+
+function BookingRow({
+  booking,
+  actionLabel,
+}: {
+  booking: ReturnType<typeof useBookings>['bookings'][number];
+  actionLabel: string;
+}) {
+  const catNames = getCatNames(booking);
+  const customerName = booking.customer?.name || 'New customer';
+  const roomName = booking.room?.name || 'Unassigned room';
+
+  return (
+    <div className="grid gap-3 rounded-lg bg-[#F8F7F5] p-4 sm:grid-cols-[1fr_auto] sm:items-center">
+      <div>
+        <h3 className="font-semibold text-[#0A1128]">{catNames}</h3>
+        <p className="text-sm text-[#4E5871]">{customerName}</p>
+        <p className="mt-1 text-xs text-[#768098]">
+          {roomName} · {formatDate(booking.check_in)} to {formatDate(booking.check_out)}
+        </p>
+      </div>
+      <div className="flex items-center gap-2 sm:justify-end">
+        <Badge className="rounded-full bg-[#E9D7C8] text-[#8A4E2B] hover:bg-[#E9D7C8]">
+          {booking.payment_status || booking.status}
+        </Badge>
+        <Link to="/staff-dashboard/bookings">
+          <Button size="sm" className="rounded-full bg-[#0A1128] text-white hover:bg-[#19233D]">
+            {actionLabel}
+          </Button>
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function EmptyPanel({
+  icon: Icon,
+  title,
+  description,
+}: {
+  icon: typeof CalendarDays;
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="grid min-h-52 place-items-center rounded-lg bg-white p-8 text-center">
+      <div>
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#C46A3A]/10">
+          <Icon className="h-7 w-7 text-[#C46A3A]" />
+        </div>
+        <h3 className="text-lg font-semibold text-[#0A1128]">{title}</h3>
+        <p className="mt-2 text-sm text-[#4E5871]">{description}</p>
+      </div>
+    </div>
+  );
+}
+
+// Production staff dashboard shell. The earlier sparse dashboard is retired;
+// demo data must stay isolated in DashboardPreviewMock and demo routes only.
 export function StaffDashboard() {
   const { cattery, loading: authLoading } = useAuth();
   const { bookings, loading: bookingsLoading } = useBookings();
@@ -57,29 +139,31 @@ export function StaffDashboard() {
 
   const draftAccount = getDraftAccount();
   const isLoading = authLoading || bookingsLoading || customersLoading || roomsLoading;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getLocalDateKey();
 
-  const stats = useMemo(() => {
-    const pending = bookings.filter((booking) => booking.status === 'pending').length;
-    const arrivalsToday = bookings.filter((booking) => booking.check_in === today).length;
-    const occupiedToday = bookings.filter((booking) => {
-      return booking.status !== 'cancelled' && booking.check_in <= today && booking.check_out >= today;
-    }).length;
+  const dashboardData = useMemo(() => {
+    const activeBookings = bookings.filter((booking) => booking.status !== 'cancelled');
+    const arrivalsToday = activeBookings.filter((booking) => booking.check_in === today);
+    const departuresToday = activeBookings.filter((booking) => booking.check_out === today);
+    const occupiedNow = activeBookings.filter((booking) => {
+      return booking.check_in <= today && booking.check_out >= today;
+    });
+    const pending = bookings.filter((booking) => booking.status === 'pending');
+    const activeRooms = rooms.filter((room) => room.is_active);
 
     return {
-      pending,
+      activeRooms,
       arrivalsToday,
-      occupiedToday,
-      roomCount: rooms.filter((room) => room.is_active).length,
-      customerCount: customers.length,
+      departuresToday,
+      occupiedNow,
+      pending,
+      availableRooms: Math.max(activeRooms.length - occupiedNow.length, 0),
+      occupancyLabel: activeRooms.length > 0 ? `${occupiedNow.length}/${activeRooms.length}` : '0/0',
     };
-  }, [bookings, customers.length, rooms, today]);
-
-  const upcomingBookings = bookings
-    .filter((booking) => booking.status !== 'cancelled')
-    .slice(0, 5);
+  }, [bookings, rooms, today]);
 
   const businessName = cattery?.name || draftAccount?.businessName || 'Your cattery';
+  const tenantHost = cattery?.slug ? `${cattery.slug}.${ROOT_DOMAIN}` : 'your-handle.catstays.app';
   const shouldRedirectToTenantDashboard = !!cattery?.slug && isRootCatStaysHost();
 
   useEffect(() => {
@@ -144,160 +228,192 @@ export function StaffDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F7F5] text-[#0A1128]">
-      <header className="sticky top-0 z-20 border-b border-[#0A1128]/10 bg-white/95 backdrop-blur">
+    <div className="min-h-screen bg-[#F6F2EA] text-[#0A1128]">
+      <header className="sticky top-0 z-30 border-b border-[#E8DED4] bg-white/95 shadow-sm backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#0A1128] text-white">
-              <Home className="h-5 w-5" />
-            </div>
+            <RightMenu />
             <div>
-              <p className="text-xs font-semibold uppercase text-[#C46A3A]">Staff dashboard</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#C46A3A]">Staff dashboard</p>
               <h1 className="text-xl font-semibold">{businessName}</h1>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <Link to="/staff-dashboard/bookings?new=true" className="hidden sm:block">
-              <Button className="rounded-lg bg-[#C46A3A] text-white hover:bg-[#A85A30]">
+              <Button className="rounded-full bg-[#C46A3A] px-6 text-white shadow-sm hover:bg-[#A85A30]">
                 <Plus className="mr-2 h-4 w-4" />
                 New booking
               </Button>
             </Link>
-            <RightMenu />
+            <div className="relative hidden h-10 w-10 place-items-center rounded-full bg-white text-[#C46A3A] shadow-sm sm:grid">
+              <Bell className="h-5 w-5" />
+              {dashboardData.pending.length > 0 && (
+                <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-[#0A1128] px-1 text-xs font-semibold text-white">
+                  {dashboardData.pending.length}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-7xl px-4 py-6">
-        <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          {[
-            { label: 'Arrivals today', value: stats.arrivalsToday, icon: CalendarDays },
-            { label: 'Pending requests', value: stats.pending, icon: Clock },
-            { label: 'Occupied now', value: stats.occupiedToday, icon: CheckCircle2 },
-            { label: 'Active rooms', value: stats.roomCount, icon: Cat },
-            { label: 'Customers', value: stats.customerCount, icon: Users },
-          ].map((item) => {
-            const Icon = item.icon;
-            return (
-              <Card key={item.label} className="rounded-lg border-[#E8DED4] shadow-sm">
-                <CardContent className="flex items-center justify-between p-4">
-                  <div>
-                    <p className="text-sm text-[#4E5871]">{item.label}</p>
-                    <p className="mt-1 text-3xl font-semibold">{isLoading ? '-' : item.value}</p>
-                  </div>
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#0A1128]/5">
-                    <Icon className="h-5 w-5 text-[#C46A3A]" />
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+        <section className="mb-6 rounded-lg border border-[#E8DED4] bg-white p-5 shadow-sm">
+          <Link to="/staff-dashboard/bookings?new=true">
+            <Button className="mb-4 h-14 w-full rounded-lg bg-[#C46A3A] text-base font-semibold text-white hover:bg-[#A85A30]">
+              <Plus className="mr-2 h-5 w-5" />
+              New booking
+            </Button>
+          </Link>
+
+          <div className="mb-4 grid gap-3 rounded-lg border border-[#E8DED4] bg-[#F8F7F5] p-4 text-center sm:grid-cols-[auto_1fr_auto] sm:items-center">
+            <Link to="/staff-dashboard/calendar" className="text-[#0A1128] hover:text-[#C46A3A]">
+              <CalendarDays className="mx-auto h-5 w-5 sm:mx-0" />
+            </Link>
+            <div>
+              <h2 className="text-2xl font-semibold">Today</h2>
+              <p className="text-sm text-[#4E5871]">{formatTodayLabel()}</p>
+            </div>
+            <Link to="/staff-dashboard/calendar" className="text-sm font-semibold text-[#C46A3A]">
+              Calendar
+            </Link>
+          </div>
+
+          <div className="grid gap-3 lg:grid-cols-3">
+            <div className="rounded-lg bg-[#0A1128] p-6 text-center text-white shadow-sm">
+              <p className="text-3xl font-semibold">{isLoading ? '-' : dashboardData.arrivalsToday.length}</p>
+              <p className="text-sm text-white/80">Arrivals</p>
+            </div>
+            <div className="rounded-lg bg-[#C46A3A] p-6 text-center text-white shadow-sm">
+              <p className="text-3xl font-semibold">{isLoading ? '-' : dashboardData.departuresToday.length}</p>
+              <p className="text-sm text-white/85">Departures</p>
+            </div>
+            <Link to="/staff-dashboard/room-planner" className="rounded-lg bg-white p-6 text-center shadow-sm ring-1 ring-[#E8DED4] hover:bg-[#F8F7F5]">
+              <p className="text-3xl font-semibold">{isLoading ? '-' : dashboardData.occupancyLabel}</p>
+              <p className="text-sm text-[#4E5871]">Occupied</p>
+            </Link>
+          </div>
+        </section>
+
+        <div className="grid gap-5 lg:grid-cols-2">
+          <section className="rounded-lg border border-[#E8DED4] bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-xl font-semibold">Arrivals Today</h2>
+              <Badge className="rounded-full bg-[#F1E8DE] text-[#0A1128] hover:bg-[#F1E8DE]">
+                {dashboardData.arrivalsToday.length}
+              </Badge>
+            </div>
+            {isLoading ? (
+              <p className="rounded-lg bg-[#F8F7F5] p-5 text-sm text-[#4E5871]">Loading arrivals...</p>
+            ) : dashboardData.arrivalsToday.length > 0 ? (
+              <div className="space-y-3">
+                {dashboardData.arrivalsToday.map((booking) => (
+                  <BookingRow key={booking.id} booking={booking} actionLabel="Check in" />
+                ))}
+              </div>
+            ) : (
+              <EmptyPanel
+                icon={Clock}
+                title="No arrivals scheduled for today"
+                description="New arrivals will appear here as soon as they are booked for this cattery."
+              />
+            )}
+          </section>
+
+          <section className="rounded-lg border border-[#E8DED4] bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-xl font-semibold">Departures Today</h2>
+              <Badge className="rounded-full bg-[#F1E8DE] text-[#0A1128] hover:bg-[#F1E8DE]">
+                {dashboardData.departuresToday.length}
+              </Badge>
+            </div>
+            {isLoading ? (
+              <p className="rounded-lg bg-[#F8F7F5] p-5 text-sm text-[#4E5871]">Loading departures...</p>
+            ) : dashboardData.departuresToday.length > 0 ? (
+              <div className="space-y-3">
+                {dashboardData.departuresToday.map((booking) => (
+                  <BookingRow key={booking.id} booking={booking} actionLabel="Check out" />
+                ))}
+              </div>
+            ) : (
+              <EmptyPanel
+                icon={CheckCircle2}
+                title="No departures scheduled for today"
+                description="Check-outs for this cattery will show here when bookings reach their departure date."
+              />
+            )}
+          </section>
         </div>
 
-        <div className="grid gap-5 lg:grid-cols-[1.35fr_0.65fr]">
-          <Card className="rounded-lg border-[#E8DED4] shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between border-b border-[#E8DED4] p-5">
-              <CardTitle className="text-lg">Bookings</CardTitle>
-              <Link to="/staff-dashboard/bookings">
-                <Button variant="outline" size="sm" className="rounded-lg border-[#0A1128]/15">
-                  View all
+        <div className="mt-5 grid gap-5 lg:grid-cols-[1.35fr_0.65fr]">
+          <section className="rounded-lg border border-[#E8DED4] bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold">Currently Occupied</h2>
+                <p className="text-sm text-[#4E5871]">Live room status for {businessName}</p>
+              </div>
+              <Badge className="rounded-full bg-[#7DAF7B]/20 text-[#2D5830] hover:bg-[#7DAF7B]/20">
+                {dashboardData.occupiedNow.length}
+              </Badge>
+            </div>
+            {isLoading ? (
+              <p className="rounded-lg bg-[#F8F7F5] p-5 text-sm text-[#4E5871]">Loading room status...</p>
+            ) : dashboardData.occupiedNow.length > 0 ? (
+              <div className="grid gap-3 md:grid-cols-2">
+                {dashboardData.occupiedNow.map((booking) => (
+                  <BookingRow key={booking.id} booking={booking} actionLabel="Open" />
+                ))}
+              </div>
+            ) : (
+              <EmptyPanel
+                icon={Home}
+                title="No occupied rooms yet"
+                description="Once bookings are checked in, occupied rooms will appear here."
+              />
+            )}
+          </section>
+
+          <aside className="space-y-5">
+            <section className="rounded-lg border border-[#E8DED4] bg-white p-5 shadow-sm">
+              <h2 className="text-xl font-semibold">Workspace</h2>
+              <div className="mt-4 space-y-3">
+                <Link to="/staff-dashboard/bookings" className="flex items-center justify-between rounded-lg border border-[#E8DED4] p-4 hover:bg-[#F8F7F5]">
+                  <span className="flex items-center gap-3 font-medium">
+                    <BookOpen className="h-5 w-5 text-[#C46A3A]" />
+                    Bookings
+                  </span>
+                  <span className="text-sm text-[#4E5871]">{bookings.length}</span>
+                </Link>
+                <Link to="/staff-dashboard/customers" className="flex items-center justify-between rounded-lg border border-[#E8DED4] p-4 hover:bg-[#F8F7F5]">
+                  <span className="flex items-center gap-3 font-medium">
+                    <Users className="h-5 w-5 text-[#C46A3A]" />
+                    Customers
+                  </span>
+                  <span className="text-sm text-[#4E5871]">{customers.length}</span>
+                </Link>
+                <Link to="/staff-dashboard/room-planner" className="flex items-center justify-between rounded-lg border border-[#E8DED4] p-4 hover:bg-[#F8F7F5]">
+                  <span className="flex items-center gap-3 font-medium">
+                    <Cat className="h-5 w-5 text-[#C46A3A]" />
+                    Rooms
+                  </span>
+                  <span className="text-sm text-[#4E5871]">{dashboardData.availableRooms} available</span>
+                </Link>
+              </div>
+            </section>
+
+            <section className="rounded-lg border border-[#0A1128] bg-[#0A1128] p-5 text-white shadow-sm">
+              <p className="text-sm uppercase tracking-wide text-[#E9D7C8]">Website</p>
+              <h2 className="mt-2 text-xl font-semibold">{tenantHost}</h2>
+              <p className="mt-2 text-sm leading-6 text-white/70">
+                Public bookings connect back to this tenant dashboard only.
+              </p>
+              <Link to={cattery?.slug ? `/tenant/${cattery.slug}` : '/site'}>
+                <Button className="mt-4 rounded-full bg-white text-[#0A1128] hover:bg-[#F6F2EA]">
+                  View website
                 </Button>
               </Link>
-            </CardHeader>
-            <CardContent className="p-0">
-              {isLoading ? (
-                <div className="p-6 text-sm text-[#4E5871]">Loading your bookings...</div>
-              ) : upcomingBookings.length === 0 ? (
-                <div className="p-8 text-center">
-                  <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-[#C46A3A]/10">
-                    <CalendarDays className="h-6 w-6 text-[#C46A3A]" />
-                  </div>
-                  <h2 className="mb-2 text-lg font-semibold">No bookings yet</h2>
-                  <p className="mx-auto mb-5 max-w-md text-sm leading-6 text-[#4E5871]">
-                    New booking requests from your website will appear here. Imported bookings will also show here once data import is complete.
-                  </p>
-                  <Link to="/staff-dashboard/bookings?new=true">
-                    <Button className="rounded-lg bg-[#C46A3A] text-white hover:bg-[#A85A30]">
-                      Add first booking
-                    </Button>
-                  </Link>
-                </div>
-              ) : (
-                <div className="divide-y divide-[#E8DED4]">
-                  {upcomingBookings.map((booking) => {
-                    const customerName = booking.customer?.name || (booking as any).guest_name || 'Guest booking';
-                    const roomName = booking.room?.name || 'Unassigned room';
-                    return (
-                      <div key={booking.id} className="grid gap-3 p-5 sm:grid-cols-[1fr_auto] sm:items-center">
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="font-semibold">{customerName}</h3>
-                            <Badge className="rounded-md bg-[#C46A3A]/10 text-[#8A4E2B] hover:bg-[#C46A3A]/10">
-                              {booking.status}
-                            </Badge>
-                          </div>
-                          <p className="mt-1 text-sm text-[#4E5871]">
-                            {formatDate(booking.check_in)} to {formatDate(booking.check_out)} - {roomName}
-                          </p>
-                        </div>
-                        <Link to="/staff-dashboard/bookings">
-                          <Button variant="outline" size="sm" className="rounded-lg border-[#0A1128]/15">
-                            Open
-                          </Button>
-                        </Link>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <div className="space-y-5">
-            <Card className="rounded-lg border-[#E8DED4] shadow-sm">
-              <CardHeader className="border-b border-[#E8DED4] p-5">
-                <CardTitle className="text-lg">Setup next</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3 p-5">
-                <Link to="/staff-dashboard/payment" className="flex items-center justify-between rounded-lg border border-[#E8DED4] p-4 hover:bg-white">
-                  <span className="flex items-center gap-3 text-sm font-medium">
-                    <CreditCard className="h-4 w-4 text-[#C46A3A]" />
-                    Connect Stripe
-                  </span>
-                  <Menu className="h-4 w-4 text-[#4E5871]" />
-                </Link>
-                <Link to="/staff-dashboard/website-editor" className="flex items-center justify-between rounded-lg border border-[#E8DED4] p-4 hover:bg-white">
-                  <span className="flex items-center gap-3 text-sm font-medium">
-                    <Home className="h-4 w-4 text-[#C46A3A]" />
-                    Edit website
-                  </span>
-                  <Menu className="h-4 w-4 text-[#4E5871]" />
-                </Link>
-                <Link to="/staff-dashboard/customers" className="flex items-center justify-between rounded-lg border border-[#E8DED4] p-4 hover:bg-white">
-                  <span className="flex items-center gap-3 text-sm font-medium">
-                    <Users className="h-4 w-4 text-[#C46A3A]" />
-                    Add customers
-                  </span>
-                  <Menu className="h-4 w-4 text-[#4E5871]" />
-                </Link>
-              </CardContent>
-            </Card>
-
-            <Card className="rounded-lg border-[#E8DED4] bg-[#0A1128] text-white shadow-sm">
-              <CardContent className="p-5">
-                <p className="text-sm uppercase text-[#E9D7C8]">Website</p>
-                <h2 className="mt-2 text-xl font-semibold">{cattery?.slug || 'your-handle'}.catstays.app</h2>
-                <p className="mt-2 text-sm leading-6 text-white/70">
-                  Public bookings connect back to this dashboard as soon as your website is live.
-                </p>
-                <Link to={cattery?.slug ? `/tenant/${cattery.slug}` : '/site'}>
-                  <Button className="mt-4 rounded-lg bg-white text-[#0A1128] hover:bg-[#F6F2EA]">
-                    View website
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-          </div>
+            </section>
+          </aside>
         </div>
       </main>
     </div>
