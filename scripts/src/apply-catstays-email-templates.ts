@@ -7,6 +7,21 @@ const DEFAULT_PROJECT_REF = 'iwyoezwqorddkmqnjbif';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, '..', '..');
 const templateRoot = path.join(repoRoot, 'supabase', 'auth-email-templates');
+const appUrl = (process.env.CATSTAYS_APP_URL || process.env.VITE_PUBLIC_APP_URL || 'https://catstays.app').replace(
+  /\/$/,
+  '',
+);
+const requiredRedirectUrls = [
+  `${appUrl}/confirm-email`,
+  `${appUrl}/reset-password`,
+  `${appUrl}/login`,
+  'https://*.catstays.app/confirm-email',
+  'https://*.catstays.app/reset-password',
+  'https://*.catstays.app/login',
+  'http://localhost:3000/**',
+  'http://localhost:5173/**',
+  'http://localhost:5174/**',
+];
 
 type TemplateKey =
   | 'mailer_templates_confirmation_content'
@@ -18,6 +33,14 @@ type TemplateKey =
 
 async function readTemplate(fileName: string) {
   return readFile(path.join(templateRoot, fileName), 'utf8');
+}
+
+function parseUriAllowList(value: unknown) {
+  if (!value || typeof value !== 'string') return [];
+  return value
+    .split(/[\n,]+/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
 }
 
 async function requestSupabase<T>(
@@ -52,7 +75,17 @@ async function main() {
     );
   }
 
+  const currentConfig = await requestSupabase<Record<string, unknown>>(projectRef, accessToken, {
+    method: 'GET',
+  });
+
+  const uriAllowList = Array.from(
+    new Set([...parseUriAllowList(currentConfig.uri_allow_list), ...requiredRedirectUrls]),
+  );
+
   const payload = {
+    site_url: appUrl,
+    uri_allow_list: uriAllowList.join(','),
     mailer_subjects_confirmation: 'Confirm your CatStays account',
     mailer_templates_confirmation_content: await readTemplate('confirmation.html'),
     mailer_subjects_invite: 'Welcome to CatStays',
@@ -85,13 +118,25 @@ async function main() {
     'mailer_templates_reauthentication_content',
   ];
 
-  const mismatchedKeys = templateKeys.filter((key) => updatedConfig[key] !== payload[key]);
+  const mismatchedKeys: string[] = templateKeys.filter((key) => updatedConfig[key] !== payload[key]);
+  const updatedRedirectUrls = parseUriAllowList(updatedConfig.uri_allow_list);
+  const missingRedirectUrls = requiredRedirectUrls.filter((url) => !updatedRedirectUrls.includes(url));
+
+  if (updatedConfig.site_url !== appUrl) {
+    mismatchedKeys.push('site_url');
+  }
+
+  if (missingRedirectUrls.length) {
+    throw new Error(
+      `Supabase accepted the update but these redirect URLs are missing: ${missingRedirectUrls.join(', ')}`,
+    );
+  }
 
   if (mismatchedKeys.length) {
     throw new Error(`Supabase accepted the update but verification failed for: ${mismatchedKeys.join(', ')}`);
   }
 
-  console.log(`CatStays Supabase Auth email templates are live on ${projectRef}.`);
+  console.log(`CatStays Supabase Auth settings are live on ${projectRef}.`);
 }
 
 main().catch((error: unknown) => {

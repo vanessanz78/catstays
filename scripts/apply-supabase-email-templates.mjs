@@ -18,12 +18,53 @@ if (!projectRef || !accessToken) {
 }
 
 const templatesDir = path.join(process.cwd(), "supabase", "auth-email-templates");
+const appUrl = (process.env.CATSTAYS_APP_URL || process.env.VITE_PUBLIC_APP_URL || "https://catstays.app").replace(/\/$/, "");
+const requiredRedirectUrls = [
+  `${appUrl}/confirm-email`,
+  `${appUrl}/reset-password`,
+  `${appUrl}/login`,
+  "https://*.catstays.app/confirm-email",
+  "https://*.catstays.app/reset-password",
+  "https://*.catstays.app/login",
+  "http://localhost:3000/**",
+  "http://localhost:5173/**",
+  "http://localhost:5174/**",
+];
+
+function parseUriAllowList(value) {
+  if (!value || typeof value !== "string") return [];
+  return value
+    .split(/[\n,]+/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+async function requestSupabase(init) {
+  const response = await fetch(`https://api.supabase.com/v1/projects/${projectRef}/config/auth`, {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+      ...init.headers,
+    },
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    console.error(`Supabase rejected the Auth config update: ${response.status} ${response.statusText}`);
+    console.error(body.slice(0, 2000));
+    process.exit(1);
+  }
+
+  return response.json();
+}
 
 async function template(fileName) {
   return readFile(path.join(templatesDir, fileName), "utf8");
 }
 
 const payload = {
+  site_url: appUrl,
   mailer_subjects_confirmation: "Confirm your CatStays account",
   mailer_templates_confirmation_content: await template("confirmation.html"),
 
@@ -43,21 +84,29 @@ const payload = {
   mailer_templates_reauthentication_content: await template("reauthentication.html"),
 };
 
-const endpoint = `https://api.supabase.com/v1/projects/${projectRef}/config/auth`;
-const response = await fetch(endpoint, {
+const currentConfig = await requestSupabase({ method: "GET" });
+const uriAllowList = Array.from(
+  new Set([...parseUriAllowList(currentConfig.uri_allow_list), ...requiredRedirectUrls]),
+);
+
+await requestSupabase({
   method: "PATCH",
-  headers: {
-    Authorization: `Bearer ${accessToken}`,
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify(payload),
+  body: JSON.stringify({ ...payload, uri_allow_list: uriAllowList.join(",") }),
 });
 
-if (!response.ok) {
-  const body = await response.text();
-  console.error(`Supabase rejected the template update: ${response.status} ${response.statusText}`);
-  console.error(body.slice(0, 2000));
+const updatedConfig = await requestSupabase({ method: "GET" });
+const updatedRedirectUrls = parseUriAllowList(updatedConfig.uri_allow_list);
+const missingRedirectUrls = requiredRedirectUrls.filter((url) => !updatedRedirectUrls.includes(url));
+
+if (updatedConfig.site_url !== appUrl || missingRedirectUrls.length) {
+  console.error("Supabase accepted the update but Auth URL verification failed.");
+  if (updatedConfig.site_url !== appUrl) {
+    console.error(`Expected Site URL ${appUrl}, got ${updatedConfig.site_url || "(empty)"}.`);
+  }
+  if (missingRedirectUrls.length) {
+    console.error(`Missing redirect URLs: ${missingRedirectUrls.join(", ")}`);
+  }
   process.exit(1);
 }
 
-console.log(`Applied ${Object.keys(payload).length / 2} CatStays Supabase Auth email templates.`);
+console.log(`Applied CatStays Supabase Auth settings for ${appUrl}.`);

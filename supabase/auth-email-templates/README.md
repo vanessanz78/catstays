@@ -19,13 +19,13 @@ Use them in Supabase Dashboard under Authentication > Emails. Paste each HTML fi
 - `trial-reminder.html` - Trial ending reminder reference
 - `billing-reminder.html` - Billing reminder reference
 
-To apply the Supabase Auth templates from Replit Shell instead of copy-pasting:
+To apply the Supabase Auth templates and hosted Auth URL settings from Replit Shell instead of copy-pasting:
 
 ```bash
 SUPABASE_PROJECT_REF="your-project-ref" SUPABASE_ACCESS_TOKEN="your-access-token" pnpm run apply:supabase-email-templates
 ```
 
-The script updates the six Supabase Auth action templates only. Trial and billing reminders are app transactional emails and are not Supabase Auth templates.
+The script updates the six Supabase Auth action templates, sets the hosted Auth Site URL to `https://catstays.app`, and preserves/adds the required redirect URLs for confirmation and password reset. Trial and billing reminders are app transactional emails and are not Supabase Auth templates.
 
 Legacy filenames are retained for compatibility:
 
@@ -41,7 +41,7 @@ Logo source:
 Recommended production values:
 
 - Site URL: `https://catstays.app`
-- Redirect URLs: include `https://catstays.app/confirm-email`
+- Redirect URLs: include `https://catstays.app/confirm-email`, `https://catstays.app/reset-password`, and the tenant equivalents for `https://*.catstays.app`
 - Sender name: `CatStays`
 - Sender email: the verified CatStays transactional sender
 - Support email: `support@catstays.app`

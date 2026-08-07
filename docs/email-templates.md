@@ -69,7 +69,7 @@ The fallback logo URL is generated from `CATSTAYS_APP_URL` if `CATSTAYS_EMAIL_LO
 For Supabase Auth emails, keep the hosted Auth settings aligned with production:
 
 - Site URL: `https://catstays.app`
-- Additional Redirect URLs: include `https://catstays.app/confirm-email`
+- Additional Redirect URLs: include `https://catstays.app/confirm-email`, `https://catstays.app/reset-password`, and tenant equivalents for `https://*.catstays.app`
 - Support email in footer copy: `support@catstays.app`
 
 If either hosted Auth setting drifts back to `http://localhost:3000`, confirmation emails and password reset links can open the wrong destination even when the email HTML looks correct.
