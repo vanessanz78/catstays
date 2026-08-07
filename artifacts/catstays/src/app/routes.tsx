@@ -91,6 +91,31 @@ import { RoomsPricingDemo } from "./pages/demo/RoomsPricingDemo";
 import { DeloraineDemo, DeloraineDemoClientPortal, DeloraineDemoDashboard } from "./pages/demo/DeloraineDemo";
 import BookingSystemDemo from "./pages/BookingSystemDemo";
 
+const tenantStaffDashboardPaths = [
+  "/staff-dashboard",
+  "/staff-dashboard/bookings",
+  "/staff-dashboard/customers",
+  "/staff-dashboard/calendar",
+  "/staff-dashboard/room-planner",
+  "/staff-dashboard/smart-import",
+  "/staff-dashboard/smart-data-import",
+  "/staff-dashboard/accounting",
+  "/staff-dashboard/messages",
+  "/staff-dashboard/promotions",
+  "/staff-dashboard/social",
+  "/staff-dashboard/cat-update-generator",
+  "/staff-dashboard/insights",
+  "/staff-dashboard/settings",
+  "/staff-dashboard/booking-setup",
+  "/staff-dashboard/payment",
+  "/staff-dashboard/marketing",
+  "/staff-dashboard/subscription",
+].map((path) => ({
+  path,
+  Component: StaffDashboard,
+  ErrorBoundary: RootErrorBoundary,
+}));
+
 export const router = createBrowserRouter([
   // Marketing website (catstays.app)
   {
@@ -176,100 +201,11 @@ export const router = createBrowserRouter([
     ErrorBoundary: RootErrorBoundary,
   },
 
-  // Cattery staff dashboard
-  {
-    path: "/staff-dashboard",
-    Component: StaffDashboard,
-    ErrorBoundary: RootErrorBoundary,
-  },
-  {
-    path: "/staff-dashboard/bookings",
-    Component: AdminBookings,
-    ErrorBoundary: RootErrorBoundary,
-  },
-  {
-    path: "/staff-dashboard/customers",
-    Component: AdminCustomers,
-    ErrorBoundary: RootErrorBoundary,
-  },
-  {
-    path: "/staff-dashboard/calendar",
-    Component: AdminCalendar,
-    ErrorBoundary: RootErrorBoundary,
-  },
-  {
-    path: "/staff-dashboard/room-planner",
-    Component: RoomPlannerDashboard,
-    ErrorBoundary: RootErrorBoundary,
-  },
-  {
-    path: "/staff-dashboard/smart-import",
-    Component: SmartImport,
-    ErrorBoundary: RootErrorBoundary,
-  },
-  {
-    path: "/staff-dashboard/smart-data-import",
-    Component: SmartDataImport,
-    ErrorBoundary: RootErrorBoundary,
-  },
-  {
-    path: "/staff-dashboard/accounting",
-    Component: AdminAccounting,
-    ErrorBoundary: RootErrorBoundary,
-  },
-  {
-    path: "/staff-dashboard/messages",
-    Component: AdminMessages,
-    ErrorBoundary: RootErrorBoundary,
-  },
-  {
-    path: "/staff-dashboard/promotions",
-    Component: AdminPromotions,
-    ErrorBoundary: RootErrorBoundary,
-  },
-  {
-    path: "/staff-dashboard/social",
-    Component: AdminSocial,
-    ErrorBoundary: RootErrorBoundary,
-  },
-  {
-    path: "/staff-dashboard/cat-update-generator",
-    Component: CatUpdateGenerator,
-    ErrorBoundary: RootErrorBoundary,
-  },
-  {
-    path: "/staff-dashboard/insights",
-    Component: AdminInsights,
-    ErrorBoundary: RootErrorBoundary,
-  },
-  {
-    path: "/staff-dashboard/settings",
-    Component: AdminSettings,
-    ErrorBoundary: RootErrorBoundary,
-  },
-  {
-    path: "/staff-dashboard/booking-setup",
-    Component: BookingSetup,
-    ErrorBoundary: RootErrorBoundary,
-  },
-  {
-    path: "/staff-dashboard/payment",
-    Component: PaymentIntegration,
-    ErrorBoundary: RootErrorBoundary,
-  },
+  // Production tenant staff workspace. Demo screens remain under /demo and older admin screens remain under /admin.
+  ...tenantStaffDashboardPaths,
   {
     path: "/staff-dashboard/website-editor",
     Component: DashboardWebsiteEditor,
-    ErrorBoundary: RootErrorBoundary,
-  },
-  {
-    path: "/staff-dashboard/marketing",
-    Component: MarketingKit,
-    ErrorBoundary: RootErrorBoundary,
-  },
-  {
-    path: "/staff-dashboard/subscription",
-    Component: Subscription,
     ErrorBoundary: RootErrorBoundary,
   },
 
