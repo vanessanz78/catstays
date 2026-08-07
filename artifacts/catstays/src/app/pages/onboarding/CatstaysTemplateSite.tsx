@@ -1,4 +1,4 @@
-import { type CSSProperties, type MouseEvent, useRef, useState } from 'react';
+import { type CSSProperties, type ImgHTMLAttributes, type MouseEvent, useRef, useState } from 'react';
 import {
   Award,
   CalendarCheck,
@@ -47,6 +47,7 @@ type PreviewNoticeKind = 'booking' | 'contact';
 const trustIcons = [ShieldCheck, HeartHandshake, Sparkles, CalendarCheck];
 const facilityIcons = [ShieldCheck, Sparkles, Camera, Clock, HeartHandshake, CalendarCheck];
 const serviceIcons = [Scissors, Stethoscope, Zap, Car, Plane, ShieldCheck, HeartHandshake, CalendarCheck];
+const TEMPLATE_IMAGE_FALLBACK = '/assets/marketing/premium-cattery-sleeping-cat-hero.png';
 const namedCareIcons = {
   Shield: ShieldCheck,
   Heart: HeartHandshake,
@@ -130,6 +131,38 @@ function fontFamilyFor(font: string, role: 'heading' | 'body') {
   };
 
   return fonts[font] || (role === 'heading' ? fonts.playfair : fonts.inter);
+}
+
+function templateImageSrc(src: string | undefined): string {
+  if (!src) return TEMPLATE_IMAGE_FALLBACK;
+  if (/^(?:data:image\/|blob:|\/)/i.test(src)) return src;
+  if (!/^https?:\/\//i.test(src)) return src;
+  return `/api/website/source-asset?url=${encodeURIComponent(src)}`;
+}
+
+function TemplateImage({
+  src,
+  fallback = TEMPLATE_IMAGE_FALLBACK,
+  ...props
+}: Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'> & {
+  src?: string;
+  fallback?: string;
+}) {
+  const resolvedSrc = templateImageSrc(src);
+
+  return (
+    <img
+      {...props}
+      src={resolvedSrc}
+      onError={(event) => {
+        props.onError?.(event);
+        const image = event.currentTarget;
+        if (image.dataset.catstaysFallbackApplied === 'true') return;
+        image.dataset.catstaysFallbackApplied = 'true';
+        image.src = fallback;
+      }}
+    />
+  );
 }
 
 function TemplateHeader({
@@ -217,7 +250,7 @@ function FocusTemplate({
               </a>
             </div>
           </div>
-          <img src={content.hero.image} alt="" className="catstays-template-section-image h-[420px] w-full object-cover md:h-[620px]" />
+          <TemplateImage src={content.hero.image} alt="" className="catstays-template-section-image h-[420px] w-full object-cover md:h-[620px]" />
         </section>
 
         <section id="booking" className="relative z-10 mx-auto w-full max-w-[1400px] scroll-mt-28 px-6 md:-mt-16">
@@ -302,7 +335,7 @@ function EditorialTemplate({
       <PreviewBookingNotice kind={previewNoticeKind} onDismiss={onDismissPreviewNotice} />
       <main>
         <section id="home" className="catstays-stack mx-auto grid max-w-[1400px] scroll-mt-28 md:grid-cols-2">
-          <img src={content.hero.image} alt="" className="catstays-template-section-image h-[420px] w-full object-cover md:h-[560px]" />
+          <TemplateImage src={content.hero.image} alt="" className="catstays-template-section-image h-[420px] w-full object-cover md:h-[560px]" />
           <div className="flex flex-col justify-center bg-white px-8 py-14 md:px-20">
             <p className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">{content.hero.eyebrow}</p>
             <h2 className="text-4xl leading-[1.08] md:text-6xl">{content.hero.heading}</h2>
@@ -324,7 +357,7 @@ function EditorialTemplate({
               <div className="my-6 h-px w-14 bg-[#b58b4a]" />
               <p className="max-w-lg text-base leading-7">{section.text}</p>
             </div>
-            <img src={section.image} alt="" style={imageFocalStyle(section.image)} className="catstays-template-section-image h-[420px] w-full object-cover md:h-[560px]" />
+            <TemplateImage src={section.image} alt="" style={imageFocalStyle(section.image)} className="catstays-template-section-image h-[420px] w-full object-cover md:h-[560px]" />
           </section>
         ))}
 
@@ -373,7 +406,7 @@ function ShowcaseTemplate({
       <PreviewBookingNotice kind={previewNoticeKind} onDismiss={onDismissPreviewNotice} />
       <main>
         <section id="home" className="relative min-h-[620px] scroll-mt-28 overflow-hidden">
-          <img src={content.hero.image} alt="" className="absolute inset-0 h-full w-full object-cover" />
+          <TemplateImage src={content.hero.image} alt="" className="absolute inset-0 h-full w-full object-cover" />
           <div className="absolute inset-0 bg-black/45" />
           <div className="relative mx-auto flex min-h-[620px] max-w-[1400px] flex-col justify-end px-6 pb-16 text-white md:pb-24">
             <p className="mb-5 text-xs font-bold uppercase tracking-[0.24em] text-white/75">{content.hero.eyebrow}</p>
@@ -469,7 +502,7 @@ function ShowcaseGalleryRail({ content }: { content: ReturnType<typeof buildCats
       <div ref={railRef} className="flex snap-x gap-5 overflow-x-auto px-6 pb-2 [scrollbar-width:thin]">
         {railImages.map((item, index) => (
           <figure key={`${item.image}-${index}`} className="min-w-[78vw] snap-start overflow-hidden bg-white shadow-sm sm:min-w-[46vw] lg:min-w-[31vw]">
-            <img src={item.image} alt="" className="h-[320px] w-full object-cover" />
+            <TemplateImage src={item.image} alt="" className="h-[320px] w-full object-cover" />
           </figure>
         ))}
       </div>
@@ -488,7 +521,7 @@ function AboutSplit({
 }) {
   return (
     <section id="about" className="catstays-stack mx-auto grid max-w-[1400px] scroll-mt-28 md:grid-cols-2">
-      <img src={content.about.image} alt="" style={imageFocalStyle(content.about.image)} className={`catstays-template-section-image h-[460px] w-full object-cover ${imageFirst ? '' : 'md:order-2'}`} />
+      <TemplateImage src={content.about.image} alt="" style={imageFocalStyle(content.about.image)} className={`catstays-template-section-image h-[460px] w-full object-cover ${imageFirst ? '' : 'md:order-2'}`} />
       <div className="flex flex-col justify-center bg-white px-8 py-14 md:px-20">
         <p className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-[#8c7b63]">About {content.business.name}</p>
         <h2 className="text-3xl leading-[1.12] md:text-5xl">{content.about.title}</h2>
@@ -514,7 +547,7 @@ function SuitesGrid({ content, compact = false }: { content: ReturnType<typeof b
         {content.suites.map((suite) => (
           <article key={suite.title} className="flex overflow-hidden rounded-md border border-[#222]/10 bg-white text-left shadow-sm">
             <div className="flex w-full flex-col">
-            <img src={suite.image} alt="" className="h-56 w-full object-cover" />
+            <TemplateImage src={suite.image} alt="" className="h-56 w-full object-cover" />
             <div className="flex flex-1 flex-col p-5 text-center">
               <h3 className="mb-3 text-sm font-bold uppercase tracking-[0.08em]">{suite.title}</h3>
               {suite.price ? <p className="mb-3 text-sm font-bold text-[#8c5b32]">{suite.price}</p> : null}
@@ -540,7 +573,7 @@ function SuitesGrid({ content, compact = false }: { content: ReturnType<typeof b
             <button type="button" onClick={() => setActiveSuite(null)} className="absolute right-4 top-4 z-10 grid h-10 w-10 place-items-center rounded-full bg-white/90 text-[#222] shadow">
               <X className="h-5 w-5" />
             </button>
-            <img src={activeSuite.image} alt="" className="h-72 w-full object-cover" />
+            <TemplateImage src={activeSuite.image} alt="" className="h-72 w-full object-cover" />
             <div className="p-7 md:p-9">
               <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Suite Details</p>
               <h3 className="font-serif text-4xl leading-tight">{activeSuite.title}</h3>
@@ -633,7 +666,7 @@ function GalleryStrip({ content }: { content: ReturnType<typeof buildCatstaysTem
       <div ref={railRef} className="flex snap-x gap-5 overflow-x-auto px-1 pb-3 [scrollbar-width:thin]">
         {images.map((item, index) => (
           <figure key={`${item.image}-${index}`} className="min-w-[82vw] snap-start overflow-hidden bg-white shadow-sm sm:min-w-[46vw] lg:min-w-[31vw]">
-            <img src={item.image} alt="" className="h-72 w-full object-cover" />
+            <TemplateImage src={item.image} alt="" className="h-72 w-full object-cover" />
           </figure>
         ))}
       </div>
@@ -732,7 +765,7 @@ function FacilitiesDetailSection({ content }: { content: ReturnType<typeof build
     <section id="facilities" className="scroll-mt-28 bg-white px-6 py-16">
       <div className="catstays-stack mx-auto max-w-[1400px]">
         <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-          <img src={content.facilities.image} alt="" className="catstays-template-section-image h-[420px] w-full rounded-md object-cover shadow-sm md:h-[500px]" />
+          <TemplateImage src={content.facilities.image} alt="" className="catstays-template-section-image h-[420px] w-full rounded-md object-cover shadow-sm md:h-[500px]" />
           <div>
             <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Facilities</p>
             <h2 className="text-3xl leading-tight md:text-5xl">{content.facilities.title}</h2>
@@ -761,7 +794,7 @@ function OwnerStorySection({ content }: { content: ReturnType<typeof buildCatsta
 
   return (
     <section id="owner" className="catstays-stack mx-auto grid max-w-[1400px] scroll-mt-28 gap-8 bg-white px-6 py-10 md:grid-cols-[0.9fr_1.1fr] md:items-center md:px-0 md:py-0">
-      <img src={content.owner.image} alt="" style={imageFocalStyle(content.owner.image)} className="catstays-owner-image h-[360px] w-full rounded-md object-cover object-[50%_58%] sm:h-[420px] md:h-[460px] md:max-h-[500px] lg:h-[500px]" />
+      <TemplateImage src={content.owner.image} alt="" style={imageFocalStyle(content.owner.image)} className="catstays-owner-image h-[360px] w-full rounded-md object-cover object-[50%_58%] sm:h-[420px] md:h-[460px] md:max-h-[500px] lg:h-[500px]" />
       <div className="flex flex-col justify-center px-8 py-14 md:px-20">
         <p className="mb-5 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">The people behind the care</p>
         <h2 className="text-3xl leading-[1.12] md:text-5xl">{content.owner.title}</h2>

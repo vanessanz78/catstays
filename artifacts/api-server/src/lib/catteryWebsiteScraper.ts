@@ -481,8 +481,35 @@ function collectSameOriginLinks(root: ReturnType<typeof parse>, baseUrl: URL): s
 }
 
 function readableText(root: ReturnType<typeof parse>): string {
-  root.querySelectorAll('script, style, noscript').forEach((node) => node.remove());
-  return cleanText(root.querySelector('body')?.text ?? root.text);
+  const textRoot = parse(root.toString());
+  textRoot
+    .querySelectorAll(
+      [
+        'script',
+        'style',
+        'noscript',
+        'svg',
+        'nav',
+        'header',
+        'footer',
+        'form',
+        'button',
+        '[role="navigation"]',
+        '[aria-label*="navigation" i]',
+        '[class*="nav" i]',
+        '[class*="menu" i]',
+        '[class*="breadcrumb" i]',
+        '[class*="footer" i]',
+        '[class*="header" i]',
+        '[id*="nav" i]',
+        '[id*="menu" i]',
+        '[id*="breadcrumb" i]',
+        '[id*="footer" i]',
+        '[id*="header" i]',
+      ].join(', '),
+    )
+    .forEach((node) => node.remove());
+  return cleanText(textRoot.querySelector('body')?.text ?? textRoot.text);
 }
 
 function uniqueUrls(urls: string[]): string[] {
@@ -946,9 +973,10 @@ function collectHtmlImages(root: ReturnType<typeof parse>, baseUrl: URL): string
 
     const srcset = node.getAttribute('srcset') || node.getAttribute('data-srcset');
     if (srcset) {
-      for (const candidate of srcset.split(',')) {
-        const [candidateUrl] = candidate.trim().split(/\s+/);
-        if (candidateUrl) images.push(candidateUrl);
+      for (const candidateUrl of srcsetCandidateUrls(srcset)) {
+        if (candidateUrl) {
+          images.push(candidateUrl);
+        }
       }
     }
 
@@ -958,6 +986,36 @@ function collectHtmlImages(root: ReturnType<typeof parse>, baseUrl: URL): string
     }
   }
   return images.map((image) => absoluteUrl(image, baseUrl)).filter(Boolean);
+}
+
+function srcsetCandidateUrls(srcset: string): string[] {
+  const urls: string[] = [];
+  let remaining = srcset.trim();
+
+  while (remaining) {
+    const descriptor = remaining.match(/\s+\d+(?:\.\d+)?[wx](?=\s*(?:,|$))/);
+
+    if (descriptor && typeof descriptor.index === 'number') {
+      const candidate = remaining.slice(0, descriptor.index).trim();
+      if (candidate) urls.push(candidate);
+      remaining = remaining.slice(descriptor.index + descriptor[0].length).trim();
+      if (remaining.startsWith(',')) remaining = remaining.slice(1).trim();
+      continue;
+    }
+
+    const separatorIndex = remaining.search(/,\s*(?=(?:https?:)?\/\/|\/|[^\s,]+\.(?:jpe?g|png|webp|avif))/i);
+    if (separatorIndex === -1) {
+      const [candidate] = remaining.trim().split(/\s+/);
+      if (candidate) urls.push(candidate);
+      break;
+    }
+
+    const [candidate] = remaining.slice(0, separatorIndex).trim().split(/\s+/);
+    if (candidate) urls.push(candidate);
+    remaining = remaining.slice(separatorIndex + 1).trim();
+  }
+
+  return urls;
 }
 
 function rewriteSourcePreviewHtml(html: string, baseUrl: URL, previewOrigin: string): string {
@@ -1834,6 +1892,7 @@ function extractReadableBundleText(bundle: string): string[] {
 
   return values
     .filter((value) => value && !/[{}<>]/.test(value))
+    .filter((value) => !isNavigationLikeText(value))
     .filter((value) => /cat|cattery|boarding|facility|room|service|Deloraine|booking|vaccination|address|email|phone|owner|host|Vanessa|Paul|review|virtual|tour|airport|appointment|hours|routine/i.test(value));
 }
 
@@ -2013,6 +2072,7 @@ function sentenceList(text: string): string[] {
   return cleanText(text.replace(/([a-z])\.([A-Z])/g, '$1. $2'))
     .split(/(?<=[.!?])\s+/)
     .map((sentence) => cleanText(sentence))
+    .filter((sentence) => !isNavigationLikeText(sentence))
     .filter(Boolean);
 }
 
@@ -2297,8 +2357,31 @@ function cleanText(value: string): string {
     .replace(/\\"/g, '"')
     .replace(/\\'/g, "'")
     .replace(/`/g, '')
+    .replace(/\btop of page\b/gi, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function isNavigationLikeText(value: string): boolean {
+  const text = cleanText(value);
+  if (!text) return false;
+  const normalized = text.toLowerCase();
+  const navigationWords = [
+    'top of page',
+    'skip to content',
+    'home',
+    'about',
+    'accommodation',
+    'homestay',
+    'fees',
+    'gallery',
+    'contact',
+    'grooming',
+    'rates',
+    'book now',
+  ];
+  const hits = navigationWords.filter((word) => normalized.includes(word)).length;
+  return hits >= 5 || /top of page\s+home\s+about/i.test(text);
 }
 
 function decodeEntities(value: string): string {
