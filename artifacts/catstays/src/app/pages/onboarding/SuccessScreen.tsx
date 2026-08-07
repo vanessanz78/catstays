@@ -22,6 +22,7 @@ import { Button } from '../../components/ui/button';
 import { Card, CardContent } from '../../components/ui/card';
 import { Label } from '../../components/ui/label';
 import { MarketingStudio } from '../../components/MarketingStudio';
+import { getTenantWebsiteDisplayUrl, getTenantWebsiteUrl } from '../../../utils/appUrl';
 
 interface SuccessScreenProps {
   subdomain: string;
@@ -56,15 +57,17 @@ export function SuccessScreen({ subdomain, onGoToWebsite, onContinueToDataImport
   const [showShareModal, setShowShareModal] = useState(false);
   const [showMaterialsModal, setShowMaterialsModal] = useState(false);
   const [copied, setCopied] = useState(false);
+  const websiteUrl = getTenantWebsiteUrl(subdomain);
+  const websiteDisplayUrl = getTenantWebsiteDisplayUrl(subdomain);
 
   const handleCopyUrl = () => {
-    navigator.clipboard.writeText(`${subdomain}.catstays.app`);
+    navigator.clipboard.writeText(websiteUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const shareUrl = `https://${subdomain}.catstays.app`;
-  const shareText = `Check out my new cat boarding website! Book your cat's luxury stay at ${subdomain}.catstays.app 🐱`;
+  const shareUrl = websiteUrl;
+  const shareText = `Check out my new cat boarding website! Book your cat's luxury stay at ${websiteDisplayUrl} 🐱`;
   
   const socialShareLinks = {
     facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`,
@@ -433,7 +436,7 @@ export function SuccessScreen({ subdomain, onGoToWebsite, onContinueToDataImport
             <div className="flex items-center gap-3 bg-gradient-to-br from-[#F8F7F5] to-white rounded-2xl p-4 md:p-5 border-2 border-[#C46A3A]/20 shadow-lg">
               <Globe className="w-6 h-6 text-[#C46A3A] flex-shrink-0" />
               <code className="text-xl md:text-2xl font-mono text-[#0A1128] flex-1 break-all">
-                {subdomain}.catstays.app
+                {websiteDisplayUrl}
               </code>
               <Button 
                 variant="outline" 
@@ -702,7 +705,7 @@ export function SuccessScreen({ subdomain, onGoToWebsite, onContinueToDataImport
                 className="flex flex-col items-center justify-center gap-3 bg-gradient-to-br from-[#C46A3A]/10 to-[#F8F7F5] hover:from-[#C46A3A]/20 hover:to-[#F8F7F5] border-2 border-[#C46A3A]/20 hover:border-[#C46A3A]/40 text-[#0A1128] rounded-xl p-5 shadow-lg transition-all"
                 onClick={() => {
                   // Copy text for Instagram caption
-                  const caption = `🐱 Your cat deserves the best! Book their luxury stay at ${subdomain}.catstays.app\n\n✨ Premium cat boarding\n📸 Daily photo updates\n🏠 Private, comfortable rooms\n💝 Personalized care\n\nBook today! Link in bio 👆`;
+                  const caption = `🐱 Your cat deserves the best! Book their luxury stay at ${websiteDisplayUrl}\n\n✨ Premium cat boarding\n📸 Daily photo updates\n🏠 Private, comfortable rooms\n💝 Personalized care\n\nBook today! Link in bio 👆`;
                   navigator.clipboard.writeText(caption);
                 }}
               >

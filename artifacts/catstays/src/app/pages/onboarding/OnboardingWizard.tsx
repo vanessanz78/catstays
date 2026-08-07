@@ -69,6 +69,7 @@ import {
 } from '../../lib/previewTemplates';
 import { DELORAINE_SOURCE_URL } from '../../lib/deloraineDemo';
 import { normalizeWebsiteImportUrl } from '../../lib/websiteImportUrl';
+import { getTenantWebsiteUrl } from '../../../utils/appUrl';
 
 const logoIcon = '/assets/b463d12091f20e48be52186dedd2a0f6707d0b66.png';
 
@@ -2341,7 +2342,7 @@ export function OnboardingWizard() {
         {step === 8 && (
           <SuccessScreen 
             subdomain={data.subdomain}
-            onGoToWebsite={() => window.open(`https://${data.subdomain}.catstays.app`, '_blank', 'noopener,noreferrer')}
+            onGoToWebsite={() => window.open(getTenantWebsiteUrl(data.subdomain), '_blank', 'noopener,noreferrer')}
             onContinueToDataImport={() => {
               setStep(9);
               saveOnboardingUiState(9, data, accountCreated);
