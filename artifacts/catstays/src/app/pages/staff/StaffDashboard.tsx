@@ -35,10 +35,18 @@ type StaffSection =
   | 'calendar'
   | 'room-planner'
   | 'smart-import'
+  | 'smart-data-import'
   | 'accounting'
   | 'messages'
   | 'promotions'
-  | 'payment';
+  | 'payment'
+  | 'social'
+  | 'cat-update-generator'
+  | 'insights'
+  | 'settings'
+  | 'booking-setup'
+  | 'marketing'
+  | 'subscription';
 
 type Booking = ReturnType<typeof useBookings>['bookings'][number];
 type Room = ReturnType<typeof useRooms>['rooms'][number];
@@ -51,10 +59,18 @@ const sectionMeta: Record<StaffSection, { title: string; subtitle: string }> = {
   calendar: { title: 'Calendar', subtitle: 'Booking timeline and upcoming stays' },
   'room-planner': { title: 'Room Planner & Pricing', subtitle: 'Rooms, availability, and rate setup' },
   'smart-import': { title: 'Smart Import', subtitle: 'Bring in existing cattery data' },
+  'smart-data-import': { title: 'Smart Data Import', subtitle: 'Import tools for tenant-owned records' },
   accounting: { title: 'Accounting', subtitle: 'Payments, invoices, and revenue tools' },
   messages: { title: 'Messages', subtitle: 'Customer updates and automated messages' },
   promotions: { title: 'Promotions', subtitle: 'Offers and marketing campaigns' },
   payment: { title: 'Payment Setup', subtitle: 'Stripe and payout configuration' },
+  social: { title: 'Social', subtitle: 'Social content and channel planning' },
+  'cat-update-generator': { title: 'Cat Update Generator', subtitle: 'Photo updates and stay notes' },
+  insights: { title: 'Insights', subtitle: 'Tenant metrics and reports' },
+  settings: { title: 'Settings', subtitle: 'Cattery preferences and account setup' },
+  'booking-setup': { title: 'Booking Setup', subtitle: 'Public booking rules and intake settings' },
+  marketing: { title: 'Marketing', subtitle: 'Campaigns and promotional content' },
+  subscription: { title: 'Subscription', subtitle: 'Plan and account status' },
 };
 
 function getDraftAccount() {
@@ -108,10 +124,18 @@ function staffSectionFromPath(pathname: string): StaffSection {
   if (section === 'calendar') return 'calendar';
   if (section === 'room-planner') return 'room-planner';
   if (section === 'smart-import') return 'smart-import';
+  if (section === 'smart-data-import') return 'smart-data-import';
   if (section === 'accounting') return 'accounting';
   if (section === 'messages') return 'messages';
   if (section === 'promotions') return 'promotions';
   if (section === 'payment') return 'payment';
+  if (section === 'social') return 'social';
+  if (section === 'cat-update-generator') return 'cat-update-generator';
+  if (section === 'insights') return 'insights';
+  if (section === 'settings') return 'settings';
+  if (section === 'booking-setup') return 'booking-setup';
+  if (section === 'marketing') return 'marketing';
+  if (section === 'subscription') return 'subscription';
   return 'today';
 }
 
@@ -541,12 +565,12 @@ function RoomPlannerSection({ rooms, data, isLoading }: { rooms: Room[]; data: R
         ) : rooms.length > 0 ? (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {rooms.map((room) => {
-              const occupied = data.occupiedNow.some((booking) => booking.room_id === room.id);
+              const occupied = data.occupiedNow.some((booking) => booking.room?.id === room.id);
               return (
                 <div key={room.id} className="rounded-lg border border-[#E8DED4] bg-[#F8F7F5] p-4">
                   <div className="mb-3 flex items-center justify-between">
                     <h3 className="font-semibold text-[#0A1128]">{room.name}</h3>
-                    <Badge className={`rounded-full ${occupied ? 'bg-[#C46A3A] text-white' : 'bg-[#7DAF7B]/20 text-[#2D5830]'} hover:bg-current/0`}>
+                    <Badge className={`rounded-full ${occupied ? 'bg-[#C46A3A] text-white hover:bg-[#C46A3A]' : 'bg-[#7DAF7B]/20 text-[#2D5830] hover:bg-[#7DAF7B]/20'}`}>
                       {occupied ? 'Occupied' : 'Available'}
                     </Badge>
                   </div>
@@ -593,7 +617,14 @@ function CalendarSection({ data, isLoading }: { data: ReturnType<typeof buildDas
 
 function ToolsSection({ section }: { section: StaffSection }) {
   const meta = sectionMeta[section];
-  const icon = section === 'smart-import' ? Sparkles : section === 'messages' ? MessageSquare : section === 'payment' ? CreditCard : LayoutGrid;
+  const icon =
+    section === 'smart-import' || section === 'smart-data-import'
+      ? Sparkles
+      : section === 'messages'
+        ? MessageSquare
+        : section === 'payment'
+          ? CreditCard
+          : LayoutGrid;
   return (
     <PagePanel>
       <EmptyPanel
@@ -782,7 +813,21 @@ export function StaffDashboard() {
         {section === 'customers' && <CustomersSection customers={customers} isLoading={isLoading} />}
         {section === 'calendar' && <CalendarSection data={dashboardData} isLoading={isLoading} />}
         {section === 'room-planner' && <RoomPlannerSection rooms={rooms} data={dashboardData} isLoading={isLoading} />}
-        {['smart-import', 'accounting', 'messages', 'promotions', 'payment'].includes(section) && <ToolsSection section={section} />}
+        {[
+          'smart-import',
+          'smart-data-import',
+          'accounting',
+          'messages',
+          'promotions',
+          'payment',
+          'social',
+          'cat-update-generator',
+          'insights',
+          'settings',
+          'booking-setup',
+          'marketing',
+          'subscription',
+        ].includes(section) && <ToolsSection section={section} />}
       </main>
     </div>
   );
