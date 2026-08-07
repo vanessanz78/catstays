@@ -102,6 +102,35 @@ describe('openHomeContentSources', () => {
     assert.equal(supabase.events[0].event_type, 'content_source.created');
   });
 
+  it('persists safe imported website fields when signup submits lightweight preview state', async () => {
+    const supabase = mockSupabase();
+
+    const source = await createContentSourceFromOnboardingDraft(supabase, {
+      catteryId: 'cattery-1',
+      actorId: 'user-1',
+      draft: {
+        sourceUrl: 'https://delorainecattery.com/',
+        businessName: 'Deloraine Cattery',
+        email: 'owner@example.com',
+        password: 'do-not-store',
+        heroHeading: 'Deloraine Cattery',
+        heroImage: 'https://delorainecattery.com/hero.jpg',
+        galleryImages: ['https://delorainecattery.com/cat.jpg'],
+        siteContentLibrary: {
+          blocks: [{ id: 'hero', type: 'hero', title: 'Welcome to Deloraine Cattery' }],
+        },
+      },
+    });
+
+    assert.equal(source?.source_url, 'https://delorainecattery.com/');
+    assert.equal(source?.source_name, 'Deloraine Cattery');
+    assert.equal(source?.normalized_data.heroHeading, 'Deloraine Cattery');
+    assert.equal(source?.raw_data.password, undefined);
+    assert.equal(source?.raw_data.email, undefined);
+    assert.deepEqual(source?.normalized_data.galleryImages, ['https://delorainecattery.com/cat.jpg']);
+    assert.equal(supabase.events[0].event_type, 'content_source.created');
+  });
+
   it('lists and reads source records through the service layer', async () => {
     const supabase = mockSupabase();
 

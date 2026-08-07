@@ -480,12 +480,18 @@ function isDeloraineRequest(requestedUrl: string): boolean {
 function lightweightPreviewState(previewData: DelorainePreviewData, requestedUrl: string) {
   const record = (previewData as any).previewImportRecord as PreviewImportRecord | undefined;
   return {
+    ...previewData,
     websiteUrl: (previewData as any).importSourceUrl || previewData.sourceUrl || requestedUrl,
     importSourceUrl: (previewData as any).importSourceUrl || previewData.sourceUrl || requestedUrl,
     sourceUrl: previewData.sourceUrl || requestedUrl,
     sourceHost: (previewData as any).sourceHost,
     selectedTemplate: previewData.selectedTemplate,
+    liveTemplate: (previewData as any).liveTemplate || previewData.selectedTemplate,
+    previewImportRecord: record || null,
     previewImportRecordId: record?.id || (previewData as any).previewImportRecordId || '',
+    contentSourceId: record?.source.contentSourceId || (previewData as any).contentSourceId || '',
+    contentSourceHash: record?.source.contentHash || (previewData as any).contentSourceHash || '',
+    contentSourceImportVersion: record?.source.importVersion || (previewData as any).contentSourceImportVersion || '',
     previewRecordStatus: (previewData as any).previewRecordStatus || record?.status || 'preview',
     importComplete: true,
   };

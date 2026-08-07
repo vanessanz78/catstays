@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
@@ -8,6 +8,19 @@ import { ArrowRight, Eye, EyeOff, Loader2 } from 'lucide-react';
 
 const logoIcon = '/assets/b463d12091f20e48be52186dedd2a0f6707d0b66.png';
 const logoText = '/assets/9900b394e20a5e059447324d58daad1b1bf43ed6.png';
+
+function readSavedOnboardingData(): Record<string, any> {
+  try {
+    const saved = localStorage.getItem('catstays_onboarding');
+    if (!saved) return {};
+    const parsed = JSON.parse(saved);
+    return parsed?.data && typeof parsed.data === 'object' && !Array.isArray(parsed.data)
+      ? parsed.data
+      : {};
+  } catch {
+    return {};
+  }
+}
 
 export function Signup() {
   const navigate = useNavigate();
@@ -21,6 +34,16 @@ export function Signup() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
+  useEffect(() => {
+    const savedData = readSavedOnboardingData();
+    setFormData((current) => ({
+      ...current,
+      businessName: typeof savedData.businessName === 'string' ? savedData.businessName : current.businessName,
+      ownerName: typeof savedData.name === 'string' ? savedData.name : current.ownerName,
+      email: typeof savedData.email === 'string' ? savedData.email : current.email,
+    }));
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -32,12 +55,15 @@ export function Signup() {
       return;
     }
 
+    const savedOnboardingData = readSavedOnboardingData();
     const onboardingData = {
-      businessName: formData.businessName.trim(),
+      ...savedOnboardingData,
+      businessName: formData.businessName.trim() || savedOnboardingData.businessName,
       name: formData.ownerName.trim(),
       email: formData.email.trim().toLowerCase(),
       password: formData.password,
       emailConfirmed: false,
+      liveTemplate: savedOnboardingData.liveTemplate || savedOnboardingData.selectedTemplate,
     };
 
     try {

@@ -95,6 +95,7 @@ function lightweightOnboardingState(data: Record<string, any>) {
     previewRecordStatus: data.previewRecordStatus,
     selectedTemplate: data.selectedTemplate,
     liveTemplate: data.liveTemplate,
+    previewImportRecord: data.previewImportRecord || null,
     subdomain: data.subdomain,
     provisionedCatteryId: data.provisionedCatteryId,
     onboardingDraftToken: data.onboardingDraftToken,
@@ -1248,8 +1249,11 @@ export function OnboardingWizard() {
   };
 
   const handleContinueImportedWebsite = async () => {
+    const selectedPreviewTemplate = normalizePreviewTemplateId(
+      data.selectedTemplate || data.previewImportRecord?.selectedTemplate || 'original',
+    );
     const nextData = data.previewImportRecord
-      ? applyPreviewTemplate(data, 'conversion-focus')
+      ? applyPreviewTemplate(data, selectedPreviewTemplate)
       : data;
     let builderData = {
       ...nextData,

@@ -179,12 +179,9 @@ export async function createContentSourceFromOnboardingDraft(
 
   if (!sourceUrl) return null;
 
+  const fallbackPayload = contentSourcePayloadFromDraft(input.draft);
   const normalizedData = jsonObject(
-    record['normalizedPreviewData'] ?? {
-      siteContentLibrary: input.draft['siteContentLibrary'],
-      contentLibrary: input.draft['contentLibrary'],
-      websiteSettings: input.draft,
-    },
+    record['normalizedPreviewData'] ?? input.draft['normalizedPreviewData'] ?? fallbackPayload,
   );
 
   const sourceName =
@@ -198,11 +195,88 @@ export async function createContentSourceFromOnboardingDraft(
     sourceType: 'website',
     sourceUrl,
     sourceName,
-    rawData: Object.keys(record).length > 0 ? record : input.draft,
+    rawData: Object.keys(record).length > 0 ? record : fallbackPayload,
     normalizedData,
     status: 'ready',
     actorId: input.actorId,
   });
+}
+
+const safeOnboardingContentSourceKeys = [
+  'businessName',
+  'location',
+  'websiteUrl',
+  'importSourceUrl',
+  'sourceUrl',
+  'sourceHost',
+  'selectedTemplate',
+  'liveTemplate',
+  'previewRecordStatus',
+  'primaryColor',
+  'accentColor',
+  'backgroundColor',
+  'typography',
+  'headingFont',
+  'subheadingFont',
+  'bodyFont',
+  'logo',
+  'logoImage',
+  'heroImage',
+  'heroHeading',
+  'heroSubheading',
+  'heroPrimaryCtaText',
+  'heroPrimaryCtaHref',
+  'heroSecondaryCtaText',
+  'heroSecondaryCtaHref',
+  'aboutText',
+  'aboutHeading',
+  'aboutImage',
+  'whyChooseUsData',
+  'whyChooseUsHeading',
+  'whyChooseUsText',
+  'whyChooseUsFeatures',
+  'facilitiesData',
+  'facilitiesHeading',
+  'facilitiesText',
+  'facilitiesImage',
+  'facilityFeatures',
+  'suitesData',
+  'suitesHeading',
+  'suites',
+  'servicesData',
+  'additionalServicesHeading',
+  'additionalServices',
+  'galleryData',
+  'galleryHeading',
+  'galleryImages',
+  'testimonialsData',
+  'testimonialsHeading',
+  'testimonials',
+  'faqData',
+  'faqHeading',
+  'faqs',
+  'commitmentData',
+  'ownerData',
+  'locationData',
+  'contactData',
+  'socialLinks',
+  'virtualTourUrl',
+  'footerAbout',
+  'siteContentLibrary',
+  'contentLibrary',
+  'sectionsOrder',
+] as const;
+
+function contentSourcePayloadFromDraft(draft: Record<string, unknown>) {
+  const payload = safeOnboardingContentSourceKeys.reduce<Record<string, unknown>>((result, key) => {
+    if (draft[key] !== undefined) result[key] = draft[key];
+    return result;
+  }, {});
+
+  const sourceUrl = stringValue(payload['sourceUrl']) || stringValue(payload['importSourceUrl']) || stringValue(payload['websiteUrl']);
+  if (sourceUrl) payload['sourceUrl'] = sourceUrl;
+
+  return payload;
 }
 
 export async function listContentSources(

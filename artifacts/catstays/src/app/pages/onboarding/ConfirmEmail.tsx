@@ -53,22 +53,9 @@ export function ConfirmEmail() {
           const saved = JSON.parse(onboardingData);
           const savedData = saved.data || {};
           saved.data = {
-            name: savedData.name,
-            email: savedData.email,
+            ...savedData,
             emailConfirmed: true,
-            businessName: savedData.businessName,
-            location: savedData.location,
-            websiteUrl: savedData.websiteUrl,
-            importSourceUrl: savedData.importSourceUrl,
-            sourceUrl: savedData.sourceUrl,
-            sourceHost: savedData.sourceHost,
-            previewImportRecordId: savedData.previewImportRecordId,
-            previewRecordStatus: savedData.previewRecordStatus,
-            selectedTemplate: savedData.selectedTemplate,
-            liveTemplate: savedData.liveTemplate,
-            subdomain: savedData.subdomain,
-            importComplete: savedData.importComplete,
-            importError: savedData.importError,
+            password: '',
           };
           localStorage.setItem('catstays_onboarding', JSON.stringify(saved));
         }
