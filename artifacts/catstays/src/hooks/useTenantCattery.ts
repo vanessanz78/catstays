@@ -66,6 +66,36 @@ const demoRooms: TenantRoom[] = [
   }
 ];
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+async function fetchCatteryByRouteId(routeId: string) {
+  const columns = 'id, name, slug, email, phone, address, city, logo_url, website_settings, custom_domain, payment_settings';
+
+  if (UUID_PATTERN.test(routeId)) {
+    return supabase
+      .from('catteries')
+      .select(columns)
+      .eq('id', routeId)
+      .maybeSingle();
+  }
+
+  const exact = await supabase
+    .from('catteries')
+    .select(columns)
+    .eq('slug', routeId)
+    .maybeSingle();
+
+  if (exact.data || exact.error || !routeId.includes('-')) {
+    return exact;
+  }
+
+  return supabase
+    .from('catteries')
+    .select(columns)
+    .eq('slug', routeId.replace(/-/g, ''))
+    .maybeSingle();
+}
+
 export function useTenantCattery(catteryId?: string) {
   const { cattery: authCattery, loading: authLoading } = useAuth();
   const subdomainCtx = useSubdomainCattery();
@@ -87,8 +117,8 @@ export function useTenantCattery(catteryId?: string) {
 
     if (!catteryId && authLoading) return;
 
-    const resolvedId = catteryId ?? authCattery?.id;
-    if (!resolvedId) {
+    const initialCatteryId = catteryId ?? authCattery?.id;
+    if (!initialCatteryId) {
       const isLocalDemoSite = typeof window !== 'undefined' && window.location.pathname.startsWith('/site');
       if (isLocalDemoSite) {
         setCattery(demoCattery);
@@ -101,27 +131,35 @@ export function useTenantCattery(catteryId?: string) {
 
     const fetchData = async () => {
       setLoading(true);
+      setError(null);
+      let resolvedCatteryId = authCattery?.id ?? '';
 
       if (catteryId) {
-        const { data, error: fetchError } = await supabase
-          .from('catteries')
-          .select('id, name, slug, email, phone, address, city, logo_url, website_settings, custom_domain, payment_settings')
-          .eq('id', catteryId)
-          .single();
+        const { data, error: fetchError } = await fetchCatteryByRouteId(catteryId);
+
         if (fetchError || !data) {
           setError('Cattery not found');
           setLoading(false);
           return;
         }
-        setCattery(data as TenantCattery);
+        const tenantCattery = data as TenantCattery;
+        setCattery(tenantCattery);
+        resolvedCatteryId = tenantCattery.id;
       } else if (authCattery) {
         setCattery(authCattery as unknown as TenantCattery);
+        resolvedCatteryId = authCattery.id;
+      }
+
+      if (!resolvedCatteryId) {
+        setRooms([]);
+        setLoading(false);
+        return;
       }
 
       const { data: roomData } = await supabase
         .from('rooms')
         .select('id, name, type, description, price_per_night, capacity, amenities, is_active')
-        .eq('cattery_id', resolvedId)
+        .eq('cattery_id', resolvedCatteryId)
         .eq('is_active', true)
         .order('price_per_night', { ascending: true });
 
