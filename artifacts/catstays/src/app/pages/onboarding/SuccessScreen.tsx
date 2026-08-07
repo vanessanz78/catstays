@@ -233,7 +233,7 @@ export function SuccessScreen({ subdomain, onGoToWebsite, onContinueToDataImport
       const urlY = 770;
       ctx.font = 'bold 48px sans-serif';
       ctx.fillStyle = primaryColor;
-      ctx.fillText(`${subdomain}.catstays.app`, 540, urlY);
+      ctx.fillText(websiteDisplayUrl, 540, urlY);
 
       // Phone number (if available)
       if (phone) {
@@ -283,7 +283,7 @@ export function SuccessScreen({ subdomain, onGoToWebsite, onContinueToDataImport
       ctx.fillRect(375, 1000, 1800, 300);
       ctx.fillStyle = '#FFFFFF';
       ctx.font = 'bold 100px monospace';
-      ctx.fillText(`${subdomain}.catstays.app`, 1275, 1180);
+      ctx.fillText(websiteDisplayUrl, 1275, 1180);
       
       // Hero image — draw between URL box and features
       if (heroImg) {
@@ -388,7 +388,7 @@ export function SuccessScreen({ subdomain, onGoToWebsite, onContinueToDataImport
       // URL
       ctx.fillStyle = accentColor;
       ctx.font = 'bold 38px monospace';
-      ctx.fillText(`${subdomain}.catstays.app`, 80, phone ? 470 : 460);
+      ctx.fillText(websiteDisplayUrl, 80, phone ? 470 : 460);
     }
     
     // Download the image

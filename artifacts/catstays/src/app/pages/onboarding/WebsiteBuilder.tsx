@@ -2,7 +2,7 @@
  * CATSTAYS MULTI-TENANT ARCHITECTURE
  * 
  * Each new user (cattery owner) who completes the onboarding flow gets:
- * - A unique subdomain: {businessName}.catstays.app
+ * - A unique hosted path: catstays.app/tenant/{businessName}
  * - A complete copy of the website template (fully customizable)
  * - Their own client portal (customized with their brand colors)
  * - Their own staff dashboard (for managing bookings)
@@ -16,7 +16,7 @@
  * - Staff accounts
  * - Photo updates and messaging
  * 
- * The website becomes accessible at {businessName}.catstays.app upon:
+ * The website becomes accessible at catstays.app/tenant/{businessName} upon:
  * - Completing onboarding
  * - Subscription payment confirmation
  * - All subsequent payments remain current
@@ -67,6 +67,7 @@ import { DesignColorsPanel } from '../../components/DesignColorsPanel';
 import { WebsiteHeader } from '../../components/WebsiteHeader';
 import { CatstaysTemplateSite } from './CatstaysTemplateSite';
 import { normalizePreviewTemplateId } from '../../lib/previewTemplates';
+import { getTenantWebsiteDisplayUrl } from '../../../utils/appUrl';
 import { AdminDashboard } from '../admin/Dashboard';
 import { CustomerDashboard } from '../customer/Dashboard';
 import {
@@ -1393,7 +1394,7 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
             <div className="w-3 h-3 rounded-full bg-green-400"></div>
           </div>
           <div className="flex-1 bg-gray-100 rounded-lg px-3 py-1.5 text-xs text-gray-500 text-center">
-            {data.businessName || 'your-cattery'}.catstays.app
+            {getTenantWebsiteDisplayUrl(data.subdomain || data.businessName || 'your-cattery')}
             {showDashboard === 'staff' && '/staff'}
             {showDashboard === 'client' && '/portal'}
             {(bookingView === 'rooms' || bookingView === 'booking') && !showDashboard && '/booking'}

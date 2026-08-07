@@ -53,7 +53,7 @@ export function getTenantWebsiteUrl(subdomain: string) {
     return `${trimTrailingSlash(window.location.origin)}/tenant/${slug}`;
   }
 
-  return `https://${slug}.catstays.app`;
+  return `${getPublicAppUrl()}/tenant/${slug}`;
 }
 
 export function getTenantWebsiteDisplayUrl(subdomain: string) {

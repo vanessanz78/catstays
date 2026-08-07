@@ -17,6 +17,7 @@ import {
 import { Link } from 'react-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/utils/supabase/client';
+import { getTenantWebsiteDisplayUrl, getTenantWebsiteUrl } from '@/utils/appUrl';
 
 const ROOT_DOMAIN = 'catstays.app';
 
@@ -33,7 +34,8 @@ export function DomainSettings() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  const subdomainUrl = cattery?.slug ? `${cattery.slug}.${ROOT_DOMAIN}` : null;
+  const catstaysUrl = cattery?.slug ? getTenantWebsiteUrl(cattery.slug) : null;
+  const catstaysDisplayUrl = cattery?.slug ? getTenantWebsiteDisplayUrl(cattery.slug) : null;
 
   useEffect(() => {
     if (!cattery?.id) return;
@@ -52,8 +54,8 @@ export function DomainSettings() {
   }, [cattery?.id]);
 
   const copySubdomain = async () => {
-    if (!subdomainUrl) return;
-    await navigator.clipboard.writeText(`https://${subdomainUrl}`);
+    if (!catstaysUrl) return;
+    await navigator.clipboard.writeText(catstaysUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -148,15 +150,15 @@ export function DomainSettings() {
           </CardHeader>
           <CardContent className="p-6 pt-0 space-y-4">
             <p className="text-sm" style={{ color: '#6b7a6d' }}>
-              Every cattery gets a free subdomain on CatStays. This is your public website address — share it with customers straight away.
+              Every cattery gets a free CatStays-hosted website address. This is your public website address — share it with customers straight away.
             </p>
 
-            {subdomainUrl ? (
+            {catstaysUrl && catstaysDisplayUrl ? (
               <div className="flex items-center gap-3 p-4 bg-[#F8F7F5] rounded-xl">
                 <div className="flex-1">
-                  <p className="text-sm font-medium mb-1" style={{ color: '#6b7a6d' }}>Your subdomain</p>
+                  <p className="text-sm font-medium mb-1" style={{ color: '#6b7a6d' }}>Your CatStays website</p>
                   <p className="font-mono text-lg font-semibold" style={{ color: '#2d3e2f' }}>
-                    https://{subdomainUrl}
+                    {catstaysDisplayUrl}
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -172,7 +174,7 @@ export function DomainSettings() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => window.open(`https://${subdomainUrl}`, '_blank')}
+                    onClick={() => window.open(catstaysUrl, '_blank')}
                     className="border-[#7DAF7B] text-[#2d3e2f]"
                   >
                     <ExternalLink className="w-4 h-4" />
@@ -189,7 +191,7 @@ export function DomainSettings() {
                     <p className="text-sm text-amber-800">
                       Set a slug for your cattery in{' '}
                       <Link to="/admin/settings" className="underline font-medium">Settings</Link>
-                      {' '}to get your free subdomain URL.
+                      {' '}to get your free CatStays website URL.
                     </p>
                   </div>
                 </div>

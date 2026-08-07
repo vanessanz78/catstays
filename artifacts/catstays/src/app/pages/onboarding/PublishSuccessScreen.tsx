@@ -14,6 +14,7 @@ import {
   Calendar,
   Heart
 } from 'lucide-react';
+import { getTenantWebsiteDisplayUrl, getTenantWebsiteUrl } from '../../../utils/appUrl';
 
 export function PublishSuccessScreen() {
   const navigate = useNavigate();
@@ -39,18 +40,17 @@ export function PublishSuccessScreen() {
     }
   }, []);
 
-  const fullUrl = `${subdomain}.catstays.app`;
+  const fullUrl = getTenantWebsiteDisplayUrl(subdomain);
+  const websiteUrl = getTenantWebsiteUrl(subdomain);
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(`https://${fullUrl}`);
+    navigator.clipboard.writeText(websiteUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleGoToWebsite = () => {
-    // In production: window.location.href = `https://${fullUrl}`;
-    // For demo: navigate to tenant site
-    navigate('/site');
+    window.open(websiteUrl, '_blank', 'noopener,noreferrer');
   };
 
   const handleOpenDashboard = () => {
@@ -131,7 +131,7 @@ export function PublishSuccessScreen() {
               
               <div className="flex items-center justify-center gap-3 mb-4">
                 <a
-                  href={`https://${fullUrl}`}
+                  href={websiteUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-2xl md:text-3xl font-bold text-[#C46A3A] hover:underline transition-all"

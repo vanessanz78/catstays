@@ -570,7 +570,7 @@ export function FullWebsitePreview({
               </h4>
               <p className="text-sm text-[#0A1128]/70 leading-relaxed">
                 {previewMode === 'website' 
-                  ? `Your customers will access this at ${data.subdomain}.catstays.app. They can browse rooms, learn about your cattery, and book online.`
+                  ? `Your customers will access this at ${window.location.origin}/tenant/${data.subdomain}. They can browse rooms, learn about your cattery, and book online.`
                   : previewMode === 'dashboard'
                   ? `You and your staff will access this dashboard to manage bookings, view arrivals/departures, track payments, and communicate with customers.`
                   : `Your customers can log in to view their bookings, manage pet profiles, receive photo updates, and communicate with you.`

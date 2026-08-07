@@ -69,7 +69,7 @@ import {
 } from '../../lib/previewTemplates';
 import { DELORAINE_SOURCE_URL } from '../../lib/deloraineDemo';
 import { normalizeWebsiteImportUrl } from '../../lib/websiteImportUrl';
-import { getTenantWebsiteUrl } from '../../../utils/appUrl';
+import { getTenantWebsiteDisplayUrl, getTenantWebsiteUrl } from '../../../utils/appUrl';
 
 const logoIcon = '/assets/b463d12091f20e48be52186dedd2a0f6707d0b66.png';
 
@@ -2221,8 +2221,9 @@ export function OnboardingWizard() {
                   </div>
 
                   <div>
-                    <Label htmlFor="subdomain" className="text-forest mb-2 block">Your Website URL *</Label>
+                    <Label htmlFor="subdomain" className="text-forest mb-2 block">Your Website Handle *</Label>
                     <div className="flex items-center gap-2">
+                      <span className="text-forest/60">catstays.app/tenant/</span>
                       <Input
                         id="subdomain"
                         placeholder="yourname"
@@ -2230,7 +2231,6 @@ export function OnboardingWizard() {
                         onChange={(e) => setData({ ...data, subdomain: e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '') })}
                         className="rounded-xl h-12 text-lg flex-1"
                       />
-                      <span className="text-forest/60">.catstays.app</span>
                     </div>
                   </div>
 
@@ -2288,7 +2288,7 @@ export function OnboardingWizard() {
                         <div className="w-6 h-6 rounded-full bg-sage/20 flex items-center justify-center text-sage text-sm font-bold flex-shrink-0">
                           1
                         </div>
-                        <p className="text-sm text-forest/70">Your website goes live immediately at {data.subdomain}.catstays.app</p>
+                        <p className="text-sm text-forest/70">Your website goes live immediately at {getTenantWebsiteDisplayUrl(data.subdomain)}</p>
                       </div>
                       <div className="flex items-start gap-3">
                         <div className="w-6 h-6 rounded-full bg-sage/20 flex items-center justify-center text-sage text-sm font-bold flex-shrink-0">
