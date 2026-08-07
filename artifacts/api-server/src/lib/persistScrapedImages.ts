@@ -1,7 +1,5 @@
 import crypto from 'crypto';
 import { lookup } from 'dns/promises';
-import http from 'http';
-import https from 'https';
 import net from 'net';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { CatteryWebsiteScrapeResult } from './catteryWebsiteScraper';
@@ -9,7 +7,7 @@ import type { CatteryWebsiteScrapeResult } from './catteryWebsiteScraper';
 const DEFAULT_BUCKET = 'catstays-media';
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const FETCH_TIMEOUT_MS = 10_000;
-const MAX_IMAGE_IMPORTS = 32;
+const MAX_IMAGE_IMPORTS = 64;
 const MAX_IMAGE_REDIRECTS = 4;
 
 type StoredAsset = {
@@ -23,8 +21,6 @@ type ImageFetchResult = {
   body: Buffer;
   contentType: string;
 };
-
-type ImageFetchResponse = ImageFetchResult | { redirectUrl: string };
 
 export async function persistScrapedImages(
   scrape: CatteryWebsiteScrapeResult,
@@ -61,7 +57,7 @@ export async function persistScrapedImages(
         contentType: asset.contentType,
       });
     } catch {
-      // A single blocked or oversized image should not fail the entire website import.
+      // A single blocked, private, unsupported, or oversized image should not fail the import.
     }
   }
 
@@ -116,9 +112,7 @@ function imageUrlsFromScrape(scrape: CatteryWebsiteScrapeResult): string[] {
   const visit = (value: unknown, path: string[]) => {
     if (!value) return;
     if (typeof value === 'string') {
-      if (isImportImagePath(path) && isHttpUrl(value) && !isCatstaysStorageUrl(value)) {
-        urls.add(value);
-      }
+      if (isLikelyImportImageUrl(value, path)) urls.add(value);
       return;
     }
     if (Array.isArray(value)) {
@@ -136,6 +130,33 @@ function imageUrlsFromScrape(scrape: CatteryWebsiteScrapeResult): string[] {
   return [...urls];
 }
 
+function isLikelyImportImageUrl(value: string, path: string[]) {
+  if (!isHttpUrl(value) || isCatstaysStorageUrl(value)) return false;
+
+  const joinedPath = path.join('.').toLowerCase();
+  const lowerValue = value.toLowerCase();
+  if (
+    joinedPath.endsWith('sourceurl') ||
+    joinedPath.endsWith('source_url') ||
+    joinedPath.includes('bookingurl') ||
+    joinedPath.includes('booking_url') ||
+    joinedPath.includes('social') ||
+    lowerValue.includes('google.com/maps') ||
+    lowerValue.includes('facebook.com') ||
+    lowerValue.includes('instagram.com')
+  ) {
+    return false;
+  }
+
+  return (
+    isImportImagePath(path) ||
+    /\.(png|jpe?g|webp|gif|avif)(?:[?#/]|$)/i.test(value) ||
+    /static\.wixstatic\.com\/media|\/cdn-cgi\/image\/|\/_next\/image|\/images?\/|\/photos?\/|\/uploads?\/|\/media\//i.test(
+      lowerValue,
+    )
+  );
+}
+
 function isImportImagePath(path: string[]) {
   const joined = path.join('.').toLowerCase();
   return (
@@ -143,7 +164,10 @@ function isImportImagePath(path: string[]) {
     joined.includes('gallery') ||
     joined.includes('photo') ||
     joined.includes('logo') ||
-    joined.includes('thumbnail')
+    joined.includes('thumbnail') ||
+    joined.includes('picture') ||
+    joined.includes('media') ||
+    joined.includes('asset')
   );
 }
 
@@ -175,26 +199,77 @@ async function fetchImage(rawUrl: string): Promise<ImageFetchResult> {
     }
     if (net.isIP(currentUrl.hostname)) throw new TypeError('DIRECT_IMAGE_IP');
 
-    const address = await resolveSafeIp(currentUrl.hostname);
-    const response = await fetchImageOnce(currentUrl, address);
-    if ('redirectUrl' in response) {
-      currentUrl = new URL(response.redirectUrl, currentUrl.href);
+    await assertSafePublicHost(currentUrl.hostname);
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+    let response: Response;
+    try {
+      response = await fetch(currentUrl, {
+        redirect: 'manual',
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; CatStays-image-import/1.0; +https://catstays.app)',
+          Accept: 'image/avif,image/webp,image/png,image/jpeg,image/gif,*/*;q=0.5',
+        },
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    const location = response.headers.get('location');
+    if (response.status >= 300 && response.status < 400 && location) {
+      currentUrl = new URL(location, currentUrl.href);
       continue;
     }
-    return response;
+
+    if (!response.ok) throw new TypeError(`IMAGE_HTTP_${response.status}`);
+
+    const contentType = String(response.headers.get('content-type') ?? '')
+      .split(';')[0]
+      .trim()
+      .toLowerCase();
+    if (!isAllowedImageType(contentType)) throw new TypeError('UNSUPPORTED_IMAGE_TYPE');
+
+    const contentLength = Number(response.headers.get('content-length') ?? 0);
+    if (contentLength > MAX_IMAGE_BYTES) throw new TypeError('IMAGE_TOO_LARGE');
+
+    const body = Buffer.from(await response.arrayBuffer());
+    if (body.byteLength > MAX_IMAGE_BYTES) throw new TypeError('IMAGE_TOO_LARGE');
+
+    return { body, contentType };
   }
 
   throw new TypeError('TOO_MANY_IMAGE_REDIRECTS');
 }
 
-async function resolveSafeIp(hostname: string): Promise<string> {
-  const result = await lookup(hostname, { family: 4 });
-  if (isPrivateIp(result.address)) throw new TypeError('PRIVATE_IMAGE_IP');
-  return result.address;
+async function assertSafePublicHost(hostname: string): Promise<void> {
+  const results = await lookup(hostname, { all: true });
+  if (!results.length) throw new TypeError('IMAGE_HOST_NOT_FOUND');
+  if (results.some((result) => isPrivateIp(result.address))) {
+    throw new TypeError('PRIVATE_IMAGE_IP');
+  }
 }
 
 function isPrivateIp(ip: string): boolean {
-  if (!net.isIPv4(ip)) return true;
+  const kind = net.isIP(ip);
+  if (!kind) return true;
+
+  if (kind === 6) {
+    const value = ip.toLowerCase();
+    return (
+      value === '::' ||
+      value === '::1' ||
+      value.startsWith('fc') ||
+      value.startsWith('fd') ||
+      value.startsWith('fe80:') ||
+      value.startsWith('ff') ||
+      value.startsWith('::ffff:10.') ||
+      value.startsWith('::ffff:127.') ||
+      value.startsWith('::ffff:192.168.')
+    );
+  }
 
   const [a, b, c] = ip.split('.').map(Number);
   return (
@@ -209,80 +284,6 @@ function isPrivateIp(ip: string): boolean {
     (a === 198 && (b === 18 || b === 19)) ||
     a >= 224
   );
-}
-
-function fetchImageOnce(targetUrl: URL, resolvedIp: string): Promise<ImageFetchResponse> {
-  return new Promise((resolve, reject) => {
-    const isHttps = targetUrl.protocol === 'https:';
-    const port = targetUrl.port ? Number(targetUrl.port) : isHttps ? 443 : 80;
-    const chunks: Buffer[] = [];
-    let byteLength = 0;
-    let settled = false;
-
-    const settle = (callback: typeof resolve | typeof reject, value: ImageFetchResponse | Error) => {
-      if (settled) return;
-      settled = true;
-      callback(value as never);
-    };
-
-    const requestOptions: https.RequestOptions = {
-      hostname: resolvedIp,
-      port,
-      path: targetUrl.pathname + targetUrl.search,
-      method: 'GET',
-      headers: {
-        Host: targetUrl.hostname,
-        'User-Agent': 'Mozilla/5.0 (compatible; CatStays-image-import/1.0; +https://catstays.app)',
-        Accept: 'image/avif,image/webp,image/png,image/jpeg,image/gif,*/*;q=0.5',
-        Connection: 'close',
-      },
-      servername: targetUrl.hostname,
-      timeout: FETCH_TIMEOUT_MS,
-    };
-
-    const handleResponse = (res: http.IncomingMessage) => {
-      const status = res.statusCode ?? 0;
-      const location = typeof res.headers.location === 'string' ? res.headers.location : '';
-      const contentType = String(res.headers['content-type'] ?? '').split(';')[0].trim().toLowerCase();
-
-      if (status >= 300 && status < 400 && location) {
-        settle(resolve, { redirectUrl: location });
-        return;
-      }
-
-      if (status < 200 || status >= 300) {
-        settle(reject, new TypeError(`IMAGE_HTTP_${status}`));
-        return;
-      }
-
-      if (!isAllowedImageType(contentType)) {
-        settle(reject, new TypeError('UNSUPPORTED_IMAGE_TYPE'));
-        return;
-      }
-
-      res.on('data', (chunk: Buffer) => {
-        byteLength += chunk.length;
-        if (byteLength > MAX_IMAGE_BYTES) {
-          req.destroy();
-          settle(reject, new TypeError('IMAGE_TOO_LARGE'));
-          return;
-        }
-        chunks.push(chunk);
-      });
-      res.on('end', () => settle(resolve, { body: Buffer.concat(chunks), contentType }));
-    };
-
-    const req = isHttps
-      ? https.request(requestOptions, handleResponse)
-      : http.request(requestOptions, handleResponse);
-
-    req.on('timeout', () => {
-      req.destroy();
-      settle(reject, new TypeError('IMAGE_TIMEOUT'));
-    });
-    req.on('error', (error) => settle(reject, error));
-    req.end();
-  });
 }
 
 function isAllowedImageType(contentType: string) {
