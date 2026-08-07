@@ -9,6 +9,76 @@ import { ArrowRight, Eye, EyeOff, Loader2 } from 'lucide-react';
 const logoIcon = '/assets/b463d12091f20e48be52186dedd2a0f6707d0b66.png';
 const logoText = '/assets/9900b394e20a5e059447324d58daad1b1bf43ed6.png';
 
+const signupImportStateKeys = [
+  'businessName',
+  'location',
+  'websiteUrl',
+  'importSourceUrl',
+  'sourceUrl',
+  'sourceHost',
+  'selectedTemplate',
+  'liveTemplate',
+  'previewImportRecordId',
+  'contentSourceId',
+  'contentSourceHash',
+  'contentSourceImportVersion',
+  'previewRecordStatus',
+  'importComplete',
+  'primaryColor',
+  'accentColor',
+  'backgroundColor',
+  'typography',
+  'headingFont',
+  'subheadingFont',
+  'bodyFont',
+  'logo',
+  'logoImage',
+  'heroImage',
+  'heroHeading',
+  'heroSubheading',
+  'heroPrimaryCtaText',
+  'heroPrimaryCtaHref',
+  'heroSecondaryCtaText',
+  'heroSecondaryCtaHref',
+  'aboutText',
+  'aboutHeading',
+  'aboutImage',
+  'whyChooseUsData',
+  'whyChooseUsHeading',
+  'whyChooseUsText',
+  'whyChooseUsFeatures',
+  'facilitiesData',
+  'facilitiesHeading',
+  'facilitiesText',
+  'facilitiesImage',
+  'facilityFeatures',
+  'suitesData',
+  'suitesHeading',
+  'suites',
+  'servicesData',
+  'additionalServicesHeading',
+  'additionalServices',
+  'galleryData',
+  'galleryHeading',
+  'galleryImages',
+  'testimonialsData',
+  'testimonialsHeading',
+  'testimonials',
+  'faqData',
+  'faqHeading',
+  'faqs',
+  'commitmentData',
+  'ownerData',
+  'locationData',
+  'contactData',
+  'socialLinks',
+  'virtualTourUrl',
+  'footerAbout',
+  'siteContentLibrary',
+  'contentLibrary',
+  'sectionsOrder',
+] as const;
+
 function readSavedOnboardingData(): Record<string, any> {
   try {
     const saved = localStorage.getItem('catstays_onboarding');
@@ -20,6 +90,13 @@ function readSavedOnboardingData(): Record<string, any> {
   } catch {
     return {};
   }
+}
+
+function compactSignupImportState(data: Record<string, any>) {
+  return signupImportStateKeys.reduce<Record<string, any>>((state, key) => {
+    if (data[key] !== undefined) state[key] = data[key];
+    return state;
+  }, {});
 }
 
 export function Signup() {
@@ -55,7 +132,7 @@ export function Signup() {
       return;
     }
 
-    const savedOnboardingData = readSavedOnboardingData();
+    const savedOnboardingData = compactSignupImportState(readSavedOnboardingData());
     const onboardingData = {
       ...savedOnboardingData,
       businessName: formData.businessName.trim() || savedOnboardingData.businessName,
@@ -88,7 +165,10 @@ export function Signup() {
       }
 
       if (!response.ok) {
-        setError(payload.error || 'Failed to create account');
+        const fallbackMessage = rawPayload && rawPayload.length < 200 && !rawPayload.trim().startsWith('<')
+          ? rawPayload
+          : `Failed to create account (${response.status})`;
+        setError(payload.error || fallbackMessage);
         setIsLoading(false);
         return;
       }

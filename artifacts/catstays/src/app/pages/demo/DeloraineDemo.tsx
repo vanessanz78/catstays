@@ -487,7 +487,6 @@ function lightweightPreviewState(previewData: DelorainePreviewData, requestedUrl
     sourceHost: (previewData as any).sourceHost,
     selectedTemplate: previewData.selectedTemplate,
     liveTemplate: (previewData as any).liveTemplate || previewData.selectedTemplate,
-    previewImportRecord: record || null,
     previewImportRecordId: record?.id || (previewData as any).previewImportRecordId || '',
     contentSourceId: record?.source.contentSourceId || (previewData as any).contentSourceId || '',
     contentSourceHash: record?.source.contentHash || (previewData as any).contentSourceHash || '',
