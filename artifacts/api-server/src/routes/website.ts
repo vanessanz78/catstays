@@ -14,6 +14,7 @@ import {
   type OpenHomeContentSourceStatus,
   type OpenHomeContentSourceType,
 } from '../lib/openHomeContentSources';
+import { persistScrapedImages } from '../lib/persistScrapedImages';
 
 const router: IRouter = Router();
 
@@ -26,7 +27,8 @@ router.post('/website/scrape', async (req, res) => {
   }
 
   try {
-    const result = await scrapeCatteryWebsite(url);
+    const scraped = await scrapeCatteryWebsite(url);
+    const result = await persistScrapedImages(scraped);
 
     if (typeof catteryId === 'string' && catteryId.trim()) {
       const supabase = createAuthenticatedClient(req);
