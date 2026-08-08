@@ -1,6 +1,20 @@
 # Decision Log
 
-Last updated: 2026-08-03
+Last updated: 2026-08-09
+
+## 2026-08-09 - Full Website Import Pipeline
+
+Decision: Add ADR-003 for a crawl-first website import pipeline that treats the supplied website as source evidence and persists page/content/media lineage through the existing Open Home tables.
+
+Reason: Fancy Felines UAT showed homepage-only/filler-first behaviour. CatStays must crawl, understand, structure, and generate from source material before fallback is considered.
+
+Impact:
+
+- Reusable website import now begins with same-domain crawl discovery instead of homepage-only scraping.
+- Page-level content is preserved in the Content Source payload and mapped into Content Library records.
+- Imported images are persisted into Supabase Storage and Media Library records where service credentials allow.
+- Imported websites no longer receive generic stock-like CatStays fallback rooms, services, testimonials, or images just because extraction was thin.
+- Live page-by-page progress remains a future job/polling enhancement; this sprint reports actual returned crawl counts.
 
 ## 2026-08-03 - Phase 2 Content Sources Started
 

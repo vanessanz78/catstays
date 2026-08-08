@@ -33,6 +33,14 @@ export interface PreviewImportRecord {
     importVersion?: string;
     persistedAt?: string;
     extractedFrom?: ImportedCatteryScrape['extractedFrom'];
+    importReport?: {
+      pagesFound?: number;
+      pagesProcessed?: number;
+      pagesFailed?: number;
+      imagesFound?: number;
+      imagesImported?: number;
+      contentBlocks?: number;
+    };
   };
   identity: {
     businessName: string;
@@ -275,6 +283,14 @@ export function buildPreviewImportRecord(scrape: ImportedCatteryScrape): Preview
       importVersion: migratedScrape.importVersion,
       persistedAt: migratedScrape.persistedAt,
       extractedFrom: migratedScrape.extractedFrom,
+      importReport: {
+        ...(migratedScrape.websiteSettings?.importReport ?? {}),
+        pagesFound: migratedScrape.crawl?.pagesFound ?? migratedScrape.websiteSettings?.importReport?.pagesFound,
+        pagesProcessed: migratedScrape.crawl?.pagesProcessed ?? migratedScrape.websiteSettings?.importReport?.pagesProcessed,
+        pagesFailed: migratedScrape.crawl?.pagesFailed ?? migratedScrape.websiteSettings?.importReport?.pagesFailed,
+        imagesFound: migratedScrape.crawl?.imagesFound ?? migratedScrape.websiteSettings?.importReport?.imagesFound,
+        contentBlocks: migratedScrape.siteContentLibrary?.blocks?.length ?? migratedScrape.websiteSettings?.importReport?.contentBlocks,
+      },
     },
     identity: {
       businessName,
@@ -354,6 +370,7 @@ export function dataFromPreviewRecord(
     importSourceUrl: record.source.url,
     sourceUrl: record.source.url,
     sourceHost: record.source.host,
+    importReport: record.source.importReport,
     businessName: record.identity.businessName,
     location: record.identity.location,
     subdomain: currentData.subdomain || record.identity.subdomain,

@@ -8,9 +8,9 @@ const FETCH_TIMEOUT_MS = 10_000;
 const MAX_HTML_BYTES = 1_200_000;
 const MAX_ASSET_BYTES = 2_500_000;
 const MAX_REDIRECTS = 5;
-const MAX_CRAWLED_PAGES = 8;
+const MAX_CRAWLED_PAGES = 24;
 const MAX_SITEMAP_DOCUMENTS = 4;
-const MAX_SITEMAP_URLS = 24;
+const MAX_SITEMAP_URLS = 80;
 
 const REVELATION_PETS_REVIEW_FALLBACKS: CatteryScrapedReview[] = [
   {
@@ -80,6 +80,7 @@ export interface CatterySiteContentBlock {
   title: string;
   text?: string;
   source?: 'scrape' | 'generated';
+  sourceUrl?: string;
   items?: CatterySiteContentItem[];
   images?: Array<{ url: string; caption?: string }>;
   links?: Array<{ label: string; url: string }>;
@@ -138,6 +139,15 @@ export interface CatteryWebsiteScrapeResult {
   };
   virtualTourUrl: string;
   siteContentLibrary: CatterySiteContentLibrary;
+  crawl: {
+    canonicalDomain: string;
+    pagesFound: number;
+    pagesProcessed: number;
+    pagesFailed: number;
+    imagesFound: number;
+    pages: ScrapedPage[];
+    failedPages: Array<{ url: string; error: string }>;
+  };
   bodyText: string;
   extractedFrom: {
     html: boolean;
@@ -161,10 +171,23 @@ interface FetchBytesOptions {
 
 type ScrapedPage = {
   url: string;
+  slug: string;
   title: string;
+  metaTitle: string;
+  metaDescription: string;
   heading: string;
+  headings: Array<{ level: 1 | 2 | 3; text: string }>;
   bodyText: string;
-  images: string[];
+  links: Array<{ label: string; url: string }>;
+  images: Array<{ url: string; altText?: string; caption?: string; sourcePageUrl: string }>;
+  pageType: string;
+  processedAt: string;
+};
+
+type CrawlResult = {
+  pages: ScrapedPage[];
+  failedPages: Array<{ url: string; error: string }>;
+  discoveredUrls: string[];
 };
 
 export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsiteScrapeResult> {
@@ -177,7 +200,9 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
   const root = parse(html);
   const scriptUrls = collectSameOriginScripts(root, parsedUrl).slice(0, 3);
   const homeBodyText = readableText(root);
-  const supplementalPages = await fetchSupplementalPages(parsedUrl, root);
+  const crawl = await crawlSitePages(parsedUrl, root, html);
+  const homeUrl = normalizeCrawlUrl(parsedUrl.href, parsedUrl);
+  const supplementalPages = crawl.pages.filter((page) => page.url !== homeUrl);
   const scriptTexts: string[] = [];
 
   for (const scriptUrl of scriptUrls) {
@@ -201,14 +226,14 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
   const bundleTexts = extractReadableBundleText(scriptBundle);
   const bodyText = cleanText([
     homeBodyText,
-    ...supplementalPages.map((page) => page.bodyText),
+    ...crawl.pages.map((page) => page.bodyText),
     ...bundleTexts.slice(0, 80),
   ].join(' '));
   const searchableText = cleanText(`${bodyText} ${scriptBundle}`);
   const bundleImages = collectBundleAssets(scriptBundle, parsedUrl);
   const htmlImages = [
     ...collectHtmlImages(root, parsedUrl),
-    ...supplementalPages.flatMap((page) => page.images),
+    ...crawl.pages.flatMap((page) => page.images.map((image) => image.url)),
   ];
   const images = curateImageUrls([
     meta.heroImage,
@@ -217,9 +242,9 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
   ]);
   const structuredGalleryImages = collectStructuredBundleGalleryImages(scriptBundle, parsedUrl);
   const galleryPageImages = curateImageUrls(
-    supplementalPages
+    crawl.pages
       .filter((page) => /gallery|photo|images?/i.test(page.url))
-      .flatMap((page) => page.images),
+      .flatMap((page) => page.images.map((image) => image.url)),
   );
 
   const logoImage = findLogoImage(images);
@@ -278,6 +303,7 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
     commitment,
     locationDetails,
     virtualTourUrl,
+    pages: crawl.pages,
   });
   const websiteSettings = buildWebsiteSettings({
     businessName,
@@ -304,6 +330,7 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
     locationDetails,
     virtualTourUrl,
     siteContentLibrary,
+    crawl,
   });
 
   return {
@@ -334,6 +361,15 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
     locationDetails,
     virtualTourUrl,
     siteContentLibrary,
+    crawl: {
+      canonicalDomain: canonicalHost(parsedUrl.hostname),
+      pagesFound: crawl.discoveredUrls.length,
+      pagesProcessed: crawl.pages.length,
+      pagesFailed: crawl.failedPages.length,
+      imagesFound: images.length,
+      pages: crawl.pages,
+      failedPages: crawl.failedPages,
+    },
     bodyText: bodyText.slice(0, 8000),
     extractedFrom: {
       html: true,
@@ -386,43 +422,60 @@ export async function fetchSourceWebsitePreviewAsset(
   };
 }
 
-async function fetchSupplementalPages(baseUrl: URL, root: ReturnType<typeof parse>): Promise<ScrapedPage[]> {
-  const urls = await collectSupplementalPageUrls(baseUrl, root);
-  const pages = await Promise.all(
-    urls.map(async (url) => {
-      try {
-        const html = await fetchText(new URL(url), {
-          maxBytes: MAX_HTML_BYTES,
-          acceptedContent: /text\/html|application\/xhtml\+xml/i,
-        });
-        const pageRoot = parse(html);
-        return {
-          url,
-          title: cleanText(pageRoot.querySelector('title')?.text ?? ''),
-          heading: cleanText(pageRoot.querySelector('h1')?.text ?? pageRoot.querySelector('h2')?.text ?? ''),
-          bodyText: readableText(pageRoot),
-          images: collectHtmlImages(pageRoot, baseUrl),
-        };
-      } catch {
-        return null;
+async function crawlSitePages(baseUrl: URL, homeRoot: ReturnType<typeof parse>, homeHtml: string): Promise<CrawlResult> {
+  const homeUrl = normalizeCrawlUrl(baseUrl.href, baseUrl);
+  const discoveredUrls = uniqueUrls([
+    ...await fetchSitemapUrls(baseUrl).catch(() => []),
+    ...collectSameOriginLinks(homeRoot, baseUrl),
+  ])
+    .filter((url) => isCrawlableInternalPage(url, baseUrl))
+    .sort((left, right) => pagePriority(right) - pagePriority(left));
+  const queue = uniqueUrls([homeUrl, ...discoveredUrls]);
+
+  const visited = new Set<string>();
+  const pages: ScrapedPage[] = [];
+  const failedPages: Array<{ url: string; error: string }> = [];
+  let index = 0;
+
+  while (index < queue.length && pages.length < MAX_CRAWLED_PAGES) {
+    const url = queue[index++];
+    const key = normalizeCrawlUrl(url, baseUrl);
+    if (visited.has(key)) continue;
+    visited.add(key);
+
+    try {
+      const pageUrl = new URL(key);
+      const pageHtml = key === homeUrl ? homeHtml : await fetchText(pageUrl, {
+        maxBytes: MAX_HTML_BYTES,
+        acceptedContent: /text\/html|application\/xhtml\+xml/i,
+      });
+      const pageRoot = key === homeUrl ? homeRoot : parse(pageHtml);
+      const page = structuredPageFromHtml(pageRoot, pageUrl);
+      pages.push(page);
+
+      const links = [
+        ...collectSameOriginLinks(pageRoot, pageUrl),
+        ...collectRobotsSitemapUrls(pageHtml, pageUrl),
+      ];
+      for (const nextUrl of links) {
+        if (pages.length + queue.length >= MAX_CRAWLED_PAGES * 4) break;
+        const normalized = normalizeCrawlUrl(nextUrl, baseUrl);
+        if (visited.has(normalized)) continue;
+        if (!isCrawlableInternalPage(normalized, baseUrl)) continue;
+        queue.push(normalized);
       }
-    }),
-  );
+    } catch (error) {
+      failedPages.push({ url: key, error: error instanceof Error ? error.message : 'UNKNOWN_ERROR' });
+    }
 
-  return pages.filter((page): page is ScrapedPage => Boolean(page));
-}
+    queue.sort((left, right) => pagePriority(right) - pagePriority(left));
+  }
 
-async function collectSupplementalPageUrls(baseUrl: URL, root: ReturnType<typeof parse>): Promise<string[]> {
-  const sitemapUrls = await fetchSitemapUrls(baseUrl).catch(() => []);
-  const linkedUrls = collectSameOriginLinks(root, baseUrl);
-  const combined = uniqueUrls([
-    ...sitemapUrls,
-    ...linkedUrls,
-  ]).filter((url) => url !== baseUrl.href);
-
-  return combined
-    .sort((left, right) => pagePriority(right) - pagePriority(left))
-    .slice(0, MAX_CRAWLED_PAGES);
+  return {
+    pages,
+    failedPages,
+    discoveredUrls: uniqueUrls([homeUrl, ...discoveredUrls, ...queue, ...pages.map((page) => page.url), ...failedPages.map((page) => page.url)]),
+  };
 }
 
 async function fetchSitemapUrls(baseUrl: URL): Promise<string[]> {
@@ -440,7 +493,7 @@ async function fetchSitemapDocumentUrls(xml: string, baseUrl: URL, depth: number
     .map((match) => decodeEntities(match[1]).trim())
     .map((url) => absoluteUrl(url, baseUrl))
     .filter(Boolean)
-    .filter((url) => new URL(url).origin === baseUrl.origin);
+    .filter((url) => isSameCanonicalDomain(new URL(url), baseUrl));
 
   if (!/<sitemapindex/i.test(xml)) {
     return locs.filter((url) => isHtmlLikeUrl(url));
@@ -471,13 +524,57 @@ async function fetchSitemapDocumentUrls(xml: string, baseUrl: URL, depth: number
   return uniqueUrls(nestedResults.flat()).slice(0, MAX_SITEMAP_URLS);
 }
 
-function collectSameOriginLinks(root: ReturnType<typeof parse>, baseUrl: URL): string[] {
+export function collectSameOriginLinks(root: ReturnType<typeof parse>, baseUrl: URL): string[] {
   return root
-    .querySelectorAll('a[href]')
+    .querySelectorAll('a[href], area[href]')
     .map((anchor) => absoluteUrl(anchor.getAttribute('href') ?? '', baseUrl))
     .filter(Boolean)
-    .filter((url) => new URL(url).origin === baseUrl.origin)
+    .map((url) => normalizeCrawlUrl(url, baseUrl))
+    .filter((url) => isSameCanonicalDomain(new URL(url), baseUrl))
     .filter((url) => isHtmlLikeUrl(url));
+}
+
+function collectRobotsSitemapUrls(html: string, baseUrl: URL): string[] {
+  return Array.from(html.matchAll(/sitemap:\s*(https?:\/\/[^\s<]+)/gi))
+    .map((match) => absoluteUrl(match[1], baseUrl))
+    .filter(Boolean)
+    .filter((url) => isSameCanonicalDomain(new URL(url), baseUrl));
+}
+
+function structuredPageFromHtml(root: ReturnType<typeof parse>, pageUrl: URL): ScrapedPage {
+  const meta = buildMeta(root, pageUrl);
+  const heading = cleanText(root.querySelector('h1')?.text ?? root.querySelector('h2')?.text ?? '');
+  const headings = root
+    .querySelectorAll('h1, h2, h3')
+    .map((node) => ({
+      level: Number(node.tagName.replace(/^H/i, '')) as 1 | 2 | 3,
+      text: cleanText(node.text ?? ''),
+    }))
+    .filter((item) => item.text);
+  const links = root
+    .querySelectorAll('a[href], area[href]')
+    .map((anchor) => ({
+      label: cleanText(anchor.text ?? anchor.getAttribute('aria-label') ?? ''),
+      url: absoluteUrl(anchor.getAttribute('href') ?? '', pageUrl),
+    }))
+    .filter((link): link is { label: string; url: string } => Boolean(link.url))
+    .filter((link) => isSameCanonicalDomain(new URL(link.url), pageUrl));
+  const images = collectHtmlImageRecords(root, pageUrl);
+
+  return {
+    url: normalizeCrawlUrl(pageUrl.href, pageUrl),
+    slug: pageUrl.pathname.replace(/^\/+|\/+$/g, '') || 'home',
+    title: cleanText(meta.title || heading),
+    metaTitle: cleanText(meta.title),
+    metaDescription: cleanText(meta.description),
+    heading,
+    headings,
+    bodyText: readableText(root),
+    links,
+    images,
+    pageType: classifyPageType(pageUrl, `${meta.title} ${heading} ${readableText(root).slice(0, 800)}`),
+    processedAt: new Date().toISOString(),
+  };
 }
 
 function readableText(root: ReturnType<typeof parse>): string {
@@ -522,6 +619,47 @@ function uniqueUrls(urls: string[]): string[] {
   });
 }
 
+export function normalizeCrawlUrl(rawUrl: string, baseUrl: URL): string {
+  const url = new URL(rawUrl, baseUrl);
+  url.hash = '';
+  url.hostname = url.hostname.toLowerCase();
+  if (url.pathname !== '/') url.pathname = url.pathname.replace(/\/+$/, '');
+
+  const allowedSearchParams = new URLSearchParams();
+  for (const [key, value] of url.searchParams.entries()) {
+    if (/^(utm_|fbclid|gclid|mc_|ref|source|share|replytocom)/i.test(key)) continue;
+    if (value.length > 120) continue;
+    allowedSearchParams.append(key, value);
+  }
+  url.search = allowedSearchParams.toString();
+  return url.toString();
+}
+
+export function isSameCanonicalDomain(candidateUrl: URL, baseUrl: URL): boolean {
+  return canonicalHost(candidateUrl.hostname) === canonicalHost(baseUrl.hostname);
+}
+
+function canonicalHost(hostname: string): string {
+  return hostname.toLowerCase().replace(/^www\./, '');
+}
+
+export function isCrawlableInternalPage(rawUrl: string, baseUrl: URL): boolean {
+  let url: URL;
+  try {
+    url = new URL(rawUrl, baseUrl);
+  } catch {
+    return false;
+  }
+
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return false;
+  if (!isSameCanonicalDomain(url, baseUrl)) return false;
+  if (!isHtmlLikeUrl(url.href)) return false;
+  if (/(^|\/)(admin|login|logout|wp-admin|cart|checkout|account|privacy|terms)(\/|$)/i.test(url.pathname)) return false;
+  if (/\/product-page\/i-m-a-product(?:-\d+)?$/i.test(url.pathname)) return false;
+  if (url.searchParams.size > 3) return false;
+  return true;
+}
+
 function isHtmlLikeUrl(url: string): boolean {
   const pathname = new URL(url).pathname.toLowerCase();
   return !/\.(?:xml|json|jpg|jpeg|png|gif|webp|avif|svg|pdf|zip|mp4|mov|webm)$/i.test(pathname);
@@ -538,6 +676,18 @@ function pagePriority(url: string): number {
   if (/about|story|owner|vaccination|condition/.test(pathname)) score += 6;
   if (/privacy|feed|author|tag|category/.test(pathname)) score -= 12;
   return score;
+}
+
+function classifyPageType(pageUrl: URL, text: string): string {
+  const haystack = `${pageUrl.pathname} ${text}`.toLowerCase();
+  if (/gallery|photo|image/.test(haystack)) return 'gallery';
+  if (/fee|rate|pricing|price|tariff/.test(haystack)) return 'pricing';
+  if (/accommodation|suite|room|boarding|stay/.test(haystack)) return 'accommodation';
+  if (/service|care|facility|feeding|medication|vaccination/.test(haystack)) return 'services';
+  if (/faq|question|policy|terms|condition/.test(haystack)) return 'faq';
+  if (/contact|location|hours|opening|find us/.test(haystack)) return 'contact';
+  if (/about|story|team|owner/.test(haystack)) return 'about';
+  return pageUrl.pathname === '/' ? 'home' : 'content';
 }
 
 function normalisePublicUrl(rawUrl: string): URL {
@@ -954,7 +1104,14 @@ function collectSameOriginScripts(root: ReturnType<typeof parse>, baseUrl: URL):
     .filter((url) => url.origin === baseUrl.origin && /\.m?js$/i.test(url.pathname));
 }
 
-function collectHtmlImages(root: ReturnType<typeof parse>, baseUrl: URL): string[] {
+export function collectHtmlImages(root: ReturnType<typeof parse>, baseUrl: URL): string[] {
+  return collectHtmlImageRecords(root, baseUrl).map((image) => image.url);
+}
+
+function collectHtmlImageRecords(
+  root: ReturnType<typeof parse>,
+  baseUrl: URL,
+): Array<{ url: string; altText?: string; caption?: string; sourcePageUrl: string }> {
   const images: string[] = [];
   for (const node of root.querySelectorAll('img, [style*="background-image"], [data-src], [data-lazy-src], [data-original], [data-bg], [data-background-image]')) {
     const directCandidates = [
@@ -985,10 +1142,41 @@ function collectHtmlImages(root: ReturnType<typeof parse>, baseUrl: URL): string
       if (match[2]) images.push(match[2]);
     }
   }
-  return images.map((image) => absoluteUrl(image, baseUrl)).filter(Boolean);
+  const captions = captionMap(root);
+  return images
+    .map((image) => absoluteUrl(image, baseUrl))
+    .filter(Boolean)
+    .map((url) => ({
+      url,
+      altText: imageAltText(root, url, baseUrl),
+      caption: captions.get(imageKey(url)) || captionForImage(url, new Map()),
+      sourcePageUrl: normalizeCrawlUrl(baseUrl.href, baseUrl),
+    }));
 }
 
-function srcsetCandidateUrls(srcset: string): string[] {
+function captionMap(root: ReturnType<typeof parse>): Map<string, string> {
+  const captions = new Map<string, string>();
+  for (const figure of root.querySelectorAll('figure')) {
+    const img = figure.querySelector('img');
+    const caption = cleanText(figure.querySelector('figcaption')?.text ?? '');
+    const src = img?.getAttribute('src') || img?.getAttribute('data-src') || '';
+    if (!src || !caption) continue;
+    captions.set(imageKey(src), caption);
+  }
+  return captions;
+}
+
+function imageAltText(root: ReturnType<typeof parse>, imageUrl: string, baseUrl: URL): string {
+  const key = imageKey(imageUrl);
+  for (const image of root.querySelectorAll('img')) {
+    const src = absoluteUrl(image.getAttribute('src') || image.getAttribute('data-src') || '', baseUrl);
+    if (imageKey(src) !== key) continue;
+    return cleanText(image.getAttribute('alt') || image.getAttribute('title') || '');
+  }
+  return '';
+}
+
+export function srcsetCandidateUrls(srcset: string): string[] {
   const urls: string[] = [];
   let remaining = srcset.trim();
 
@@ -1590,8 +1778,27 @@ function buildSiteContentLibrary(input: {
     virtualTourUrl: string;
   };
   virtualTourUrl: string;
+  pages: ScrapedPage[];
 }): CatterySiteContentLibrary {
   const source: CatterySiteContentBlock['source'] = 'scrape';
+  const pageBlocks = input.pages
+    .filter((page) => page.bodyText && page.bodyText.length > 80)
+    .map((page, index): CatterySiteContentBlock => ({
+      id: `source-page-${page.slug || index + 1}`,
+      category: page.pageType,
+      title: page.heading || page.title || page.slug,
+      text: page.bodyText.slice(0, 1800),
+      source,
+      sourceUrl: page.url,
+      images: page.images.slice(0, 8).map((image) => ({
+        url: image.url,
+        caption: image.caption || image.altText || page.title,
+      })),
+      links: page.links
+        .filter((link) => link.label && !/privacy|terms|login|logout/i.test(link.label))
+        .slice(0, 8),
+    }));
+
   const blocks: CatterySiteContentBlock[] = [
     {
       id: 'hero',
@@ -1599,6 +1806,7 @@ function buildSiteContentLibrary(input: {
       title: input.businessName,
       text: input.description,
       source,
+      sourceUrl: input.sourceUrl,
       images: input.heroImage ? [{ url: input.heroImage, caption: input.businessName }] : [],
       links: input.bookingUrl ? [{ label: 'Book Now', url: input.bookingUrl }] : [],
     },
@@ -1608,6 +1816,7 @@ function buildSiteContentLibrary(input: {
       title: `Why choose ${input.businessName}`,
       text: input.description,
       source,
+      sourceUrl: input.sourceUrl,
       items: input.highlights.map((highlight) => ({
         title: highlight.title,
         text: highlight.description,
@@ -1619,6 +1828,7 @@ function buildSiteContentLibrary(input: {
       title: 'Rooms and pricing',
       text: 'Room options and rates extracted from the owner site.',
       source,
+      sourceUrl: input.pages.find((page) => /accommodation|pricing|room/.test(page.pageType))?.url || input.sourceUrl,
       items: input.rooms.map((room) => ({
         title: room.name,
         text: room.description,
@@ -1634,6 +1844,7 @@ function buildSiteContentLibrary(input: {
       title: 'Services',
       text: 'Additional care services extracted from the owner site.',
       source,
+      sourceUrl: input.pages.find((page) => page.pageType === 'services')?.url || input.sourceUrl,
       items: input.services.map((service) => ({
         title: service.title,
         text: service.description,
@@ -1647,6 +1858,7 @@ function buildSiteContentLibrary(input: {
       title: 'Gallery',
       text: 'Owner-site images available for preview templates.',
       source,
+      sourceUrl: input.pages.find((page) => page.pageType === 'gallery')?.url || input.sourceUrl,
       images: input.galleryImages,
     },
     {
@@ -1655,6 +1867,7 @@ function buildSiteContentLibrary(input: {
       title: 'Reviews',
       text: 'Customer reviews extracted from the owner site.',
       source,
+      sourceUrl: input.sourceUrl,
       items: input.reviews.map((review) => ({
         title: review.name,
         text: review.text,
@@ -1668,6 +1881,7 @@ function buildSiteContentLibrary(input: {
       title: 'Frequently Asked Questions',
       text: 'Question and answer content extracted from the owner site.',
       source,
+      sourceUrl: input.pages.find((page) => page.pageType === 'faq')?.url || input.sourceUrl,
       items: input.faqs.map((faq) => ({
         title: faq.question,
         answer: faq.answer,
@@ -1679,6 +1893,7 @@ function buildSiteContentLibrary(input: {
       title: input.owner.title,
       text: input.owner.text,
       source,
+      sourceUrl: input.pages.find((page) => page.pageType === 'about')?.url || input.sourceUrl,
       images: input.owner.image ? [{ url: input.owner.image, caption: input.owner.title }] : [],
     },
     {
@@ -1687,6 +1902,7 @@ function buildSiteContentLibrary(input: {
       title: input.commitment.title,
       text: input.commitment.text,
       source,
+      sourceUrl: input.pages.find((page) => /services|faq|accommodation/.test(page.pageType))?.url || input.sourceUrl,
       items: input.commitment.items.map((item) => ({
         title: item.title,
         text: item.description,
@@ -1698,6 +1914,7 @@ function buildSiteContentLibrary(input: {
       title: input.locationDetails.heading,
       text: input.locationDetails.text,
       source,
+      sourceUrl: input.pages.find((page) => page.pageType === 'contact')?.url || input.sourceUrl,
       items: input.locationDetails.directions ? [{ title: 'Directions', text: input.locationDetails.directions }] : [],
       links: input.virtualTourUrl ? [{ label: 'Virtual tour', url: input.virtualTourUrl }] : [],
     },
@@ -1707,6 +1924,7 @@ function buildSiteContentLibrary(input: {
       title: 'Contact',
       text: [input.address, input.phone, input.email, input.hours].filter(Boolean).join(' | '),
       source,
+      sourceUrl: input.pages.find((page) => page.pageType === 'contact')?.url || input.sourceUrl,
       items: [
         { title: 'Address', text: input.address },
         { title: 'Phone', text: input.phone },
@@ -1719,7 +1937,7 @@ function buildSiteContentLibrary(input: {
         input.socialLinks.instagram ? { label: 'Instagram', url: input.socialLinks.instagram } : undefined,
       ].filter((link): link is { label: string; url: string } => Boolean(link)),
     },
-  ];
+  ].filter((block) => block.text || block.items?.length || block.images?.length || block.links?.length);
 
   return {
     schemaVersion: 1,
@@ -1727,8 +1945,18 @@ function buildSiteContentLibrary(input: {
     sourceHost: input.sourceHost,
     businessName: input.businessName,
     capturedAt: new Date().toISOString(),
-    blocks,
+    blocks: uniqueContentBlocks([...blocks, ...pageBlocks]),
   };
+}
+
+function uniqueContentBlocks(blocks: CatterySiteContentBlock[]): CatterySiteContentBlock[] {
+  const seen = new Set<string>();
+  return blocks.filter((block) => {
+    const key = `${block.category}:${cleanText(block.title).toLowerCase()}:${cleanText(block.text || '').slice(0, 120).toLowerCase()}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function buildWebsiteSettings(input: {
@@ -1772,6 +2000,7 @@ function buildWebsiteSettings(input: {
   };
   virtualTourUrl: string;
   siteContentLibrary: CatterySiteContentLibrary;
+  crawl: CrawlResult;
 }): Record<string, unknown> {
   const curatedGalleryImages = input.galleryImages.length
     ? input.galleryImages
@@ -1811,7 +2040,17 @@ function buildWebsiteSettings(input: {
     socialLinks: input.socialLinks,
     virtualTourUrl: input.virtualTourUrl,
     location: [input.city, input.country].filter(Boolean).join(', '),
-    sourceUrl: input.bookingUrl,
+    sourceUrl: input.siteContentLibrary.sourceUrl,
+    importSourceUrl: input.siteContentLibrary.sourceUrl,
+    sourceHost: input.siteContentLibrary.sourceHost,
+    bookingUrl: input.bookingUrl,
+    importReport: {
+      pagesFound: input.crawl.discoveredUrls.length,
+      pagesProcessed: input.crawl.pages.length,
+      pagesFailed: input.crawl.failedPages.length,
+      imagesFound: input.images.length,
+      contentBlocks: input.siteContentLibrary.blocks.length,
+    },
     whyChooseUsData: {
       whyChooseUsHeading: `Why choose ${input.businessName}`,
       whyChooseUsFeatures: input.highlights.map((highlight, index) => ({

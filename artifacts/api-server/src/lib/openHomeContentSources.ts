@@ -151,7 +151,7 @@ export async function createWebsiteContentSourceFromScrape(
     actorId?: string | null;
   },
 ): Promise<ContentSourceRecord> {
-  return createContentSource(supabase, {
+  const source = await createContentSource(supabase, {
     catteryId: input.catteryId,
     sourceType: 'website',
     sourceUrl: input.scrape.sourceUrl,
@@ -161,6 +161,15 @@ export async function createWebsiteContentSourceFromScrape(
     status: 'ready',
     actorId: input.actorId,
   });
+
+  await persistWebsiteSourceDerivatives(supabase, {
+    catteryId: input.catteryId,
+    sourceId: source.id,
+    scrape: input.scrape,
+    actorId: input.actorId,
+  });
+
+  return source;
 }
 
 export async function createContentSourceFromOnboardingDraft(
@@ -338,6 +347,7 @@ export async function updateContentSourceStatus(
 }
 
 function normalizedDataFromScrape(scrape: CatteryWebsiteScrapeResult) {
+  const importedAssets = importedImageAssets(scrape);
   return {
     sourceUrl: scrape.sourceUrl,
     sourceHost: scrape.sourceHost,
@@ -359,7 +369,198 @@ function normalizedDataFromScrape(scrape: CatteryWebsiteScrapeResult) {
     },
     siteContentLibrary: scrape.siteContentLibrary,
     websiteSettings: scrape.websiteSettings,
+    crawl: scrape.crawl,
+    importReport: {
+      pagesFound: scrape.crawl?.pagesFound ?? 1,
+      pagesProcessed: scrape.crawl?.pagesProcessed ?? 1,
+      pagesFailed: scrape.crawl?.pagesFailed ?? 0,
+      imagesFound: scrape.crawl?.imagesFound ?? scrape.images.length,
+      imagesImported: importedAssets.length,
+      contentBlocks: scrape.siteContentLibrary?.blocks?.length ?? 0,
+    },
   };
+}
+
+async function persistWebsiteSourceDerivatives(
+  supabase: SupabaseClient,
+  input: {
+    catteryId: string;
+    sourceId: string;
+    scrape: CatteryWebsiteScrapeResult;
+    actorId?: string | null;
+  },
+) {
+  const contentRows = contentLibraryRows(input.catteryId, input.sourceId, input.scrape);
+  const mediaRows = mediaLibraryRows(input.catteryId, input.sourceId, input.scrape);
+  const assetManifest = {
+    importedImageAssets: importedImageAssets(input.scrape),
+    imagesFound: input.scrape.crawl?.imagesFound ?? input.scrape.images.length,
+    imagesImported: mediaRows.length,
+  };
+
+  try {
+    if (contentRows.length) {
+      const { error } = await supabase.from('content_library').insert(contentRows);
+      if (error) throw error;
+    }
+
+    if (mediaRows.length) {
+      const { error } = await supabase.from('media_library').insert(mediaRows);
+      if (error) throw error;
+    }
+
+    const { error: updateError } = await supabase
+      .from('content_sources')
+      .update({
+        storage_bucket: mediaRows[0]?.storage_bucket ?? null,
+        storage_prefix: storagePrefixFromPath(mediaRows[0]?.storage_path),
+        asset_manifest: assetManifest,
+        preview_snapshot: input.scrape.websiteSettings ?? {},
+        selected_template: 'original',
+        last_imported_at: new Date().toISOString(),
+      })
+      .eq('id', input.sourceId);
+    if (updateError) throw updateError;
+
+    await appendWebsiteEvent(supabase, {
+      catteryId: input.catteryId,
+      sourceId: input.sourceId,
+      eventType: 'content_source.derivatives_persisted',
+      eventData: {
+        contentBlocks: contentRows.length,
+        mediaAssets: mediaRows.length,
+        pagesProcessed: input.scrape.crawl?.pagesProcessed ?? 1,
+      },
+      actorId: input.actorId,
+    });
+  } catch (error) {
+    await appendWebsiteEvent(supabase, {
+      catteryId: input.catteryId,
+      sourceId: input.sourceId,
+      eventType: 'content_source.derivatives_failed',
+      eventData: {
+        message: error instanceof Error ? error.message : 'Derivative persistence failed.',
+      },
+      actorId: input.actorId,
+    });
+  }
+}
+
+function contentLibraryRows(catteryId: string, sourceId: string, scrape: CatteryWebsiteScrapeResult) {
+  const blocks = scrape.siteContentLibrary?.blocks ?? [];
+  return blocks
+    .filter((block) => block.title || block.text || block.items?.length || block.images?.length)
+    .map((block, index) => ({
+      cattery_id: catteryId,
+      source_id: sourceId,
+      content_type: block.category || 'section',
+      content_key: block.id || `${block.category || 'section'}-${index + 1}`,
+      title: block.title || null,
+      body: block.text || null,
+      structured_data: {
+        items: block.items ?? [],
+        images: block.images ?? [],
+        links: block.links ?? [],
+        sourceUrl: block.sourceUrl ?? scrape.sourceUrl,
+      },
+      confidence: block.source === 'scrape' ? 0.94 : 0.4,
+      language: 'en',
+      source_label: block.sourceUrl ?? scrape.sourceUrl,
+      extraction_version: 'full-site-import-v1',
+      schema_version: 1,
+      source_page_url: block.sourceUrl ?? scrape.sourceUrl,
+      section_key: block.category || block.id || 'section',
+      sort_order: index,
+    }));
+}
+
+function mediaLibraryRows(catteryId: string, sourceId: string, scrape: CatteryWebsiteScrapeResult) {
+  const importedAssets = importedImageAssets(scrape);
+  const pageImagesByStoredUrl = pageImageMetadataByUrl(scrape);
+
+  return importedAssets.map((asset, index) => {
+    const metadata = pageImagesByStoredUrl.get(asset.storedUrl) ?? pageImagesByStoredUrl.get(asset.originalUrl);
+    const category = imageCategory(asset.originalUrl, metadata?.sourcePageUrl ?? '', metadata?.altText ?? '');
+
+    return {
+      cattery_id: catteryId,
+      source_id: sourceId,
+      original_url: asset.originalUrl,
+      storage_url: asset.storedUrl,
+      mime_type: asset.contentType,
+      category,
+      confidence: 0.86,
+      alt_text: metadata?.altText ?? null,
+      contains_text: false,
+      is_logo: category === 'logo',
+      is_open_graph: /og:image|open-graph/i.test(asset.originalUrl),
+      is_owner: category === 'owner',
+      is_building: category === 'facility' || category === 'exterior',
+      is_suite: category === 'accommodation',
+      is_gallery: category === 'gallery' || index > 1,
+      metadata: {
+        caption: metadata?.caption ?? null,
+        sourcePageUrl: metadata?.sourcePageUrl ?? scrape.sourceUrl,
+      },
+      schema_version: 1,
+      storage_bucket: 'catstays-media',
+      storage_path: asset.path,
+      sha256: shaFromStoragePath(asset.path),
+      asset_role: index === 0 ? 'hero_candidate' : category,
+      source_page_url: metadata?.sourcePageUrl ?? scrape.sourceUrl,
+      persisted_at: new Date().toISOString(),
+      status: 'captured',
+    };
+  });
+}
+
+function importedImageAssets(scrape: CatteryWebsiteScrapeResult): Array<{
+  originalUrl: string;
+  storedUrl: string;
+  path: string;
+  contentType: string;
+}> {
+  const assets = scrape.websiteSettings?.['importedImageAssets'];
+  return Array.isArray(assets)
+    ? assets.filter((asset): asset is { originalUrl: string; storedUrl: string; path: string; contentType: string } =>
+        Boolean(asset && typeof asset.originalUrl === 'string' && typeof asset.storedUrl === 'string' && typeof asset.path === 'string'),
+      )
+    : [];
+}
+
+function pageImageMetadataByUrl(scrape: CatteryWebsiteScrapeResult) {
+  const metadata = new Map<string, { altText?: string; caption?: string; sourcePageUrl?: string }>();
+  for (const page of scrape.crawl?.pages ?? []) {
+    for (const image of page.images ?? []) {
+      metadata.set(image.url, {
+        altText: image.altText,
+        caption: image.caption,
+        sourcePageUrl: image.sourcePageUrl,
+      });
+    }
+  }
+  return metadata;
+}
+
+function imageCategory(url: string, sourcePageUrl: string, altText: string): string {
+  const text = `${url} ${sourcePageUrl} ${altText}`.toLowerCase();
+  if (/logo|brand/.test(text)) return 'logo';
+  if (/hero|banner|og:image/.test(text)) return 'hero';
+  if (/room|suite|accommodation|boarding/.test(text)) return 'accommodation';
+  if (/gallery|photo|cat|kitten/.test(text)) return 'gallery';
+  if (/facility|interior|indoor|exterior|building|garden/.test(text)) return 'facility';
+  if (/owner|team|staff/.test(text)) return 'owner';
+  return 'image';
+}
+
+function storagePrefixFromPath(path?: string | null) {
+  if (!path) return null;
+  const parts = path.split('/');
+  return parts.length > 1 ? parts.slice(0, -1).join('/') : null;
+}
+
+function shaFromStoragePath(path: string) {
+  return path.split('/').pop()?.replace(/\.[^.]+$/, '') ?? null;
 }
 
 async function appendWebsiteEvent(

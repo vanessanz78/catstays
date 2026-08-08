@@ -147,6 +147,7 @@ export interface CatterySiteContentBlock {
   title: string;
   text?: string;
   source?: 'scrape' | 'fallback' | 'generated';
+  sourceUrl?: string;
   items?: CatterySiteContentItem[];
   images?: Array<{ url: string; caption?: string }>;
   links?: Array<{ label: string; url: string }>;
@@ -223,6 +224,22 @@ export interface ImportedCatteryScrape {
   virtualTourUrl?: string;
   siteContentLibrary?: CatterySiteContentLibrary;
   websiteSettings?: Record<string, any>;
+  crawl?: {
+    canonicalDomain?: string;
+    pagesFound?: number;
+    pagesProcessed?: number;
+    pagesFailed?: number;
+    imagesFound?: number;
+    pages?: Array<{
+      url: string;
+      title?: string;
+      heading?: string;
+      pageType?: string;
+      bodyText?: string;
+      images?: Array<{ url: string; altText?: string; caption?: string; sourcePageUrl?: string }>;
+    }>;
+    failedPages?: Array<{ url: string; error: string }>;
+  };
   bodyText?: string;
   extractedFrom?: {
     html?: boolean;
@@ -951,15 +968,16 @@ export function buildPreviewDataFromScrape(inputScrape: ImportedCatteryScrape): 
   const scrape = migrateDeloraineAssetsInValue(inputScrape);
   const settings = scrape.websiteSettings ?? {};
   const isDeloraineSource = isDeloraineScrape(scrape);
-  const fallbackAssets = isDeloraineSource ? deloraineAssets : genericCatAssets;
+  const isImportedSource = Boolean(scrape.sourceUrl);
+  const fallbackAssets = isDeloraineSource ? deloraineAssets : isImportedSource ? [] : genericCatAssets;
   const images = uniqueImages([
     scrape.heroImage,
     ...(scrape.images ?? []),
     ...fallbackAssets,
   ]);
-  const fallbackRooms = isDeloraineSource ? fallbackDeloraineScrape.rooms ?? [] : genericRooms(images);
-  const fallbackServices = isDeloraineSource ? fallbackDeloraineScrape.services ?? [] : genericServices(images);
-  const fallbackHighlights = isDeloraineSource ? fallbackDeloraineScrape.highlights ?? [] : genericHighlights();
+  const fallbackRooms = isDeloraineSource ? fallbackDeloraineScrape.rooms ?? [] : isImportedSource ? [] : genericRooms(images);
+  const fallbackServices = isDeloraineSource ? fallbackDeloraineScrape.services ?? [] : isImportedSource ? [] : genericServices(images);
+  const fallbackHighlights = isDeloraineSource ? fallbackDeloraineScrape.highlights ?? [] : isImportedSource ? [] : genericHighlights();
   const rooms = scrape.rooms?.length ? scrape.rooms : fallbackRooms;
   const services = (scrape.services?.length ? scrape.services : fallbackServices).slice(0, 12);
   const highlights = scrape.highlights?.length ? scrape.highlights : fallbackHighlights;
@@ -975,7 +993,7 @@ export function buildPreviewDataFromScrape(inputScrape: ImportedCatteryScrape): 
   const fallbackPhone = isDeloraineSource ? fallbackDeloraineScrape.phone || '' : '';
   const fallbackEmail = isDeloraineSource ? fallbackDeloraineScrape.email || '' : '';
   const fallbackAddress = isDeloraineSource ? fallbackDeloraineScrape.address || '' : '';
-  const fallbackFaqs = isDeloraineSource ? fallbackDeloraineScrape.faqs : genericFaqs(businessName);
+  const fallbackFaqs = isDeloraineSource ? fallbackDeloraineScrape.faqs : isImportedSource ? [] : genericFaqs(businessName);
   const reviews = scrape.reviews?.length
     ? scrape.reviews
     : (settings.testimonialsData?.testimonials ?? (isDeloraineSource ? fallbackDeloraineScrape.reviews ?? [] : []));
@@ -1025,13 +1043,13 @@ export function buildPreviewDataFromScrape(inputScrape: ImportedCatteryScrape): 
     heroHeading: meaningfulHeading(stringValue(settings.heroHeading)) || businessName,
     heroSubheading:
       stringValue(settings.heroSubheading) ||
-      firstSentence(scrape.description) ||
-      'Your cats home away from home',
+    firstSentence(scrape.description) ||
+      (isImportedSource ? '' : 'Your cats home away from home'),
     aboutHeading: importedHeading(stringValue(settings.aboutHeading), businessName) || `About ${businessName}`,
     aboutText:
       stringValue(settings.aboutText) ||
       scrape.description ||
-      'A purpose-built cat boarding facility focused on comfort, calm, and personal care.',
+      (isImportedSource ? '' : 'A purpose-built cat boarding facility focused on comfort, calm, and personal care.'),
     phone: stringValue(settings.phone) || scrape.phone || fallbackPhone,
     email: stringValue(settings.email) || scrape.email || fallbackEmail,
     address: stringValue(settings.address) || scrape.address || fallbackAddress,
@@ -1093,7 +1111,9 @@ export function buildPreviewDataFromScrape(inputScrape: ImportedCatteryScrape): 
       testimonialsHeading: 'Trusted cat care',
       testimonials: reviews.length
         ? reviews
-        : [
+        : isImportedSource
+          ? []
+          : [
             {
               name: 'Regular guest family',
               text: 'A calm, cat-focused stay with thoughtful daily care.',
