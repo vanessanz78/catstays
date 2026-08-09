@@ -933,8 +933,8 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
                         <p className="mt-1">{data.previewRecordStatus || 'in_progress'}</p>
                       </div>
                       <div className="rounded-xl bg-[#F8F7F5] p-4">
-                        <p className="font-semibold text-[#2d3e2f]">Imported source</p>
-                        <p className="mt-1 break-all">{data.importSourceUrl || data.sourceUrl || 'Website import'}</p>
+                        <p className="font-semibold text-[#2d3e2f]">Website</p>
+                        <p className="mt-1 break-all">{data.importSourceUrl || data.sourceUrl || 'Website'}</p>
                       </div>
                     </div>
                     {onChangeTemplate ? (

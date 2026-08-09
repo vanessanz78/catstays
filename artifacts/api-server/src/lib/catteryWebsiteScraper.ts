@@ -3091,7 +3091,7 @@ function buildSiteDescription(
   const bundleSummary = firstText(bundleTexts, /cat boarding|cattery|feline|facility/i);
   if (!isWeakDescription(bundleSummary)) return cleanText(bundleSummary);
 
-  return 'A cat boarding website imported into CatStays.';
+  return 'Cat boarding and care information.';
 }
 
 function pageText(pages: ScrapedPage[], pattern: RegExp): string {
@@ -3229,7 +3229,7 @@ function buildCommitmentSection(
     : [
         {
           title: 'Safe and secure',
-          description: 'Imported care standards from the public cattery website.',
+          description: 'Care standards from the public cattery website.',
         },
       ];
   const vaccinationText = firstSentence(bodyText.match(/All cats must be vaccinated[^.]+(?:\.[^.]+)?/i)?.[0] ?? '');

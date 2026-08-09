@@ -335,7 +335,7 @@ function EditorialTemplate({
 }) {
   const sections = [
     { id: 'about', title: content.about.title, text: content.about.text, image: content.about.image, eyebrow: `About ${content.business.name}` },
-    { id: 'care', title: content.whyChoose.title, text: content.whyChoose.text, image: content.gallery[1]?.image || content.hero.image, eyebrow: content.sourceTruth ? 'Source highlights' : 'Why choose us' },
+    { id: 'care', title: content.whyChoose.title, text: content.whyChoose.text, image: content.gallery[1]?.image || content.hero.image, eyebrow: 'Why choose us' },
     { id: 'facilities', title: content.facilities.title, text: content.facilities.text, image: content.facilities.image, eyebrow: content.sourceTruth ? content.sectionHeadings.facilities : 'Premium accommodation' },
   ];
 

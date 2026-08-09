@@ -545,6 +545,9 @@ function pageHeading(page: AnyRecord, businessName: string) {
 function itemsFromPageText(text: string, role: SourceSemanticRole) {
   if (!text) return [];
   if (role === 'pricing' || role === 'grooming' || role === 'health-care' || role === 'accommodation') {
+    const accommodationItems = accommodationPriceItems(text);
+    if (accommodationItems.length) return accommodationItems;
+
     return uniquePriceItems([
       ...['Basic Care', 'Moderate Care', 'Intense Care', 'Short Hair', 'Medium Hair', 'Long Hair', 'Matting Removal', 'Standard Grooming']
         .flatMap((name) => {
@@ -574,6 +577,23 @@ function itemsFromPageText(text: string, role: SourceSemanticRole) {
   return [];
 }
 
+function accommodationPriceItems(text: string) {
+  return uniquePriceItems(
+    [...text.matchAll(/\b(Standard|Master Suite|Penthouse)\s*-\s*(\d+)\s*Cats?\s+\$?\s*([0-9]{2,}(?:\s*\.\s*[0-9]{2})?)\s*\/?\s*(Day|day)?/gi)]
+      .map((match) => {
+        const packageName = cleanImportedText(match[1]);
+        const catCount = Number(match[2]);
+        const price = `$${String(match[3]).replace(/\s+/g, '')}`;
+        const unit = cleanImportedText(match[4] || 'day').toLowerCase();
+        return {
+          title: `${packageName} - ${catCount} ${catCount === 1 ? 'Cat' : 'Cats'}`,
+          price,
+          text: `Secure accommodation with indoor/outdoor access, full room service, customised feeding, and fresh water. Rate shown per ${unit}.`,
+        };
+      }),
+  );
+}
+
 function sourceImageFromUrl(url: string, input: Omit<SourceTruthImage, 'url'>): SourceTruthImage | null {
   if (!isUsableImportedImage(url)) return null;
   return { url, ...input };
@@ -583,7 +603,7 @@ function isUsableImportedImage(url: string) {
   if (!/^https?:\/\//i.test(url) && !/^data:image\//i.test(url)) return false;
   if (isStockImage(url)) return false;
   const decoded = safelyDecodeUrlPath(url.split('?')[0].toLowerCase());
-  return !/favicon|apple-touch-icon|placeholder|silhouette|catstays|\/logo[-_.]|cardb\.png/i.test(decoded);
+  return !/favicon|apple-touch-icon|placeholder|silhouette|catstays|(?:^|[-_/])logo(?:[-_.]|$)|cardb\.png/i.test(decoded);
 }
 
 export function isStockImage(url: string) {
@@ -629,7 +649,7 @@ function linkFromBlocks(blocks: AnyRecord[], pattern: RegExp) {
 }
 
 function taglineFromDescription(description: string) {
-  if (!description) return 'Imported owner website';
+  if (!description) return '';
   return description.split(/(?<=[.!?])\s+/)[0].slice(0, 120);
 }
 
