@@ -14,6 +14,10 @@ import {
   type WebsiteUnderstandingModel,
   type WebsiteUnderstandingSection,
 } from './sourceUnderstanding';
+import {
+  contentIntelligencePlanFromModel,
+  type ContentIntelligencePlan,
+} from './contentIntelligence';
 
 export type { ImportedCatteryScrape } from './deloraineDemo';
 
@@ -208,6 +212,7 @@ export interface CatstaysTemplateContent {
   };
   contentLibrary: CatterySiteContentLibrary;
   sourceTruth?: WebsiteUnderstandingModel;
+  contentIntelligencePlan?: ContentIntelligencePlan;
 }
 
 export const previewTemplateCards: PreviewTemplateOption[] = [
@@ -443,6 +448,7 @@ export function normalizePreviewTemplateId(templateId: unknown): PreviewTemplate
 }
 
 function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<string, any>): CatstaysTemplateContent {
+  const contentIntelligencePlan = contentIntelligencePlanFromModel(model);
   const businessName = model.identity.businessName;
   const heroSection = sectionByRole(model, 'hero') ?? model.sections[0];
   const aboutSection = sectionByRole(model, 'about') ?? sectionByRole(model, 'introduction') ?? heroSection;
@@ -598,6 +604,7 @@ function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<s
     },
     contentLibrary: navContentLibrary,
     sourceTruth: model,
+    contentIntelligencePlan,
   };
 }
 

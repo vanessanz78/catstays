@@ -5,6 +5,7 @@ import {
   type PreviewImportRecord,
   type PreviewTemplateId,
 } from './previewTemplates';
+import type { ContentIntelligencePlan } from './contentIntelligence';
 
 export type ContentCoverageCategory =
   | 'business'
@@ -48,6 +49,7 @@ export interface ContentCoverageAudit {
   sourceUrl?: string;
   templateId: PreviewTemplateId;
   summary: ContentCoverageAuditSummary;
+  intelligence?: Pick<ContentIntelligencePlan, 'primaryPurpose' | 'audienceIntent' | 'completeness' | 'unsupported'>;
   items: ContentCoverageAuditItem[];
   recommendations: string[];
 }
@@ -232,6 +234,14 @@ export function createContentCoverageAudit(input: AuditInput): ContentCoverageAu
     sourceUrl: record?.source?.url ?? input.sourceUrl,
     templateId,
     summary,
+    intelligence: content.contentIntelligencePlan
+      ? {
+          primaryPurpose: content.contentIntelligencePlan.primaryPurpose,
+          audienceIntent: content.contentIntelligencePlan.audienceIntent,
+          completeness: content.contentIntelligencePlan.completeness,
+          unsupported: content.contentIntelligencePlan.unsupported,
+        }
+      : undefined,
     items,
     recommendations: buildRecommendations(items),
   };

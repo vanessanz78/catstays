@@ -151,3 +151,18 @@ Impact:
 ## Open Decisions
 
 - Whether the client-side publish handler should also be hardened so no future account/provisioning error can force a step-1 reset.
+
+## 2026-08-09 - Website Builder V2 Content Intelligence Scaffold Started
+
+Working ref: `phase2/website-builder-v2-content-intelligence`.
+
+Decision: Start a V2 content-intelligence scaffold that formalizes the interpretation layer between saved imported source content and CatStays preview templates.
+
+Reason: The imported website data can persist correctly while preview templates still behave like generic template fills if they do not receive source-order, source-grouping, image-context, template-slot, completeness, and provenance signals. The new scaffold creates that contract without changing the frozen ADR-001 platform schema.
+
+Impact:
+
+- Saved imported source data can now be transformed into a `ContentIntelligencePlan`.
+- The plan groups source sections into ordered clusters, maps clusters to template slots, and records completeness/unsupported metrics.
+- Existing preview templates can carry the intelligence plan while continuing to render through the current CatStays template components.
+- This is not a database migration, not Phase 3 Media Library, and not the final Assignment Engine. It is a scoped bridge so the current preview layer can stop relying on loose fallback fields while the platform lifecycle remains intact.
