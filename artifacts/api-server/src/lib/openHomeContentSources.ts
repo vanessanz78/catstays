@@ -234,7 +234,7 @@ export async function createContentSourceFromOnboardingDraft(
     stringFromPath(record, ['content', 'title']) ||
     sourceUrl;
 
-  return createContentSource(supabase, {
+  const source = await createContentSource(supabase, {
     catteryId: input.catteryId,
     sourceType: 'website',
     sourceUrl,
@@ -248,6 +248,8 @@ export async function createContentSourceFromOnboardingDraft(
     status: 'ready',
     actorId: input.actorId,
   });
+  await persistPayloadSourceLibraries(supabase, source, payload, normalizedData);
+  return source;
 }
 
 const safeOnboardingContentSourceKeys = [
@@ -398,6 +400,25 @@ async function persistWebsiteSourceLibraries(
   }
 
   const contentRows = contentLibraryRowsFromScrape(source, scrape);
+  if (contentRows.length) {
+    const { error } = await supabase.from('content_library').insert(contentRows);
+    if (error) throw error;
+  }
+}
+
+async function persistPayloadSourceLibraries(
+  supabase: SupabaseClient,
+  source: ContentSourceRecord,
+  rawData: Record<string, unknown>,
+  normalizedData: Record<string, unknown>,
+) {
+  const mediaRows = mediaLibraryRowsFromPayload(source, rawData, normalizedData);
+  if (mediaRows.length) {
+    const { error } = await supabase.from('media_library').insert(mediaRows);
+    if (error) throw error;
+  }
+
+  const contentRows = contentLibraryRowsFromPayload(source, rawData, normalizedData);
   if (contentRows.length) {
     const { error } = await supabase.from('content_library').insert(contentRows);
     if (error) throw error;
@@ -613,6 +634,103 @@ function contentLibraryRowsFromScrape(source: ContentSourceRecord, scrape: Catte
   return rows.slice(0, 120);
 }
 
+function mediaLibraryRowsFromPayload(
+  source: ContentSourceRecord,
+  rawData: Record<string, unknown>,
+  normalizedData: Record<string, unknown>,
+) {
+  const images = uniqueStrings([
+    ...collectImageStrings(rawData),
+    ...collectImageStrings(normalizedData),
+  ]).slice(0, 96);
+
+  return images.map((image, index) => ({
+    cattery_id: source.cattery_id,
+    source_id: source.id,
+    original_url: image,
+    storage_url: isCatstaysStorageUrl(image) ? image : null,
+    mime_type: mimeTypeFromUrl(image),
+    category: categoryForUrl(image),
+    confidence: 0.75,
+    alt_text: '',
+    contains_text: false,
+    is_logo: categoryForUrl(image) === 'logo',
+    is_open_graph: false,
+    is_owner: categoryForUrl(image) === 'owner',
+    is_building: /hero|building|facility/i.test(categoryForUrl(image)),
+    is_suite: /room|suite/i.test(categoryForUrl(image)),
+    is_gallery: categoryForUrl(image) === 'gallery',
+    storage_bucket: source.storage_bucket,
+    storage_path: null,
+    metadata: {
+      index,
+      sourceUrl: source.source_url,
+    },
+    schema_version: 1,
+  }));
+}
+
+function contentLibraryRowsFromPayload(
+  source: ContentSourceRecord,
+  rawData: Record<string, unknown>,
+  normalizedData: Record<string, unknown>,
+) {
+  const rows: Array<Record<string, unknown>> = [];
+  const libraries = [
+    jsonObject(rawData['contentLibrary']),
+    jsonObject(rawData['siteContentLibrary']),
+    jsonObject(normalizedData['siteContentLibrary']),
+  ];
+
+  for (const library of libraries) {
+    const blocks = Array.isArray(library['blocks']) ? library['blocks'] : [];
+    for (const blockValue of blocks) {
+      const block = jsonObject(blockValue);
+      const key = stringValue(block['id']) || `block-${rows.length + 1}`;
+      if (rows.some((row) => row.content_key === key)) continue;
+      rows.push({
+        cattery_id: source.cattery_id,
+        source_id: source.id,
+        content_type: stringValue(block['category']) || 'section',
+        content_key: key,
+        title: stringValue(block['title']),
+        body: cleanBodyText([
+          stringValue(block['text']),
+          ...itemsText(block['items']),
+        ].join(' ')),
+        structured_data: block,
+        confidence: 0.8,
+        language: 'en',
+        source_label: source.source_name || source.source_url || '',
+        extraction_version: source.import_version,
+        schema_version: 1,
+      });
+    }
+  }
+
+  const contentRecord = jsonObject(rawData['content']);
+  for (const [key, value] of Object.entries(contentRecord)) {
+    if (rows.length >= 120) break;
+    if (typeof value !== 'string' || !value.trim()) continue;
+    rows.push({
+      cattery_id: source.cattery_id,
+      source_id: source.id,
+      content_type: 'content_field',
+      content_key: key,
+      title: humanizeKey(key),
+      body: value.trim(),
+      structured_data: { key, value },
+      confidence: 0.7,
+      language: 'en',
+      source_label: source.source_name || source.source_url || '',
+      extraction_version: source.import_version,
+      schema_version: 1,
+    });
+  }
+
+  return rows.slice(0, 120);
+}
+
 function importedImageAssetsFromScrape(scrape: CatteryWebsiteScrapeResult): ImportedImageAsset[] {
   const settings = jsonObject(scrape.websiteSettings);
   const assets = settings['importedImageAssets'];
@@ -677,6 +795,46 @@ function categoryForUrl(url: string): string {
   if (/gallery|photo|cat/i.test(url)) return 'gallery';
   if (/hero|building|facility|exterior/i.test(url)) return 'hero';
   return 'source_image';
+}
+
+function itemsText(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => {
+    const record = jsonObject(item);
+    return cleanBodyText([
+      stringValue(record['title']),
+      stringValue(record['name']),
+      stringValue(record['text']),
+      stringValue(record['description']),
+      stringValue(record['answer']),
+    ].join(' '));
+  }).filter(Boolean);
+}
+
+function humanizeKey(value: string): string {
+  return value
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function isCatstaysStorageUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return /\.supabase\.co$/i.test(url.hostname) && /\/storage\/v1\/object\/public\//i.test(url.pathname);
+  } catch {
+    return false;
+  }
+}
+
+function mimeTypeFromUrl(value: string): string | null {
+  const lower = value.split('?')[0].toLowerCase();
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+  if (lower.endsWith('.png')) return 'image/png';
+  if (lower.endsWith('.webp')) return 'image/webp';
+  if (lower.endsWith('.avif')) return 'image/avif';
+  if (lower.endsWith('.gif')) return 'image/gif';
+  return null;
 }
 
 function cleanBodyText(value: string): string {

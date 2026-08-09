@@ -663,11 +663,18 @@ export function OnboardingWizard() {
     try {
       const normalizedWebsiteUrl = normalizeWebsiteImportUrl(data.websiteUrl);
       setData(prev => ({ ...prev, websiteUrl: normalizedWebsiteUrl, isImporting: true, importError: '' }));
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      const scrapePayload: Record<string, unknown> = { url: normalizedWebsiteUrl };
+      if (accessToken && data.provisionedCatteryId) scrapePayload.catteryId = data.provisionedCatteryId;
 
       const res = await fetch('/api/website/scrape', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: normalizedWebsiteUrl }),
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify(scrapePayload),
       });
 
       const payload = await res.json() as ImportedCatteryScrape & { error?: string };

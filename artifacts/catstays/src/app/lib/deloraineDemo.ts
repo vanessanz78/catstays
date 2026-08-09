@@ -954,12 +954,12 @@ export function buildPreviewDataFromScrape(inputScrape: ImportedCatteryScrape): 
   const settings = scrape.websiteSettings ?? {};
   const isDeloraineSource = isDeloraineScrape(scrape);
   const fallbackAssets = isDeloraineSource ? deloraineAssets : genericCatAssets;
-  const images = uniqueImages([
+  const scrapedImages = uniqueImages([
     scrape.heroImage,
     ...(scrape.images ?? []),
-    ...fallbackAssets,
   ]);
-  const fallbackRooms = isDeloraineSource ? fallbackDeloraineScrape.rooms ?? [] : genericRooms(images);
+  const images = scrapedImages.length ? scrapedImages : fallbackAssets;
+  const fallbackRooms = isDeloraineSource ? fallbackDeloraineScrape.rooms ?? [] : sourcePageRoomsFromScrape(scrape, images);
   const fallbackServices = isDeloraineSource ? fallbackDeloraineScrape.services ?? [] : genericServices(images);
   const fallbackHighlights = isDeloraineSource ? fallbackDeloraineScrape.highlights ?? [] : genericHighlights();
   const rooms = scrape.rooms?.length ? scrape.rooms : fallbackRooms;
@@ -1452,6 +1452,92 @@ function firstSentence(text?: string): string {
 function pricePerNight(rooms: ImportedCatteryScrape['rooms']): string {
   const firstPriced = rooms?.find((room) => room.price);
   return firstPriced?.price || '$20';
+}
+
+function sourcePageRoomsFromScrape(scrape: ImportedCatteryScrape, images: string[]): NonNullable<ImportedCatteryScrape['rooms']> {
+  const pages = Array.isArray(scrape.sourceArchive?.pages) ? scrape.sourceArchive.pages : [];
+  const relevantPages = pages
+    .map((page) => page && typeof page === 'object' ? page as Record<string, any> : {})
+    .filter((page) => {
+      const pageKey = [
+        page.sourceUrl,
+        page.title,
+        page.heading,
+      ].filter(Boolean).join(' ');
+      if (/groom|gallery|contact|professional|prices\b/i.test(pageKey)) return false;
+      return /accomm|homestay|boarding|suite|room|respite|health-care|health care/i.test(pageKey);
+    });
+
+  const rooms: NonNullable<ImportedCatteryScrape['rooms']> = [];
+  for (const page of relevantPages) {
+    const pageText = normalizeImportedText(stringValue(page.textSample));
+    const pageImages = Array.isArray(page.images) ? page.images.map((image) => stringValue(image)).filter(Boolean) : [];
+    const packageMatches = Array.from(pageText.matchAll(/\b([A-Z][A-Za-z]+(?:\s+[A-Z][A-Za-z]+){0,3})\s+\$?\s*([0-9]{2,}(?:\s*\.\s*[0-9]{2})?)/g))
+      .filter((match) => /care|homestay|suite|accommodation|boarding/i.test(match[1] ?? ''))
+      .slice(0, 8);
+
+    if (packageMatches.length) {
+      packageMatches.forEach((match, index) => {
+        const name = cleanPreviewText(match[1] ?? '');
+        const priceNumber = (match[2] ?? '').replace(/\s+/g, '');
+        const nextIndex = packageMatches[index + 1]?.index ?? pageText.length;
+        const rawDescription = pageText.slice((match.index ?? 0) + match[0].length, nextIndex);
+        rooms.push({
+          name,
+          description: firstSentence(cleanPreviewText(rawDescription)) || firstSentence(pageText),
+          price: `$${priceNumber}`,
+          priceUnit: /24\s*\/?\s*hr|per\s+24/i.test(rawDescription) ? 'per 24/hr' : undefined,
+          capacity: 1,
+          amenities: sourceRoomAmenities(rawDescription),
+          image: pageImages[index] || images[index + 1] || images[0],
+        });
+      });
+      continue;
+    }
+
+    const title = meaningfulHeading(stringValue(page.heading)) || meaningfulHeading(stringValue(page.title));
+    if (title && pageText) {
+      rooms.push({
+        name: title,
+        description: firstSentence(pageText),
+        capacity: 1,
+        amenities: sourceRoomAmenities(pageText),
+        image: pageImages[0] || images[rooms.length + 1] || images[0],
+      });
+    }
+  }
+
+  return uniqueRooms(rooms).slice(0, 8);
+}
+
+function sourceRoomAmenities(value: string): string[] {
+  const amenities = [
+    /medication|medicine/i.test(value) ? 'Medication support' : '',
+    /observ/i.test(value) ? 'Dedicated observations' : '',
+    /record/i.test(value) ? 'Record keeping' : '',
+    /transport|transfer|appointment/i.test(value) ? 'Appointment transfers' : '',
+    /pemf|hyperbaric|hbot|therapy/i.test(value) ? 'Therapy support' : '',
+    /individual|dedicated|attention/i.test(value) ? 'Individual attention' : '',
+  ].filter(Boolean);
+  return amenities.slice(0, 6);
+}
+
+function uniqueRooms(rooms: NonNullable<ImportedCatteryScrape['rooms']>): NonNullable<ImportedCatteryScrape['rooms']> {
+  const seen = new Set<string>();
+  return rooms.filter((room) => {
+    const key = room.name.trim().toLowerCase();
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function normalizeImportedText(value: string): string {
+  return cleanPreviewText(value.replace(/[\u200B-\u200D\uFEFF]/g, ' '));
+}
+
+function cleanPreviewText(value: string): string {
+  return value.replace(/\s+/g, ' ').trim();
 }
 
 function genericRooms(images: string[]): NonNullable<ImportedCatteryScrape['rooms']> {

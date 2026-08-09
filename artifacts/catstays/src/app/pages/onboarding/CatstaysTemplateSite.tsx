@@ -137,7 +137,7 @@ function templateImageSrc(src: string | undefined): string {
   if (!src) return TEMPLATE_IMAGE_FALLBACK;
   if (/^(?:data:image\/|blob:|\/)/i.test(src)) return src;
   if (!/^https?:\/\//i.test(src)) return src;
-  return `/api/website/source-asset?url=${encodeURIComponent(src)}`;
+  return src;
 }
 
 function TemplateImage({
