@@ -172,6 +172,7 @@ const websiteSettingKeys = [
   'footerAbout',
   'siteContentLibrary',
   'contentLibrary',
+  'sourceArchive',
   'sectionsOrder',
   'importSourceUrl',
   'sourceUrl',

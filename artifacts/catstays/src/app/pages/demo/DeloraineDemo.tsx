@@ -25,6 +25,7 @@ import {
   type PreviewImportRecord,
   type PreviewTemplateId,
 } from '../../lib/previewTemplates';
+import { sourceRebuildHtmlFromData } from '../../lib/sourceRebuildPreview';
 import { normalizeWebsiteImportUrl } from '../../lib/websiteImportUrl';
 
 type DemoMode = 'website' | 'dashboard' | 'client';
@@ -368,10 +369,12 @@ function TemplateSnapshot({
 
   if (template === 'original') {
     const sourceUrl = sourceUrlForSnapshot(data);
+    const rebuildHtml = sourceRebuildHtmlFromData(data);
     return (
       <div className="relative h-36 overflow-hidden bg-white">
         <iframe
-          src={sourceUrl}
+          src={rebuildHtml ? undefined : sourceUrl}
+          srcDoc={rebuildHtml || undefined}
           title={`${data.businessName || 'Original website'} thumbnail`}
           loading="lazy"
           className="absolute left-0 top-0 border-0 bg-white"

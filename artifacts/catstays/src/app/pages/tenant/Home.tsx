@@ -11,22 +11,10 @@ import { useTenantCattery } from '@/hooks/useTenantCattery';
 import { sendContactEnquiry } from '@/utils/email';
 import { CatstaysTemplateSite } from '../onboarding/CatstaysTemplateSite';
 import { isOriginalTemplate, normalizePreviewTemplateId } from '../../lib/previewTemplates';
+import { sourcePreviewProxyUrl, sourcePreviewUrlFromData, sourceRebuildHtmlFromData } from '../../lib/sourceRebuildPreview';
 
 const DEFAULT_HERO = 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080';
 const ABOUT_IMG = 'https://images.unsplash.com/photo-1573865526739-10c1dd7aa736?w=1200&q=80';
-
-function importedPreviewUrl(data: Record<string, any>) {
-  const rawUrl = data.importSourceUrl || data.sourceUrl;
-  if (!rawUrl || typeof rawUrl !== 'string') return '';
-
-  try {
-    const url = new URL(rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`);
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') return '';
-    return url.toString();
-  } catch {
-    return '';
-  }
-}
 
 function hasPublishedBuilderSettings(settings: Record<string, any>) {
   return Boolean(
@@ -57,14 +45,16 @@ function buildPublishedWebsiteData(cattery: NonNullable<ReturnType<typeof useTen
 }
 
 function PublishedOriginalWebsite({ data }: { data: Record<string, any> }) {
-  const sourceUrl = importedPreviewUrl(data);
-  const previewUrl = `/api/website/source-preview?url=${encodeURIComponent(sourceUrl)}`;
+  const sourceUrl = sourcePreviewUrlFromData(data);
+  const rebuildHtml = sourceRebuildHtmlFromData(data);
+  const previewUrl = rebuildHtml ? '' : sourcePreviewProxyUrl(sourceUrl);
 
   return (
     <div className="min-h-screen bg-white">
       <iframe
         title={`${data.businessName || 'Imported cattery'} website`}
-        src={previewUrl}
+        src={rebuildHtml ? undefined : previewUrl}
+        srcDoc={rebuildHtml || undefined}
         className="block min-h-screen w-full border-0 bg-white"
         loading="eager"
         referrerPolicy="no-referrer-when-downgrade"
@@ -131,7 +121,7 @@ export function TenantHome() {
   const previewRooms = rooms.slice(0, 3);
   const publishedWebsiteData = buildPublishedWebsiteData(cattery, ws);
   const publishedTemplate = normalizePreviewTemplateId(publishedWebsiteData.liveTemplate || publishedWebsiteData.selectedTemplate);
-  const sourcePreviewUrl = importedPreviewUrl(publishedWebsiteData);
+  const sourcePreviewUrl = sourcePreviewUrlFromData(publishedWebsiteData);
 
   if (hasPublishedBuilderSettings(ws)) {
     if (isOriginalTemplate(publishedTemplate) && sourcePreviewUrl) {

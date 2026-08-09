@@ -68,6 +68,7 @@ import { WebsiteHeader } from '../../components/WebsiteHeader';
 import { CatstaysTemplateSite } from './CatstaysTemplateSite';
 import { normalizePreviewTemplateId } from '../../lib/previewTemplates';
 import { getTenantWebsiteDisplayUrl } from '../../../utils/appUrl';
+import { sourcePreviewProxyUrl, sourcePreviewUrlFromData, sourceRebuildHtmlFromData } from '../../lib/sourceRebuildPreview';
 import { AdminDashboard } from '../admin/Dashboard';
 import { CustomerDashboard } from '../customer/Dashboard';
 import {
@@ -105,19 +106,6 @@ const getIconComponent = (iconName: string) => {
   };
   return icons[iconName] || Shield;
 };
-
-function importedPreviewUrl(data: Record<string, any>) {
-  const rawUrl = data.importSourceUrl || data.sourceUrl;
-  if (!rawUrl || typeof rawUrl !== 'string') return '';
-
-  try {
-    const url = new URL(rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`);
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') return '';
-    return url.toString();
-  } catch {
-    return '';
-  }
-}
 
 interface WebsiteBuilderProps {
   data: any;
@@ -245,7 +233,9 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
   // Render different preview layouts based on template
   const renderPreviewLayout = () => {
     const template = selectedTemplate;
-    const sourcePreviewUrl = importedPreviewUrl(data);
+    const sourcePreviewUrl = sourcePreviewUrlFromData(data);
+    const rebuildHtml = sourceRebuildHtmlFromData(data);
+    const previewUrl = rebuildHtml ? '' : sourcePreviewProxyUrl(sourcePreviewUrl);
 
     if (template === 'original' && sourcePreviewUrl) {
       console.info('[CatStays Original trace]', {
@@ -253,15 +243,16 @@ export function WebsiteBuilder({ data, setData, onNext, onBack, onAIRegenerate, 
         function: 'renderPreviewLayout',
         selectedTemplate: template,
         sourcePreviewUrl,
-        previewUrl: sourcePreviewUrl,
-        finalIframeSrc: sourcePreviewUrl,
-        route: 'direct external iframe',
+        previewUrl,
+        finalIframeSrc: rebuildHtml ? 'srcDoc:sourceArchive.rebuild.html' : previewUrl,
+        route: rebuildHtml ? 'rebuilt source archive' : 'live source proxy fallback',
       });
       return (
         <div className="min-h-[720px] w-full bg-white">
           <iframe
             title={`${data.businessName || 'Imported cattery'} original website preview`}
-            src={sourcePreviewUrl}
+            src={rebuildHtml ? undefined : previewUrl}
+            srcDoc={rebuildHtml || undefined}
             className="block min-h-[720px] w-full border-0 bg-white"
             referrerPolicy="no-referrer-when-downgrade"
             sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox allow-same-origin allow-scripts"

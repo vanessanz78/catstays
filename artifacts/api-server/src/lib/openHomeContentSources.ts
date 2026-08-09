@@ -264,6 +264,7 @@ const safeOnboardingContentSourceKeys = [
   'footerAbout',
   'siteContentLibrary',
   'contentLibrary',
+  'sourceArchive',
   'sectionsOrder',
 ] as const;
 
@@ -356,6 +357,27 @@ function normalizedDataFromScrape(scrape: CatteryWebsiteScrapeResult) {
       logoImage: scrape.logoImage,
       images: scrape.images,
       galleryImages: scrape.galleryImages,
+    },
+    sourceArchive: {
+      captureMethod: scrape.sourceArchive.captureMethod,
+      capturedAt: scrape.sourceArchive.capturedAt,
+      rebuild: {
+        status: scrape.sourceArchive.rebuild.status,
+        sourceUrl: scrape.sourceArchive.rebuild.sourceUrl,
+        capturedAt: scrape.sourceArchive.rebuild.capturedAt,
+        htmlBytes: Buffer.byteLength(scrape.sourceArchive.rebuild.html, 'utf8'),
+        assets: scrape.sourceArchive.rebuild.assets,
+        notes: scrape.sourceArchive.rebuild.notes,
+      },
+      metrics: scrape.sourceArchive.metrics,
+      unsupported: scrape.sourceArchive.unsupported,
+      pages: scrape.sourceArchive.pages.map((page) => ({
+        sourceUrl: page.sourceUrl,
+        title: page.title,
+        heading: page.heading,
+        bodyTextLength: page.bodyTextLength,
+        imageCount: page.images.length,
+      })),
     },
     siteContentLibrary: scrape.siteContentLibrary,
     websiteSettings: scrape.websiteSettings,

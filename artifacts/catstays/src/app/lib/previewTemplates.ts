@@ -33,6 +33,7 @@ export interface PreviewImportRecord {
     importVersion?: string;
     persistedAt?: string;
     extractedFrom?: ImportedCatteryScrape['extractedFrom'];
+    sourceArchive?: ImportedCatteryScrape['sourceArchive'];
   };
   identity: {
     businessName: string;
@@ -275,6 +276,7 @@ export function buildPreviewImportRecord(scrape: ImportedCatteryScrape): Preview
       importVersion: migratedScrape.importVersion,
       persistedAt: migratedScrape.persistedAt,
       extractedFrom: migratedScrape.extractedFrom,
+      sourceArchive: migratedScrape.sourceArchive,
     },
     identity: {
       businessName,
@@ -354,6 +356,7 @@ export function dataFromPreviewRecord(
     importSourceUrl: record.source.url,
     sourceUrl: record.source.url,
     sourceHost: record.source.host,
+    sourceArchive: record.source.sourceArchive ?? normalized.sourceArchive,
     businessName: record.identity.businessName,
     location: record.identity.location,
     subdomain: currentData.subdomain || record.identity.subdomain,
