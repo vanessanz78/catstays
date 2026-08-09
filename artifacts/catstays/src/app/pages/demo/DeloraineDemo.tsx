@@ -683,13 +683,18 @@ function hasImportedPreviewData(data: Record<string, any> | null | undefined, re
   if (!data) return false;
   const dataUrl = data.importSourceUrl || data.sourceUrl || data.websiteUrl || data.previewImportRecord?.source?.url || '';
   if (!sameSourceUrl(dataUrl, requestedUrl)) return false;
-  const serialized = JSON.stringify([
-    data.previewImportRecord?.media,
-    data.galleryData,
-    data.sourceArchive,
-    data.siteContentLibrary,
-  ]);
-  return /static\.wixstatic\.com|sourceArchive|siteContentLibrary|galleryImages/i.test(serialized) && !/images\.unsplash\.com/i.test(serialized);
+  const record = data.previewImportRecord;
+  const sourceArchive = data.sourceArchive || record?.source?.sourceArchive || record?.normalizedPreviewData?.sourceArchive;
+  const recordMediaImages = [
+    ...(Array.isArray(record?.media?.images) ? record.media.images : []),
+    ...(Array.isArray(record?.media?.galleryImages) ? record.media.galleryImages.map((image: any) => image?.url || image) : []),
+  ];
+  const galleryImages = Array.isArray(data.galleryData?.galleryImages)
+    ? data.galleryData.galleryImages.map((image: any) => image?.url || image)
+    : [];
+  const hasSourceTruth = Boolean(record || sourceArchive || recordMediaImages.length);
+  const serialized = JSON.stringify([recordMediaImages, galleryImages, sourceArchive]);
+  return hasSourceTruth && !/images\.unsplash\.com/i.test(serialized);
 }
 
 function sameSourceUrl(left: unknown, right: unknown): boolean {
