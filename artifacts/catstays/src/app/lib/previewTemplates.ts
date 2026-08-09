@@ -422,6 +422,8 @@ export function dataFromPreviewRecord(
     sourceUrl: record.source.url,
     sourceHost: record.source.host,
     importReport: record.source.importReport,
+    importedImageAssets: record.source.importedImageAssets,
+    mediaImport: record.source.mediaImport,
     businessName: record.identity.businessName,
     location: record.identity.location,
     subdomain: currentData.subdomain || record.identity.subdomain,
@@ -502,7 +504,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const libraryGalleryImages = libraryImages(contentLibrary, 'gallery');
   const isDeloraineSource = isDelorainePreview(record, contentLibrary, businessName);
   const isImportedWebsite = Boolean(record?.source.url || data.sourceUrl || normalized.sourceUrl);
-  const storedBusinessImages = storedImagesFromImportRecord(record);
+  const storedBusinessImages = storedImagesFromImportSources(record, data, normalizedRecord);
   const deloraineSemanticImages = isDeloraineSource
     ? [currentDeloraineAssets.hero, currentDeloraineAssets.ownerPortrait, currentDeloraineAssets.buildingThumb, currentDeloraineAssets.grooming]
     : [];
@@ -520,15 +522,26 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const dailyCareBlock = libraryBlock(contentLibrary, 'daily-care');
   const locationBlock = libraryBlock(contentLibrary, 'location');
   const logoImage = stringFrom(data.logoImage, normalizedRecord.logoImage, record?.media.logoImage);
+  const preferredHeroImages = isImportedWebsite
+    ? [
+        storedBusinessImages[0],
+        importedUsableImage(data.heroImage),
+        importedUsableImage(normalized.heroImage),
+        importedUsableImage(heroBlock?.images?.[0]?.url),
+        importedUsableImage(record?.media.heroImage),
+        importedUsableImage(record?.media.images?.[0]),
+        importedUsableImage(record?.media.galleryImages?.[0]?.url),
+      ]
+    : [
+        data.heroImage,
+        normalized.heroImage,
+        heroBlock?.images?.[0]?.url,
+        record?.media.heroImage,
+        record?.media.images?.[0],
+        record?.media.galleryImages?.[0]?.url,
+      ];
   const heroImage = selectHeroImage(
-    [
-      data.heroImage,
-      normalized.heroImage,
-      heroBlock?.images?.[0]?.url,
-      record?.media.heroImage,
-      record?.media.images?.[0],
-      record?.media.galleryImages?.[0]?.url,
-    ],
+    preferredHeroImages,
     importedMediaImages,
     { allowStockFallback: !isImportedWebsite },
   );
@@ -538,14 +551,20 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const galleryDataImages = Array.isArray(data.galleryData?.galleryImages)
     ? data.galleryData.galleryImages.map((image: any) => stringFrom(image?.url, image))
     : [];
+  const importedSafeEditedGalleryImages = isImportedWebsite
+    ? editedGalleryImages.filter((image) => !isTemplateStockImage(image))
+    : editedGalleryImages;
+  const importedSafeGalleryDataImages = isImportedWebsite
+    ? galleryDataImages.filter((image) => !isTemplateStockImage(image))
+    : galleryDataImages;
   const explicitGalleryImages = uniqueImagesByKey([
-    ...editedGalleryImages,
-    ...galleryDataImages,
+    ...importedSafeEditedGalleryImages,
+    ...importedSafeGalleryDataImages,
   ]).filter((image) => isUsableGalleryImage(image, logoImage) && !isOpenGraphImage(image));
   const galleryImages = uniqueStrings([
-    ...editedGalleryImages,
-    ...galleryDataImages,
     ...importedMediaImages,
+    ...importedSafeEditedGalleryImages,
+    ...importedSafeGalleryDataImages,
     data.facilitiesImage,
     data.aboutImage,
     data.ownerData?.image,
@@ -889,12 +908,30 @@ function libraryImages(library: CatterySiteContentLibrary, category: string) {
   return libraryBlock(library, category)?.images ?? [];
 }
 
-function storedImagesFromImportRecord(record: PreviewImportRecord | null | undefined) {
-  const assets = record?.source.importedImageAssets;
-  if (!Array.isArray(assets)) return [];
-  return assets
-    .map((asset) => stringFrom(asset?.storedUrl, asset?.storageUrl, asset?.storage_url, asset?.url))
+function storedImagesFromImportSources(
+  record: PreviewImportRecord | null | undefined,
+  data: Record<string, any>,
+  normalized: Record<string, any>,
+) {
+  const assetSources = [
+    record?.source.importedImageAssets,
+    data.importedImageAssets,
+    data.websiteSettings?.importedImageAssets,
+    normalized.importedImageAssets,
+    normalized.websiteSettings?.importedImageAssets,
+  ];
+
+  return uniqueStrings(assetSources.flatMap((assets) => (
+    Array.isArray(assets)
+      ? assets.map((asset) => stringFrom(asset?.storedUrl, asset?.storageUrl, asset?.storage_url, asset?.url))
+      : []
+  )))
     .filter(Boolean);
+}
+
+function importedUsableImage(value: unknown) {
+  const image = stringFrom(value);
+  return image && !isTemplateStockImage(image) ? image : '';
 }
 
 function libraryRoomsToRooms(items: ReturnType<typeof libraryItems>) {
@@ -1189,6 +1226,10 @@ function imageMatches(value: unknown, pattern: RegExp): boolean {
 
 function isOpenGraphImage(image: string): boolean {
   return imageMatches(image, /(?:^|[-_/])og(?:[-_.]|image)|open.?graph|social.?card/i);
+}
+
+function isTemplateStockImage(image: string) {
+  return /images\.unsplash\.com|placeholder|generic|catstays\/stock|stock[-_/]cat/i.test(image || '');
 }
 
 function imagesMatching(images: string[], pattern: RegExp): string[] {

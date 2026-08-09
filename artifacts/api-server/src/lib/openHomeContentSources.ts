@@ -287,6 +287,9 @@ const safeOnboardingContentSourceKeys = [
   'siteContentLibrary',
   'contentLibrary',
   'sectionsOrder',
+  'importedImageAssets',
+  'mediaImport',
+  'importReport',
 ] as const;
 
 function contentSourcePayloadFromDraft(draft: Record<string, unknown>) {

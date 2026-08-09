@@ -43,6 +43,28 @@ describe('previewTemplates imported media rendering', () => {
     assert.equal(content.hero.image, '');
     assert.equal(rendered.some((image) => image.includes('images.unsplash.com')), false);
   });
+
+  it('prefers persisted imported assets over stale stock hero and gallery settings', () => {
+    const content = buildCatstaysTemplateContent({
+      businessName: 'Fancy Felines',
+      sourceUrl: 'https://www.fancyfelines.nz/',
+      sourceHost: 'fancyfelines.nz',
+      heroImage: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=1200',
+      galleryImages: [
+        'https://images.unsplash.com/photo-1543852786-1cf6624b9987?w=1200',
+      ],
+      importedImageAssets: [
+        { originalUrl: 'https://www.fancyfelines.nz/hero.jpg', storedUrl: storedHero },
+        { originalUrl: 'https://www.fancyfelines.nz/gallery.jpg', storedUrl: storedGallery },
+      ],
+      siteContentLibrary: previewRecord({ importedImageAssets: [] }).contentLibrary,
+    });
+    const rendered = renderedImages(content);
+
+    assert.equal(content.hero.image, storedHero);
+    assert.equal(rendered.includes(storedGallery), true);
+    assert.equal(rendered.some((image) => image.includes('images.unsplash.com')), false);
+  });
 });
 
 function previewRecord(input: { importedImageAssets: Array<Record<string, unknown>> }): PreviewImportRecord {

@@ -172,6 +172,9 @@ const websiteBuilderDraftKeys = [
   'siteContentLibrary',
   'contentLibrary',
   'sectionsOrder',
+  'importedImageAssets',
+  'mediaImport',
+  'importReport',
 ] as const;
 
 const onboardingArrayKeys = [
