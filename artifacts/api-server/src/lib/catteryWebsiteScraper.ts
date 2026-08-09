@@ -94,6 +94,40 @@ export interface CatterySiteContentLibrary {
   blocks: CatterySiteContentBlock[];
 }
 
+export interface CatterySourceArchivePage {
+  sourceUrl: string;
+  title: string;
+  heading: string;
+  bodyTextLength: number;
+  textSample: string;
+  images: string[];
+}
+
+export interface CatterySourceArchive {
+  schemaVersion: 1;
+  captureMethod: 'http-html-with-script-and-sitemap-crawl';
+  sourceUrl: string;
+  sourceHost: string;
+  capturedAt: string;
+  pages: CatterySourceArchivePage[];
+  assets: {
+    images: string[];
+    scripts: string[];
+  };
+  metrics: {
+    pages: number;
+    textCharacters: number;
+    images: number;
+    galleryImages: number;
+    rooms: number;
+    services: number;
+    faqs: number;
+    reviews: number;
+    scripts: number;
+  };
+  unsupported: string[];
+}
+
 export interface CatteryWebsiteScrapeResult {
   sourceUrl: string;
   sourceHost: string;
@@ -138,6 +172,7 @@ export interface CatteryWebsiteScrapeResult {
   };
   virtualTourUrl: string;
   siteContentLibrary: CatterySiteContentLibrary;
+  sourceArchive: CatterySourceArchive;
   bodyText: string;
   extractedFrom: {
     html: boolean;
@@ -305,6 +340,23 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
     virtualTourUrl,
     siteContentLibrary,
   });
+  const sourceArchive = buildSourceArchive({
+    parsedUrl,
+    sourceHost,
+    title,
+    heading,
+    bodyText,
+    images,
+    galleryImages,
+    rooms,
+    services,
+    faqs,
+    reviews,
+    scriptUrls,
+    scriptTexts,
+    homeBodyText,
+    supplementalPages,
+  });
 
   return {
     sourceUrl: parsedUrl.toString(),
@@ -334,6 +386,7 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
     locationDetails,
     virtualTourUrl,
     siteContentLibrary,
+    sourceArchive,
     bodyText: bodyText.slice(0, 8000),
     extractedFrom: {
       html: true,
@@ -410,6 +463,77 @@ async function fetchSupplementalPages(baseUrl: URL, root: ReturnType<typeof pars
   );
 
   return pages.filter((page): page is ScrapedPage => Boolean(page));
+}
+
+function buildSourceArchive(input: {
+  parsedUrl: URL;
+  sourceHost: string;
+  title: string;
+  heading: string;
+  bodyText: string;
+  images: string[];
+  galleryImages: Array<{ url: string; caption: string }>;
+  rooms: CatteryScrapedRoom[];
+  services: CatteryScrapedService[];
+  faqs: Array<{ question: string; answer: string }>;
+  reviews: CatteryScrapedReview[];
+  scriptUrls: Array<string | URL>;
+  scriptTexts: string[];
+  homeBodyText: string;
+  supplementalPages: ScrapedPage[];
+}): CatterySourceArchive {
+  const homeText = cleanText(input.homeBodyText);
+  const pages: CatterySourceArchivePage[] = [
+    {
+      sourceUrl: input.parsedUrl.toString(),
+      title: input.title,
+      heading: input.heading,
+      bodyTextLength: homeText.length,
+      textSample: homeText.slice(0, 1200),
+      images: input.images,
+    },
+    ...input.supplementalPages.map((page) => ({
+      sourceUrl: page.url,
+      title: page.title,
+      heading: page.heading,
+      bodyTextLength: cleanText(page.bodyText).length,
+      textSample: cleanText(page.bodyText).slice(0, 1200),
+      images: page.images,
+    })),
+  ];
+
+  const unsupported: string[] = [];
+  if (!input.scriptTexts.length && input.scriptUrls.length) {
+    unsupported.push('Some script assets were discovered but could not be read.');
+  }
+  if (!pages.length) {
+    unsupported.push('No readable pages were captured.');
+  }
+
+  return {
+    schemaVersion: 1,
+    captureMethod: 'http-html-with-script-and-sitemap-crawl',
+    sourceUrl: input.parsedUrl.toString(),
+    sourceHost: input.sourceHost,
+    capturedAt: new Date().toISOString(),
+    pages,
+    assets: {
+      images: input.images,
+      scripts: input.scriptUrls.map((url) => url.toString()),
+    },
+    metrics: {
+      pages: pages.length,
+      textCharacters: cleanText(input.bodyText).length,
+      images: input.images.length,
+      galleryImages: input.galleryImages.length,
+      rooms: input.rooms.length,
+      services: input.services.length,
+      faqs: input.faqs.length,
+      reviews: input.reviews.length,
+      scripts: input.scriptTexts.length,
+    },
+    unsupported,
+  };
 }
 
 async function collectSupplementalPageUrls(baseUrl: URL, root: ReturnType<typeof parse>): Promise<string[]> {

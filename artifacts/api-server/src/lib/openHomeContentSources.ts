@@ -357,6 +357,19 @@ function normalizedDataFromScrape(scrape: CatteryWebsiteScrapeResult) {
       images: scrape.images,
       galleryImages: scrape.galleryImages,
     },
+    sourceArchive: {
+      captureMethod: scrape.sourceArchive.captureMethod,
+      capturedAt: scrape.sourceArchive.capturedAt,
+      metrics: scrape.sourceArchive.metrics,
+      unsupported: scrape.sourceArchive.unsupported,
+      pages: scrape.sourceArchive.pages.map((page) => ({
+        sourceUrl: page.sourceUrl,
+        title: page.title,
+        heading: page.heading,
+        bodyTextLength: page.bodyTextLength,
+        imageCount: page.images.length,
+      })),
+    },
     siteContentLibrary: scrape.siteContentLibrary,
     websiteSettings: scrape.websiteSettings,
   };

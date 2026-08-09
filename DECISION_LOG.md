@@ -121,6 +121,18 @@ Impact:
 - If testing an older commit by SHA, the note must say it is a detached SHA test and not a durable branch.
 - Replit handoff commands must match the documented ref.
 
+## 2026-08-09 - Content Source Archive Metrics Added
+
+Decision: Add a source archive summary to imported website Content Sources during Phase 2.
+
+Reason: The Guided Healing vertical proof showed that reliable website rebuilding depends on preserving provenance, page-level text/image evidence, capture metrics, and unsupported capture notes, not only the generated preview payload.
+
+Impact:
+
+- Website scrape raw data now includes a `sourceArchive` object with page evidence, image/script asset lists, metrics, and unsupported notes.
+- Normalized Content Source data exposes the archive summary so future Media Library, Content Library, verification, and preview phases can use durable capture evidence.
+- This remains within Phase 2 Content Sources and does not begin Phase 3 Media Library or preview rendering work.
+
 ## Open Decisions
 
 - Whether the client-side publish handler should also be hardened so no future account/provisioning error can force a step-1 reset.
