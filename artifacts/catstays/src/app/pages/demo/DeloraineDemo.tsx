@@ -10,6 +10,7 @@ import {
   fallbackDeloraineScrape,
   IMPORT_URL_STORAGE_KEY,
   migrateDeloraineAssetsInValue,
+  PREVIEW_DATA_STORAGE_KEY,
   PREVIEW_SOURCE_INTENT_STORAGE_KEY,
   PREVIEW_SOURCE_TOKEN_STORAGE_KEY,
   PREVIEW_URL_STORAGE_KEY,
@@ -195,15 +196,19 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
         setIsImportPreparing(false);
       } catch (error) {
         if (cancelled) return;
-        setImportError((error as Error).message || 'Import failed');
         if (!isDeloraineRequest(requestedImportUrl)) {
           setPreviewData((current) => {
-            if (hasImportedPreviewData(current, requestedImportUrl)) return current;
+            if (hasImportedPreviewData(current, requestedImportUrl)) {
+              setImportError('');
+              return current;
+            }
+            setImportError((error as Error).message || 'Import failed');
             return current;
           });
           setIsImportPreparing(false);
           return;
         }
+        setImportError((error as Error).message || 'Import failed');
         const fallbackScrape = isDeloraineRequest(requestedImportUrl)
           ? fallbackDeloraineScrape
           : buildFallbackScrapeForUrl(requestedImportUrl);
@@ -320,7 +325,7 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
           onSelectTemplate={selectTemplate}
         />
       )}
-      {importError && !isDeloraineRequest(requestedImportUrl) && (
+      {importError && !isDeloraineRequest(requestedImportUrl) && !hasImportedPreviewData(previewData, requestedImportUrl) && (
         <div className="border-b border-[#C46A3A]/30 bg-[#fff7ed] px-5 py-3 text-sm font-semibold text-[#8A3F20] sm:px-8 lg:px-10">
           Imported preview could not refresh from the source site. Keeping the last imported preview instead of replacing it with generic fallback content.
         </div>
@@ -653,12 +658,33 @@ async function abandonSavedTemporaryPreview() {
 
 function readStoredPreviewData(requestedUrl: string): DelorainePreviewData | null {
   if (typeof window === 'undefined') return null;
+  const storedPreview = readStoredPreviewDataFromKey(PREVIEW_DATA_STORAGE_KEY, requestedUrl);
+  if (storedPreview) return storedPreview;
+
+  return readStoredPreviewDataFromOnboarding(requestedUrl);
+}
+
+function readStoredPreviewDataFromOnboarding(requestedUrl: string): DelorainePreviewData | null {
+  if (typeof window === 'undefined') return null;
   try {
     const raw = window.localStorage.getItem('catstays_onboarding');
     if (!raw) return null;
     const parsed = JSON.parse(raw) as { data?: Record<string, unknown> };
     const data = parsed.data as unknown as DelorainePreviewData | undefined;
     if (!data || !hasImportedPreviewData(data, requestedUrl)) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+function readStoredPreviewDataFromKey(storageKey: string, requestedUrl: string): DelorainePreviewData | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.sessionStorage.getItem(storageKey) || window.localStorage.getItem(storageKey);
+    if (!raw) return null;
+    const data = JSON.parse(raw) as DelorainePreviewData;
+    if (!hasImportedPreviewData(data, requestedUrl)) return null;
     return data;
   } catch {
     return null;
