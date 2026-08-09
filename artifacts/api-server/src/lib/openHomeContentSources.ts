@@ -1,6 +1,7 @@
 import { createHash } from 'crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { CatteryWebsiteScrapeResult } from './catteryWebsiteScraper';
+import type { MediaImportDiagnostics, StoredImageAsset } from './persistScrapedImages';
 
 export type OpenHomeContentSourceType =
   | 'website'
@@ -199,7 +200,7 @@ export async function createContentSourceFromOnboardingDraft(
     stringFromPath(record, ['content', 'title']) ||
     sourceUrl;
 
-  return createContentSource(supabase, {
+  const source = await createContentSource(supabase, {
     catteryId: input.catteryId,
     sourceType: 'website',
     sourceUrl,
@@ -209,6 +210,18 @@ export async function createContentSourceFromOnboardingDraft(
     status: 'ready',
     actorId: input.actorId,
   });
+
+  const scrape = scrapeFromOnboardingDraft(input.draft, source, record, normalizedData, fallbackPayload);
+  if (scrape) {
+    await persistWebsiteSourceDerivatives(supabase, {
+      catteryId: input.catteryId,
+      sourceId: source.id,
+      scrape,
+      actorId: input.actorId,
+    });
+  }
+
+  return source;
 }
 
 const safeOnboardingContentSourceKeys = [
@@ -348,6 +361,7 @@ export async function updateContentSourceStatus(
 
 function normalizedDataFromScrape(scrape: CatteryWebsiteScrapeResult) {
   const importedAssets = importedImageAssets(scrape);
+  const mediaImport = mediaImportDiagnostics(scrape);
   return {
     sourceUrl: scrape.sourceUrl,
     sourceHost: scrape.sourceHost,
@@ -376,6 +390,14 @@ function normalizedDataFromScrape(scrape: CatteryWebsiteScrapeResult) {
       pagesFailed: scrape.crawl?.pagesFailed ?? 0,
       imagesFound: scrape.crawl?.imagesFound ?? scrape.images.length,
       imagesImported: importedAssets.length,
+      imagesCandidates: mediaImport?.imagesCandidates,
+      imagesDownloadAttempted: mediaImport?.imagesDownloadAttempted,
+      imagesDownloaded: mediaImport?.imagesDownloaded,
+      imagesUploadAttempted: mediaImport?.imagesUploadAttempted,
+      imagesStored: mediaImport?.imagesStored ?? importedAssets.length,
+      mediaRecordsCreated: importedAssets.length,
+      imagesFailed: mediaImport?.imagesFailed,
+      mediaImportStatus: mediaImport?.status,
       contentBlocks: scrape.siteContentLibrary?.blocks?.length ?? 0,
     },
   };
@@ -392,10 +414,17 @@ async function persistWebsiteSourceDerivatives(
 ) {
   const contentRows = contentLibraryRows(input.catteryId, input.sourceId, input.scrape);
   const mediaRows = mediaLibraryRows(input.catteryId, input.sourceId, input.scrape);
+  const mediaImport = mediaImportDiagnostics(input.scrape);
   const assetManifest = {
     importedImageAssets: importedImageAssets(input.scrape),
     imagesFound: input.scrape.crawl?.imagesFound ?? input.scrape.images.length,
     imagesImported: mediaRows.length,
+    mediaImport: mediaImport
+      ? {
+          ...mediaImport,
+          mediaRecordsCreated: mediaRows.length,
+        }
+      : undefined,
   };
 
   try {
@@ -499,33 +528,206 @@ function mediaLibraryRows(catteryId: string, sourceId: string, scrape: CatteryWe
       is_suite: category === 'accommodation',
       is_gallery: category === 'gallery' || index > 1,
       metadata: {
-        caption: metadata?.caption ?? null,
-        sourcePageUrl: metadata?.sourcePageUrl ?? scrape.sourceUrl,
+        caption: asset.caption ?? metadata?.caption ?? null,
+        sourcePageUrl: asset.sourcePageUrl ?? metadata?.sourcePageUrl ?? scrape.sourceUrl,
+        importSourceUrl: scrape.sourceUrl,
       },
       schema_version: 1,
-      storage_bucket: 'catstays-media',
-      storage_path: asset.path,
-      sha256: shaFromStoragePath(asset.path),
+      storage_bucket: asset.bucket ?? 'catstays-media',
+      storage_path: asset.storagePath ?? asset.path,
+      file_size_bytes: asset.fileSizeBytes ?? null,
+      sha256: asset.sha256 ?? shaFromStoragePath(asset.path),
       asset_role: index === 0 ? 'hero_candidate' : category,
-      source_page_url: metadata?.sourcePageUrl ?? scrape.sourceUrl,
+      source_page_url: asset.sourcePageUrl ?? metadata?.sourcePageUrl ?? scrape.sourceUrl,
       persisted_at: new Date().toISOString(),
       status: 'captured',
     };
   });
 }
 
-function importedImageAssets(scrape: CatteryWebsiteScrapeResult): Array<{
-  originalUrl: string;
-  storedUrl: string;
-  path: string;
-  contentType: string;
-}> {
+function importedImageAssets(scrape: CatteryWebsiteScrapeResult): StoredImageAsset[] {
   const assets = scrape.websiteSettings?.['importedImageAssets'];
   return Array.isArray(assets)
-    ? assets.filter((asset): asset is { originalUrl: string; storedUrl: string; path: string; contentType: string } =>
-        Boolean(asset && typeof asset.originalUrl === 'string' && typeof asset.storedUrl === 'string' && typeof asset.path === 'string'),
+    ? assets.filter((asset): asset is StoredImageAsset =>
+        Boolean(
+          asset &&
+            typeof asset.originalUrl === 'string' &&
+            typeof asset.storedUrl === 'string' &&
+            typeof asset.path === 'string',
+        ),
       )
     : [];
+}
+
+function mediaImportDiagnostics(scrape: CatteryWebsiteScrapeResult): MediaImportDiagnostics | null {
+  const diagnostics =
+    scrape.websiteSettings?.['mediaImport'] ??
+    (scrape as unknown as { mediaImport?: unknown }).mediaImport;
+  return diagnostics && typeof diagnostics === 'object' && !Array.isArray(diagnostics)
+    ? (diagnostics as MediaImportDiagnostics)
+    : null;
+}
+
+function scrapeFromOnboardingDraft(
+  draft: Record<string, unknown>,
+  source: ContentSourceRecord,
+  record: Record<string, unknown>,
+  normalizedData: Record<string, unknown>,
+  fallbackPayload: Record<string, unknown>,
+): CatteryWebsiteScrapeResult | null {
+  const importedAssets = importedAssetsFromDraft(record, draft);
+  const normalizedLibrary = jsonObject(normalizedData['siteContentLibrary']);
+  const fallbackLibrary = fallbackPayload['siteContentLibrary'] ?? fallbackPayload['contentLibrary'];
+  const library = normalizedLibrary['blocks'] !== undefined ? normalizedData['siteContentLibrary'] : fallbackLibrary;
+
+  if (!importedAssets.length && !library) return null;
+
+  const sourceRecord = jsonObject(record['source']);
+  const media = jsonObject(record['media']);
+  const content = jsonObject(record['content']);
+  const identity = jsonObject(record['identity']);
+  const contact = jsonObject(record['contact']);
+  const importReport = jsonObject(sourceRecord['importReport'] ?? fallbackPayload['importReport']);
+  const sourceUrl = source.source_url || stringValue(fallbackPayload['sourceUrl']);
+  const sourceHost =
+    stringValue(sourceRecord['host']) ||
+    stringValue(fallbackPayload['sourceHost']) ||
+    hostFromUrl(sourceUrl);
+  const title = stringValue(identity['businessName']) || source.source_name || sourceUrl;
+  const mediaImport = mediaImportFromDraft(record, draft, importedAssets.length);
+  const websiteSettings = {
+    ...fallbackPayload,
+    importedImageAssets: importedAssets,
+    mediaImport,
+    importReport,
+  };
+
+  return {
+    sourceUrl,
+    sourceHost,
+    title,
+    description: stringValue(content['description']),
+    heading: stringValue(content['heroHeading']) || source.source_name || '',
+    heroImage: stringValue(media['heroImage']),
+    logoImage: stringValue(fallbackPayload['logoImage']),
+    images: arrayOfStrings(media['images']),
+    galleryImages: arrayOfGalleryImages(media['galleryImages']),
+    phone: stringValue(contact['phone']),
+    email: stringValue(contact['email']),
+    address: stringValue(contact['address']),
+    city: stringValue(contact['city']),
+    country: '',
+    bookingUrl: '',
+    hours: stringValue(fallbackPayload['hours']),
+    socialLinks: {},
+    highlights: [],
+    rooms: [],
+    services: [],
+    faqs: [],
+    reviews: [],
+    owner: { title: '', text: '', image: '' },
+    commitment: { title: '', text: '', items: [] },
+    locationDetails: { heading: '', text: '', directions: '', virtualTourUrl: stringValue(fallbackPayload['virtualTourUrl']) },
+    virtualTourUrl: stringValue(fallbackPayload['virtualTourUrl']),
+    siteContentLibrary: siteContentLibraryFromValue(library, sourceUrl, sourceHost, title),
+    websiteSettings,
+    crawl: {
+      canonicalDomain: sourceHost,
+      pagesFound: numberValue(importReport['pagesFound'], 1),
+      pagesProcessed: numberValue(importReport['pagesProcessed'], 1),
+      pagesFailed: numberValue(importReport['pagesFailed'], 0),
+      imagesFound: numberValue(importReport['imagesFound'], importedAssets.length),
+      pages: [],
+      failedPages: [],
+    },
+    bodyText: '',
+    extractedFrom: { html: true, scripts: 0, apiServices: false },
+    demoCattery: { website_settings: websiteSettings },
+    demoRooms: [],
+  };
+}
+
+function siteContentLibraryFromValue(
+  value: unknown,
+  sourceUrl: string,
+  sourceHost: string,
+  businessName: string,
+): CatteryWebsiteScrapeResult['siteContentLibrary'] {
+  const library = jsonObject(value);
+  const blocks = Array.isArray(library['blocks'])
+    ? (library['blocks'] as CatteryWebsiteScrapeResult['siteContentLibrary']['blocks'])
+    : [];
+  return {
+    schemaVersion: 1,
+    sourceUrl: stringValue(library['sourceUrl']) || sourceUrl,
+    sourceHost: stringValue(library['sourceHost']) || sourceHost,
+    businessName: stringValue(library['businessName']) || businessName,
+    capturedAt: stringValue(library['capturedAt']) || new Date().toISOString(),
+    blocks,
+  };
+}
+
+function importedAssetsFromDraft(
+  record: Record<string, unknown>,
+  draft: Record<string, unknown>,
+): StoredImageAsset[] {
+  const source = jsonObject(record['source']);
+  const settings = jsonObject(draft['websiteSettings']);
+  const assets =
+    source['importedImageAssets'] ??
+    settings['importedImageAssets'] ??
+    draft['importedImageAssets'];
+  return Array.isArray(assets)
+    ? assets.filter((asset): asset is StoredImageAsset =>
+        Boolean(
+          asset &&
+            typeof asset.originalUrl === 'string' &&
+            typeof asset.storedUrl === 'string' &&
+            typeof asset.path === 'string',
+        ),
+      )
+    : [];
+}
+
+function mediaImportFromDraft(
+  record: Record<string, unknown>,
+  draft: Record<string, unknown>,
+  mediaRecordsCreated: number,
+) {
+  const source = jsonObject(record['source']);
+  const settings = jsonObject(draft['websiteSettings']);
+  const mediaImport = source['mediaImport'] ?? settings['mediaImport'] ?? draft['mediaImport'];
+  return mediaImport && typeof mediaImport === 'object' && !Array.isArray(mediaImport)
+    ? {
+        ...(mediaImport as Record<string, unknown>),
+        mediaRecordsCreated,
+      }
+    : null;
+}
+
+function arrayOfStrings(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+}
+
+function arrayOfGalleryImages(value: unknown): Array<{ url: string; caption: string }> {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is { url: string; caption?: string } =>
+      Boolean(item && typeof item === 'object' && typeof (item as Record<string, unknown>)['url'] === 'string'),
+    )
+    .map((item) => ({ url: item.url, caption: item.caption ?? '' }));
+}
+
+function numberValue(value: unknown, fallback: number) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function hostFromUrl(value: string) {
+  try {
+    return new URL(value).hostname;
+  } catch {
+    return '';
+  }
 }
 
 function pageImageMetadataByUrl(scrape: CatteryWebsiteScrapeResult) {

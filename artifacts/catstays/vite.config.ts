@@ -5,6 +5,10 @@ import path from "path";
 import type { IncomingMessage, ServerResponse } from "http";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 import { scrapeCatteryWebsite } from "../api-server/src/lib/catteryWebsiteScraper";
+import {
+  MediaImportConfigurationError,
+  persistScrapedImages,
+} from "../api-server/src/lib/persistScrapedImages";
 
 const rawPort = process.env.PORT;
 const port = Number(rawPort ?? 5173);
@@ -29,9 +33,20 @@ function catstaysWebsiteScraperPlugin(): Plugin {
         try {
           const body = await readJsonBody(req);
           const targetUrl = typeof body.url === "string" ? body.url : "";
-          const result = await scrapeCatteryWebsite(targetUrl);
+          const scraped = await scrapeCatteryWebsite(targetUrl);
+          const result = await persistScrapedImages(scraped, {
+            requireStorage: process.env.NODE_ENV === "development",
+          });
           sendJson(res, 200, result);
         } catch (error) {
+          if (error instanceof MediaImportConfigurationError) {
+            sendJson(res, 500, {
+              error:
+                "Website images were found, but CatStays media storage is not configured. Add SUPABASE_SERVICE_ROLE_KEY in Replit secrets before importing.",
+              mediaImport: error.diagnostics,
+            });
+            return;
+          }
           const message = error instanceof Error ? error.message : String(error);
           const status = message === "URL_REQUIRED" || message === "INVALID_URL" ? 400 : 422;
           sendJson(res, status, {

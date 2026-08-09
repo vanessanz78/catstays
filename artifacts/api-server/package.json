@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "PORT=${PORT:-8080} NODE_ENV=development tsx ./src/index.ts",
     "build": "tsx ./build.ts",
-    "test:content-sources": "tsx --test ./src/lib/openHomeContentSources.test.ts ./src/lib/catteryWebsiteScraper.test.ts",
+    "test:content-sources": "tsx --test ./src/lib/openHomeContentSources.test.ts ./src/lib/catteryWebsiteScraper.test.ts ./src/lib/persistScrapedImages.test.ts",
     "test:scraper": "tsx --test ./src/lib/catteryWebsiteScraper.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

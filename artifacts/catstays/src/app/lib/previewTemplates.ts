@@ -34,12 +34,22 @@ export interface PreviewImportRecord {
     importVersion?: string;
     persistedAt?: string;
     extractedFrom?: ImportedCatteryScrape['extractedFrom'];
+    importedImageAssets?: Array<Record<string, any>>;
+    mediaImport?: Record<string, any>;
     importReport?: {
       pagesFound?: number;
       pagesProcessed?: number;
       pagesFailed?: number;
       imagesFound?: number;
+      imagesCandidates?: number;
+      imagesDownloadAttempted?: number;
+      imagesDownloaded?: number;
+      imagesUploadAttempted?: number;
+      imagesStored?: number;
       imagesImported?: number;
+      mediaRecordsCreated?: number;
+      imagesFailed?: number;
+      mediaImportStatus?: string;
       contentBlocks?: number;
       blocksMapped?: number;
       blocksRendered?: number;
@@ -290,6 +300,10 @@ export function buildPreviewImportRecord(scrape: ImportedCatteryScrape): Preview
   const sourceHost = migratedScrape.sourceHost || hostFromUrl(sourceUrl);
   const businessName = normalizedPreviewData.businessName;
   const coverage = normalizedPreviewData.sourceCoverageReport;
+  const mediaImport = migratedScrape.mediaImport ?? migratedScrape.websiteSettings?.mediaImport;
+  const importedImageAssets = Array.isArray(migratedScrape.websiteSettings?.importedImageAssets)
+    ? migratedScrape.websiteSettings.importedImageAssets
+    : [];
 
   return {
     id: `${slugify(sourceHost || businessName)}-${Date.now()}`,
@@ -304,13 +318,23 @@ export function buildPreviewImportRecord(scrape: ImportedCatteryScrape): Preview
       importVersion: migratedScrape.importVersion,
       persistedAt: migratedScrape.persistedAt,
       extractedFrom: migratedScrape.extractedFrom,
+      importedImageAssets,
+      mediaImport,
       importReport: {
         ...(migratedScrape.websiteSettings?.importReport ?? {}),
         pagesFound: migratedScrape.crawl?.pagesFound ?? migratedScrape.websiteSettings?.importReport?.pagesFound,
         pagesProcessed: migratedScrape.crawl?.pagesProcessed ?? migratedScrape.websiteSettings?.importReport?.pagesProcessed,
         pagesFailed: migratedScrape.crawl?.pagesFailed ?? migratedScrape.websiteSettings?.importReport?.pagesFailed,
         imagesFound: migratedScrape.crawl?.imagesFound ?? migratedScrape.websiteSettings?.importReport?.imagesFound,
-        imagesImported: coverage?.imagesImported,
+        imagesCandidates: mediaImport?.imagesCandidates ?? migratedScrape.websiteSettings?.importReport?.imagesCandidates,
+        imagesDownloadAttempted: mediaImport?.imagesDownloadAttempted ?? migratedScrape.websiteSettings?.importReport?.imagesDownloadAttempted,
+        imagesDownloaded: mediaImport?.imagesDownloaded ?? migratedScrape.websiteSettings?.importReport?.imagesDownloaded,
+        imagesUploadAttempted: mediaImport?.imagesUploadAttempted ?? migratedScrape.websiteSettings?.importReport?.imagesUploadAttempted,
+        imagesStored: mediaImport?.imagesStored ?? importedImageAssets.length ?? migratedScrape.websiteSettings?.importReport?.imagesStored,
+        imagesImported: mediaImport?.imagesStored ?? coverage?.imagesImported,
+        mediaRecordsCreated: mediaImport?.mediaRecordsCreated ?? migratedScrape.websiteSettings?.importReport?.mediaRecordsCreated,
+        imagesFailed: mediaImport?.imagesFailed ?? migratedScrape.websiteSettings?.importReport?.imagesFailed,
+        mediaImportStatus: mediaImport?.status ?? migratedScrape.websiteSettings?.importReport?.mediaImportStatus,
         contentBlocks: migratedScrape.siteContentLibrary?.blocks?.length ?? migratedScrape.websiteSettings?.importReport?.contentBlocks,
         blocksMapped: coverage?.blocksMapped,
         blocksRendered: coverage?.blocksRendered,

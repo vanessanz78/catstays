@@ -176,6 +176,7 @@ export interface ImportedCatteryScrape {
   contentHash?: string;
   importVersion?: string;
   persistedAt?: string;
+  mediaImport?: Record<string, any>;
   sourceUrl?: string;
   sourceHost?: string;
   title?: string;

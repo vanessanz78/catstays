@@ -683,6 +683,12 @@ export function OnboardingWizard() {
       }
 
       const previewRecord = buildPreviewImportRecord(payload);
+      const importReport = previewRecord.source.importReport ?? {};
+      const pagesProcessed = importReport.pagesProcessed ?? 1;
+      const imagesFound = importReport.imagesFound ?? 0;
+      const imagesStored = importReport.imagesStored ?? importReport.imagesImported ?? 0;
+      const imagesFailed = importReport.imagesFailed ?? 0;
+      const mediaStorageFailed = imagesFound > 0 && imagesStored === 0;
       const importedData: Record<string, any> = {
         ...dataFromPreviewRecord(previewRecord, 'original', {
           ...data,
@@ -691,8 +697,10 @@ export function OnboardingWizard() {
         isImporting: false,
         importComplete: true,
         importError: '',
-        importReport: previewRecord.source.importReport,
-        importStatusText: `Found ${previewRecord.source.importReport?.pagesProcessed ?? 1} page${(previewRecord.source.importReport?.pagesProcessed ?? 1) === 1 ? '' : 's'} and ${previewRecord.source.importReport?.imagesFound ?? 0} image${(previewRecord.source.importReport?.imagesFound ?? 0) === 1 ? '' : 's'}.`,
+        importReport,
+        importStatusText: mediaStorageFailed
+          ? `Found ${pagesProcessed} page${pagesProcessed === 1 ? '' : 's'} and ${imagesFound} source image${imagesFound === 1 ? '' : 's'}, but no images were saved to CatStays media storage.`
+          : `Found ${pagesProcessed} page${pagesProcessed === 1 ? '' : 's'}, ${imagesFound} source image${imagesFound === 1 ? '' : 's'}, and saved ${imagesStored} to CatStays media storage${imagesFailed ? ` (${imagesFailed} failed)` : ''}.`,
       };
 
       setData(importedData);
@@ -1824,14 +1832,24 @@ export function OnboardingWizard() {
                     {data.importComplete && (
                       <div className="bg-[#F8F7F5] border border-[#C46A3A]/30 rounded-2xl p-6 mt-4">
                         <div className="flex items-center gap-3 mb-3">
-                          <Check className="w-5 h-5 text-[#C46A3A]" />
-                          <span className="font-semibold text-[#0A1128]">Import Successful!</span>
+                          {(data.importReport?.imagesFound ?? 0) > 0 &&
+                          (data.importReport?.imagesStored ?? data.importReport?.imagesImported ?? 0) === 0 ? (
+                            <AlertCircle className="w-5 h-5 text-[#B45309]" />
+                          ) : (
+                            <Check className="w-5 h-5 text-[#C46A3A]" />
+                          )}
+                          <span className="font-semibold text-[#0A1128]">
+                            {(data.importReport?.imagesFound ?? 0) > 0 &&
+                            (data.importReport?.imagesStored ?? data.importReport?.imagesImported ?? 0) === 0
+                              ? 'Content Imported, Media Needs Attention'
+                              : 'Import Successful!'}
+                          </span>
                         </div>
                         <p className="text-sm text-[#0A1128]/80 mb-3">
                           {data.importStatusText || "We've extracted your content and images. Click Continue to customize your website."}
                         </p>
                         {data.importReport && (
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-[#0A1128]/70 mb-4">
+                          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs text-[#0A1128]/70 mb-4">
                             <div className="rounded-lg bg-white/70 border border-[#0A1128]/10 px-3 py-2">
                               <div className="font-semibold text-[#0A1128]">{data.importReport.pagesProcessed ?? 1}</div>
                               <div>pages scanned</div>
@@ -1841,12 +1859,16 @@ export function OnboardingWizard() {
                               <div>images found</div>
                             </div>
                             <div className="rounded-lg bg-white/70 border border-[#0A1128]/10 px-3 py-2">
+                              <div className="font-semibold text-[#0A1128]">{data.importReport.imagesStored ?? data.importReport.imagesImported ?? 0}</div>
+                              <div>images saved</div>
+                            </div>
+                            <div className="rounded-lg bg-white/70 border border-[#0A1128]/10 px-3 py-2">
                               <div className="font-semibold text-[#0A1128]">{data.importReport.contentBlocks ?? 0}</div>
                               <div>content blocks</div>
                             </div>
                             <div className="rounded-lg bg-white/70 border border-[#0A1128]/10 px-3 py-2">
-                              <div className="font-semibold text-[#0A1128]">{data.importReport.pagesFailed ?? 0}</div>
-                              <div>page issues</div>
+                              <div className="font-semibold text-[#0A1128]">{data.importReport.imagesFailed ?? data.importReport.pagesFailed ?? 0}</div>
+                              <div>media issues</div>
                             </div>
                           </div>
                         )}
