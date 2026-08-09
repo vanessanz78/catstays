@@ -77,15 +77,27 @@ router.post('/website/scrape', async (req, res) => {
     if (persistPreview !== false) {
       const serviceClient = createServiceClient();
       if (!serviceClient) {
-        res.status(503).json({ error: 'Temporary preview storage is not configured.' });
+        console.warn('[website/scrape] Temporary preview storage is not configured; returning scrape without preview persistence.');
+        res.json({
+          ...result,
+          previewPersistenceWarning: 'Temporary preview storage is not configured.',
+        });
         return;
       }
 
-      const preview = await saveTemporaryPreviewSource(serviceClient, {
-        scrape: result,
-        previewToken: typeof previewSourceToken === 'string' ? previewSourceToken : undefined,
-      });
-      res.json(attachTemporaryPreviewMetadata(result, preview.record, preview.previewToken));
+      try {
+        const preview = await saveTemporaryPreviewSource(serviceClient, {
+          scrape: result,
+          previewToken: typeof previewSourceToken === 'string' ? previewSourceToken : undefined,
+        });
+        res.json(attachTemporaryPreviewMetadata(result, preview.record, preview.previewToken));
+      } catch (previewError) {
+        console.warn('[website/scrape] Temporary preview source could not be saved; returning scrape without preview persistence.', previewError);
+        res.json({
+          ...result,
+          previewPersistenceWarning: (previewError as Error).message || 'Temporary preview source could not be saved.',
+        });
+      }
       return;
     }
 
