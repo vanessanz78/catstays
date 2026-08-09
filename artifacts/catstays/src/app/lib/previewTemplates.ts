@@ -10,6 +10,7 @@ import {
 import {
   buildWebsiteUnderstandingModel,
   isStockImage,
+  sourceImageIdentityKey,
   type WebsiteUnderstandingModel,
   type WebsiteUnderstandingSection,
 } from './sourceUnderstanding';
@@ -41,6 +42,13 @@ export interface PreviewImportRecord {
     previewSourceId?: string;
     previewSourceToken?: string;
     previewSourceExpiresAt?: string;
+    importedImageAssets?: Array<{
+      originalUrl?: string;
+      storedUrl?: string;
+      path?: string;
+      contentType?: string;
+      storageBucket?: string;
+    }>;
     extractedFrom?: ImportedCatteryScrape['extractedFrom'];
     sourceArchive?: ImportedCatteryScrape['sourceArchive'];
   };
@@ -288,6 +296,9 @@ export function buildPreviewImportRecord(scrape: ImportedCatteryScrape): Preview
       previewSourceId: migratedScrape.previewSourceId,
       previewSourceToken: migratedScrape.previewSourceToken,
       previewSourceExpiresAt: migratedScrape.previewSourceExpiresAt,
+      importedImageAssets: Array.isArray((migratedScrape as any).websiteSettings?.importedImageAssets)
+        ? (migratedScrape as any).websiteSettings.importedImageAssets
+        : [],
       extractedFrom: migratedScrape.extractedFrom,
       sourceArchive: migratedScrape.sourceArchive,
     },
@@ -441,22 +452,22 @@ function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<s
   const groomingSection = bestSectionByRole(model, 'grooming');
   const pricingSection = bestSectionByRole(model, 'pricing');
   const contactSection = sectionByRole(model, 'contact') ?? sectionByRole(model, 'location');
-  const galleryImages = model.media.images;
-  const heroImage = imageForRole(model, ['hero', 'accommodation', 'gallery']) || galleryImages[0]?.url || '';
-  const aboutImage = imageForSection(aboutSection) || imageAt(galleryImages, 1);
-  const facilityImage = imageForSection(facilitiesSection) || imageAt(galleryImages, 2);
+  const imagePlan = createSourceImagePlan(model.media.images);
+  const heroImage = imagePlan.takeForRoles(['hero', 'accommodation', 'gallery']);
+  const aboutImage = imagePlan.takeFromSection(aboutSection);
+  const facilityImage = imagePlan.takeFromSection(facilitiesSection);
   const sourceServices = [accommodationSection, healthSection, groomingSection]
     .filter((section): section is WebsiteUnderstandingSection => Boolean(section))
-    .map((section, index) => ({
-      image: imageForSection(section) || imageAt(galleryImages, index + 2),
-      title: sectionTitle(section, ['accommodation', 'health-care', 'grooming'][index]),
+    .map((section) => ({
+      image: imagePlan.takeFromSection(section),
+      title: sectionTitle(section, 'Source section'),
       text: section.body,
       price: section.items.find((item) => item.price)?.price || '',
     }))
     .filter((service) => service.title || service.text || service.image);
   const pricingSuites = pricingSection?.items.length
-    ? pricingSection.items.map((item, index) => ({
-        image: imageAt(galleryImages, index + 3),
+    ? pricingSection.items.map((item) => ({
+        image: imagePlan.takeFromSection(pricingSection),
         title: item.title,
         text: item.text || pricingSection.body,
         price: item.price || '',
@@ -464,8 +475,8 @@ function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<s
       }))
     : [];
   const accommodationSuites = accommodationSection?.items.length
-    ? accommodationSection.items.map((item, index) => ({
-        image: item.image || imageAt(galleryImages, index + 3),
+    ? accommodationSection.items.map((item) => ({
+        image: item.image || imagePlan.takeFromSection(accommodationSection),
         title: item.title,
         text: item.text || accommodationSection.body,
         price: item.price || '',
@@ -480,7 +491,7 @@ function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<s
     title: sectionTitle(section, 'Source section'),
     text: excerpt(section.body, 220),
   })).filter((feature) => feature.title || feature.text);
-  const gallery = galleryImages.slice(0, 18).map((image, index) => ({
+  const gallery = imagePlan.remaining(18).map((image, index) => ({
     image: image.url,
     caption: image.caption || image.nearbyHeading || `${businessName} photo ${index + 1}`,
   }));
@@ -541,10 +552,10 @@ function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<s
     },
     gallery,
     suites,
-    testimonials: model.testimonials.map((testimonial, index) => ({
+    testimonials: model.testimonials.map((testimonial) => ({
       quote: testimonial.text,
       author: testimonial.name || 'Source testimonial',
-      image: imageAt(galleryImages, index + 4),
+      image: imagePlan.takeNext(),
       location: testimonial.location || '',
     })),
     faqs: model.faq.map((faq) => ({
@@ -554,7 +565,7 @@ function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<s
     owner: {
       title: sectionTitle(sectionByRole(model, 'story'), `About ${businessName}`),
       text: excerpt(sectionByRole(model, 'story')?.body || aboutSection?.body, 520),
-      image: imageForSection(sectionByRole(model, 'story')) || aboutImage,
+      image: imagePlan.takeFromSection(sectionByRole(model, 'story')) || aboutImage,
     },
     commitment: {
       title: 'Source commitments',
@@ -1203,16 +1214,58 @@ function bestSectionByRole(model: WebsiteUnderstandingModel, role: WebsiteUnders
   })[0];
 }
 
-function imageForRole(model: WebsiteUnderstandingModel, roles: Array<WebsiteUnderstandingSection['semanticRole']>) {
-  return model.media.images.find((image) => roles.includes(image.semanticRole as WebsiteUnderstandingSection['semanticRole']))?.url || '';
+function createSourceImagePlan(images: WebsiteUnderstandingModel['media']['images']) {
+  const orderedImages = uniqueSourceImages(images.filter((image) => !isStockImage(image.url)));
+  const imageByUrl = new Map(orderedImages.map((image) => [normalizedImageKey(image.url), image]));
+  const imageByIdentity = new Map(orderedImages.map((image) => [sourceImageIdentityKey(image.url, image.originalUrl), image]));
+  const used = new Set<string>();
+
+  const take = (candidates: WebsiteUnderstandingModel['media']['images'] = []) => {
+    for (const candidate of candidates) {
+      const candidateKey = sourceImageIdentityKey(candidate.url, candidate.originalUrl);
+      const plannedImage = imageByUrl.get(normalizedImageKey(candidate.url)) || imageByIdentity.get(candidateKey) || candidate;
+      const key = sourceImageIdentityKey(plannedImage.url, plannedImage.originalUrl);
+      if (used.has(key) || isStockImage(plannedImage.url)) continue;
+      used.add(key);
+      return plannedImage.url;
+    }
+    for (const image of orderedImages) {
+      const key = sourceImageIdentityKey(image.url, image.originalUrl);
+      if (used.has(key)) continue;
+      used.add(key);
+      return image.url;
+    }
+    return '';
+  };
+
+  return {
+    takeForRoles(roles: Array<WebsiteUnderstandingSection['semanticRole']>) {
+      return take(orderedImages.filter((image) => roles.includes(image.semanticRole as WebsiteUnderstandingSection['semanticRole'])));
+    },
+    takeFromSection(section: WebsiteUnderstandingSection | undefined) {
+      return take(section?.images ?? []);
+    },
+    takeNext() {
+      return take();
+    },
+    remaining(limit: number) {
+      const rows = orderedImages.filter((image) => !used.has(sourceImageIdentityKey(image.url, image.originalUrl))).slice(0, limit);
+      for (const image of rows) used.add(sourceImageIdentityKey(image.url, image.originalUrl));
+      return rows;
+    },
+  };
 }
 
-function imageForSection(section: WebsiteUnderstandingSection | undefined) {
-  return section?.images.find((image) => !isStockImage(image.url))?.url || '';
-}
-
-function imageAt(images: WebsiteUnderstandingModel['media']['images'], index: number) {
-  return images[index]?.url || '';
+function uniqueSourceImages(images: WebsiteUnderstandingModel['media']['images']) {
+  const seen = new Set<string>();
+  const result: WebsiteUnderstandingModel['media']['images'] = [];
+  for (const image of images) {
+    const key = sourceImageIdentityKey(image.url, image.originalUrl);
+    if (!image.url || seen.has(key)) continue;
+    seen.add(key);
+    result.push(image);
+  }
+  return result;
 }
 
 function sectionTitle(section: WebsiteUnderstandingSection | undefined, fallback: string) {

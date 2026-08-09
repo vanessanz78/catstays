@@ -176,61 +176,6 @@ function TemplateImage({
   );
 }
 
-function SourceTruthPanel({
-  content,
-  template,
-}: {
-  content: ReturnType<typeof buildCatstaysTemplateContent>;
-  template: string;
-}) {
-  if (!import.meta.env.DEV || !content.sourceTruth) return null;
-  const truth = content.sourceTruth;
-  const renderedImages = [
-    content.hero.image,
-    content.about.image,
-    content.facilities.image,
-    ...content.gallery.map((image) => image.image),
-    ...content.suites.map((suite) => suite.image),
-    ...content.services.map((service) => service.image),
-  ].filter(Boolean);
-
-  return (
-    <aside className="fixed bottom-4 left-4 z-[80] max-h-[70vh] w-[340px] overflow-auto rounded-md border border-[#C46A3A]/40 bg-[#0A1128]/95 p-4 text-left font-sans text-xs leading-5 text-white shadow-2xl">
-      <p className="mb-2 font-bold uppercase tracking-[0.14em] text-[#F5C08A]">Source Truth</p>
-      <dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1">
-        <dt>Preview/source ID</dt>
-        <dd className="text-right text-white/80">{truth.diagnostics.previewSourceId || truth.diagnostics.contentSourceId || 'temporary'}</dd>
-        <dt>Source domain</dt>
-        <dd className="text-right text-white/80">{truth.identity.sourceHost}</dd>
-        <dt>Pages persisted</dt>
-        <dd className="text-right text-white/80">{truth.diagnostics.pagesPersisted}</dd>
-        <dt>Source sections</dt>
-        <dd className="text-right text-white/80">{truth.diagnostics.sourceSections}</dd>
-        <dt>Content blocks</dt>
-        <dd className="text-right text-white/80">{truth.diagnostics.contentBlocks}</dd>
-        <dt>Imported images</dt>
-        <dd className="text-right text-white/80">{truth.diagnostics.importedImages}</dd>
-        <dt>Images planned</dt>
-        <dd className="text-right text-white/80">{renderedImages.length}</dd>
-        <dt>Stock images rendered</dt>
-        <dd className="text-right text-white/80">{truth.media.stockImages.length}</dd>
-        <dt>Template</dt>
-        <dd className="text-right text-white/80">{template}</dd>
-      </dl>
-      <div className="mt-3 space-y-2 border-t border-white/15 pt-3">
-        {truth.sections.slice(0, 10).map((section) => (
-          <div key={section.id}>
-            <p className="font-semibold text-white">{section.heading || section.semanticRole}</p>
-            <p className="text-white/65">
-              {section.semanticRole} · page {section.sourceOrder + 1} · images {section.images.length}
-            </p>
-          </div>
-        ))}
-      </div>
-    </aside>
-  );
-}
-
 function TemplateHeader({
   content,
   dark = false,
@@ -298,7 +243,6 @@ function FocusTemplate({
   return (
     <div data-catstays-template-root data-catstays-preview-device={previewDevice} className="catstays-template bg-[#f8f5ef] text-[#222]" style={templateRootStyle(content)}>
       <CatstaysPreviewDeviceStyles />
-      <SourceTruthPanel content={content} template="Focus" />
       <TemplateHeader content={content} onPreviewAnchorClick={onPreviewAnchorClick} />
       <PreviewBookingNotice kind={previewNoticeKind} onDismiss={onDismissPreviewNotice} />
       <main>
@@ -398,7 +342,6 @@ function EditorialTemplate({
   return (
     <div data-catstays-template-root data-catstays-preview-device={previewDevice} className="catstays-template bg-[#f8f5ef] text-[#222]" style={templateRootStyle(content)}>
       <CatstaysPreviewDeviceStyles />
-      <SourceTruthPanel content={content} template="Editorial" />
       <TemplateHeader content={content} onPreviewAnchorClick={onPreviewAnchorClick} />
       <PreviewBookingNotice kind={previewNoticeKind} onDismiss={onDismissPreviewNotice} />
       <main>
@@ -470,7 +413,6 @@ function ShowcaseTemplate({
   return (
     <div data-catstays-template-root data-catstays-preview-device={previewDevice} className="catstays-template bg-[#f8f6f1] text-[#222]" style={templateRootStyle(content)}>
       <CatstaysPreviewDeviceStyles />
-      <SourceTruthPanel content={content} template="Showcase" />
       <TemplateHeader content={content} dark onPreviewAnchorClick={onPreviewAnchorClick} />
       <PreviewBookingNotice kind={previewNoticeKind} onDismiss={onDismissPreviewNotice} />
       <main>

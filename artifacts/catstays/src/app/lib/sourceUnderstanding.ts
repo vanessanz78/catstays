@@ -264,17 +264,27 @@ function collectSourceImages(input: {
   data: AnyRecord;
   contentLibrary?: CatterySiteContentLibrary;
 }): SourceTruthImage[] {
-  const images: SourceTruthImage[] = [];
+  const imagesByIdentity = new Map<string, SourceTruthImage>();
+  const originalByStored = importedOriginalUrlMap(input.record, input.normalized, input.data);
   const add = (url: unknown, meta: Partial<SourceTruthImage> = {}) => {
     const cleanUrl = stringFrom(url);
     if (!cleanUrl || !isUsableImportedImage(cleanUrl)) return;
-    if (images.some((image) => normalizedImageKey(image.url) === normalizedImageKey(cleanUrl))) return;
-    images.push({
+    const originalUrl = stringFrom(meta.originalUrl, originalByStored.get(normalizedImageKey(cleanUrl)), cleanUrl);
+    const candidate = {
       url: cleanUrl,
-      sourceOrder: images.length,
+      originalUrl: originalUrl === cleanUrl ? undefined : originalUrl,
+      sourceOrder: imagesByIdentity.size,
       semanticRole: 'media',
       ...meta,
-    });
+    } satisfies SourceTruthImage;
+    const identity = sourceImageIdentityKey(candidate.url, candidate.originalUrl);
+    const existing = imagesByIdentity.get(identity);
+    if (!existing || imageQualityScore(candidate) > imageQualityScore(existing)) {
+      imagesByIdentity.set(identity, {
+        ...candidate,
+        sourceOrder: existing?.sourceOrder ?? candidate.sourceOrder,
+      });
+    }
   };
 
   for (const section of input.sections) {
@@ -302,7 +312,26 @@ function collectSourceImages(input: {
     semanticRole: 'gallery',
   }));
 
-  return images.filter((image) => !isStockImage(image.url));
+  return Array.from(imagesByIdentity.values())
+    .filter((image) => !isStockImage(image.url))
+    .sort((a, b) => a.sourceOrder - b.sourceOrder);
+}
+
+function importedOriginalUrlMap(...sources: Array<AnyRecord | undefined>) {
+  const map = new Map<string, string>();
+  for (const source of sources) {
+    for (const asset of [
+      ...arrayFrom(source?.source?.importedImageAssets),
+      ...arrayFrom(source?.assetManifest?.importedImageAssets),
+      ...arrayFrom(source?.websiteSettings?.importedImageAssets),
+    ]) {
+      const record = asset as AnyRecord;
+      const storedUrl = stringFrom(record.storedUrl);
+      const originalUrl = stringFrom(record.originalUrl);
+      if (storedUrl && originalUrl) map.set(normalizedImageKey(storedUrl), originalUrl);
+    }
+  }
+  return map;
 }
 
 function contactFromEvidence(data: AnyRecord, normalized: AnyRecord, record: AnyRecord | undefined, sections: WebsiteUnderstandingSection[], blocks: AnyRecord[]) {
@@ -559,6 +588,41 @@ function businessNameFromHost(host: string) {
 
 function normalizedImageKey(image: string) {
   return image.split('?')[0].trim().toLowerCase();
+}
+
+export function sourceImageIdentityKey(url: string, originalUrl?: string) {
+  const source = safelyDecodeUrlPath((originalUrl || url).split('?')[0].toLowerCase());
+  const wixMedia = source.match(/static\.wixstatic\.com\/media\/([^/]+)/i)?.[1];
+  if (wixMedia) return `wix:${wixMedia.replace(/~mv2.*$/i, '').replace(/\.(?:jpe?g|png|webp|avif|gif)$/i, '')}`;
+
+  const wixTransform = source.match(/\/media\/([^/]+)\/v1\//i)?.[1];
+  if (wixTransform) return `wix:${wixTransform.replace(/~mv2.*$/i, '').replace(/\.(?:jpe?g|png|webp|avif|gif)$/i, '')}`;
+
+  const storagePath = source.match(/\/storage\/v1\/object\/public\/catstays-media\/(.+)$/i)?.[1];
+  if (storagePath) return `storage:${storagePath}`;
+
+  return source
+    .replace(/\/v1\/(?:fill|fit|crop|resize)\/.*$/i, '')
+    .replace(/(?:[?&](?:w|h|width|height|fit|crop|quality|q)=[^&]+)/gi, '')
+    .replace(/\/+$/, '');
+}
+
+function imageQualityScore(image: SourceTruthImage) {
+  const source = image.originalUrl || image.url;
+  const dimensions = [...source.matchAll(/[/?&,](?:w|width)_?=?([0-9]{2,5})|[/?&,](?:h|height)_?=?([0-9]{2,5})/gi)]
+    .map((match) => Number(match[1] || match[2]))
+    .filter((value) => Number.isFinite(value));
+  const dimensionScore = dimensions.reduce((sum, value) => sum + value, 0);
+  return dimensionScore + (isCatstaysStorageUrl(image.url) ? 100000 : 0) + (image.caption ? 500 : 0);
+}
+
+function isCatstaysStorageUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return /\.supabase\.co$/i.test(url.hostname) && /\/storage\/v1\/object\/public\/catstays-media\//i.test(url.pathname);
+  } catch {
+    return false;
+  }
 }
 
 function safelyDecodeUrlPath(value: string) {
