@@ -27,6 +27,7 @@ import {
 } from '../../lib/previewTemplates';
 import { sourceRebuildHtmlFromData } from '../../lib/sourceRebuildPreview';
 import { normalizeWebsiteImportUrl } from '../../lib/websiteImportUrl';
+import { supabase } from '@/utils/supabase/client';
 
 type DemoMode = 'website' | 'dashboard' | 'client';
 type DeviceMode = 'mobile' | 'tablet' | 'desktop';
@@ -96,6 +97,7 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
   const [previewMode, setPreviewMode] = useState<DemoMode>(initialMode);
   const [hoveredMode, setHoveredMode] = useState<DemoMode | null>(null);
   const [deviceType, setDeviceTypeState] = useState<DeviceMode>('desktop');
+  const [importError, setImportError] = useState('');
 
   useEffect(() => {
     setPreviewMode(initialMode);
@@ -147,10 +149,11 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
 
     async function loadImportedWebsite() {
       try {
+        const request = await scrapeRequestForUrl(requestedImportUrl);
         const response = await fetch('/api/website/scrape', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: requestedImportUrl }),
+          headers: request.headers,
+          body: JSON.stringify(request.body),
         });
         const payload = await response.json();
         if (!response.ok) {
@@ -158,9 +161,18 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
         }
         if (cancelled) return;
         const importedPreview = previewDataForScrape(migrateDeloraineAssetsInValue(payload as ImportedCatteryScrape));
+        setImportError('');
         setPreviewData(dataForTemplate(importedPreview, selectedTemplateRef.current));
-      } catch {
+      } catch (error) {
         if (cancelled) return;
+        setImportError((error as Error).message || 'Import failed');
+        if (!isDeloraineRequest(requestedImportUrl)) {
+          setPreviewData((current) => {
+            if (hasImportedPreviewData(current, requestedImportUrl)) return current;
+            return current;
+          });
+          return;
+        }
         const fallbackScrape = isDeloraineRequest(requestedImportUrl)
           ? fallbackDeloraineScrape
           : buildFallbackScrapeForUrl(requestedImportUrl);
@@ -269,6 +281,11 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
           selectedTemplate={selectedTemplate}
           onSelectTemplate={selectTemplate}
         />
+      )}
+      {importError && !isDeloraineRequest(requestedImportUrl) && (
+        <div className="border-b border-[#C46A3A]/30 bg-[#fff7ed] px-5 py-3 text-sm font-semibold text-[#8A3F20] sm:px-8 lg:px-10">
+          Imported preview could not refresh from the source site. Keeping the last imported preview instead of replacing it with generic fallback content.
+        </div>
       )}
 
       <main className={previewMode === 'website' && deviceType === 'desktop' ? 'w-full p-0' : 'mx-auto w-full px-4 py-4 sm:px-6 lg:px-8'}>
@@ -454,15 +471,16 @@ function readRequestedImportUrl(): string {
   const sourceParam = new URLSearchParams(window.location.search).get('source');
   const sourceIntent = window.sessionStorage.getItem(PREVIEW_SOURCE_INTENT_STORAGE_KEY);
   const explicitPreviewSource = sourceIntent === 'form-submit';
+  const storedPreviewUrl =
+    window.sessionStorage.getItem(PREVIEW_URL_STORAGE_KEY) ||
+    window.localStorage.getItem(PREVIEW_URL_STORAGE_KEY) ||
+    window.sessionStorage.getItem(IMPORT_URL_STORAGE_KEY) ||
+    window.localStorage.getItem(IMPORT_URL_STORAGE_KEY) ||
+    '';
   const requestedUrl = normalizeWebsiteImportUrl(
-    explicitPreviewSource
-      ? window.sessionStorage.getItem(PREVIEW_URL_STORAGE_KEY) ||
-        window.localStorage.getItem(PREVIEW_URL_STORAGE_KEY) ||
-        window.sessionStorage.getItem(IMPORT_URL_STORAGE_KEY) ||
-        window.localStorage.getItem(IMPORT_URL_STORAGE_KEY) ||
-        sourceParam ||
-        DELORAINE_SOURCE_URL
-      : DELORAINE_SOURCE_URL,
+    sourceParam ||
+      (explicitPreviewSource ? storedPreviewUrl : nonDeloraineUrl(storedPreviewUrl)) ||
+      DELORAINE_SOURCE_URL,
     DELORAINE_SOURCE_URL,
   );
 
@@ -472,12 +490,86 @@ function readRequestedImportUrl(): string {
 }
 
 function readInitialPreviewData(requestedUrl: string): DelorainePreviewData {
+  const storedPreview = readStoredPreviewData(requestedUrl);
+  if (storedPreview) return storedPreview;
   if (isDeloraineRequest(requestedUrl)) return previewDataForScrape(fallbackDeloraineScrape);
   return previewDataForScrape(buildFallbackScrapeForUrl(requestedUrl));
 }
 
 function isDeloraineRequest(requestedUrl: string): boolean {
   return /delorainecattery\.com/i.test(requestedUrl);
+}
+
+function nonDeloraineUrl(value: string): string {
+  return value && !isDeloraineRequest(value) ? value : '';
+}
+
+async function scrapeRequestForUrl(url: string): Promise<{
+  headers: Record<string, string>;
+  body: Record<string, unknown>;
+}> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const accessToken = sessionData.session?.access_token;
+  const catteryId = accessToken ? readStoredCatteryId() : '';
+  return {
+    headers: {
+      'Content-Type': 'application/json',
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
+    body: {
+      url,
+      ...(catteryId ? { catteryId } : {}),
+    },
+  };
+}
+
+function readStoredCatteryId(): string {
+  const accountId = stringFromStoredJson('catstays_account', ['catteryId']);
+  if (accountId) return accountId;
+  return stringFromStoredJson('catstays_onboarding', ['data', 'provisionedCatteryId']);
+}
+
+function readStoredPreviewData(requestedUrl: string): DelorainePreviewData | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem('catstays_onboarding');
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { data?: Record<string, unknown> };
+    const data = parsed.data as unknown as DelorainePreviewData | undefined;
+    if (!data || !hasImportedPreviewData(data, requestedUrl)) return null;
+    return data;
+  } catch {
+    return null;
+  }
+}
+
+function hasImportedPreviewData(data: Record<string, any> | null | undefined, requestedUrl: string): boolean {
+  if (!data) return false;
+  const dataUrl = data.importSourceUrl || data.sourceUrl || data.websiteUrl || data.previewImportRecord?.source?.url || '';
+  if (!dataUrl || normalizeWebsiteImportUrl(dataUrl, '').replace(/\/$/, '') !== normalizeWebsiteImportUrl(requestedUrl, '').replace(/\/$/, '')) return false;
+  const serialized = JSON.stringify([
+    data.previewImportRecord?.media,
+    data.galleryData,
+    data.sourceArchive,
+    data.siteContentLibrary,
+  ]);
+  return /static\.wixstatic\.com|sourceArchive|siteContentLibrary|galleryImages/i.test(serialized) && !/images\.unsplash\.com/i.test(serialized);
+}
+
+function stringFromStoredJson(storageKey: string, path: string[]): string {
+  if (typeof window === 'undefined') return '';
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    if (!raw) return '';
+    let current: unknown = JSON.parse(raw);
+    for (const key of path) {
+      if (!current || typeof current !== 'object') return '';
+      current = (current as Record<string, unknown>)[key];
+    }
+    return typeof current === 'string' ? current.trim() : '';
+  } catch {
+    return '';
+  }
 }
 
 function lightweightPreviewState(previewData: DelorainePreviewData, requestedUrl: string) {

@@ -140,6 +140,11 @@ function templateImageSrc(src: string | undefined): string {
   return src;
 }
 
+function proxiedTemplateImageSrc(src: string | undefined): string {
+  if (!src || !/^https?:\/\//i.test(src)) return '';
+  return `/api/website/source-asset?url=${encodeURIComponent(src)}`;
+}
+
 function TemplateImage({
   src,
   fallback = TEMPLATE_IMAGE_FALLBACK,
@@ -157,6 +162,11 @@ function TemplateImage({
       onError={(event) => {
         props.onError?.(event);
         const image = event.currentTarget;
+        if (src && /^https?:\/\//i.test(src) && image.dataset.catstaysProxyApplied !== 'true') {
+          image.dataset.catstaysProxyApplied = 'true';
+          image.src = proxiedTemplateImageSrc(src);
+          return;
+        }
         if (image.dataset.catstaysFallbackApplied === 'true') return;
         image.dataset.catstaysFallbackApplied = 'true';
         image.src = fallback;
