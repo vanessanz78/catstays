@@ -9,10 +9,15 @@ import {
 } from '../lib/emailTemplates';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env['VITE_SUPABASE_URL']!,
-  process.env['VITE_SUPABASE_ANON_KEY']!
-);
+const supabaseUrl = process.env['VITE_SUPABASE_URL'];
+const supabaseAnonKey = process.env['VITE_SUPABASE_ANON_KEY'];
+const supabase = supabaseUrl && supabaseAnonKey
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : null;
+
+if (!supabase) {
+  console.warn('[email] Supabase env is not set — booking request DB inserts will be skipped');
+}
 
 const router: IRouter = Router();
 
@@ -119,7 +124,7 @@ router.post('/bookings/request', async (req, res) => {
     }
 
     // Save pending booking to database
-    if (catteryId) {
+    if (catteryId && supabase) {
       try {
         // Parse total amount (strip "$" and " incl. GST")
         const amountStr = String(estimatedTotal || '').replace(/[^0-9.]/g, '');
@@ -160,6 +165,8 @@ router.post('/bookings/request', async (req, res) => {
       } catch (dbErr) {
         console.error('[bookings/request] DB insert failed (emails still sent):', dbErr);
       }
+    } else if (catteryId) {
+      console.warn('[bookings/request] Supabase env missing — skipped pending booking DB insert');
     }
 
     res.json({ success: true, ownerEmailId: ownerResult.data?.id, customerEmailId: customerResult.data?.id });
