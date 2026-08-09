@@ -47,7 +47,8 @@ type PreviewNoticeKind = 'booking' | 'contact';
 const trustIcons = [ShieldCheck, HeartHandshake, Sparkles, CalendarCheck];
 const facilityIcons = [ShieldCheck, Sparkles, Camera, Clock, HeartHandshake, CalendarCheck];
 const serviceIcons = [Scissors, Stethoscope, Zap, Car, Plane, ShieldCheck, HeartHandshake, CalendarCheck];
-const TEMPLATE_IMAGE_FALLBACK = '/assets/marketing/premium-cattery-sleeping-cat-hero.png';
+const TEMPLATE_IMAGE_FALLBACK =
+  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 9"><rect width="16" height="9" fill="%23f4f1ec"/></svg>';
 const namedCareIcons = {
   Shield: ShieldCheck,
   Heart: HeartHandshake,
@@ -175,6 +176,61 @@ function TemplateImage({
   );
 }
 
+function SourceTruthPanel({
+  content,
+  template,
+}: {
+  content: ReturnType<typeof buildCatstaysTemplateContent>;
+  template: string;
+}) {
+  if (!import.meta.env.DEV || !content.sourceTruth) return null;
+  const truth = content.sourceTruth;
+  const renderedImages = [
+    content.hero.image,
+    content.about.image,
+    content.facilities.image,
+    ...content.gallery.map((image) => image.image),
+    ...content.suites.map((suite) => suite.image),
+    ...content.services.map((service) => service.image),
+  ].filter(Boolean);
+
+  return (
+    <aside className="fixed bottom-4 left-4 z-[80] max-h-[70vh] w-[340px] overflow-auto rounded-md border border-[#C46A3A]/40 bg-[#0A1128]/95 p-4 text-left font-sans text-xs leading-5 text-white shadow-2xl">
+      <p className="mb-2 font-bold uppercase tracking-[0.14em] text-[#F5C08A]">Source Truth</p>
+      <dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1">
+        <dt>Preview/source ID</dt>
+        <dd className="text-right text-white/80">{truth.diagnostics.previewSourceId || truth.diagnostics.contentSourceId || 'temporary'}</dd>
+        <dt>Source domain</dt>
+        <dd className="text-right text-white/80">{truth.identity.sourceHost}</dd>
+        <dt>Pages persisted</dt>
+        <dd className="text-right text-white/80">{truth.diagnostics.pagesPersisted}</dd>
+        <dt>Source sections</dt>
+        <dd className="text-right text-white/80">{truth.diagnostics.sourceSections}</dd>
+        <dt>Content blocks</dt>
+        <dd className="text-right text-white/80">{truth.diagnostics.contentBlocks}</dd>
+        <dt>Imported images</dt>
+        <dd className="text-right text-white/80">{truth.diagnostics.importedImages}</dd>
+        <dt>Images planned</dt>
+        <dd className="text-right text-white/80">{renderedImages.length}</dd>
+        <dt>Stock images rendered</dt>
+        <dd className="text-right text-white/80">{truth.media.stockImages.length}</dd>
+        <dt>Template</dt>
+        <dd className="text-right text-white/80">{template}</dd>
+      </dl>
+      <div className="mt-3 space-y-2 border-t border-white/15 pt-3">
+        {truth.sections.slice(0, 10).map((section) => (
+          <div key={section.id}>
+            <p className="font-semibold text-white">{section.heading || section.semanticRole}</p>
+            <p className="text-white/65">
+              {section.semanticRole} · page {section.sourceOrder + 1} · images {section.images.length}
+            </p>
+          </div>
+        ))}
+      </div>
+    </aside>
+  );
+}
+
 function TemplateHeader({
   content,
   dark = false,
@@ -242,6 +298,7 @@ function FocusTemplate({
   return (
     <div data-catstays-template-root data-catstays-preview-device={previewDevice} className="catstays-template bg-[#f8f5ef] text-[#222]" style={templateRootStyle(content)}>
       <CatstaysPreviewDeviceStyles />
+      <SourceTruthPanel content={content} template="Focus" />
       <TemplateHeader content={content} onPreviewAnchorClick={onPreviewAnchorClick} />
       <PreviewBookingNotice kind={previewNoticeKind} onDismiss={onDismissPreviewNotice} />
       <main>
@@ -334,13 +391,14 @@ function EditorialTemplate({
 }) {
   const sections = [
     { id: 'about', title: content.about.title, text: content.about.text, image: content.about.image, eyebrow: `About ${content.business.name}` },
-    { id: 'care', title: content.whyChoose.title, text: content.whyChoose.text, image: content.gallery[1]?.image || content.hero.image, eyebrow: 'Why choose us' },
-    { id: 'facilities', title: content.facilities.title, text: content.facilities.text, image: content.facilities.image, eyebrow: 'Premium accommodation' },
+    { id: 'care', title: content.whyChoose.title, text: content.whyChoose.text, image: content.gallery[1]?.image || content.hero.image, eyebrow: content.sourceTruth ? 'Source highlights' : 'Why choose us' },
+    { id: 'facilities', title: content.facilities.title, text: content.facilities.text, image: content.facilities.image, eyebrow: content.sourceTruth ? content.sectionHeadings.facilities : 'Premium accommodation' },
   ];
 
   return (
     <div data-catstays-template-root data-catstays-preview-device={previewDevice} className="catstays-template bg-[#f8f5ef] text-[#222]" style={templateRootStyle(content)}>
       <CatstaysPreviewDeviceStyles />
+      <SourceTruthPanel content={content} template="Editorial" />
       <TemplateHeader content={content} onPreviewAnchorClick={onPreviewAnchorClick} />
       <PreviewBookingNotice kind={previewNoticeKind} onDismiss={onDismissPreviewNotice} />
       <main>
@@ -412,6 +470,7 @@ function ShowcaseTemplate({
   return (
     <div data-catstays-template-root data-catstays-preview-device={previewDevice} className="catstays-template bg-[#f8f6f1] text-[#222]" style={templateRootStyle(content)}>
       <CatstaysPreviewDeviceStyles />
+      <SourceTruthPanel content={content} template="Showcase" />
       <TemplateHeader content={content} dark onPreviewAnchorClick={onPreviewAnchorClick} />
       <PreviewBookingNotice kind={previewNoticeKind} onDismiss={onDismissPreviewNotice} />
       <main>
@@ -547,12 +606,15 @@ function AboutSplit({
 
 function SuitesGrid({ content, compact = false }: { content: ReturnType<typeof buildCatstaysTemplateContent>; compact?: boolean }) {
   const [activeSuite, setActiveSuite] = useState<(ReturnType<typeof buildCatstaysTemplateContent>['suites'][number]) | null>(null);
+  const suiteIntro = content.sourceTruth
+    ? clipText(content.facilities.text || content.about.text, 220)
+    : "Spacious, serene and stylish suites designed for your cat's comfort.";
 
   return (
     <section id="suites" className={`mx-auto max-w-[1400px] scroll-mt-28 px-6 text-center ${compact ? 'py-14' : 'py-20'}`}>
       <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Our Suites</p>
       <h2 className="text-3xl leading-tight md:text-5xl">{content.sectionHeadings.suites}</h2>
-      <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-[#444]">Spacious, serene and stylish suites designed for your cat's comfort.</p>
+      {suiteIntro ? <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-[#444]">{suiteIntro}</p> : null}
       <div className="catstays-card-grid mx-auto mt-10 grid max-w-[1120px] gap-6 md:grid-cols-2 xl:grid-cols-3">
         {content.suites.map((suite) => (
           <article key={suite.title} className="flex overflow-hidden rounded-md border border-[#222]/10 bg-white text-left shadow-sm">
@@ -991,6 +1053,11 @@ function serviceIconFor(title: string, index: number) {
 function safeMapUrl(address: string) {
   if (!address) return '';
   return `https://www.google.com/maps?q=${encodeURIComponent(address)}&output=embed`;
+}
+
+function clipText(value: string, length: number) {
+  if (value.length <= length) return value;
+  return `${value.slice(0, length).replace(/\s+\S*$/, '').trim()}...`;
 }
 
 function scrollInsidePreview(link: HTMLElement, href: string) {

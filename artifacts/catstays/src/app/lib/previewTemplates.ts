@@ -7,6 +7,12 @@ import {
   type DelorainePreviewData,
   type ImportedCatteryScrape,
 } from './deloraineDemo';
+import {
+  buildWebsiteUnderstandingModel,
+  isStockImage,
+  type WebsiteUnderstandingModel,
+  type WebsiteUnderstandingSection,
+} from './sourceUnderstanding';
 
 export type { ImportedCatteryScrape } from './deloraineDemo';
 
@@ -193,6 +199,7 @@ export interface CatstaysTemplateContent {
     instagram: string;
   };
   contentLibrary: CatterySiteContentLibrary;
+  sourceTruth?: WebsiteUnderstandingModel;
 }
 
 export const previewTemplateCards: PreviewTemplateOption[] = [
@@ -424,7 +431,170 @@ export function normalizePreviewTemplateId(templateId: unknown): PreviewTemplate
   return 'conversion-focus';
 }
 
+function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<string, any>): CatstaysTemplateContent {
+  const businessName = model.identity.businessName;
+  const heroSection = sectionByRole(model, 'hero') ?? model.sections[0];
+  const aboutSection = sectionByRole(model, 'about') ?? sectionByRole(model, 'introduction') ?? heroSection;
+  const accommodationSection = bestSectionByRole(model, 'accommodation') ?? bestSectionByRole(model, 'rooms');
+  const facilitiesSection = bestSectionByRole(model, 'facilities') ?? accommodationSection ?? aboutSection;
+  const healthSection = bestSectionByRole(model, 'health-care');
+  const groomingSection = bestSectionByRole(model, 'grooming');
+  const pricingSection = bestSectionByRole(model, 'pricing');
+  const contactSection = sectionByRole(model, 'contact') ?? sectionByRole(model, 'location');
+  const galleryImages = model.media.images;
+  const heroImage = imageForRole(model, ['hero', 'accommodation', 'gallery']) || galleryImages[0]?.url || '';
+  const aboutImage = imageForSection(aboutSection) || imageAt(galleryImages, 1);
+  const facilityImage = imageForSection(facilitiesSection) || imageAt(galleryImages, 2);
+  const sourceServices = [accommodationSection, healthSection, groomingSection]
+    .filter((section): section is WebsiteUnderstandingSection => Boolean(section))
+    .map((section, index) => ({
+      image: imageForSection(section) || imageAt(galleryImages, index + 2),
+      title: sectionTitle(section, ['accommodation', 'health-care', 'grooming'][index]),
+      text: section.body,
+      price: section.items.find((item) => item.price)?.price || '',
+    }))
+    .filter((service) => service.title || service.text || service.image);
+  const pricingSuites = pricingSection?.items.length
+    ? pricingSection.items.map((item, index) => ({
+        image: imageAt(galleryImages, index + 3),
+        title: item.title,
+        text: item.text || pricingSection.body,
+        price: item.price || '',
+        features: [],
+      }))
+    : [];
+  const accommodationSuites = accommodationSection?.items.length
+    ? accommodationSection.items.map((item, index) => ({
+        image: item.image || imageAt(galleryImages, index + 3),
+        title: item.title,
+        text: item.text || accommodationSection.body,
+        price: item.price || '',
+        features: [],
+      }))
+    : [];
+  const suites = [...accommodationSuites, ...pricingSuites].filter((suite) => suite.title || suite.text || suite.image).slice(0, 8);
+  const featureSections = [aboutSection, accommodationSection, healthSection, groomingSection]
+    .filter((section): section is WebsiteUnderstandingSection => Boolean(section))
+    .slice(0, 4);
+  const features = featureSections.map((section) => ({
+    title: sectionTitle(section, 'Source section'),
+    text: excerpt(section.body, 220),
+  })).filter((feature) => feature.title || feature.text);
+  const gallery = galleryImages.slice(0, 18).map((image, index) => ({
+    image: image.url,
+    caption: image.caption || image.nearbyHeading || `${businessName} photo ${index + 1}`,
+  }));
+  const contactText = [model.contact.address, model.contact.phone, model.contact.email, model.contact.hours].filter(Boolean).join(' | ');
+  const navContentLibrary = contentLibraryFromSourceTruth(model);
+
+  return {
+    business: {
+      name: businessName,
+      tagline: model.identity.tagline || 'Imported owner website',
+      location: model.identity.location,
+    },
+    hero: {
+      eyebrow: 'Imported owner website',
+      heading: sectionTitle(heroSection, businessName),
+      text: excerpt(heroSection?.body || model.identity.tagline, 360),
+      image: heroImage,
+      button: model.booking.label,
+      primaryButton: model.booking.label,
+      primaryHref: model.booking.url || '#contact',
+      secondaryButton: accommodationSection ? sectionTitle(accommodationSection, 'Accommodation') : 'Explore the site',
+      secondaryHref: accommodationSection ? '#suites' : '#about',
+    },
+    theme: {
+      primaryColor: stringFrom(data.primaryColor, '#0A1128'),
+      accentColor: stringFrom(data.accentColor, '#C46A3A'),
+      backgroundColor: stringFrom(data.backgroundColor, '#F8F7F5'),
+      headingFont: stringFrom(data.headingFont, data.typography, 'playfair'),
+      subheadingFont: stringFrom(data.subheadingFont, 'inter'),
+      bodyFont: stringFrom(data.bodyFont, data.subheadingFont, 'inter'),
+    },
+    sectionHeadings: {
+      care: 'Source highlights',
+      facilities: sectionTitle(facilitiesSection, 'Facilities'),
+      suites: sectionTitle(accommodationSection ?? pricingSection, 'Accommodation and pricing'),
+      services: 'Services',
+      gallery: 'Source photos',
+      reviews: 'Testimonials',
+      contact: 'Contact',
+    },
+    features,
+    whyChoose: {
+      title: 'Source highlights',
+      text: excerpt(aboutSection?.body || heroSection?.body, 420),
+      items: features,
+    },
+    facilities: {
+      title: sectionTitle(facilitiesSection, 'Facilities'),
+      text: excerpt(facilitiesSection?.body, 520),
+      image: facilityImage,
+      items: features,
+    },
+    services: sourceServices,
+    about: {
+      title: sectionTitle(aboutSection, `About ${businessName}`),
+      text: excerpt(aboutSection?.body || heroSection?.body, 620),
+      image: aboutImage,
+    },
+    gallery,
+    suites,
+    testimonials: model.testimonials.map((testimonial, index) => ({
+      quote: testimonial.text,
+      author: testimonial.name || 'Source testimonial',
+      image: imageAt(galleryImages, index + 4),
+      location: testimonial.location || '',
+    })),
+    faqs: model.faq.map((faq) => ({
+      question: faq.question,
+      answer: faq.answer,
+    })),
+    owner: {
+      title: sectionTitle(sectionByRole(model, 'story'), `About ${businessName}`),
+      text: excerpt(sectionByRole(model, 'story')?.body || aboutSection?.body, 520),
+      image: imageForSection(sectionByRole(model, 'story')) || aboutImage,
+    },
+    commitment: {
+      title: 'Source commitments',
+      text: excerpt(healthSection?.body || accommodationSection?.body || aboutSection?.body, 520),
+      items: featureSections.map((section) => ({
+        title: sectionTitle(section, 'Source detail'),
+        description: excerpt(section.body, 240),
+      })).filter((item) => item.title || item.description),
+    },
+    locationDetails: {
+      heading: sectionTitle(contactSection, 'Contact'),
+      text: contactText || excerpt(contactSection?.body, 360),
+      directions: model.contact.address || excerpt(contactSection?.body, 220),
+      virtualTourUrl: '',
+    },
+    booking: {
+      text: model.booking.url ? 'Use the imported source booking link to enquire.' : 'Contact the business using the imported source details.',
+      bannerText: model.booking.url ? 'Book or enquire from the source website.' : 'Contact details imported from the source website.',
+      primaryCta: model.booking.label,
+    },
+    footer: {
+      about: model.footer.about || excerpt(heroSection?.body, 300),
+      phone: model.contact.phone,
+      email: model.contact.email,
+      address: model.contact.address,
+      hours: model.contact.hours,
+      facebook: model.contact.socialLinks.facebook || '',
+      instagram: model.contact.socialLinks.instagram || '',
+    },
+    contentLibrary: navContentLibrary,
+    sourceTruth: model,
+  };
+}
+
 export function buildCatstaysTemplateContent(data: Record<string, any>): CatstaysTemplateContent {
+  const sourceTruth = buildWebsiteUnderstandingModel(data);
+  if (sourceTruth.isImported && sourceTruth.sections.length) {
+    return contentFromSourceTruth(sourceTruth, data);
+  }
+
   const record = data.previewImportRecord as PreviewImportRecord | null | undefined;
   const normalized = record?.normalizedPreviewData ?? data;
   const normalizedRecord = normalized as Record<string, any>;
@@ -1004,6 +1174,102 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
     ),
     customSections: arrayFrom('customSections'),
   };
+}
+
+function sectionByRole(model: WebsiteUnderstandingModel, role: WebsiteUnderstandingSection['semanticRole']) {
+  return model.sections.find((section) => section.semanticRole === role);
+}
+
+function bestSectionByRole(model: WebsiteUnderstandingModel, role: WebsiteUnderstandingSection['semanticRole']) {
+  const sections = model.sections.filter((section) => section.semanticRole === role);
+  if (!sections.length) return undefined;
+  const rolePatterns: Partial<Record<WebsiteUnderstandingSection['semanticRole'], RegExp>> = {
+    accommodation: /accommodation|suite|homestay|boarding/i,
+    rooms: /room|suite|accommodation|homestay/i,
+    facilities: /facilities|suite|accommodation|garden|secure/i,
+    'health-care': /health|pemf|hbot|respite|wellness|care/i,
+    grooming: /grooming|service|price|hair|matting/i,
+    pricing: /fee|price|pricing|rate|cost|\$/i,
+  };
+  const pattern = rolePatterns[role];
+  return [...sections].sort((a, b) => {
+    const score = (section: WebsiteUnderstandingSection) =>
+      (section.items.length ? 8 : 0) +
+      (pattern?.test(`${section.heading} ${section.body}`) ? 5 : 0) +
+      (section.images.length ? 2 : 0) +
+      Math.min(section.body.length / 600, 3) -
+      section.sourceOrder / 1000;
+    return score(b) - score(a);
+  })[0];
+}
+
+function imageForRole(model: WebsiteUnderstandingModel, roles: Array<WebsiteUnderstandingSection['semanticRole']>) {
+  return model.media.images.find((image) => roles.includes(image.semanticRole as WebsiteUnderstandingSection['semanticRole']))?.url || '';
+}
+
+function imageForSection(section: WebsiteUnderstandingSection | undefined) {
+  return section?.images.find((image) => !isStockImage(image.url))?.url || '';
+}
+
+function imageAt(images: WebsiteUnderstandingModel['media']['images'], index: number) {
+  return images[index]?.url || '';
+}
+
+function sectionTitle(section: WebsiteUnderstandingSection | undefined, fallback: string) {
+  return stringFrom(section?.heading, fallback);
+}
+
+function excerpt(value: unknown, length = 360) {
+  const text = stringFrom(value);
+  if (text.length <= length) return text;
+  const clipped = text.slice(0, length).replace(/\s+\S*$/, '').trim();
+  return clipped ? `${clipped}...` : text.slice(0, length);
+}
+
+function contentLibraryFromSourceTruth(model: WebsiteUnderstandingModel): CatterySiteContentLibrary {
+  return {
+    schemaVersion: 1,
+    sourceUrl: model.identity.sourceUrl,
+    sourceHost: model.identity.sourceHost,
+    businessName: model.identity.businessName,
+    capturedAt: new Date().toISOString(),
+    blocks: model.sections.map((section) => ({
+      id: section.id,
+      category: contentCategoryFromRole(section.semanticRole),
+      title: section.heading,
+      text: section.body,
+      source: 'scrape',
+      items: section.items.map((item) => ({
+        title: item.title,
+        text: item.text,
+        price: item.price,
+        image: item.image,
+      })),
+      images: section.images.map((image) => ({
+        url: image.url,
+        caption: image.caption || image.nearbyHeading,
+      })),
+      links: section.links,
+    })),
+  };
+}
+
+function contentCategoryFromRole(role: WebsiteUnderstandingSection['semanticRole']): CatterySiteContentLibrary['blocks'][number]['category'] {
+  if (role === 'hero') return 'hero';
+  if (role === 'accommodation' || role === 'rooms') return 'rooms';
+  if (role === 'health-care' || role === 'grooming' || role === 'services') return 'services';
+  if (role === 'pricing') return 'pricing';
+  if (role === 'faq') return 'faqs';
+  if (role === 'testimonials') return 'reviews';
+  if (role === 'story') return 'owner-story';
+  if (role === 'contact') return 'contact';
+  if (role === 'location') return 'location';
+  if (role === 'gallery') return 'gallery';
+  if (role === 'facilities') return 'facilities';
+  if (role === 'daily-care') return 'daily-care';
+  if (role === 'booking' || role === 'cta') return 'booking';
+  if (role === 'footer') return 'footer';
+  return 'why-choose-us';
 }
 
 function stringFrom(...values: unknown[]): string {
