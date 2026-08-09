@@ -135,7 +135,7 @@ export interface CompletenessMetrics {
 }
 
 export interface UnsupportedItem {
-  kind: 'stock_image' | 'form' | 'script' | 'unknown';
+  kind: 'stock_image' | 'low_confidence_import' | 'form' | 'script' | 'unknown';
   reason: string;
   sourcePageUrl?: string;
   value?: string;
@@ -345,6 +345,13 @@ function sourcePagesFromClusters(clusters: ContentCluster[]): SourcePagePlan[] {
 
 function unsupportedItemsFromModel(model: WebsiteUnderstandingModel): UnsupportedItem[] {
   return [
+    ...(model.diagnostics.shouldAvoidGenericFallback
+      ? [{
+          kind: 'low_confidence_import' as const,
+          reason: 'Imported source evidence is too thin for a trustworthy generated preview; do not replace it with generic template content.',
+          value: model.platform?.contentQuality?.reasons?.join(' ') || model.diagnostics.importPlatform,
+        }]
+      : []),
     ...model.media.stockImages.map((url) => ({
       kind: 'stock_image' as const,
       reason: 'Stock/demo image was excluded from imported source placement.',

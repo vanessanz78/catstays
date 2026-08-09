@@ -3,6 +3,7 @@
 ## 2026-08-03
 
 - Started Phase 2 Content Sources on `phase2/content-sources-20260803`.
+- Added platform-aware website import evidence on `phase2/website-builder-v2-content-intelligence`, including WordPress content-feed enrichment, extraction route status, source-quality confidence, and a guard against treating weak imports as complete generic previews.
 - Added the server-side Content Source service for durable source creation, retrieval, deterministic source hashing/import versioning, status transitions, and `website_events` audit entries.
 - Added authenticated Content Source API routes and wired website scrape persistence for authenticated imports with a known cattery.
 - Wired onboarding publish/provision to persist captured website imports into `content_sources` after the cattery record exists.

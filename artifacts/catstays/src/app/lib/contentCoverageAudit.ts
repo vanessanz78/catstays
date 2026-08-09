@@ -49,6 +49,13 @@ export interface ContentCoverageAudit {
   sourceUrl?: string;
   templateId: PreviewTemplateId;
   summary: ContentCoverageAuditSummary;
+  platform?: {
+    platform: string;
+    confidence: string;
+    qualityLevel?: string;
+    qualityScore?: number;
+    shouldAvoidGenericFallback?: boolean;
+  };
   intelligence?: Pick<ContentIntelligencePlan, 'primaryPurpose' | 'audienceIntent' | 'completeness' | 'unsupported'>;
   items: ContentCoverageAuditItem[];
   recommendations: string[];
@@ -234,6 +241,15 @@ export function createContentCoverageAudit(input: AuditInput): ContentCoverageAu
     sourceUrl: record?.source?.url ?? input.sourceUrl,
     templateId,
     summary,
+    platform: content.sourceTruth?.platform
+      ? {
+          platform: content.sourceTruth.platform.platform,
+          confidence: content.sourceTruth.platform.confidence,
+          qualityLevel: content.sourceTruth.platform.contentQuality?.level,
+          qualityScore: content.sourceTruth.platform.contentQuality?.score,
+          shouldAvoidGenericFallback: content.sourceTruth.platform.contentQuality?.shouldAvoidGenericFallback,
+        }
+      : undefined,
     intelligence: content.contentIntelligencePlan
       ? {
           primaryPurpose: content.contentIntelligencePlan.primaryPurpose,

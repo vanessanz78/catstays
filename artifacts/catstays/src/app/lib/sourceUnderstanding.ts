@@ -52,6 +52,27 @@ export interface WebsiteUnderstandingSection {
 
 export interface WebsiteUnderstandingModel {
   isImported: boolean;
+  platform?: {
+    platform: string;
+    confidence: string;
+    builders: string[];
+    signals: string[];
+    contentQuality?: {
+      score?: number;
+      level?: string;
+      canBuildPreview?: boolean;
+      shouldAvoidGenericFallback?: boolean;
+      reasons?: string[];
+    };
+    extractionRoutes?: Array<{
+      name?: string;
+      status?: string;
+      detail?: string;
+      pages?: number;
+      images?: number;
+      textCharacters?: number;
+    }>;
+  };
   identity: {
     businessName: string;
     sourceUrl: string;
@@ -89,6 +110,10 @@ export interface WebsiteUnderstandingModel {
     contentBlocks: number;
     importedImages: number;
     stockImagesRendered: number;
+    importPlatform: string;
+    importConfidence: string;
+    contentQualityScore: number;
+    shouldAvoidGenericFallback: boolean;
   };
 }
 
@@ -98,6 +123,7 @@ export function buildWebsiteUnderstandingModel(data: AnyRecord): WebsiteUndersta
   const record = data.previewImportRecord as AnyRecord | undefined;
   const normalized = (record?.normalizedPreviewData ?? data) as AnyRecord;
   const sourceArchive = (record?.source?.sourceArchive ?? normalized.sourceArchive ?? data.sourceArchive) as AnyRecord | undefined;
+  const platform = platformIntelligenceFromArchive(sourceArchive);
   const contentLibrary = (record?.contentLibrary ?? normalized.siteContentLibrary ?? data.siteContentLibrary) as CatterySiteContentLibrary | undefined;
   const sourceUrl = stringFrom(record?.source?.url, data.sourceUrl, data.importSourceUrl, normalized.sourceUrl);
   const sourceHost = stringFrom(record?.source?.host, data.sourceHost, normalized.sourceHost, hostFromUrl(sourceUrl));
@@ -128,6 +154,7 @@ export function buildWebsiteUnderstandingModel(data: AnyRecord): WebsiteUndersta
 
   return {
     isImported,
+    platform,
     identity: {
       businessName,
       sourceUrl,
@@ -159,7 +186,43 @@ export function buildWebsiteUnderstandingModel(data: AnyRecord): WebsiteUndersta
       contentBlocks: blocks.length,
       importedImages: images.length,
       stockImagesRendered: 0,
+      importPlatform: stringFrom(platform?.platform),
+      importConfidence: stringFrom(platform?.confidence),
+      contentQualityScore: Number(platform?.contentQuality?.score || 0),
+      shouldAvoidGenericFallback: Boolean(platform?.contentQuality?.shouldAvoidGenericFallback),
     },
+  };
+}
+
+function platformIntelligenceFromArchive(sourceArchive: AnyRecord | undefined): WebsiteUnderstandingModel['platform'] | undefined {
+  const platform = sourceArchive?.platform as AnyRecord | undefined;
+  if (!platform) return undefined;
+  const contentQuality = platform.contentQuality as AnyRecord | undefined;
+  return {
+    platform: stringFrom(platform.platform),
+    confidence: stringFrom(platform.confidence),
+    builders: arrayFrom(platform.builders).map((item) => stringFrom(item)).filter(Boolean),
+    signals: arrayFrom(platform.signals).map((item) => stringFrom(item)).filter(Boolean),
+    extractionRoutes: arrayFrom(platform.extractionRoutes).map((route) => {
+      const record = route as AnyRecord;
+      return {
+        name: stringFrom(record.name),
+        status: stringFrom(record.status),
+        detail: stringFrom(record.detail),
+        pages: typeof record.pages === 'number' ? record.pages : undefined,
+        images: typeof record.images === 'number' ? record.images : undefined,
+        textCharacters: typeof record.textCharacters === 'number' ? record.textCharacters : undefined,
+      };
+    }),
+    contentQuality: contentQuality
+      ? {
+          score: typeof contentQuality.score === 'number' ? contentQuality.score : undefined,
+          level: stringFrom(contentQuality.level),
+          canBuildPreview: typeof contentQuality.canBuildPreview === 'boolean' ? contentQuality.canBuildPreview : undefined,
+          shouldAvoidGenericFallback: typeof contentQuality.shouldAvoidGenericFallback === 'boolean' ? contentQuality.shouldAvoidGenericFallback : undefined,
+          reasons: arrayFrom(contentQuality.reasons).map((item) => stringFrom(item)).filter(Boolean),
+        }
+      : undefined,
   };
 }
 

@@ -446,6 +446,7 @@ function assetManifestFromScrape(scrape: CatteryWebsiteScrapeResult): Record<str
       galleryImages: scrape.galleryImages,
     },
     rebuildAssets: scrape.sourceArchive.rebuild.assets,
+    platform: scrape.sourceArchive.platform,
     metrics: {
       sourceImages: scrape.images.length,
       galleryImages: scrape.galleryImages.length,
@@ -474,6 +475,7 @@ function previewSnapshotFromScrape(scrape: CatteryWebsiteScrapeResult): Record<s
       capturedAt: scrape.sourceArchive.rebuild.capturedAt,
       assets: scrape.sourceArchive.rebuild.assets,
     },
+    platform: scrape.sourceArchive.platform,
     media: {
       heroImage: scrape.heroImage,
       logoImage: scrape.logoImage,
@@ -864,6 +866,7 @@ function normalizedDataFromScrape(scrape: CatteryWebsiteScrapeResult) {
     sourceArchive: {
       captureMethod: scrape.sourceArchive.captureMethod,
       capturedAt: scrape.sourceArchive.capturedAt,
+      platform: scrape.sourceArchive.platform,
       rebuild: {
         status: scrape.sourceArchive.rebuild.status,
         sourceUrl: scrape.sourceArchive.rebuild.sourceUrl,
@@ -880,6 +883,7 @@ function normalizedDataFromScrape(scrape: CatteryWebsiteScrapeResult) {
         heading: page.heading,
         bodyTextLength: page.bodyTextLength,
         imageCount: page.images.length,
+        extractionSource: page.extractionSource,
       })),
     },
     siteContentLibrary: scrape.siteContentLibrary,

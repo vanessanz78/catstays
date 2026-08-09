@@ -498,7 +498,7 @@ function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<s
     title: sectionTitle(section, 'Source section'),
     text: excerpt(section.body, 220),
   })).filter((feature) => feature.title || feature.text);
-  const gallery = imagePlan.remaining(18).map((image, index) => ({
+  const gallery = imagePlan.remaining(96).map((image, index) => ({
     image: image.url,
     caption: image.caption || image.nearbyHeading || `${businessName} photo ${index + 1}`,
   }));
@@ -610,7 +610,7 @@ function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<s
 
 export function buildCatstaysTemplateContent(data: Record<string, any>): CatstaysTemplateContent {
   const sourceTruth = buildWebsiteUnderstandingModel(data);
-  if (sourceTruth.isImported && sourceTruth.sections.length) {
+  if (sourceTruth.isImported && (sourceTruth.sections.length || sourceTruth.diagnostics.shouldAvoidGenericFallback)) {
     return contentFromSourceTruth(sourceTruth, data);
   }
 
