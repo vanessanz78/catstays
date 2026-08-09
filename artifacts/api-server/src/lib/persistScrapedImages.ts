@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import { lookup } from 'dns/promises';
 import net from 'net';
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 import type { CatteryWebsiteScrapeResult } from './catteryWebsiteScraper';
 
 const DEFAULT_BUCKET = 'catstays-media';
@@ -10,74 +10,219 @@ const FETCH_TIMEOUT_MS = 10_000;
 const MAX_IMAGE_IMPORTS = 64;
 const MAX_IMAGE_REDIRECTS = 4;
 
-type StoredAsset = {
+export type StoredImageAsset = {
   originalUrl: string;
   storedUrl: string;
   path: string;
+  storagePath: string;
+  bucket: string;
   contentType: string;
+  fileSizeBytes: number;
+  sha256: string;
+  sourcePageUrl?: string;
+  altText?: string;
+  caption?: string;
+};
+
+export type MediaImportFailure = {
+  url: string;
+  stage: 'configuration' | 'download' | 'upload' | 'public_url';
+  reason: string;
+  status?: number;
+  contentType?: string;
+  bytes?: number;
+  maxBytes?: number;
+};
+
+export type MediaImportDiagnostics = {
+  status: 'stored' | 'partial' | 'no_images' | 'configuration_error' | 'failed';
+  mediaPersistenceEnabled: boolean;
+  storageBucket: string;
+  supabaseProjectRef?: string;
+  maxImageBytes: number;
+  imagesFound: number;
+  imagesCandidates: number;
+  imagesDownloadAttempted: number;
+  imagesDownloaded: number;
+  imagesUploadAttempted: number;
+  imagesStored: number;
+  mediaRecordsCreated: number;
+  imagesFailed: number;
+  imagesSkipped: number;
+  failures: MediaImportFailure[];
+  storedAssets: StoredImageAsset[];
+};
+
+export type PersistScrapedImagesOptions = {
+  catteryId?: string;
+  contentSourceId?: string;
+  importId?: string;
+  requireStorage?: boolean;
+  supabase?: MediaStorageClient;
+  skipHostSafetyCheck?: boolean;
+};
+
+type MediaStorageClient = {
+  storage: {
+    from(bucket: string): {
+      upload(
+        path: string,
+        body: Buffer,
+        options: { contentType: string; upsert: boolean; cacheControl: string },
+      ): Promise<{ error: unknown | null }>;
+      getPublicUrl(path: string): { data: { publicUrl?: string } };
+    };
+  };
+};
+
+type ImageImportCandidate = {
+  originalUrl: string;
+  sourcePageUrl?: string;
+  altText?: string;
+  caption?: string;
 };
 
 type ImageFetchResult = {
   body: Buffer;
   contentType: string;
+  finalUrl: string;
+  fileSizeBytes: number;
+  sha256: string;
 };
+
+class ImageImportError extends Error {
+  constructor(
+    message: string,
+    readonly details: Omit<MediaImportFailure, 'url' | 'stage'> = { reason: message },
+  ) {
+    super(message);
+  }
+}
+
+export class MediaImportConfigurationError extends Error {
+  readonly code = 'MEDIA_IMPORT_NOT_CONFIGURED';
+
+  constructor(readonly diagnostics: MediaImportDiagnostics) {
+    super('MEDIA_IMPORT_NOT_CONFIGURED');
+  }
+}
 
 export async function persistScrapedImages(
   scrape: CatteryWebsiteScrapeResult,
+  options: PersistScrapedImagesOptions = {},
 ): Promise<CatteryWebsiteScrapeResult> {
-  const supabase = createStorageClient();
-  if (!supabase) return scrape;
+  const bucket = storageBucket();
+  const candidates = imageCandidatesFromScrape(scrape).slice(0, MAX_IMAGE_IMPORTS);
+  const diagnostics = createDiagnostics(scrape, bucket, candidates.length);
+  const supabase = options.supabase ?? createStorageClient();
 
-  const urls = imageUrlsFromScrape(scrape).slice(0, MAX_IMAGE_IMPORTS);
-  if (!urls.length) return scrape;
+  if (!supabase) {
+    diagnostics.mediaPersistenceEnabled = false;
+    diagnostics.status = diagnostics.imagesFound > 0 ? 'configuration_error' : 'no_images';
+    diagnostics.failures.push({
+      url: scrape.sourceUrl,
+      stage: 'configuration',
+      reason: 'missing_supabase_service_role_key',
+    });
+    diagnostics.imagesFailed = diagnostics.failures.length;
 
-  const storedAssets: StoredAsset[] = [];
-
-  for (const originalUrl of urls) {
-    try {
-      const asset = await fetchImage(originalUrl);
-      const path = storagePathFor(scrape, originalUrl, asset.contentType);
-      const { error } = await supabase.storage
-        .from(storageBucket())
-        .upload(path, asset.body, {
-          contentType: asset.contentType,
-          upsert: true,
-          cacheControl: '31536000',
-        });
-
-      if (error) throw error;
-
-      const { data } = supabase.storage.from(storageBucket()).getPublicUrl(path);
-      if (!data.publicUrl) continue;
-
-      storedAssets.push({
-        originalUrl,
-        storedUrl: data.publicUrl,
-        path,
-        contentType: asset.contentType,
-      });
-    } catch {
-      // A single blocked, private, unsupported, or oversized image should not fail the import.
+    const result = attachMediaImportDiagnostics(scrape, diagnostics);
+    if (options.requireStorage && diagnostics.imagesFound > 0) {
+      throw new MediaImportConfigurationError(diagnostics);
     }
+    return result;
   }
 
-  if (!storedAssets.length) return scrape;
+  if (!candidates.length) {
+    diagnostics.status = 'no_images';
+    return attachMediaImportDiagnostics(scrape, diagnostics);
+  }
 
-  const urlMap = new Map(storedAssets.map((asset) => [asset.originalUrl, asset.storedUrl]));
-  const transformed = replaceImageUrls(scrape, urlMap) as CatteryWebsiteScrapeResult;
-  transformed.websiteSettings = {
-    ...(transformed.websiteSettings ?? {}),
-    importedImageAssets: storedAssets,
-  };
-  transformed.demoCattery = {
-    ...(transformed.demoCattery ?? {}),
-    website_settings: transformed.websiteSettings,
-  };
+  const storedAssets: StoredImageAsset[] = [];
 
-  return transformed;
+  for (const candidate of candidates) {
+    diagnostics.imagesDownloadAttempted += 1;
+
+    let fetched: ImageFetchResult;
+    try {
+      fetched = await fetchImage(candidate.originalUrl, {
+        skipHostSafetyCheck: options.skipHostSafetyCheck,
+      });
+      diagnostics.imagesDownloaded += 1;
+    } catch (error) {
+      diagnostics.failures.push(failureFromError(candidate.originalUrl, 'download', error));
+      continue;
+    }
+
+    const path = storagePathFor(scrape, candidate.originalUrl, fetched, options);
+    diagnostics.imagesUploadAttempted += 1;
+
+    try {
+      const { error } = await supabase.storage.from(bucket).upload(path, fetched.body, {
+        contentType: fetched.contentType,
+        upsert: true,
+        cacheControl: '31536000',
+      });
+
+      if (error) throw error;
+    } catch (error) {
+      diagnostics.failures.push(failureFromError(candidate.originalUrl, 'upload', error, {
+        contentType: fetched.contentType,
+        bytes: fetched.fileSizeBytes,
+      }));
+      continue;
+    }
+
+    const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+    if (!data.publicUrl) {
+      diagnostics.failures.push({
+        url: candidate.originalUrl,
+        stage: 'public_url',
+        reason: 'missing_public_url',
+        contentType: fetched.contentType,
+        bytes: fetched.fileSizeBytes,
+      });
+      continue;
+    }
+
+    storedAssets.push({
+      originalUrl: candidate.originalUrl,
+      storedUrl: data.publicUrl,
+      path,
+      storagePath: path,
+      bucket,
+      contentType: fetched.contentType,
+      fileSizeBytes: fetched.fileSizeBytes,
+      sha256: fetched.sha256,
+      sourcePageUrl: candidate.sourcePageUrl,
+      altText: candidate.altText,
+      caption: candidate.caption,
+    });
+  }
+
+  diagnostics.imagesStored = storedAssets.length;
+  diagnostics.mediaRecordsCreated = storedAssets.length;
+  diagnostics.imagesFailed = diagnostics.failures.length;
+  diagnostics.imagesSkipped = Math.max(0, candidates.length - storedAssets.length - diagnostics.imagesFailed);
+  diagnostics.status =
+    storedAssets.length === candidates.length
+      ? 'stored'
+      : storedAssets.length > 0
+        ? 'partial'
+        : 'failed';
+  diagnostics.storedAssets = storedAssets;
+
+  const transformed = storedAssets.length
+    ? (replaceImageUrls(
+        scrape,
+        new Map(storedAssets.map((asset) => [asset.originalUrl, asset.storedUrl])),
+      ) as CatteryWebsiteScrapeResult)
+    : scrape;
+
+  return attachMediaImportDiagnostics(transformed, diagnostics, storedAssets);
 }
 
-function createStorageClient(): SupabaseClient | null {
+function createStorageClient(): MediaStorageClient | null {
   const supabaseUrl = readEnvValue('VITE_SUPABASE_URL', 'SUPABASE_URL', 'SUPABASE_PROJECT_URL');
   const serviceKey = readEnvValue(
     'SUPABASE_SERVICE_ROLE_KEY',
@@ -106,13 +251,62 @@ function storageBucket() {
   return readEnvValue('CATSTAYS_MEDIA_BUCKET') || DEFAULT_BUCKET;
 }
 
-function imageUrlsFromScrape(scrape: CatteryWebsiteScrapeResult): string[] {
-  const urls = new Set<string>();
+function createDiagnostics(
+  scrape: CatteryWebsiteScrapeResult,
+  bucket: string,
+  candidateCount: number,
+): MediaImportDiagnostics {
+  return {
+    status: 'failed',
+    mediaPersistenceEnabled: true,
+    storageBucket: bucket,
+    supabaseProjectRef: supabaseProjectRef(),
+    maxImageBytes: MAX_IMAGE_BYTES,
+    imagesFound: scrape.crawl?.imagesFound ?? scrape.images?.length ?? candidateCount,
+    imagesCandidates: candidateCount,
+    imagesDownloadAttempted: 0,
+    imagesDownloaded: 0,
+    imagesUploadAttempted: 0,
+    imagesStored: 0,
+    mediaRecordsCreated: 0,
+    imagesFailed: 0,
+    imagesSkipped: 0,
+    failures: [],
+    storedAssets: [],
+  };
+}
+
+function supabaseProjectRef() {
+  const supabaseUrl = readEnvValue('VITE_SUPABASE_URL', 'SUPABASE_URL', 'SUPABASE_PROJECT_URL');
+  if (!supabaseUrl) return undefined;
+  try {
+    const hostname = new URL(supabaseUrl).hostname;
+    return hostname.endsWith('.supabase.co') ? hostname.split('.')[0] : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function imageCandidatesFromScrape(scrape: CatteryWebsiteScrapeResult): ImageImportCandidate[] {
+  const candidates = new Map<string, ImageImportCandidate>();
+  const metadata = pageImageMetadataByUrl(scrape);
+
+  const add = (url: string, candidate: Partial<ImageImportCandidate> = {}) => {
+    if (!isLikelyImportImageUrl(url, [])) return;
+    const existing = candidates.get(url);
+    const known = metadata.get(url);
+    candidates.set(url, {
+      originalUrl: url,
+      sourcePageUrl: existing?.sourcePageUrl ?? candidate.sourcePageUrl ?? known?.sourcePageUrl,
+      altText: existing?.altText ?? candidate.altText ?? known?.altText,
+      caption: existing?.caption ?? candidate.caption ?? known?.caption,
+    });
+  };
 
   const visit = (value: unknown, path: string[]) => {
     if (!value) return;
     if (typeof value === 'string') {
-      if (isLikelyImportImageUrl(value, path)) urls.add(value);
+      if (isLikelyImportImageUrl(value, path)) add(value);
       return;
     }
     if (Array.isArray(value)) {
@@ -127,7 +321,41 @@ function imageUrlsFromScrape(scrape: CatteryWebsiteScrapeResult): string[] {
   };
 
   visit(scrape, []);
-  return [...urls];
+
+  for (const page of scrape.crawl?.pages ?? []) {
+    for (const image of page.images ?? []) {
+      add(image.url, {
+        sourcePageUrl: image.sourcePageUrl ?? page.url,
+        altText: image.altText,
+        caption: image.caption,
+      });
+    }
+  }
+
+  for (const block of scrape.siteContentLibrary?.blocks ?? []) {
+    for (const image of block.images ?? []) {
+      add(image.url, { sourcePageUrl: block.sourceUrl, caption: image.caption });
+    }
+    for (const item of block.items ?? []) {
+      if (item.image) add(item.image, { sourcePageUrl: block.sourceUrl });
+    }
+  }
+
+  return [...candidates.values()];
+}
+
+function pageImageMetadataByUrl(scrape: CatteryWebsiteScrapeResult) {
+  const metadata = new Map<string, { altText?: string; caption?: string; sourcePageUrl?: string }>();
+  for (const page of scrape.crawl?.pages ?? []) {
+    for (const image of page.images ?? []) {
+      metadata.set(image.url, {
+        altText: image.altText,
+        caption: image.caption,
+        sourcePageUrl: image.sourcePageUrl ?? page.url,
+      });
+    }
+  }
+  return metadata;
 }
 
 function isLikelyImportImageUrl(value: string, path: string[]) {
@@ -138,6 +366,8 @@ function isLikelyImportImageUrl(value: string, path: string[]) {
   if (
     joinedPath.endsWith('sourceurl') ||
     joinedPath.endsWith('source_url') ||
+    joinedPath.endsWith('sourcepageurl') ||
+    joinedPath.endsWith('source_page_url') ||
     joinedPath.includes('bookingurl') ||
     joinedPath.includes('booking_url') ||
     joinedPath.includes('social') ||
@@ -149,6 +379,7 @@ function isLikelyImportImageUrl(value: string, path: string[]) {
   }
 
   return (
+    path.length === 0 ||
     isImportImagePath(path) ||
     /\.(png|jpe?g|webp|gif|avif)(?:[?#/]|$)/i.test(value) ||
     /static\.wixstatic\.com\/media|\/cdn-cgi\/image\/|\/_next\/image|\/images?\/|\/photos?\/|\/uploads?\/|\/media\//i.test(
@@ -190,16 +421,21 @@ function isCatstaysStorageUrl(value: string) {
   }
 }
 
-async function fetchImage(rawUrl: string): Promise<ImageFetchResult> {
+async function fetchImage(
+  rawUrl: string,
+  options: { skipHostSafetyCheck?: boolean } = {},
+): Promise<ImageFetchResult> {
   let currentUrl = new URL(rawUrl);
 
   for (let redirectCount = 0; redirectCount <= MAX_IMAGE_REDIRECTS; redirectCount += 1) {
     if (currentUrl.protocol !== 'http:' && currentUrl.protocol !== 'https:') {
-      throw new TypeError('BAD_IMAGE_URL');
+      throw new ImageImportError('BAD_IMAGE_URL', { reason: 'bad_image_url' });
     }
-    if (net.isIP(currentUrl.hostname)) throw new TypeError('DIRECT_IMAGE_IP');
+    if (net.isIP(currentUrl.hostname)) {
+      throw new ImageImportError('DIRECT_IMAGE_IP', { reason: 'direct_image_ip' });
+    }
 
-    await assertSafePublicHost(currentUrl.hostname);
+    if (!options.skipHostSafetyCheck) await assertSafePublicHost(currentUrl.hostname);
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
@@ -224,31 +460,75 @@ async function fetchImage(rawUrl: string): Promise<ImageFetchResult> {
       continue;
     }
 
-    if (!response.ok) throw new TypeError(`IMAGE_HTTP_${response.status}`);
+    if (!response.ok) {
+      throw new ImageImportError(`IMAGE_HTTP_${response.status}`, {
+        reason: `http_${response.status}`,
+        status: response.status,
+      });
+    }
 
     const contentType = String(response.headers.get('content-type') ?? '')
       .split(';')[0]
       .trim()
       .toLowerCase();
-    if (!isAllowedImageType(contentType)) throw new TypeError('UNSUPPORTED_IMAGE_TYPE');
+    if (!isAllowedImageType(contentType)) {
+      throw new ImageImportError('UNSUPPORTED_IMAGE_TYPE', {
+        reason: 'unsupported_image_type',
+        status: response.status,
+        contentType,
+      });
+    }
 
     const contentLength = Number(response.headers.get('content-length') ?? 0);
-    if (contentLength > MAX_IMAGE_BYTES) throw new TypeError('IMAGE_TOO_LARGE');
+    if (contentLength > MAX_IMAGE_BYTES) {
+      throw new ImageImportError('IMAGE_TOO_LARGE', {
+        reason: 'image_too_large',
+        status: response.status,
+        contentType,
+        bytes: contentLength,
+        maxBytes: MAX_IMAGE_BYTES,
+      });
+    }
 
     const body = Buffer.from(await response.arrayBuffer());
-    if (body.byteLength > MAX_IMAGE_BYTES) throw new TypeError('IMAGE_TOO_LARGE');
+    if (body.byteLength > MAX_IMAGE_BYTES) {
+      throw new ImageImportError('IMAGE_TOO_LARGE', {
+        reason: 'image_too_large',
+        status: response.status,
+        contentType,
+        bytes: body.byteLength,
+        maxBytes: MAX_IMAGE_BYTES,
+      });
+    }
+    if (!looksLikeImageBytes(contentType, body)) {
+      throw new ImageImportError('INVALID_IMAGE_BODY', {
+        reason: 'invalid_image_body',
+        status: response.status,
+        contentType,
+        bytes: body.byteLength,
+      });
+    }
 
-    return { body, contentType };
+    const sha256 = hashBuffer(body);
+    return {
+      body,
+      contentType,
+      finalUrl: currentUrl.href,
+      fileSizeBytes: body.byteLength,
+      sha256,
+    };
   }
 
-  throw new TypeError('TOO_MANY_IMAGE_REDIRECTS');
+  throw new ImageImportError('TOO_MANY_IMAGE_REDIRECTS', {
+    reason: 'too_many_image_redirects',
+  });
 }
 
 async function assertSafePublicHost(hostname: string): Promise<void> {
   const results = await lookup(hostname, { all: true });
-  if (!results.length) throw new TypeError('IMAGE_HOST_NOT_FOUND');
+  if (!results.length) throw new ImageImportError('IMAGE_HOST_NOT_FOUND', { reason: 'host_not_found' });
   if (results.some((result) => isPrivateIp(result.address))) {
-    throw new TypeError('PRIVATE_IMAGE_IP');
+    throw new ImageImportError('PRIVATE_IMAGE_IP', { reason: 'private_image_ip' });
   }
 }
 
@@ -290,15 +570,59 @@ function isAllowedImageType(contentType: string) {
   return ['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/gif'].includes(contentType);
 }
 
-function storagePathFor(scrape: CatteryWebsiteScrapeResult, imageUrl: string, contentType: string) {
-  const sourceHost = (scrape.sourceHost || 'source')
+function looksLikeImageBytes(contentType: string, body: Buffer) {
+  const head = body.subarray(0, 16);
+  const textHead = head.toString('utf8').trimStart().toLowerCase();
+  if (textHead.startsWith('<!doctype') || textHead.startsWith('<html') || textHead.startsWith('<?xml')) {
+    return false;
+  }
+  if (contentType === 'image/jpeg') return head[0] === 0xff && head[1] === 0xd8 && head[2] === 0xff;
+  if (contentType === 'image/png') return head.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+  if (contentType === 'image/gif') return head.subarray(0, 4).toString('ascii') === 'GIF8';
+  if (contentType === 'image/webp') return head.subarray(0, 4).toString('ascii') === 'RIFF' && head.subarray(8, 12).toString('ascii') === 'WEBP';
+  if (contentType === 'image/avif') return head.subarray(4, 8).toString('ascii') === 'ftyp';
+  return false;
+}
+
+function storagePathFor(
+  scrape: CatteryWebsiteScrapeResult,
+  imageUrl: string,
+  fetched: ImageFetchResult,
+  options: PersistScrapedImagesOptions,
+) {
+  const sourceHost = safePathSegment(scrape.sourceHost || hostFromUrl(scrape.sourceUrl) || 'source');
+  const catteryId = safePathSegment(options.catteryId || 'unassigned');
+  const importKey = safePathSegment(
+    options.contentSourceId || options.importId || hash(scrape.sourceUrl).slice(0, 16),
+  );
+  const imageName = safeImageName(imageUrl);
+  return `website-imports/${catteryId}/${importKey}/${sourceHost}/${fetched.sha256.slice(0, 24)}-${imageName}${extensionFor(fetched.contentType)}`;
+}
+
+function safePathSegment(value: string) {
+  return value
     .toLowerCase()
-    .replace(/[^a-z0-9.-]+/g, '-')
+    .replace(/[^a-z0-9._-]+/g, '-')
     .replace(/^-+|-+$/g, '')
-    .slice(0, 80);
-  const importHash = hash(scrape.sourceUrl).slice(0, 16);
-  const imageHash = hash(imageUrl).slice(0, 24);
-  return `imports/${sourceHost}/${importHash}/${imageHash}${extensionFor(contentType)}`;
+    .slice(0, 80) || 'source';
+}
+
+function safeImageName(imageUrl: string) {
+  try {
+    const pathname = new URL(imageUrl).pathname;
+    const base = pathname.split('/').filter(Boolean).pop() || 'image';
+    return safePathSegment(base.replace(/\.[a-z0-9]+$/i, '')) || 'image';
+  } catch {
+    return 'image';
+  }
+}
+
+function hostFromUrl(value: string) {
+  try {
+    return new URL(value).hostname;
+  } catch {
+    return '';
+  }
 }
 
 function extensionFor(contentType: string) {
@@ -314,6 +638,85 @@ function extensionFor(contentType: string) {
 
 function hash(value: string) {
   return crypto.createHash('sha256').update(value).digest('hex');
+}
+
+function hashBuffer(value: Buffer) {
+  return crypto.createHash('sha256').update(value).digest('hex');
+}
+
+function failureFromError(
+  url: string,
+  stage: MediaImportFailure['stage'],
+  error: unknown,
+  fallback: Partial<MediaImportFailure> = {},
+): MediaImportFailure {
+  if (error instanceof ImageImportError) {
+    return {
+      url,
+      stage,
+      ...fallback,
+      ...error.details,
+      reason: error.details.reason || error.message,
+    };
+  }
+
+  const message = error instanceof Error ? error.message : String(error);
+  return {
+    url,
+    stage,
+    ...fallback,
+    reason: normalizeReason(message),
+  };
+}
+
+function normalizeReason(message: string) {
+  return message
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '') || 'unknown_error';
+}
+
+function attachMediaImportDiagnostics(
+  scrape: CatteryWebsiteScrapeResult,
+  diagnostics: MediaImportDiagnostics,
+  storedAssets: StoredImageAsset[] = diagnostics.storedAssets,
+) {
+  const previousSettings = scrape.websiteSettings ?? {};
+  const previousReport = previousSettings['importReport'] as Record<string, unknown> | undefined;
+  const importReport = {
+    ...previousReport,
+    pagesFound: scrape.crawl?.pagesFound ?? previousReport?.pagesFound ?? 1,
+    pagesProcessed: scrape.crawl?.pagesProcessed ?? previousReport?.pagesProcessed ?? 1,
+    pagesFailed: scrape.crawl?.pagesFailed ?? previousReport?.pagesFailed ?? 0,
+    imagesFound: diagnostics.imagesFound,
+    imagesCandidates: diagnostics.imagesCandidates,
+    imagesDownloadAttempted: diagnostics.imagesDownloadAttempted,
+    imagesDownloaded: diagnostics.imagesDownloaded,
+    imagesUploadAttempted: diagnostics.imagesUploadAttempted,
+    imagesStored: diagnostics.imagesStored,
+    imagesImported: diagnostics.imagesStored,
+    mediaRecordsCreated: diagnostics.mediaRecordsCreated,
+    imagesFailed: diagnostics.imagesFailed,
+    mediaImportStatus: diagnostics.status,
+    contentBlocks: scrape.siteContentLibrary?.blocks?.length ?? previousReport?.contentBlocks ?? 0,
+  };
+  const websiteSettings = {
+    ...previousSettings,
+    importedImageAssets: storedAssets,
+    mediaImport: diagnostics,
+    importReport,
+  };
+
+  return {
+    ...scrape,
+    websiteSettings,
+    demoCattery: {
+      ...((scrape as unknown as { demoCattery?: Record<string, unknown> }).demoCattery ?? {}),
+      website_settings: websiteSettings,
+    },
+    mediaImport: diagnostics,
+  } as CatteryWebsiteScrapeResult;
 }
 
 function replaceImageUrls(value: unknown, urlMap: Map<string, string>): unknown {

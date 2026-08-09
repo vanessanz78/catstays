@@ -172,6 +172,9 @@ const websiteBuilderDraftKeys = [
   'siteContentLibrary',
   'contentLibrary',
   'sectionsOrder',
+  'importedImageAssets',
+  'mediaImport',
+  'importReport',
 ] as const;
 
 const onboardingArrayKeys = [
@@ -657,7 +660,13 @@ export function OnboardingWizard() {
   const handleImportWebsite = async () => {
     try {
       const normalizedWebsiteUrl = normalizeWebsiteImportUrl(data.websiteUrl);
-      setData(prev => ({ ...prev, websiteUrl: normalizedWebsiteUrl, isImporting: true, importError: '' }));
+      setData(prev => ({
+        ...prev,
+        websiteUrl: normalizedWebsiteUrl,
+        isImporting: true,
+        importError: '',
+        importStatusText: 'Scanning website...',
+      }));
 
       const res = await fetch('/api/website/scrape', {
         method: 'POST',
@@ -677,6 +686,12 @@ export function OnboardingWizard() {
       }
 
       const previewRecord = buildPreviewImportRecord(payload);
+      const importReport = previewRecord.source.importReport ?? {};
+      const pagesProcessed = importReport.pagesProcessed ?? 1;
+      const imagesFound = importReport.imagesFound ?? 0;
+      const imagesStored = importReport.imagesStored ?? importReport.imagesImported ?? 0;
+      const imagesFailed = importReport.imagesFailed ?? 0;
+      const mediaStorageFailed = imagesFound > 0 && imagesStored === 0;
       const importedData: Record<string, any> = {
         ...dataFromPreviewRecord(previewRecord, 'original', {
           ...data,
@@ -685,6 +700,10 @@ export function OnboardingWizard() {
         isImporting: false,
         importComplete: true,
         importError: '',
+        importReport,
+        importStatusText: mediaStorageFailed
+          ? `Found ${pagesProcessed} page${pagesProcessed === 1 ? '' : 's'} and ${imagesFound} source image${imagesFound === 1 ? '' : 's'}, but no images were saved to CatStays media storage.`
+          : `Found ${pagesProcessed} page${pagesProcessed === 1 ? '' : 's'}, ${imagesFound} source image${imagesFound === 1 ? '' : 's'}, and saved ${imagesStored} to CatStays media storage${imagesFailed ? ` (${imagesFailed} failed)` : ''}.`,
       };
 
       setData(importedData);
@@ -711,9 +730,10 @@ export function OnboardingWizard() {
     } catch {
       setData(prev => ({
         ...prev,
-        isImporting: false,
-        importError: "We couldn't reach that site — you can start from scratch instead.",
-      }));
+          isImporting: false,
+          importError: "We couldn't reach that site — you can start from scratch instead.",
+          importStatusText: '',
+        }));
     }
   };
 
@@ -1785,13 +1805,13 @@ export function OnboardingWizard() {
                       <div className="bg-sage/5 rounded-2xl p-6 mt-4">
                         <div className="flex items-center gap-3 mb-3">
                           <Loader2 className="w-5 h-5 text-sage animate-spin" />
-                          <span className="font-semibold text-forest">Fetching your website...</span>
+                          <span className="font-semibold text-forest">{data.importStatusText || 'Scanning website...'}</span>
                         </div>
                         <p className="text-sm text-forest/70">
-                          We're reading your site and extracting your business name, description, contact details, and images.
+                          We're crawling internal pages, extracting real text, and importing usable source images.
                         </p>
                         <div className="mt-4">
-                          <Progress value={66} className="h-2" />
+                          <Progress value={35} className="h-2" />
                         </div>
                       </div>
                     )}
@@ -1815,12 +1835,46 @@ export function OnboardingWizard() {
                     {data.importComplete && (
                       <div className="bg-[#F8F7F5] border border-[#C46A3A]/30 rounded-2xl p-6 mt-4">
                         <div className="flex items-center gap-3 mb-3">
-                          <Check className="w-5 h-5 text-[#C46A3A]" />
-                          <span className="font-semibold text-[#0A1128]">Import Successful!</span>
+                          {(data.importReport?.imagesFound ?? 0) > 0 &&
+                          (data.importReport?.imagesStored ?? data.importReport?.imagesImported ?? 0) === 0 ? (
+                            <AlertCircle className="w-5 h-5 text-[#B45309]" />
+                          ) : (
+                            <Check className="w-5 h-5 text-[#C46A3A]" />
+                          )}
+                          <span className="font-semibold text-[#0A1128]">
+                            {(data.importReport?.imagesFound ?? 0) > 0 &&
+                            (data.importReport?.imagesStored ?? data.importReport?.imagesImported ?? 0) === 0
+                              ? 'Content Imported, Media Needs Attention'
+                              : 'Import Successful!'}
+                          </span>
                         </div>
                         <p className="text-sm text-[#0A1128]/80 mb-3">
-                          We've extracted your content and images. Click Continue to customize your website.
+                          {data.importStatusText || "We've extracted your content and images. Click Continue to customize your website."}
                         </p>
+                        {data.importReport && (
+                          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs text-[#0A1128]/70 mb-4">
+                            <div className="rounded-lg bg-white/70 border border-[#0A1128]/10 px-3 py-2">
+                              <div className="font-semibold text-[#0A1128]">{data.importReport.pagesProcessed ?? 1}</div>
+                              <div>pages scanned</div>
+                            </div>
+                            <div className="rounded-lg bg-white/70 border border-[#0A1128]/10 px-3 py-2">
+                              <div className="font-semibold text-[#0A1128]">{data.importReport.imagesFound ?? 0}</div>
+                              <div>images found</div>
+                            </div>
+                            <div className="rounded-lg bg-white/70 border border-[#0A1128]/10 px-3 py-2">
+                              <div className="font-semibold text-[#0A1128]">{data.importReport.imagesStored ?? data.importReport.imagesImported ?? 0}</div>
+                              <div>images saved</div>
+                            </div>
+                            <div className="rounded-lg bg-white/70 border border-[#0A1128]/10 px-3 py-2">
+                              <div className="font-semibold text-[#0A1128]">{data.importReport.contentBlocks ?? 0}</div>
+                              <div>content blocks</div>
+                            </div>
+                            <div className="rounded-lg bg-white/70 border border-[#0A1128]/10 px-3 py-2">
+                              <div className="font-semibold text-[#0A1128]">{data.importReport.imagesFailed ?? data.importReport.pagesFailed ?? 0}</div>
+                              <div>media issues</div>
+                            </div>
+                          </div>
+                        )}
                         <div className="flex items-center gap-4 flex-wrap">
                           <Button
                             onClick={handleContinueImportedWebsite}
@@ -1845,6 +1899,8 @@ export function OnboardingWizard() {
                               contentSourceImportVersion: '',
                               previewRecordStatus: 'draft',
                               selectedTemplate: null,
+                              importReport: null,
+                              importStatusText: '',
                             }))}
                             className="text-sm text-[#0A1128]/60 underline hover:text-[#0A1128]"
                           >

@@ -1,16 +1,16 @@
 # Current Sprint
 
-Last updated: 2026-08-03
+Last updated: 2026-08-09
 
 ## Goal
 
-Implement Phase 2 Content Sources for the Open Home Content Platform without starting Phase 3 or redesigning ADR-001.
+Implement the crawl-first Full Website Import extension to Phase 2 Content Sources without bypassing ADR-001.
 
 ## Source Of Truth
 
 - Repository: `vanessanz78/catstays`
-- Branch: `phase2/content-sources-20260803`
-- Working ref: `phase2/content-sources-20260803`
+- Branch: `import/full-site-source-truth-20260809`
+- Working ref: `import/full-site-source-truth-20260809`
 - Review environment: Replit
 - Deployment environment: Replit / CatStays app environment
 - Operating system entrypoint: `START_HERE.md` in `vanessanz78/codex-operating-system`
@@ -36,6 +36,9 @@ Implement Phase 2 Content Sources for the Open Home Content Platform without sta
 - Phase 1.5 Security And Validation is complete.
 - The schema and security model were validated against the CatStays development Supabase project.
 - Phase 2 Content Sources implementation has started on `phase2/content-sources-20260803`.
+- ADR-003 now records the Full Website Import Pipeline extension required by Fancy Felines UAT.
+- The current implementation branch is `import/full-site-source-truth-20260809`, based on GitHub `main`.
+- The importer now crawls same-domain pages, stores crawl evidence, persists content blocks and media records, and avoids generic imported-site filler.
 - Implemented server-side Content Source creation, retrieval, source hashing/import versioning, status transitions, and audit event writing.
 - Authenticated website scrapes with a known cattery can persist a Content Source immediately.
 - Onboarding publish/provision persists the imported website source after the cattery row exists.
@@ -54,10 +57,10 @@ Implement Phase 2 Content Sources for the Open Home Content Platform without sta
 
 ## Next Actions
 
-1. Pull and test `phase2/content-sources-20260803` in Replit.
-2. Complete Phase 2 UAT: website import/publish creates a durable `content_sources` row and `website_events` audit row.
-3. If UAT passes, merge to `main`, delete the branch, and tag `open-home-platform-phase-2-complete`.
-4. Do not begin Phase 3 or later until Phase 2 has passed UAT, merged, been tagged, and had its branch deleted.
+1. Pull and test `import/full-site-source-truth-20260809` in Replit.
+2. Run Fancy Felines UAT: import `https://www.fancyfelines.nz/`, confirm more than the homepage is scanned, confirm real images and content are used, and confirm no unrelated stock/filler appears where source material exists.
+3. Verify Supabase `content_sources`, `content_library`, `media_library`, and `website_events` records for the import.
+4. If UAT passes, merge to `main`, delete the branch, and tag the appropriate Open Home milestone.
 
 ## Decisions This Sprint
 

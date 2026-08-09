@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-08-09
+
+- Added ADR-003 for the crawl-first Full Website Import Pipeline.
+- Expanded website scraping from homepage-first extraction to same-domain crawl discovery with sitemap, navigation, body-link, fragment, query, and duplicate handling.
+- Added page-level crawl evidence, source-page content blocks, and import report counts to the website import payload.
+- Persisted generated source derivatives into existing Open Home `content_library` and `media_library` tables after Content Source creation.
+- Updated onboarding import UI to report real pages/images/content blocks returned by the importer.
+- Removed generic imported-site fallback rooms, services, testimonials, and stock-like images so imported sites use source content first and omit unsupported sections.
+- Added focused scraper tests for URL normalization, same-domain detection, crawl filtering, srcset parsing, and lazy/background image extraction.
+
 ## 2026-08-03
 
 - Started Phase 2 Content Sources on `phase2/content-sources-20260803`.

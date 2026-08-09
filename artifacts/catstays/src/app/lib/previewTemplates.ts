@@ -7,6 +7,7 @@ import {
   type DelorainePreviewData,
   type ImportedCatteryScrape,
 } from './deloraineDemo';
+import type { SourceCoverageReport, WebsiteKnowledgeModel } from './websiteKnowledgeModel';
 
 export type { ImportedCatteryScrape } from './deloraineDemo';
 
@@ -33,6 +34,29 @@ export interface PreviewImportRecord {
     importVersion?: string;
     persistedAt?: string;
     extractedFrom?: ImportedCatteryScrape['extractedFrom'];
+    importedImageAssets?: Array<Record<string, any>>;
+    mediaImport?: Record<string, any>;
+    importReport?: {
+      pagesFound?: number;
+      pagesProcessed?: number;
+      pagesFailed?: number;
+      imagesFound?: number;
+      imagesCandidates?: number;
+      imagesDownloadAttempted?: number;
+      imagesDownloaded?: number;
+      imagesUploadAttempted?: number;
+      imagesStored?: number;
+      imagesImported?: number;
+      mediaRecordsCreated?: number;
+      imagesFailed?: number;
+      mediaImportStatus?: string;
+      contentBlocks?: number;
+      blocksMapped?: number;
+      blocksRendered?: number;
+      blocksOmitted?: number;
+      imagesRendered?: number;
+      renderedSections?: number;
+    };
   };
   identity: {
     businessName: string;
@@ -85,6 +109,10 @@ export interface CatstaysTemplateContent {
     secondaryButton: string;
     secondaryHref: string;
   };
+  navigation: Array<{
+    label: string;
+    href: string;
+  }>;
   theme: {
     primaryColor: string;
     accentColor: string;
@@ -158,6 +186,16 @@ export interface CatstaysTemplateContent {
     question: string;
     answer: string;
   }>;
+  sourceSections: Array<{
+    anchor: string;
+    category: string;
+    title: string;
+    text: string;
+    items: Array<{ title: string; text: string }>;
+    images: Array<{ image: string; caption: string }>;
+    sourceUrls: string[];
+  }>;
+  sourceCoverageReport?: SourceCoverageReport;
   owner: {
     title: string;
     text: string;
@@ -261,6 +299,11 @@ export function buildPreviewImportRecord(scrape: ImportedCatteryScrape): Preview
   const sourceUrl = migratedScrape.sourceUrl || '';
   const sourceHost = migratedScrape.sourceHost || hostFromUrl(sourceUrl);
   const businessName = normalizedPreviewData.businessName;
+  const coverage = normalizedPreviewData.sourceCoverageReport;
+  const mediaImport = migratedScrape.mediaImport ?? migratedScrape.websiteSettings?.mediaImport;
+  const importedImageAssets = Array.isArray(migratedScrape.websiteSettings?.importedImageAssets)
+    ? migratedScrape.websiteSettings.importedImageAssets
+    : [];
 
   return {
     id: `${slugify(sourceHost || businessName)}-${Date.now()}`,
@@ -275,6 +318,30 @@ export function buildPreviewImportRecord(scrape: ImportedCatteryScrape): Preview
       importVersion: migratedScrape.importVersion,
       persistedAt: migratedScrape.persistedAt,
       extractedFrom: migratedScrape.extractedFrom,
+      importedImageAssets,
+      mediaImport,
+      importReport: {
+        ...(migratedScrape.websiteSettings?.importReport ?? {}),
+        pagesFound: migratedScrape.crawl?.pagesFound ?? migratedScrape.websiteSettings?.importReport?.pagesFound,
+        pagesProcessed: migratedScrape.crawl?.pagesProcessed ?? migratedScrape.websiteSettings?.importReport?.pagesProcessed,
+        pagesFailed: migratedScrape.crawl?.pagesFailed ?? migratedScrape.websiteSettings?.importReport?.pagesFailed,
+        imagesFound: migratedScrape.crawl?.imagesFound ?? migratedScrape.websiteSettings?.importReport?.imagesFound,
+        imagesCandidates: mediaImport?.imagesCandidates ?? migratedScrape.websiteSettings?.importReport?.imagesCandidates,
+        imagesDownloadAttempted: mediaImport?.imagesDownloadAttempted ?? migratedScrape.websiteSettings?.importReport?.imagesDownloadAttempted,
+        imagesDownloaded: mediaImport?.imagesDownloaded ?? migratedScrape.websiteSettings?.importReport?.imagesDownloaded,
+        imagesUploadAttempted: mediaImport?.imagesUploadAttempted ?? migratedScrape.websiteSettings?.importReport?.imagesUploadAttempted,
+        imagesStored: mediaImport?.imagesStored ?? importedImageAssets.length ?? migratedScrape.websiteSettings?.importReport?.imagesStored,
+        imagesImported: mediaImport?.imagesStored ?? coverage?.imagesImported,
+        mediaRecordsCreated: mediaImport?.mediaRecordsCreated ?? migratedScrape.websiteSettings?.importReport?.mediaRecordsCreated,
+        imagesFailed: mediaImport?.imagesFailed ?? migratedScrape.websiteSettings?.importReport?.imagesFailed,
+        mediaImportStatus: mediaImport?.status ?? migratedScrape.websiteSettings?.importReport?.mediaImportStatus,
+        contentBlocks: migratedScrape.siteContentLibrary?.blocks?.length ?? migratedScrape.websiteSettings?.importReport?.contentBlocks,
+        blocksMapped: coverage?.blocksMapped,
+        blocksRendered: coverage?.blocksRendered,
+        blocksOmitted: coverage?.blocksOmitted,
+        imagesRendered: coverage?.imagesRendered,
+        renderedSections: coverage?.renderedSections.length,
+      },
     },
     identity: {
       businessName,
@@ -354,6 +421,9 @@ export function dataFromPreviewRecord(
     importSourceUrl: record.source.url,
     sourceUrl: record.source.url,
     sourceHost: record.source.host,
+    importReport: record.source.importReport,
+    importedImageAssets: record.source.importedImageAssets,
+    mediaImport: record.source.mediaImport,
     businessName: record.identity.businessName,
     location: record.identity.location,
     subdomain: currentData.subdomain || record.identity.subdomain,
@@ -422,20 +492,28 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     normalized.siteContentLibrary ??
     data.siteContentLibrary ??
     emptyContentLibrary(stringFrom(record?.source.url, data.sourceUrl, normalized.sourceUrl), stringFrom(record?.source.host, data.sourceHost, normalized.sourceHost), businessName);
+  const knowledgeModel = (
+    normalizedRecord.websiteKnowledgeModel ??
+    data.websiteKnowledgeModel ??
+    record?.normalizedPreviewData?.websiteKnowledgeModel
+  ) as WebsiteKnowledgeModel | undefined;
   const libraryRooms = libraryItems(contentLibrary, 'rooms');
   const libraryServices = libraryItems(contentLibrary, 'services');
   const libraryReviews = libraryItems(contentLibrary, 'reviews');
   const libraryFaqs = libraryItems(contentLibrary, 'faqs');
   const libraryGalleryImages = libraryImages(contentLibrary, 'gallery');
   const isDeloraineSource = isDelorainePreview(record, contentLibrary, businessName);
+  const isImportedWebsite = Boolean(record?.source.url || data.sourceUrl || normalized.sourceUrl);
+  const storedBusinessImages = storedImagesFromImportSources(record, data, normalizedRecord);
   const deloraineSemanticImages = isDeloraineSource
     ? [currentDeloraineAssets.hero, currentDeloraineAssets.ownerPortrait, currentDeloraineAssets.buildingThumb, currentDeloraineAssets.grooming]
     : [];
   const importedMediaImages = uniqueStrings([
+    ...storedBusinessImages,
     ...(record?.media.images ?? []),
     ...(record?.media.galleryImages ?? []).map((image) => image.url),
     ...libraryGalleryImages.map((image) => image.url),
-    ...deloraineSemanticImages,
+    ...(storedBusinessImages.length ? [] : deloraineSemanticImages),
   ]);
   const heroBlock = libraryBlock(contentLibrary, 'hero');
   const heroLinks = heroBlock?.links ?? [];
@@ -444,16 +522,28 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const dailyCareBlock = libraryBlock(contentLibrary, 'daily-care');
   const locationBlock = libraryBlock(contentLibrary, 'location');
   const logoImage = stringFrom(data.logoImage, normalizedRecord.logoImage, record?.media.logoImage);
+  const preferredHeroImages = isImportedWebsite
+    ? [
+        storedBusinessImages[0],
+        importedUsableImage(data.heroImage),
+        importedUsableImage(normalized.heroImage),
+        importedUsableImage(heroBlock?.images?.[0]?.url),
+        importedUsableImage(record?.media.heroImage),
+        importedUsableImage(record?.media.images?.[0]),
+        importedUsableImage(record?.media.galleryImages?.[0]?.url),
+      ]
+    : [
+        data.heroImage,
+        normalized.heroImage,
+        heroBlock?.images?.[0]?.url,
+        record?.media.heroImage,
+        record?.media.images?.[0],
+        record?.media.galleryImages?.[0]?.url,
+      ];
   const heroImage = selectHeroImage(
-    [
-      data.heroImage,
-      normalized.heroImage,
-      heroBlock?.images?.[0]?.url,
-      record?.media.heroImage,
-      record?.media.images?.[0],
-      record?.media.galleryImages?.[0]?.url,
-    ],
+    preferredHeroImages,
     importedMediaImages,
+    { allowStockFallback: !isImportedWebsite },
   );
   const editedGalleryImages = Array.isArray(data.galleryImages)
     ? data.galleryImages.map((image: any) => stringFrom(image?.url, image))
@@ -461,20 +551,26 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const galleryDataImages = Array.isArray(data.galleryData?.galleryImages)
     ? data.galleryData.galleryImages.map((image: any) => stringFrom(image?.url, image))
     : [];
+  const importedSafeEditedGalleryImages = isImportedWebsite
+    ? editedGalleryImages.filter((image) => !isTemplateStockImage(image))
+    : editedGalleryImages;
+  const importedSafeGalleryDataImages = isImportedWebsite
+    ? galleryDataImages.filter((image) => !isTemplateStockImage(image))
+    : galleryDataImages;
   const explicitGalleryImages = uniqueImagesByKey([
-    ...editedGalleryImages,
-    ...galleryDataImages,
+    ...importedSafeEditedGalleryImages,
+    ...importedSafeGalleryDataImages,
   ]).filter((image) => isUsableGalleryImage(image, logoImage) && !isOpenGraphImage(image));
   const galleryImages = uniqueStrings([
-    ...editedGalleryImages,
-    ...galleryDataImages,
     ...importedMediaImages,
+    ...importedSafeEditedGalleryImages,
+    ...importedSafeGalleryDataImages,
     data.facilitiesImage,
     data.aboutImage,
     data.ownerData?.image,
     heroImage,
   ]).filter((image) => isUsableGalleryImage(image, logoImage));
-  const fallbackImages = ensureImageCount(galleryImages, heroImage);
+  const fallbackImages = ensureImageCount(galleryImages, heroImage, !isImportedWebsite);
   const usedImages = new Set<string>();
   rememberImage(usedImages, heroImage);
   const editedHighlights = Array.isArray(data.whyChooseUsFeatures) ? data.whyChooseUsFeatures : undefined;
@@ -641,6 +737,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     image,
     caption: stringFrom(record?.media.galleryImages?.[index]?.caption, `${businessName} photo ${index + 1}`),
   }));
+  const sourceSections = sourceSectionsFromKnowledgeModel(knowledgeModel);
 
   return {
     business: {
@@ -659,6 +756,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       secondaryButton: stringFrom(data.heroSecondaryCtaText, heroLinks[1]?.label, 'Our Care Approach'),
       secondaryHref: stringFrom(data.heroSecondaryCtaHref, heroLinks[1]?.url, '#care'),
     },
+    navigation: navigationFromKnowledgeModel(knowledgeModel),
     theme: {
       primaryColor: stringFrom(data.primaryColor, normalizedRecord.primaryColor, '#0A1128'),
       accentColor: stringFrom(data.accentColor, normalizedRecord.accentColor, '#C46A3A'),
@@ -701,6 +799,8 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       question: stringFrom(faq.question),
       answer: stringFrom(faq.answer),
     })).filter((faq) => faq.question && faq.answer),
+    sourceSections,
+    sourceCoverageReport: (normalizedRecord.sourceCoverageReport ?? data.sourceCoverageReport ?? knowledgeModel?.diagnostics) as SourceCoverageReport | undefined,
     owner: {
       title: stringFrom(ownerData.title, `Meet the people behind ${businessName}`),
       text: stringFrom(ownerData.text, ownerData.description, primaryDescription),
@@ -751,6 +851,51 @@ function emptyContentLibrary(sourceUrl: string, sourceHost: string, businessName
   };
 }
 
+function navigationFromKnowledgeModel(model?: WebsiteKnowledgeModel) {
+  const fallback = [
+    { label: 'Home', href: '#home' },
+    { label: 'About', href: '#about' },
+    { label: 'Care', href: '#care' },
+    { label: 'Facilities', href: '#facilities' },
+    { label: 'Suites', href: '#suites' },
+    { label: 'Gallery', href: '#gallery' },
+    { label: 'Contact', href: '#contact' },
+  ];
+  const imported = model?.navigationItems?.filter((item) => item.label && item.href) ?? [];
+  if (!imported.length) return fallback;
+  return [{ label: 'Home', href: '#home' }, ...imported].slice(0, 9);
+}
+
+function sourceSectionsFromKnowledgeModel(model?: WebsiteKnowledgeModel): CatstaysTemplateContent['sourceSections'] {
+  if (!model?.sections?.length) return [];
+  const fixedSections = new Set(['hero', 'about', 'accommodation', 'boarding', 'facilities', 'gallery', 'contact', 'testimonials']);
+  return model.sections
+    .filter((section) => !fixedSections.has(section.category))
+    .map((section) => ({
+      anchor: section.anchor,
+      category: section.category,
+      title: section.title,
+      text: section.text,
+      items: section.items
+        .map((item) => ({
+          title: stringFrom(item.title),
+          text: stringFrom(item.text, item.answer, item.price),
+        }))
+        .filter((item) => item.title || item.text)
+        .slice(0, 8),
+      images: section.images
+        .map((image) => ({
+          image: image.renderedUrl,
+          caption: stringFrom(image.caption, image.altText, section.title),
+        }))
+        .filter((image) => image.image)
+        .slice(0, 4),
+      sourceUrls: section.sourceUrls,
+    }))
+    .filter((section) => section.title && (section.text || section.items.length || section.images.length))
+    .slice(0, 10);
+}
+
 function libraryBlock(library: CatterySiteContentLibrary, category: string) {
   return library.blocks.find((block) => block.category === category);
 }
@@ -761,6 +906,32 @@ function libraryItems(library: CatterySiteContentLibrary, category: string) {
 
 function libraryImages(library: CatterySiteContentLibrary, category: string) {
   return libraryBlock(library, category)?.images ?? [];
+}
+
+function storedImagesFromImportSources(
+  record: PreviewImportRecord | null | undefined,
+  data: Record<string, any>,
+  normalized: Record<string, any>,
+) {
+  const assetSources = [
+    record?.source.importedImageAssets,
+    data.importedImageAssets,
+    data.websiteSettings?.importedImageAssets,
+    normalized.importedImageAssets,
+    normalized.websiteSettings?.importedImageAssets,
+  ];
+
+  return uniqueStrings(assetSources.flatMap((assets) => (
+    Array.isArray(assets)
+      ? assets.map((asset) => stringFrom(asset?.storedUrl, asset?.storageUrl, asset?.storage_url, asset?.url))
+      : []
+  )))
+    .filter(Boolean);
+}
+
+function importedUsableImage(value: unknown) {
+  const image = stringFrom(value);
+  return image && !isTemplateStockImage(image) ? image : '';
 }
 
 function libraryRoomsToRooms(items: ReturnType<typeof libraryItems>) {
@@ -1005,22 +1176,33 @@ function stringFrom(...values: unknown[]): string {
 }
 
 function imageFrom(...values: unknown[]): string {
+  return imageFromValues(
+    values,
+    'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=1200&h=900&fit=crop',
+  );
+}
+
+function imageFromValues(values: unknown[], fallback = ''): string {
   for (const value of values) {
     const image = stringFrom(value);
     if (/^https?:\/\//i.test(image) || /^data:image\//i.test(image)) return image;
   }
-  return 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=1200&h=900&fit=crop';
+  return fallback;
 }
 
-function selectHeroImage(preferred: unknown[], allImages: string[]): string {
+function selectHeroImage(
+  preferred: unknown[],
+  allImages: string[],
+  options: { allowStockFallback?: boolean } = {},
+): string {
   const candidates = uniqueStrings([...preferred, ...allImages]).filter((image) => isUsableGalleryImage(image));
   const nonOpenGraphImages = candidates.filter((image) => !imageMatches(image, /(?:^|[-_/])og(?:[-_.]|image)|open.?graph|social.?card/i));
-  return imageFrom(
+  return imageFromValues([
     imagesMatching(nonOpenGraphImages, /hero|banner|background|bg/i)[0],
     imagesMatching(nonOpenGraphImages, /building|exterior|facility/i)[0],
     nonOpenGraphImages[0],
     candidates[0],
-  );
+  ], options.allowStockFallback === false ? '' : 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=1200&h=900&fit=crop');
 }
 
 function isDelorainePreview(
@@ -1044,6 +1226,10 @@ function imageMatches(value: unknown, pattern: RegExp): boolean {
 
 function isOpenGraphImage(image: string): boolean {
   return imageMatches(image, /(?:^|[-_/])og(?:[-_.]|image)|open.?graph|social.?card/i);
+}
+
+function isTemplateStockImage(image: string) {
+  return /images\.unsplash\.com|placeholder|generic|catstays\/stock|stock[-_/]cat/i.test(image || '');
 }
 
 function imagesMatching(images: string[], pattern: RegExp): string[] {
@@ -1132,12 +1318,14 @@ function isUsableGalleryImage(image: string, logoImage?: string): boolean {
   if (!normalized) return false;
   if (logoKey && normalized === logoKey) return false;
   const decoded = decodeURIComponent(normalized);
+  if (/\.supabase\.co\/storage\/v1\/object\/public\/catstays-media\//i.test(decoded)) return true;
   return !/logo|favicon|apple-touch-icon|icon|avatar|profile|placeholder|silhouette|black.?cat|catstays|\/cat(?:[-_][a-z0-9]+)?\.png$/i.test(decoded);
 }
 
-function ensureImageCount(images: string[], heroImage: string): string[] {
+function ensureImageCount(images: string[], heroImage: string, allowStockFallback = true): string[] {
   const importedImages = uniqueStrings([...images, heroImage]);
   if (importedImages.length) return importedImages;
+  if (!allowStockFallback) return [];
 
   const fallback = [
     heroImage,

@@ -14,7 +14,7 @@ import {
   type OpenHomeContentSourceStatus,
   type OpenHomeContentSourceType,
 } from '../lib/openHomeContentSources';
-import { persistScrapedImages } from '../lib/persistScrapedImages';
+import { MediaImportConfigurationError, persistScrapedImages } from '../lib/persistScrapedImages';
 
 const router: IRouter = Router();
 
@@ -28,7 +28,11 @@ router.post('/website/scrape', async (req, res) => {
 
   try {
     const scraped = await scrapeCatteryWebsite(url);
-    const result = await persistScrapedImages(scraped);
+    const result = await persistScrapedImages(scraped, {
+      catteryId: typeof catteryId === 'string' ? catteryId.trim() : undefined,
+      requireStorage:
+        process.env.NODE_ENV === 'development' || process.env.CATSTAYS_REQUIRE_MEDIA_IMPORT === 'true',
+    });
 
     if (typeof catteryId === 'string' && catteryId.trim()) {
       const supabase = createAuthenticatedClient(req);
@@ -66,7 +70,13 @@ router.post('/website/scrape', async (req, res) => {
     res.json(result);
   } catch (err) {
     const msg = (err as Error).message;
-    if (msg === 'URL_REQUIRED' || msg === 'INVALID_URL') {
+    if (err instanceof MediaImportConfigurationError) {
+      res.status(500).json({
+        error:
+          'Website images were found, but CatStays media storage is not configured. Add SUPABASE_SERVICE_ROLE_KEY before importing.',
+        mediaImport: err.diagnostics,
+      });
+    } else if (msg === 'URL_REQUIRED' || msg === 'INVALID_URL') {
       res.status(400).json({ error: 'Invalid URL' });
     } else if (msg === 'BAD_SCHEME') {
       res.status(400).json({ error: 'Only http and https URLs are supported' });

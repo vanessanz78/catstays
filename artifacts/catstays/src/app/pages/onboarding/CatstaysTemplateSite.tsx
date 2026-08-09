@@ -175,13 +175,15 @@ function TemplateHeader({
   onPreviewAnchorClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
 }) {
   const links = [
-    ['Home', '#home'],
-    ['About', '#about'],
-    ['Care', '#care'],
-    ['Facilities', '#facilities'],
-    ['Suites', '#suites'],
-    ['Gallery', '#gallery'],
-    ['Contact', '#contact'],
+    ...(content.navigation.length ? content.navigation : [
+      { label: 'Home', href: '#home' },
+      { label: 'About', href: '#about' },
+      { label: 'Care', href: '#care' },
+      { label: 'Facilities', href: '#facilities' },
+      { label: 'Suites', href: '#suites' },
+      { label: 'Gallery', href: '#gallery' },
+      { label: 'Contact', href: '#contact' },
+    ]),
   ];
 
   return (
@@ -194,7 +196,7 @@ function TemplateHeader({
           </p>
         </div>
         <nav className="catstays-preview-nav hidden items-center gap-5 text-xs font-bold uppercase tracking-[0.08em] lg:flex">
-          {links.map(([label, href]) => (
+          {links.map(({ label, href }) => (
             <a key={label} href={href} onClick={onPreviewAnchorClick} className="hover:opacity-70">
               {label}
             </a>
@@ -286,13 +288,16 @@ function FocusTemplate({
         <AboutSplit content={content} imageFirst onPreviewAnchorClick={onPreviewAnchorClick} />
         <FeatureRow content={content} />
         <FacilitiesDetailSection content={content} />
+        <SourceDrivenSections content={content} />
         <OwnerStorySection content={content} />
         <GalleryStrip content={content} />
         <SuitesGrid content={content} />
         <ServicesGrid content={content} />
+        <FaqSection content={content} />
         <ReviewsSection content={content} />
         <LocationSection content={content} />
         <VirtualTourSection content={content} />
+        <SourceCoverageDebug content={content} />
         <ContactFormSection content={content} onPreviewContactAction={onPreviewContactAction} />
       </main>
       <TemplateFooter content={content} dark onPreviewAnchorClick={onPreviewAnchorClick} />
@@ -363,13 +368,16 @@ function EditorialTemplate({
 
         <FeatureRow content={content} />
         <FacilitiesDetailSection content={content} />
+        <SourceDrivenSections content={content} />
         <SuitesGrid content={content} compact />
         <ServicesGrid content={content} />
+        <FaqSection content={content} />
         <GalleryStrip content={content} />
         <ReviewsSection content={content} />
         <OwnerStorySection content={content} />
         <LocationSection content={content} />
         <VirtualTourSection content={content} />
+        <SourceCoverageDebug content={content} />
         <ContactFormSection content={content} onPreviewContactAction={onPreviewContactAction} />
       </main>
       <TemplateFooter content={content} dark onPreviewAnchorClick={onPreviewAnchorClick} />
@@ -424,12 +432,15 @@ function ShowcaseTemplate({
         <AboutSplit content={content} onPreviewAnchorClick={onPreviewAnchorClick} />
         <FeatureRow content={content} />
         <FacilitiesDetailSection content={content} />
+        <SourceDrivenSections content={content} />
         <SuitesGrid content={content} />
         <ServicesGrid content={content} />
+        <FaqSection content={content} />
         <ReviewsSection content={content} />
         <OwnerStorySection content={content} />
         <LocationSection content={content} />
         <VirtualTourSection content={content} />
+        <SourceCoverageDebug content={content} />
         <ContactFormSection content={content} onPreviewContactAction={onPreviewContactAction} />
       </main>
       <TemplateFooter content={content} dark onPreviewAnchorClick={onPreviewAnchorClick} />
@@ -712,6 +723,134 @@ function ServicesGrid({ content }: { content: ReturnType<typeof buildCatstaysTem
             </article>
           );
         })}
+      </div>
+    </section>
+  );
+}
+
+function SourceDrivenSections({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
+  if (!content.sourceSections.length) return null;
+
+  return (
+    <div className="bg-[#f8f5ef]">
+      {content.sourceSections.map((section, index) => {
+        const primaryImage = section.images[0]?.image;
+        return (
+          <section
+            key={`${section.anchor}-${section.title}`}
+            id={section.anchor}
+            className="catstays-stack mx-auto grid max-w-[1400px] scroll-mt-28 gap-8 px-6 py-14 md:grid-cols-[0.92fr_1.08fr] md:items-center md:py-16"
+          >
+            {primaryImage ? (
+              <TemplateImage
+                src={primaryImage}
+                alt=""
+                className={`catstays-template-section-image h-[360px] w-full rounded-md object-cover shadow-sm md:h-[460px] ${index % 2 === 1 ? 'md:order-2' : ''}`}
+              />
+            ) : null}
+            <div className={`rounded-md border border-[#222]/10 bg-white p-8 shadow-sm ${!primaryImage ? 'md:col-span-2' : ''}`}>
+              <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">{sectionLabel(section.category)}</p>
+              <h2 className="text-3xl leading-tight md:text-5xl">{section.title}</h2>
+              {section.text ? <p className="mt-5 max-w-4xl text-base leading-7 text-[#444]">{section.text}</p> : null}
+              {section.items.length ? (
+                <div className="catstays-card-grid mt-7 grid gap-4 sm:grid-cols-2">
+                  {section.items.map((item) => (
+                    <article key={`${section.anchor}-${item.title}`} className="rounded-md border border-[#222]/10 bg-[#f8f5ef] p-5">
+                      {item.title ? <h3 className="font-serif text-xl leading-tight">{item.title}</h3> : null}
+                      {item.text ? <p className="mt-3 text-sm leading-6 text-[#444]">{item.text}</p> : null}
+                    </article>
+                  ))}
+                </div>
+              ) : null}
+              {section.images.length > 1 ? (
+                <div className="mt-7 grid gap-3 sm:grid-cols-3">
+                  {section.images.slice(1, 4).map((image) => (
+                    <TemplateImage key={image.image} src={image.image} alt="" className="h-32 w-full rounded-md object-cover" />
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+function sectionLabel(category: string) {
+  if (category === 'healthCare') return 'Feline Health Care';
+  if (category === 'otherImportantContent') return 'Important Information';
+  return category.replace(/([A-Z])/g, ' $1').replace(/^./, (letter) => letter.toUpperCase());
+}
+
+function FaqSection({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
+  if (!content.faqs.length) return null;
+
+  return (
+    <section id="faqs" className="scroll-mt-28 bg-white px-6 py-16">
+      <div className="mx-auto max-w-[1100px]">
+        <p className="mb-3 text-center text-xs font-bold uppercase tracking-[0.2em] text-[#b58b4a]">Q&A</p>
+        <h2 className="text-center text-3xl leading-tight md:text-5xl">Questions and answers</h2>
+        <div className="mt-10 grid gap-4">
+          {content.faqs.slice(0, 12).map((faq) => (
+            <article key={faq.question} className="rounded-md border border-[#222]/10 bg-[#f8f5ef] p-6">
+              <h3 className="font-serif text-xl leading-tight">{faq.question}</h3>
+              <p className="mt-3 text-sm leading-6 text-[#444]">{faq.answer}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function SourceCoverageDebug({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
+  const report = content.sourceCoverageReport;
+  if (!import.meta.env.DEV || !report) return null;
+
+  return (
+    <section className="scroll-mt-28 bg-[#101827] px-6 py-10 text-white">
+      <div className="mx-auto max-w-[1400px]">
+        <p className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-white/60">Source Coverage</p>
+        <h2 className="text-3xl leading-tight">Imported website coverage</h2>
+        <div className="mt-6 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            ['Pages', report.pagesProcessed],
+            ['Source blocks', report.sourceBlocks],
+            ['Blocks rendered', report.blocksRendered],
+            ['Images rendered', report.imagesRendered],
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-md border border-white/15 bg-white/5 p-4">
+              <div className="text-2xl font-semibold">{value}</div>
+              <div className="text-white/60">{label}</div>
+            </div>
+          ))}
+        </div>
+        <details className="mt-6 rounded-md border border-white/15 bg-white/5 p-5">
+          <summary className="cursor-pointer text-sm font-bold uppercase tracking-[0.1em] text-white/80">Rendered sections and images</summary>
+          <div className="mt-5 grid gap-6 lg:grid-cols-2">
+            <div>
+              <h3 className="mb-3 font-serif text-2xl">Sections</h3>
+              <ul className="space-y-2 text-sm leading-6 text-white/75">
+                {report.renderedSections.map((section) => (
+                  <li key={section.anchor}>
+                    <span className="font-semibold text-white">#{section.anchor}</span> {section.title}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h3 className="mb-3 font-serif text-2xl">Images</h3>
+              <ul className="space-y-2 text-xs leading-5 text-white/75">
+                {report.renderedImages.slice(0, 16).map((image) => (
+                  <li key={`${image.section}-${image.renderedUrl}`}>
+                    <span className="font-semibold text-white">#{image.section}</span> {image.sourceUrl} {'->'} {image.renderedUrl}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </details>
       </div>
     </section>
   );

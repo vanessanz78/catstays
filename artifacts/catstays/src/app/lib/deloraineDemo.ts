@@ -1,4 +1,6 @@
 import { normalizeWebsiteImportUrl } from './websiteImportUrl';
+import { buildWebsiteKnowledgeModel, sectionsForCategories } from './websiteKnowledgeModel';
+import type { WebsiteKnowledgeModel } from './websiteKnowledgeModel';
 
 export const DELORAINE_SOURCE_URL = 'https://www.delorainecattery.com/';
 export const PREVIEW_URL_STORAGE_KEY = 'catstays_preview_url';
@@ -114,8 +116,15 @@ export type CatterySiteContentCategory =
   | 'facilities'
   | 'daily-care'
   | 'rooms'
+  | 'accommodation'
+  | 'boarding'
   | 'pricing'
   | 'services'
+  | 'grooming'
+  | 'health-care'
+  | 'respite'
+  | 'policies'
+  | 'other-important-content'
   | 'gallery'
   | 'reviews'
   | 'faqs'
@@ -147,6 +156,7 @@ export interface CatterySiteContentBlock {
   title: string;
   text?: string;
   source?: 'scrape' | 'fallback' | 'generated';
+  sourceUrl?: string;
   items?: CatterySiteContentItem[];
   images?: Array<{ url: string; caption?: string }>;
   links?: Array<{ label: string; url: string }>;
@@ -166,6 +176,7 @@ export interface ImportedCatteryScrape {
   contentHash?: string;
   importVersion?: string;
   persistedAt?: string;
+  mediaImport?: Record<string, any>;
   sourceUrl?: string;
   sourceHost?: string;
   title?: string;
@@ -223,6 +234,22 @@ export interface ImportedCatteryScrape {
   virtualTourUrl?: string;
   siteContentLibrary?: CatterySiteContentLibrary;
   websiteSettings?: Record<string, any>;
+  crawl?: {
+    canonicalDomain?: string;
+    pagesFound?: number;
+    pagesProcessed?: number;
+    pagesFailed?: number;
+    imagesFound?: number;
+    pages?: Array<{
+      url: string;
+      title?: string;
+      heading?: string;
+      pageType?: string;
+      bodyText?: string;
+      images?: Array<{ url: string; altText?: string; caption?: string; sourcePageUrl?: string }>;
+    }>;
+    failedPages?: Array<{ url: string; error: string }>;
+  };
   bodyText?: string;
   extractedFrom?: {
     html?: boolean;
@@ -274,6 +301,8 @@ export interface DelorainePreviewData {
   };
   virtualTourUrl?: string;
   siteContentLibrary?: CatterySiteContentLibrary;
+  websiteKnowledgeModel?: WebsiteKnowledgeModel;
+  sourceCoverageReport?: any;
   sectionsOrder?: string[];
   roomTypes?: Array<{
     name: string;
@@ -951,15 +980,16 @@ export function buildPreviewDataFromScrape(inputScrape: ImportedCatteryScrape): 
   const scrape = migrateDeloraineAssetsInValue(inputScrape);
   const settings = scrape.websiteSettings ?? {};
   const isDeloraineSource = isDeloraineScrape(scrape);
-  const fallbackAssets = isDeloraineSource ? deloraineAssets : genericCatAssets;
+  const isImportedSource = Boolean(scrape.sourceUrl);
+  const fallbackAssets = isDeloraineSource ? deloraineAssets : isImportedSource ? [] : genericCatAssets;
   const images = uniqueImages([
     scrape.heroImage,
     ...(scrape.images ?? []),
     ...fallbackAssets,
   ]);
-  const fallbackRooms = isDeloraineSource ? fallbackDeloraineScrape.rooms ?? [] : genericRooms(images);
-  const fallbackServices = isDeloraineSource ? fallbackDeloraineScrape.services ?? [] : genericServices(images);
-  const fallbackHighlights = isDeloraineSource ? fallbackDeloraineScrape.highlights ?? [] : genericHighlights();
+  const fallbackRooms = isDeloraineSource ? fallbackDeloraineScrape.rooms ?? [] : isImportedSource ? [] : genericRooms(images);
+  const fallbackServices = isDeloraineSource ? fallbackDeloraineScrape.services ?? [] : isImportedSource ? [] : genericServices(images);
+  const fallbackHighlights = isDeloraineSource ? fallbackDeloraineScrape.highlights ?? [] : isImportedSource ? [] : genericHighlights();
   const rooms = scrape.rooms?.length ? scrape.rooms : fallbackRooms;
   const services = (scrape.services?.length ? scrape.services : fallbackServices).slice(0, 12);
   const highlights = scrape.highlights?.length ? scrape.highlights : fallbackHighlights;
@@ -975,7 +1005,7 @@ export function buildPreviewDataFromScrape(inputScrape: ImportedCatteryScrape): 
   const fallbackPhone = isDeloraineSource ? fallbackDeloraineScrape.phone || '' : '';
   const fallbackEmail = isDeloraineSource ? fallbackDeloraineScrape.email || '' : '';
   const fallbackAddress = isDeloraineSource ? fallbackDeloraineScrape.address || '' : '';
-  const fallbackFaqs = isDeloraineSource ? fallbackDeloraineScrape.faqs : genericFaqs(businessName);
+  const fallbackFaqs = isDeloraineSource ? fallbackDeloraineScrape.faqs : isImportedSource ? [] : genericFaqs(businessName);
   const reviews = scrape.reviews?.length
     ? scrape.reviews
     : (settings.testimonialsData?.testimonials ?? (isDeloraineSource ? fallbackDeloraineScrape.reviews ?? [] : []));
@@ -1012,6 +1042,66 @@ export function buildPreviewDataFromScrape(inputScrape: ImportedCatteryScrape): 
       socialLinks,
       virtualTourUrl,
     });
+  const websiteKnowledgeModel = buildWebsiteKnowledgeModel(scrape, siteContentLibrary);
+  const heroSection = sectionsForCategories(websiteKnowledgeModel, ['hero'])[0];
+  const aboutSection = sectionsForCategories(websiteKnowledgeModel, ['about'])[0];
+  const accommodationSections = sectionsForCategories(websiteKnowledgeModel, ['accommodation', 'boarding']);
+  const serviceSections = sectionsForCategories(websiteKnowledgeModel, ['services', 'grooming', 'healthCare', 'respite']);
+  const facilitySections = sectionsForCategories(websiteKnowledgeModel, ['facilities', 'policies']);
+  const pricingSections = sectionsForCategories(websiteKnowledgeModel, ['pricing']);
+  const faqSection = sectionsForCategories(websiteKnowledgeModel, ['faqs'])[0];
+  const gallerySection = sectionsForCategories(websiteKnowledgeModel, ['gallery'])[0];
+  const contactSection = sectionsForCategories(websiteKnowledgeModel, ['contact', 'booking'])[0];
+  const knowledgeHighlights = [
+    ...sectionsForCategories(websiteKnowledgeModel, ['accommodation', 'boarding', 'grooming', 'healthCare', 'respite', 'facilities'])
+      .map((section) => ({
+        title: section.title,
+        description: section.text,
+      })),
+    ...highlights,
+  ].filter((item) => item.title || item.description).slice(0, 8);
+  const knowledgeRooms: NonNullable<ImportedCatteryScrape['rooms']> = rooms.length
+    ? rooms
+    : accommodationSections.flatMap((section) => {
+        const image = section.images[0]?.renderedUrl;
+        const itemRooms = section.items.map((item) => ({
+          name: item.title,
+          description: item.text || section.text,
+          price: item.price,
+          amenities: item.features ?? item.details ?? [],
+          image: item.image || image,
+        }));
+        return itemRooms.length
+          ? itemRooms
+          : [{
+              name: section.title,
+              description: section.text,
+              image,
+              amenities: section.items.map((item) => item.title).filter(Boolean).slice(0, 6),
+            }];
+      });
+  const knowledgeServices: NonNullable<ImportedCatteryScrape['services']> = [
+    ...serviceSections.map((section) => ({
+      title: section.title,
+      description: section.text,
+      image: section.images[0]?.renderedUrl,
+    })),
+    ...services,
+    ...pricingSections.map((section) => ({
+      title: section.title,
+      description: section.text,
+      image: section.images[0]?.renderedUrl,
+    })),
+  ].filter((service) => service.title || service.description).slice(0, 16);
+  const knowledgeFaqs = scrape.faqs?.length
+    ? scrape.faqs.slice(0, 20)
+    : faqSection?.items?.map((item) => ({
+        question: item.title,
+        answer: item.answer || item.text || '',
+      })).filter((faq) => faq.question && faq.answer).slice(0, 20) ?? fallbackFaqs;
+  const knowledgeGalleryImages = gallerySection?.images?.length
+    ? gallerySection.images.map((image) => ({ url: image.renderedUrl, caption: image.caption || businessName }))
+    : galleryImages;
 
   return {
     businessName,
@@ -1025,13 +1115,15 @@ export function buildPreviewDataFromScrape(inputScrape: ImportedCatteryScrape): 
     heroHeading: meaningfulHeading(stringValue(settings.heroHeading)) || businessName,
     heroSubheading:
       stringValue(settings.heroSubheading) ||
+      firstSentence(heroSection?.text) ||
       firstSentence(scrape.description) ||
-      'Your cats home away from home',
+      (isImportedSource ? '' : 'Your cats home away from home'),
     aboutHeading: importedHeading(stringValue(settings.aboutHeading), businessName) || `About ${businessName}`,
     aboutText:
       stringValue(settings.aboutText) ||
+      aboutSection?.text ||
       scrape.description ||
-      'A purpose-built cat boarding facility focused on comfort, calm, and personal care.',
+      (isImportedSource ? '' : 'A purpose-built cat boarding facility focused on comfort, calm, and personal care.'),
     phone: stringValue(settings.phone) || scrape.phone || fallbackPhone,
     email: stringValue(settings.email) || scrape.email || fallbackEmail,
     address: stringValue(settings.address) || scrape.address || fallbackAddress,
@@ -1045,26 +1137,32 @@ export function buildPreviewDataFromScrape(inputScrape: ImportedCatteryScrape): 
     typography: 'playfair',
     whyChooseUsData: {
       whyChooseUsHeading: `Why choose ${businessName}`,
-      whyChooseUsFeatures: highlights.map((highlight, index) => ({
+      whyChooseUsText: aboutSection?.text || heroSection?.text || scrape.description || '',
+      whyChooseUsFeatures: (knowledgeHighlights.length ? knowledgeHighlights : highlights).map((highlight, index) => ({
         icon: ['Shield', 'Heart', 'Home'][index] ?? 'Star',
         title: highlight.title,
         description: highlight.description,
       })),
     },
     facilitiesData: {
-      facilitiesHeading: 'Purpose-built cat accommodation',
+      facilitiesHeading: facilitySections[0]?.title || 'Purpose-built cat accommodation',
       facilitiesText:
+        facilitySections[0]?.text ||
         highlights[0]?.description ||
         'Comfortable cat boarding facilities designed around safety, routine, and calm.',
-      facilitiesImage: imageByName(images, /building|facility|indoor|communal/i) || images[0],
-      facilityFeatures: highlights.map((highlight) => ({
+      facilitiesImage: facilitySections[0]?.images[0]?.renderedUrl || imageByName(images, /building|facility|indoor|communal/i) || images[0],
+      facilityFeatures: (facilitySections.length ? facilitySections : []).flatMap((section) => (
+        section.items.length
+          ? section.items.map((item) => ({ title: item.title, description: item.text || section.text }))
+          : [{ title: section.title, description: section.text }]
+      )).concat(highlights.map((highlight) => ({
         title: highlight.title,
         description: highlight.description,
-      })),
+      }))).filter((item) => item.title || item.description).slice(0, 8),
     },
     suitesData: {
-      suitesHeading: 'Boarding options',
-      suites: rooms.map((room, index) => ({
+      suitesHeading: accommodationSections[0]?.title || 'Boarding options',
+      suites: knowledgeRooms.map((room, index) => ({
         name: room.name,
         price: room.price && room.priceUnit ? `${room.price}/${room.priceUnit.replace(/^per\s+/i, '')}` : room.price,
         description: room.description,
@@ -1074,8 +1172,8 @@ export function buildPreviewDataFromScrape(inputScrape: ImportedCatteryScrape): 
       })),
     },
     servicesData: {
-      servicesHeading: 'Care services',
-      services: services.map((service, index) => ({
+      servicesHeading: serviceSections[0]?.title || 'Care services',
+      services: knowledgeServices.map((service, index) => ({
         icon: ['Heart', 'Clock', 'Shield', 'Home'][index] ?? 'Star',
         title: service.title,
         description: service.price ? `${service.description} ${service.price}.` : service.description,
@@ -1084,7 +1182,7 @@ export function buildPreviewDataFromScrape(inputScrape: ImportedCatteryScrape): 
     },
     galleryData: {
       galleryHeading: `Happy cats at ${businessName}`,
-      galleryImages: galleryImages.slice(0, 24).map((image) => ({
+      galleryImages: knowledgeGalleryImages.slice(0, 24).map((image) => ({
         url: image.url,
         caption: image.caption || `${businessName} photo`,
       })),
@@ -1093,7 +1191,9 @@ export function buildPreviewDataFromScrape(inputScrape: ImportedCatteryScrape): 
       testimonialsHeading: 'Trusted cat care',
       testimonials: reviews.length
         ? reviews
-        : [
+        : isImportedSource
+          ? []
+          : [
             {
               name: 'Regular guest family',
               text: 'A calm, cat-focused stay with thoughtful daily care.',
@@ -1103,10 +1203,11 @@ export function buildPreviewDataFromScrape(inputScrape: ImportedCatteryScrape): 
           ],
     },
     faqData: {
-      faqs: scrape.faqs?.length ? scrape.faqs.slice(0, 20) : fallbackFaqs,
+      faqHeading: faqSection?.title || 'Questions and answers',
+      faqs: knowledgeFaqs,
     },
     contactData: {
-      contactHeading: 'Contact and booking',
+      contactHeading: contactSection?.title || 'Contact and booking',
       hours,
       socialLinks,
       virtualTourUrl,
@@ -1119,14 +1220,16 @@ export function buildPreviewDataFromScrape(inputScrape: ImportedCatteryScrape): 
     socialLinks,
     virtualTourUrl,
     siteContentLibrary,
-    sectionsOrder: ['hero', 'about', 'why-choose-us', 'facilities', 'suites', 'services', 'gallery', 'reviews', 'location', 'contact'],
-    roomTypes: rooms.map((room) => ({
+    websiteKnowledgeModel,
+    sourceCoverageReport: websiteKnowledgeModel.diagnostics,
+    sectionsOrder: websiteKnowledgeModel.navigationItems.map((item) => item.href.replace(/^#/, '')),
+    roomTypes: knowledgeRooms.map((room) => ({
       name: room.name,
       numberOfRooms: '1',
       maxCatsPerRoom: String(room.capacity || 1),
       sameFamilyOnly: true,
     })),
-    pricingRates: rooms
+    pricingRates: knowledgeRooms
       .filter((room) => room.price_per_night)
       .map((room) => ({
         numberOfCats: '1',
