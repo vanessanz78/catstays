@@ -501,14 +501,17 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const libraryFaqs = libraryItems(contentLibrary, 'faqs');
   const libraryGalleryImages = libraryImages(contentLibrary, 'gallery');
   const isDeloraineSource = isDelorainePreview(record, contentLibrary, businessName);
+  const isImportedWebsite = Boolean(record?.source.url || data.sourceUrl || normalized.sourceUrl);
+  const storedBusinessImages = storedImagesFromImportRecord(record);
   const deloraineSemanticImages = isDeloraineSource
     ? [currentDeloraineAssets.hero, currentDeloraineAssets.ownerPortrait, currentDeloraineAssets.buildingThumb, currentDeloraineAssets.grooming]
     : [];
   const importedMediaImages = uniqueStrings([
+    ...storedBusinessImages,
     ...(record?.media.images ?? []),
     ...(record?.media.galleryImages ?? []).map((image) => image.url),
     ...libraryGalleryImages.map((image) => image.url),
-    ...deloraineSemanticImages,
+    ...(storedBusinessImages.length ? [] : deloraineSemanticImages),
   ]);
   const heroBlock = libraryBlock(contentLibrary, 'hero');
   const heroLinks = heroBlock?.links ?? [];
@@ -527,6 +530,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
       record?.media.galleryImages?.[0]?.url,
     ],
     importedMediaImages,
+    { allowStockFallback: !isImportedWebsite },
   );
   const editedGalleryImages = Array.isArray(data.galleryImages)
     ? data.galleryImages.map((image: any) => stringFrom(image?.url, image))
@@ -547,7 +551,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     data.ownerData?.image,
     heroImage,
   ]).filter((image) => isUsableGalleryImage(image, logoImage));
-  const fallbackImages = ensureImageCount(galleryImages, heroImage);
+  const fallbackImages = ensureImageCount(galleryImages, heroImage, !isImportedWebsite);
   const usedImages = new Set<string>();
   rememberImage(usedImages, heroImage);
   const editedHighlights = Array.isArray(data.whyChooseUsFeatures) ? data.whyChooseUsFeatures : undefined;
@@ -885,6 +889,14 @@ function libraryImages(library: CatterySiteContentLibrary, category: string) {
   return libraryBlock(library, category)?.images ?? [];
 }
 
+function storedImagesFromImportRecord(record: PreviewImportRecord | null | undefined) {
+  const assets = record?.source.importedImageAssets;
+  if (!Array.isArray(assets)) return [];
+  return assets
+    .map((asset) => stringFrom(asset?.storedUrl, asset?.storageUrl, asset?.storage_url, asset?.url))
+    .filter(Boolean);
+}
+
 function libraryRoomsToRooms(items: ReturnType<typeof libraryItems>) {
   return items.map((item) => ({
     name: item.title,
@@ -1127,22 +1139,33 @@ function stringFrom(...values: unknown[]): string {
 }
 
 function imageFrom(...values: unknown[]): string {
+  return imageFromValues(
+    values,
+    'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=1200&h=900&fit=crop',
+  );
+}
+
+function imageFromValues(values: unknown[], fallback = ''): string {
   for (const value of values) {
     const image = stringFrom(value);
     if (/^https?:\/\//i.test(image) || /^data:image\//i.test(image)) return image;
   }
-  return 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=1200&h=900&fit=crop';
+  return fallback;
 }
 
-function selectHeroImage(preferred: unknown[], allImages: string[]): string {
+function selectHeroImage(
+  preferred: unknown[],
+  allImages: string[],
+  options: { allowStockFallback?: boolean } = {},
+): string {
   const candidates = uniqueStrings([...preferred, ...allImages]).filter((image) => isUsableGalleryImage(image));
   const nonOpenGraphImages = candidates.filter((image) => !imageMatches(image, /(?:^|[-_/])og(?:[-_.]|image)|open.?graph|social.?card/i));
-  return imageFrom(
+  return imageFromValues([
     imagesMatching(nonOpenGraphImages, /hero|banner|background|bg/i)[0],
     imagesMatching(nonOpenGraphImages, /building|exterior|facility/i)[0],
     nonOpenGraphImages[0],
     candidates[0],
-  );
+  ], options.allowStockFallback === false ? '' : 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=1200&h=900&fit=crop');
 }
 
 function isDelorainePreview(
@@ -1254,12 +1277,14 @@ function isUsableGalleryImage(image: string, logoImage?: string): boolean {
   if (!normalized) return false;
   if (logoKey && normalized === logoKey) return false;
   const decoded = decodeURIComponent(normalized);
+  if (/\.supabase\.co\/storage\/v1\/object\/public\/catstays-media\//i.test(decoded)) return true;
   return !/logo|favicon|apple-touch-icon|icon|avatar|profile|placeholder|silhouette|black.?cat|catstays|\/cat(?:[-_][a-z0-9]+)?\.png$/i.test(decoded);
 }
 
-function ensureImageCount(images: string[], heroImage: string): string[] {
+function ensureImageCount(images: string[], heroImage: string, allowStockFallback = true): string[] {
   const importedImages = uniqueStrings([...images, heroImage]);
   if (importedImages.length) return importedImages;
+  if (!allowStockFallback) return [];
 
   const fallback = [
     heroImage,
