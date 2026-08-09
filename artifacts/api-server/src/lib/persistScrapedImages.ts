@@ -6,9 +6,18 @@ import type { CatteryWebsiteScrapeResult } from './catteryWebsiteScraper';
 
 const DEFAULT_BUCKET = 'catstays-media';
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
-const FETCH_TIMEOUT_MS = 10_000;
-const MAX_IMAGE_IMPORTS = 64;
+const DEFAULT_FETCH_TIMEOUT_MS = 10_000;
+const DEFAULT_MAX_IMAGE_IMPORTS = 64;
+const DEFAULT_IMAGE_IMPORT_CONCURRENCY = 4;
+const DEFAULT_IMAGE_TASK_TIMEOUT_MS = 12_000;
 const MAX_IMAGE_REDIRECTS = 4;
+
+type PersistScrapedImagesOptions = {
+  maxImages?: number;
+  concurrency?: number;
+  fetchTimeoutMs?: number;
+  imageTaskTimeoutMs?: number;
+};
 
 type StoredAsset = {
   originalUrl: string;
@@ -25,43 +34,25 @@ type ImageFetchResult = {
 
 export async function persistScrapedImages(
   scrape: CatteryWebsiteScrapeResult,
+  options: PersistScrapedImagesOptions = {},
 ): Promise<CatteryWebsiteScrapeResult> {
   const supabase = createStorageClient();
   if (!supabase) return scrape;
 
-  const urls = imageUrlsFromScrape(scrape).slice(0, MAX_IMAGE_IMPORTS);
+  const urls = imageUrlsFromScrape(scrape).slice(0, positiveInteger(options.maxImages, DEFAULT_MAX_IMAGE_IMPORTS));
   if (!urls.length) return scrape;
 
-  const storedAssets: StoredAsset[] = [];
-
-  for (const originalUrl of urls) {
-    try {
-      const asset = await fetchImage(originalUrl);
-      const path = storagePathFor(scrape, originalUrl, asset.contentType);
-      const { error } = await supabase.storage
-        .from(storageBucket())
-        .upload(path, asset.body, {
-          contentType: asset.contentType,
-          upsert: true,
-          cacheControl: '31536000',
-        });
-
-      if (error) throw error;
-
-      const { data } = supabase.storage.from(storageBucket()).getPublicUrl(path);
-      if (!data.publicUrl) continue;
-
-      storedAssets.push({
-        originalUrl,
-        storedUrl: data.publicUrl,
-        path,
-        contentType: asset.contentType,
-        storageBucket: storageBucket(),
-      });
-    } catch {
-      // A single blocked, private, unsupported, or oversized image should not fail the import.
-    }
-  }
+  const storedAssets = (
+    await mapWithConcurrency(
+      urls,
+      positiveInteger(options.concurrency, DEFAULT_IMAGE_IMPORT_CONCURRENCY),
+      (originalUrl) =>
+        withTimeout(
+          persistSingleImage(supabase, scrape, originalUrl, options),
+          positiveInteger(options.imageTaskTimeoutMs, DEFAULT_IMAGE_TASK_TIMEOUT_MS),
+        ),
+    )
+  ).filter((asset): asset is StoredAsset => Boolean(asset));
 
   if (!storedAssets.length) return scrape;
 
@@ -77,6 +68,41 @@ export async function persistScrapedImages(
   };
 
   return transformed;
+}
+
+async function persistSingleImage(
+  supabase: SupabaseClient,
+  scrape: CatteryWebsiteScrapeResult,
+  originalUrl: string,
+  options: PersistScrapedImagesOptions,
+): Promise<StoredAsset | null> {
+  try {
+    const asset = await fetchImage(originalUrl, positiveInteger(options.fetchTimeoutMs, DEFAULT_FETCH_TIMEOUT_MS));
+    const path = storagePathFor(scrape, originalUrl, asset.contentType);
+    const { error } = await supabase.storage
+      .from(storageBucket())
+      .upload(path, asset.body, {
+        contentType: asset.contentType,
+        upsert: true,
+        cacheControl: '31536000',
+      });
+
+    if (error) throw error;
+
+    const { data } = supabase.storage.from(storageBucket()).getPublicUrl(path);
+    if (!data.publicUrl) return null;
+
+    return {
+      originalUrl,
+      storedUrl: data.publicUrl,
+      path,
+      contentType: asset.contentType,
+      storageBucket: storageBucket(),
+    };
+  } catch {
+    // A single blocked, private, unsupported, or oversized image should not fail the import.
+    return null;
+  }
 }
 
 function createStorageClient(): SupabaseClient | null {
@@ -192,7 +218,7 @@ function isCatstaysStorageUrl(value: string) {
   }
 }
 
-async function fetchImage(rawUrl: string): Promise<ImageFetchResult> {
+async function fetchImage(rawUrl: string, fetchTimeoutMs: number): Promise<ImageFetchResult> {
   let currentUrl = new URL(rawUrl);
 
   for (let redirectCount = 0; redirectCount <= MAX_IMAGE_REDIRECTS; redirectCount += 1) {
@@ -204,7 +230,7 @@ async function fetchImage(rawUrl: string): Promise<ImageFetchResult> {
     await assertSafePublicHost(currentUrl.hostname);
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    const timeout = setTimeout(() => controller.abort(), fetchTimeoutMs);
 
     let response: Response;
     try {
@@ -244,6 +270,44 @@ async function fetchImage(rawUrl: string): Promise<ImageFetchResult> {
   }
 
   throw new TypeError('TOO_MANY_IMAGE_REDIRECTS');
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  mapper: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = [];
+  let nextIndex = 0;
+  const workerCount = Math.min(concurrency, items.length);
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex;
+      nextIndex += 1;
+      results[currentIndex] = await mapper(items[currentIndex]);
+    }
+  }));
+  return results;
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T | null> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<null>((resolve) => {
+        timeout = setTimeout(() => resolve(null), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
+
+function positiveInteger(value: unknown, fallback: number) {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+    ? Math.floor(value)
+    : fallback;
 }
 
 async function assertSafePublicHost(hostname: string): Promise<void> {

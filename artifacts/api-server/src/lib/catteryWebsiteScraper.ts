@@ -13,6 +13,7 @@ const MAX_SITEMAP_DOCUMENTS = 4;
 const MAX_SITEMAP_URLS = 24;
 const MAX_REBUILD_ASSETS = 90;
 const MAX_REBUILD_TOTAL_ASSET_BYTES = 9_000_000;
+const MAX_STORED_REBUILD_HTML_BYTES = 1_500_000;
 
 const REVELATION_PETS_REVIEW_FALLBACKS: CatteryScrapedReview[] = [
   {
@@ -297,7 +298,14 @@ type MutableHtmlNode = {
   removeAttribute?: (name: string) => void;
 };
 
-export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsiteScrapeResult> {
+type CatteryWebsiteScrapeOptions = {
+  includeOriginalRebuild?: boolean;
+};
+
+export async function scrapeCatteryWebsite(
+  rawUrl: string,
+  options: CatteryWebsiteScrapeOptions = {},
+): Promise<CatteryWebsiteScrapeResult> {
   const parsedUrl = normalisePublicUrl(rawUrl);
   const html = await fetchText(parsedUrl, {
     maxBytes: MAX_HTML_BYTES,
@@ -453,6 +461,7 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
     html,
     root,
     supplementalPages,
+    includeOriginalRebuild: options.includeOriginalRebuild !== false,
   });
 
   return {
@@ -505,6 +514,45 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
       source_url: parsedUrl.toString(),
     },
     demoRooms: rooms,
+  };
+}
+
+export function compactScrapeForPreview(scrape: CatteryWebsiteScrapeResult): CatteryWebsiteScrapeResult {
+  const archive = scrape.sourceArchive;
+  const rebuild = archive?.rebuild;
+  if (!archive || !rebuild?.html) return scrape;
+
+  const htmlBytes = Buffer.byteLength(rebuild.html, 'utf8');
+  if (htmlBytes <= MAX_STORED_REBUILD_HTML_BYTES) return scrape;
+
+  return {
+    ...scrape,
+    sourceArchive: {
+      ...archive,
+      unsupported: [
+        ...(archive.unsupported ?? []),
+        `The rebuilt original preview was ${htmlBytes} bytes, so CatStays kept the scrape evidence and will use the live source preview route for the Original tab.`,
+      ],
+      rebuild: {
+        ...rebuild,
+        status: 'partial',
+        html: '',
+        assets: {
+          ...rebuild.assets,
+          embedded: 0,
+          truncated: true,
+        },
+        pages: rebuild.pages.map((page) => ({
+          ...page,
+          html: '',
+          htmlBytes: 0,
+        })),
+        notes: [
+          ...rebuild.notes,
+          'Stored rebuild HTML was trimmed from the preview payload to keep WordPress imports responsive.',
+        ],
+      },
+    },
   };
 }
 
@@ -1338,6 +1386,7 @@ async function buildSourceArchive(input: {
   html: string;
   root: ReturnType<typeof parse>;
   supplementalPages: ScrapedPage[];
+  includeOriginalRebuild: boolean;
 }): Promise<CatterySourceArchive> {
   const homeText = cleanText(input.homeBodyText);
   const stylesheetCount = input.root
@@ -1373,7 +1422,9 @@ async function buildSourceArchive(input: {
   if (!pages.length) {
     unsupported.push('No readable pages were captured.');
   }
-  const rebuildBundle = await buildSourceRebuildBundle(input.html, input.parsedUrl, input.scriptUrls);
+  const rebuildBundle = input.includeOriginalRebuild
+    ? await buildSourceRebuildBundle(input.html, input.parsedUrl, input.scriptUrls)
+    : lightweightSourceRebuildBundle(input.parsedUrl);
   if (rebuildBundle.failedAssets.length) {
     unsupported.push(`${rebuildBundle.failedAssets.length} source assets could not be embedded in the rebuilt original preview.`);
   }
@@ -1430,10 +1481,16 @@ async function buildSourceArchive(input: {
         },
       ],
       notes: [
-        rebuildBundle.method === 'rendered-browser'
-          ? 'Captured from a rendered browser DOM during import, then rebuilt for CatStays original-site preview.'
-          : 'Captured from fetched source HTML during import, then rebuilt for CatStays original-site preview.',
-        'Stage 1 stores the rebuilt original preview inside the content source raw data so it can be replayed without stock imagery.',
+        ...(input.includeOriginalRebuild
+          ? [
+              rebuildBundle.method === 'rendered-browser'
+                ? 'Captured from a rendered browser DOM during import, then rebuilt for CatStays original-site preview.'
+                : 'Captured from fetched source HTML during import, then rebuilt for CatStays original-site preview.',
+              'Stage 1 stores the rebuilt original preview inside the content source raw data so it can be replayed without stock imagery.',
+            ]
+          : [
+              'Original preview rebuild was skipped during fast website import; the Original tab can use the live source preview route.',
+            ]),
         ...rebuildBundle.notes,
       ],
     },
@@ -1454,6 +1511,18 @@ async function buildSourceArchive(input: {
       scripts: input.scriptTexts.length,
     },
     unsupported,
+  };
+}
+
+function lightweightSourceRebuildBundle(baseUrl: URL): SourceRebuildBundle {
+  return {
+    html: '',
+    method: 'http-html',
+    notes: [`Original preview rebuild skipped for fast import of ${baseUrl.hostname}.`],
+    assets: [],
+    failedAssets: [],
+    truncated: true,
+    totalBytes: 0,
   };
 }
 
