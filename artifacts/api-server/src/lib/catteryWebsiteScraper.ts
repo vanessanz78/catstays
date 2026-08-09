@@ -225,6 +225,14 @@ type ScrapedPage = {
   images: string[];
 };
 
+type WordPressPageResponse = {
+  link?: string;
+  title?: { rendered?: string };
+  content?: { rendered?: string };
+  excerpt?: { rendered?: string };
+  featured_media?: number;
+};
+
 type SourceRebuildAsset = {
   sourceUrl: string;
   finalUrl: string;
@@ -930,7 +938,7 @@ function kindForAsset(contentType: string, url: string): SourceRebuildAsset['kin
 
 async function fetchSupplementalPages(baseUrl: URL, root: ReturnType<typeof parse>): Promise<ScrapedPage[]> {
   const urls = await collectSupplementalPageUrls(baseUrl, root);
-  const pages = await Promise.all(
+  const htmlPages = await Promise.all(
     urls.map(async (url) => {
       try {
         const html = await fetchText(new URL(url), {
@@ -951,7 +959,77 @@ async function fetchSupplementalPages(baseUrl: URL, root: ReturnType<typeof pars
     }),
   );
 
-  return pages.filter((page): page is ScrapedPage => Boolean(page));
+  const wordpressPages = await fetchWordPressPages(baseUrl);
+  return mergeScrapedPages([
+    ...htmlPages.filter((page): page is ScrapedPage => Boolean(page)),
+    ...wordpressPages,
+  ]).slice(0, Math.max(MAX_CRAWLED_PAGES, wordpressPages.length));
+}
+
+async function fetchWordPressPages(baseUrl: URL): Promise<ScrapedPage[]> {
+  const apiUrl = new URL('/wp-json/wp/v2/pages', baseUrl);
+  apiUrl.searchParams.set('per_page', '24');
+  apiUrl.searchParams.set('_fields', 'link,title,content,excerpt,featured_media');
+
+  try {
+    const json = await fetchText(apiUrl, {
+      maxBytes: MAX_HTML_BYTES,
+      acceptedContent: /json|javascript|text\/plain/i,
+      allowByPath: /\/wp-json\/wp\/v2\/pages/i,
+    });
+    const records = JSON.parse(json) as WordPressPageResponse[];
+    if (!Array.isArray(records)) return [];
+
+    return records
+      .map((record) => wordpressPageToScrapedPage(record, baseUrl))
+      .filter((page): page is ScrapedPage => Boolean(page));
+  } catch {
+    return [];
+  }
+}
+
+function wordpressPageToScrapedPage(record: WordPressPageResponse, baseUrl: URL): ScrapedPage | null {
+  const url = absoluteUrl(record.link ?? '', baseUrl);
+  const renderedContent = record.content?.rendered ?? '';
+  const renderedExcerpt = record.excerpt?.rendered ?? '';
+  const contentRoot = parse(renderedContent || renderedExcerpt);
+  const title = cleanText(htmlToReadableText(record.title?.rendered ?? ''));
+  const bodyText = cleanText(htmlToReadableText(renderedContent) || htmlToReadableText(renderedExcerpt));
+  const heading = cleanText(contentRoot.querySelector('h1')?.text ?? contentRoot.querySelector('h2')?.text ?? title);
+  const images = collectHtmlImages(contentRoot, baseUrl);
+
+  if (!url || (!title && !bodyText && !images.length)) return null;
+  return {
+    url,
+    title,
+    heading: heading || title,
+    bodyText,
+    images,
+  };
+}
+
+function htmlToReadableText(html: string): string {
+  if (!html) return '';
+  const root = parse(html);
+  root.querySelectorAll('script, style, noscript, svg, form').forEach((node) => node.remove());
+  return cleanText(root.text);
+}
+
+function mergeScrapedPages(pages: ScrapedPage[]): ScrapedPage[] {
+  const byUrl = new Map<string, ScrapedPage>();
+  for (const page of pages) {
+    const key = page.url.replace(/#.*$/, '').replace(/\/$/, '');
+    const existing = byUrl.get(key);
+    if (!existing || scrapedPageScore(page) > scrapedPageScore(existing)) {
+      byUrl.set(key, page);
+    }
+  }
+  return Array.from(byUrl.values())
+    .sort((left, right) => pagePriority(right.url) - pagePriority(left.url));
+}
+
+function scrapedPageScore(page: ScrapedPage): number {
+  return cleanText(page.bodyText).length + page.images.length * 25 + (page.heading ? 20 : 0);
 }
 
 async function buildSourceArchive(input: {
@@ -3007,6 +3085,8 @@ function escapeHtml(value: string): string {
 
 function cleanText(value: string): string {
   return decodeEntities(value)
+    .replace(/<!doctype[^>]*>/gi, ' ')
+    .replace(/<!DOCTYPE[^>]*>/g, ' ')
     .replace(/\\n/g, ' ')
     .replace(/\\"/g, '"')
     .replace(/\\'/g, "'")
