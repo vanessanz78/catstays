@@ -65,6 +65,26 @@ describe('previewTemplates imported media rendering', () => {
     assert.equal(rendered.includes(storedGallery), true);
     assert.equal(rendered.some((image) => image.includes('images.unsplash.com')), false);
   });
+
+  it('prioritizes substantial stored photos over tiny imported derivatives', () => {
+    const tinyStored =
+      'https://iwyoezwqorddkmqnjbif.supabase.co/storage/v1/object/public/catstays-media/website-imports/cattery-1/source-1/fancyfelines.nz/tiny.jpg';
+    const content = buildCatstaysTemplateContent({
+      businessName: 'Fancy Felines',
+      sourceUrl: 'https://www.fancyfelines.nz/',
+      sourceHost: 'fancyfelines.nz',
+      importedImageAssets: [
+        { originalUrl: 'https://www.fancyfelines.nz/tiny.jpg', storedUrl: tinyStored, fileSizeBytes: 693 },
+        { originalUrl: 'https://www.fancyfelines.nz/gallery-suite.avif', storedUrl: storedGallery, fileSizeBytes: 144863 },
+        { originalUrl: 'https://www.fancyfelines.nz/hero-room.jpg', storedUrl: storedHero, fileSizeBytes: 59510 },
+      ],
+      siteContentLibrary: previewRecord({ importedImageAssets: [] }).contentLibrary,
+    });
+
+    assert.equal(content.hero.image, storedHero);
+    assert.equal(renderedImages(content).includes(tinyStored), false);
+    assert.equal(renderedImages(content).includes(storedGallery), true);
+  });
 });
 
 function previewRecord(input: { importedImageAssets: Array<Record<string, unknown>> }): PreviewImportRecord {

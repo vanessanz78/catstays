@@ -397,8 +397,12 @@ function normalizedDataFromScrape(scrape: CatteryWebsiteScrapeResult) {
       imagesDownloadAttempted: mediaImport?.imagesDownloadAttempted,
       imagesDownloaded: mediaImport?.imagesDownloaded,
       imagesUploadAttempted: mediaImport?.imagesUploadAttempted,
+      imagesUploaded: mediaImport?.imagesUploaded,
       imagesStored: mediaImport?.imagesStored ?? importedAssets.length,
-      mediaRecordsCreated: importedAssets.length,
+      imagesBrowserLoadable: mediaImport?.imagesBrowserLoadable ?? importedAssets.length,
+      mediaRecordsAttempted: mediaImport?.mediaRecordsAttempted ?? 0,
+      mediaRecordsCreated: mediaImport?.mediaRecordsCreated ?? 0,
+      mediaRecordsFailed: mediaImport?.mediaRecordsFailed ?? 0,
       imagesFailed: mediaImport?.imagesFailed,
       mediaImportStatus: mediaImport?.status,
       contentBlocks: scrape.siteContentLibrary?.blocks?.length ?? 0,
@@ -417,18 +421,8 @@ async function persistWebsiteSourceDerivatives(
 ) {
   const contentRows = contentLibraryRows(input.catteryId, input.sourceId, input.scrape);
   const mediaRows = mediaLibraryRows(input.catteryId, input.sourceId, input.scrape);
-  const mediaImport = mediaImportDiagnostics(input.scrape);
-  const assetManifest = {
-    importedImageAssets: importedImageAssets(input.scrape),
-    imagesFound: input.scrape.crawl?.imagesFound ?? input.scrape.images.length,
-    imagesImported: mediaRows.length,
-    mediaImport: mediaImport
-      ? {
-          ...mediaImport,
-          mediaRecordsCreated: mediaRows.length,
-        }
-      : undefined,
-  };
+  let mediaRecordsCreated = 0;
+  let mediaRecordsFailed = 0;
 
   try {
     if (contentRows.length) {
@@ -436,10 +430,22 @@ async function persistWebsiteSourceDerivatives(
       if (error) throw error;
     }
 
+    let mediaInsertError: unknown = null;
     if (mediaRows.length) {
       const { error } = await supabase.from('media_library').insert(mediaRows);
-      if (error) throw error;
+      if (error) {
+        mediaRecordsFailed = mediaRows.length;
+        mediaInsertError = error;
+      } else {
+        mediaRecordsCreated = mediaRows.length;
+      }
     }
+
+    const assetManifest = assetManifestFromScrape(input.scrape, {
+      mediaRecordsAttempted: mediaRows.length,
+      mediaRecordsCreated,
+      mediaRecordsFailed,
+    });
 
     const { error: updateError } = await supabase
       .from('content_sources')
@@ -454,6 +460,23 @@ async function persistWebsiteSourceDerivatives(
       .eq('id', input.sourceId);
     if (updateError) throw updateError;
 
+    if (mediaInsertError) {
+      await appendWebsiteEvent(supabase, {
+        catteryId: input.catteryId,
+        sourceId: input.sourceId,
+        eventType: 'content_source.derivatives_failed',
+        eventData: {
+          message: mediaInsertError instanceof Error ? mediaInsertError.message : 'Media library persistence failed.',
+          contentBlocks: contentRows.length,
+          mediaRecordsAttempted: mediaRows.length,
+          mediaRecordsCreated,
+          mediaRecordsFailed,
+        },
+        actorId: input.actorId,
+      });
+      return;
+    }
+
     await appendWebsiteEvent(supabase, {
       catteryId: input.catteryId,
       sourceId: input.sourceId,
@@ -461,6 +484,9 @@ async function persistWebsiteSourceDerivatives(
       eventData: {
         contentBlocks: contentRows.length,
         mediaAssets: mediaRows.length,
+        mediaRecordsAttempted: mediaRows.length,
+        mediaRecordsCreated,
+        mediaRecordsFailed,
         pagesProcessed: input.scrape.crawl?.pagesProcessed ?? 1,
       },
       actorId: input.actorId,
@@ -472,10 +498,36 @@ async function persistWebsiteSourceDerivatives(
       eventType: 'content_source.derivatives_failed',
       eventData: {
         message: error instanceof Error ? error.message : 'Derivative persistence failed.',
+        contentBlocks: contentRows.length,
+        mediaRecordsAttempted: mediaRows.length,
+        mediaRecordsCreated,
+        mediaRecordsFailed: mediaRecordsFailed || mediaRows.length,
       },
       actorId: input.actorId,
     });
   }
+}
+
+function assetManifestFromScrape(
+  scrape: CatteryWebsiteScrapeResult,
+  counts: {
+    mediaRecordsAttempted: number;
+    mediaRecordsCreated: number;
+    mediaRecordsFailed: number;
+  },
+) {
+  const mediaImport = mediaImportDiagnostics(scrape);
+  return {
+    importedImageAssets: importedImageAssets(scrape),
+    imagesFound: scrape.crawl?.imagesFound ?? scrape.images.length,
+    imagesImported: counts.mediaRecordsCreated,
+    mediaImport: mediaImport
+      ? {
+          ...mediaImport,
+          ...counts,
+        }
+      : undefined,
+  };
 }
 
 function contentLibraryRows(catteryId: string, sourceId: string, scrape: CatteryWebsiteScrapeResult) {

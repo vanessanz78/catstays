@@ -921,17 +921,50 @@ function storedImagesFromImportSources(
     normalized.websiteSettings?.importedImageAssets,
   ];
 
-  return uniqueStrings(assetSources.flatMap((assets) => (
-    Array.isArray(assets)
-      ? assets.map((asset) => stringFrom(asset?.storedUrl, asset?.storageUrl, asset?.storage_url, asset?.url))
-      : []
-  )))
-    .filter(Boolean);
+  const sortedAssets = assetSources
+    .flatMap((assets) => Array.isArray(assets) ? assets.map(storedImageAssetCandidate) : [])
+    .filter((asset) => asset.url && !isTemplateStockImage(asset.url))
+    .sort((left, right) => storedImageScore(right) - storedImageScore(left));
+  const hasSubstantialPhotos = sortedAssets.some(isMeaningfulStoredImage);
+  const seen = new Set<string>();
+  return sortedAssets
+    .filter((asset) => !hasSubstantialPhotos || isMeaningfulStoredImage(asset))
+    .map((asset) => asset.url)
+    .filter((url) => {
+      const key = normalizedImageKey(url);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 }
 
 function importedUsableImage(value: unknown) {
   const image = stringFrom(value);
   return image && !isTemplateStockImage(image) ? image : '';
+}
+
+function storedImageAssetCandidate(asset: any) {
+  return {
+    url: stringFrom(asset?.storedUrl, asset?.storageUrl, asset?.storage_url, asset?.url),
+    originalUrl: stringFrom(asset?.originalUrl, asset?.original_url),
+    contentType: stringFrom(asset?.contentType, asset?.mime_type, asset?.deliveryContentType),
+    fileSizeBytes: numberFrom(asset?.fileSizeBytes, asset?.file_size_bytes, asset?.deliveryBytes),
+    deliveryStatus: numberFrom(asset?.deliveryStatus, asset?.delivery_status),
+  };
+}
+
+function storedImageScore(asset: ReturnType<typeof storedImageAssetCandidate>) {
+  let score = 0;
+  if (isMeaningfulStoredImage(asset)) score += 10_000;
+  if (/image\/(?:jpeg|png|webp|avif|gif)/i.test(asset.contentType)) score += 500;
+  if (asset.deliveryStatus && asset.deliveryStatus >= 200 && asset.deliveryStatus < 300) score += 500;
+  if (imageMatches(`${asset.url} ${asset.originalUrl}`, /hero|banner|facility|suite|room|gallery|cattery|cat/i)) score += 250;
+  return score + Math.min(asset.fileSizeBytes || 0, 500_000) / 1_000;
+}
+
+function isMeaningfulStoredImage(asset: ReturnType<typeof storedImageAssetCandidate>) {
+  if (!asset.fileSizeBytes) return true;
+  return asset.fileSizeBytes >= 2048;
 }
 
 function libraryRoomsToRooms(items: ReturnType<typeof libraryItems>) {
@@ -1173,6 +1206,16 @@ function stringFrom(...values: unknown[]): string {
     if (trimmed) return trimmed;
   }
   return '';
+}
+
+function numberFrom(...values: unknown[]): number {
+  for (const value of values) {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value !== 'string') continue;
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return 0;
 }
 
 function imageFrom(...values: unknown[]): string {

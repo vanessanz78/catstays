@@ -9,6 +9,7 @@ const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const FETCH_TIMEOUT_MS = 10_000;
 const MAX_IMAGE_IMPORTS = 64;
 const MAX_IMAGE_REDIRECTS = 4;
+const PUBLIC_URL_VERIFY_TIMEOUT_MS = 6_000;
 
 export type StoredImageAsset = {
   originalUrl: string;
@@ -19,6 +20,9 @@ export type StoredImageAsset = {
   contentType: string;
   fileSizeBytes: number;
   sha256: string;
+  deliveryStatus?: number;
+  deliveryContentType?: string;
+  deliveryBytes?: number;
   sourcePageUrl?: string;
   altText?: string;
   caption?: string;
@@ -45,8 +49,12 @@ export type MediaImportDiagnostics = {
   imagesDownloadAttempted: number;
   imagesDownloaded: number;
   imagesUploadAttempted: number;
+  imagesUploaded: number;
   imagesStored: number;
+  imagesBrowserLoadable: number;
+  mediaRecordsAttempted: number;
   mediaRecordsCreated: number;
+  mediaRecordsFailed: number;
   imagesFailed: number;
   imagesSkipped: number;
   failures: MediaImportFailure[];
@@ -88,6 +96,12 @@ type ImageFetchResult = {
   finalUrl: string;
   fileSizeBytes: number;
   sha256: string;
+};
+
+type ImageDeliveryVerification = {
+  status: number;
+  contentType: string;
+  bytes: number;
 };
 
 class ImageImportError extends Error {
@@ -165,6 +179,7 @@ export async function persistScrapedImages(
       });
 
       if (error) throw error;
+      diagnostics.imagesUploaded += 1;
     } catch (error) {
       diagnostics.failures.push(failureFromError(candidate.originalUrl, 'upload', error, {
         contentType: fetched.contentType,
@@ -185,6 +200,18 @@ export async function persistScrapedImages(
       continue;
     }
 
+    let delivery: ImageDeliveryVerification;
+    try {
+      delivery = await verifyStoredImageUrl(data.publicUrl);
+      diagnostics.imagesBrowserLoadable += 1;
+    } catch (error) {
+      diagnostics.failures.push(failureFromError(candidate.originalUrl, 'public_url', error, {
+        contentType: fetched.contentType,
+        bytes: fetched.fileSizeBytes,
+      }));
+      continue;
+    }
+
     storedAssets.push({
       originalUrl: candidate.originalUrl,
       storedUrl: data.publicUrl,
@@ -194,6 +221,9 @@ export async function persistScrapedImages(
       contentType: fetched.contentType,
       fileSizeBytes: fetched.fileSizeBytes,
       sha256: fetched.sha256,
+      deliveryStatus: delivery.status,
+      deliveryContentType: delivery.contentType,
+      deliveryBytes: delivery.bytes,
       sourcePageUrl: candidate.sourcePageUrl,
       altText: candidate.altText,
       caption: candidate.caption,
@@ -201,7 +231,6 @@ export async function persistScrapedImages(
   }
 
   diagnostics.imagesStored = storedAssets.length;
-  diagnostics.mediaRecordsCreated = storedAssets.length;
   diagnostics.imagesFailed = diagnostics.failures.length;
   diagnostics.imagesSkipped = Math.max(0, candidates.length - storedAssets.length - diagnostics.imagesFailed);
   diagnostics.status =
@@ -267,13 +296,97 @@ function createDiagnostics(
     imagesDownloadAttempted: 0,
     imagesDownloaded: 0,
     imagesUploadAttempted: 0,
+    imagesUploaded: 0,
     imagesStored: 0,
+    imagesBrowserLoadable: 0,
+    mediaRecordsAttempted: 0,
     mediaRecordsCreated: 0,
+    mediaRecordsFailed: 0,
     imagesFailed: 0,
     imagesSkipped: 0,
     failures: [],
     storedAssets: [],
   };
+}
+
+async function verifyStoredImageUrl(rawUrl: string): Promise<ImageDeliveryVerification> {
+  const head = await fetchPublicImage(rawUrl, 'HEAD').catch((error) => {
+    if (error instanceof ImageImportError) return null;
+    throw error;
+  });
+
+  if (head?.ok) {
+    const contentType = contentTypeFromResponse(head);
+    const bytes = Number(head.headers.get('content-length') ?? 0);
+    if (isAllowedImageType(contentType) && bytes > 0 && bytes <= MAX_IMAGE_BYTES) {
+      return { status: head.status, contentType, bytes };
+    }
+  }
+
+  const response = await fetchPublicImage(rawUrl, 'GET');
+  if (!response.ok) {
+    throw new ImageImportError(`PUBLIC_IMAGE_HTTP_${response.status}`, {
+      reason: `http_${response.status}`,
+      status: response.status,
+      contentType: contentTypeFromResponse(response),
+    });
+  }
+
+  const contentType = contentTypeFromResponse(response);
+  if (!isAllowedImageType(contentType)) {
+    throw new ImageImportError('PUBLIC_IMAGE_UNSUPPORTED_TYPE', {
+      reason: 'unsupported_image_type',
+      status: response.status,
+      contentType,
+    });
+  }
+
+  const contentLength = Number(response.headers.get('content-length') ?? 0);
+  if (contentLength > MAX_IMAGE_BYTES) {
+    throw new ImageImportError('PUBLIC_IMAGE_TOO_LARGE', {
+      reason: 'image_too_large',
+      status: response.status,
+      contentType,
+      bytes: contentLength,
+      maxBytes: MAX_IMAGE_BYTES,
+    });
+  }
+
+  const body = Buffer.from(await response.arrayBuffer());
+  if (!body.byteLength || !looksLikeImageBytes(contentType, body)) {
+    throw new ImageImportError('PUBLIC_IMAGE_INVALID_BODY', {
+      reason: 'invalid_image_body',
+      status: response.status,
+      contentType,
+      bytes: body.byteLength,
+    });
+  }
+
+  return { status: response.status, contentType, bytes: body.byteLength };
+}
+
+async function fetchPublicImage(rawUrl: string, method: 'HEAD' | 'GET') {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), PUBLIC_URL_VERIFY_TIMEOUT_MS);
+  try {
+    return await fetch(rawUrl, {
+      method,
+      redirect: 'follow',
+      signal: controller.signal,
+      headers: {
+        Accept: 'image/avif,image/webp,image/png,image/jpeg,image/gif,*/*;q=0.5',
+      },
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function contentTypeFromResponse(response: Response) {
+  return String(response.headers.get('content-type') ?? '')
+    .split(';')[0]
+    .trim()
+    .toLowerCase();
 }
 
 function supabaseProjectRef() {
@@ -694,9 +807,13 @@ function attachMediaImportDiagnostics(
     imagesDownloadAttempted: diagnostics.imagesDownloadAttempted,
     imagesDownloaded: diagnostics.imagesDownloaded,
     imagesUploadAttempted: diagnostics.imagesUploadAttempted,
+    imagesUploaded: diagnostics.imagesUploaded,
     imagesStored: diagnostics.imagesStored,
     imagesImported: diagnostics.imagesStored,
+    imagesBrowserLoadable: diagnostics.imagesBrowserLoadable,
+    mediaRecordsAttempted: diagnostics.mediaRecordsAttempted,
     mediaRecordsCreated: diagnostics.mediaRecordsCreated,
+    mediaRecordsFailed: diagnostics.mediaRecordsFailed,
     imagesFailed: diagnostics.imagesFailed,
     mediaImportStatus: diagnostics.status,
     contentBlocks: scrape.siteContentLibrary?.blocks?.length ?? previousReport?.contentBlocks ?? 0,

@@ -96,13 +96,18 @@ export function CatstaysTemplateSite({
     if (didScroll) event.preventDefault();
   };
 
-  if (template === 'editorial-guide') {
-    return <EditorialTemplate content={content} embedded={embedded} previewDevice={previewDevice} onPreviewAnchorClick={handlePreviewAnchorClick} onPreviewBookingAction={handlePreviewBookingAction} onPreviewBookingInteraction={handlePreviewBookingInteraction} onPreviewContactAction={handlePreviewContactAction} previewNoticeKind={previewNoticeKind} onDismissPreviewNotice={() => setPreviewNoticeKind(null)} />;
-  }
-  if (template === 'modern-showcase') {
-    return <ShowcaseTemplate content={content} embedded={embedded} previewDevice={previewDevice} onPreviewAnchorClick={handlePreviewAnchorClick} onPreviewBookingAction={handlePreviewBookingAction} onPreviewBookingInteraction={handlePreviewBookingInteraction} onPreviewContactAction={handlePreviewContactAction} previewNoticeKind={previewNoticeKind} onDismissPreviewNotice={() => setPreviewNoticeKind(null)} />;
-  }
-  return <FocusTemplate content={content} embedded={embedded} previewDevice={previewDevice} onPreviewAnchorClick={handlePreviewAnchorClick} onPreviewBookingAction={handlePreviewBookingAction} onPreviewBookingInteraction={handlePreviewBookingInteraction} onPreviewContactAction={handlePreviewContactAction} previewNoticeKind={previewNoticeKind} onDismissPreviewNotice={() => setPreviewNoticeKind(null)} />;
+  const templateView = template === 'editorial-guide'
+    ? <EditorialTemplate content={content} embedded={embedded} previewDevice={previewDevice} onPreviewAnchorClick={handlePreviewAnchorClick} onPreviewBookingAction={handlePreviewBookingAction} onPreviewBookingInteraction={handlePreviewBookingInteraction} onPreviewContactAction={handlePreviewContactAction} previewNoticeKind={previewNoticeKind} onDismissPreviewNotice={() => setPreviewNoticeKind(null)} />
+    : template === 'modern-showcase'
+      ? <ShowcaseTemplate content={content} embedded={embedded} previewDevice={previewDevice} onPreviewAnchorClick={handlePreviewAnchorClick} onPreviewBookingAction={handlePreviewBookingAction} onPreviewBookingInteraction={handlePreviewBookingInteraction} onPreviewContactAction={handlePreviewContactAction} previewNoticeKind={previewNoticeKind} onDismissPreviewNotice={() => setPreviewNoticeKind(null)} />
+      : <FocusTemplate content={content} embedded={embedded} previewDevice={previewDevice} onPreviewAnchorClick={handlePreviewAnchorClick} onPreviewBookingAction={handlePreviewBookingAction} onPreviewBookingInteraction={handlePreviewBookingInteraction} onPreviewContactAction={handlePreviewContactAction} previewNoticeKind={previewNoticeKind} onDismissPreviewNotice={() => setPreviewNoticeKind(null)} />;
+
+  return (
+    <>
+      {templateView}
+      <MediaDebugPanel data={data} content={content} />
+    </>
+  );
 }
 
 function templateRootStyle(content: ReturnType<typeof buildCatstaysTemplateContent>): CSSProperties {
@@ -137,7 +142,17 @@ function templateImageSrc(src: string | undefined): string {
   if (!src) return TEMPLATE_IMAGE_FALLBACK;
   if (/^(?:data:image\/|blob:|\/)/i.test(src)) return src;
   if (!/^https?:\/\//i.test(src)) return src;
+  if (isSupabasePublicStorageUrl(src)) return src;
   return `/api/website/source-asset?url=${encodeURIComponent(src)}`;
+}
+
+function isSupabasePublicStorageUrl(src: string) {
+  try {
+    const url = new URL(src);
+    return /\.supabase\.co$/i.test(url.hostname) && /\/storage\/v1\/object\/public\//i.test(url.pathname);
+  } catch {
+    return false;
+  }
 }
 
 function TemplateImage({
@@ -1395,6 +1410,164 @@ function TemplateFooter({
       </div>
     </footer>
   );
+}
+
+function MediaDebugPanel({
+  data,
+  content,
+}: {
+  data: Record<string, any>;
+  content: ReturnType<typeof buildCatstaysTemplateContent>;
+}) {
+  const [imageStates, setImageStates] = useState<Record<string, 'loaded' | 'failed'>>({});
+  if (!import.meta.env.DEV) return null;
+
+  const debug = mediaDebugInfo(data, content);
+  if (!debug.isImportedWebsite && !debug.assets.length) return null;
+
+  const mark = (url: string, state: 'loaded' | 'failed') => {
+    setImageStates((current) => current[url] === state ? current : { ...current, [url]: state });
+  };
+  const loadedCount = Object.values(imageStates).filter((state) => state === 'loaded').length;
+
+  return (
+    <aside className="fixed bottom-4 right-4 z-[60] w-[min(360px,calc(100vw-2rem))] rounded-md border border-[#222]/15 bg-white p-4 text-[#222] shadow-2xl">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-[#8c5b32]">Media Debug</p>
+          <h2 className="mt-1 font-serif text-lg leading-tight">Imported photos</h2>
+        </div>
+        <span className="rounded-md bg-[#0A1128] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-white">
+          DEV
+        </span>
+      </div>
+      <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+        {[
+          ['Found', debug.imagesFound],
+          ['Downloaded', debug.imagesDownloaded],
+          ['Uploaded', debug.imagesUploaded],
+          ['Loadable', debug.imagesBrowserLoadable],
+          ['Rendered', debug.renderedAssets],
+          ['DB rows', debug.mediaRecordsCreated],
+          ['Failed', debug.imagesFailed],
+          ['Thumbs OK', loadedCount],
+        ].map(([label, value]) => (
+          <div key={label} className="rounded-md border border-[#222]/10 bg-[#f8f7f5] p-2">
+            <div className="font-semibold">{String(value ?? 0)}</div>
+            <div className="text-[10px] uppercase tracking-[0.08em] text-[#666]">{label}</div>
+          </div>
+        ))}
+      </div>
+      {debug.assets.length ? (
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          {debug.assets.slice(0, 6).map((asset) => {
+            const state = imageStates[asset.url];
+            return (
+              <figure key={asset.url} className="overflow-hidden rounded-md border border-[#222]/10 bg-[#f8f7f5]">
+                <img
+                  src={templateImageSrc(asset.url)}
+                  alt=""
+                  className="h-16 w-full object-cover"
+                  onLoad={() => mark(asset.url, 'loaded')}
+                  onError={() => mark(asset.url, 'failed')}
+                />
+                <figcaption className="truncate px-1 py-1 text-[10px] text-[#555]">
+                  {state ?? `${Math.round((asset.fileSizeBytes || 0) / 1024)} KB`}
+                </figcaption>
+              </figure>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="mt-3 rounded-md border border-[#A85A30]/25 bg-[#A85A30]/10 p-3 text-xs leading-5 text-[#5c321c]">
+          No imported asset URLs reached the preview state.
+        </p>
+      )}
+    </aside>
+  );
+}
+
+function mediaDebugInfo(data: Record<string, any>, content: ReturnType<typeof buildCatstaysTemplateContent>) {
+  const record = data.previewImportRecord as Record<string, any> | undefined;
+  const mediaImport = objectValue(data.mediaImport)
+    ?? objectValue(data.websiteSettings?.mediaImport)
+    ?? objectValue(record?.source?.mediaImport);
+  const importReport = objectValue(data.importReport)
+    ?? objectValue(data.websiteSettings?.importReport)
+    ?? objectValue(record?.source?.importReport);
+  const assets = importedMediaAssetsForDebug(data)
+    .sort((left, right) => (right.fileSizeBytes || 0) - (left.fileSizeBytes || 0));
+  const renderedImages = new Set(imageUrlsFromValue(content).map((url) => normalizedImageKey(url)));
+
+  return {
+    isImportedWebsite: Boolean(record?.source?.url || data.importSourceUrl || data.sourceUrl),
+    assets,
+    imagesFound: numberValue(mediaImport?.imagesFound, importReport?.imagesFound, assets.length),
+    imagesDownloaded: numberValue(mediaImport?.imagesDownloaded, importReport?.imagesDownloaded, 0),
+    imagesUploaded: numberValue(mediaImport?.imagesUploaded, importReport?.imagesUploaded, mediaImport?.imagesUploadAttempted, 0),
+    imagesBrowserLoadable: numberValue(mediaImport?.imagesBrowserLoadable, importReport?.imagesBrowserLoadable, assets.length),
+    mediaRecordsCreated: numberValue(mediaImport?.mediaRecordsCreated, importReport?.mediaRecordsCreated, 0),
+    imagesFailed: numberValue(mediaImport?.imagesFailed, importReport?.imagesFailed, 0),
+    renderedAssets: assets.filter((asset) => renderedImages.has(normalizedImageKey(asset.url))).length,
+  };
+}
+
+function importedMediaAssetsForDebug(data: Record<string, any>) {
+  const record = data.previewImportRecord as Record<string, any> | undefined;
+  const assetSources = [
+    record?.source?.importedImageAssets,
+    data.importedImageAssets,
+    data.websiteSettings?.importedImageAssets,
+  ];
+  const seen = new Set<string>();
+  return assetSources
+    .flatMap((assets) => Array.isArray(assets) ? assets : [])
+    .map((asset) => ({
+      url: stringValue(asset?.storedUrl, asset?.storageUrl, asset?.storage_url, asset?.url),
+      fileSizeBytes: numberValue(asset?.fileSizeBytes, asset?.file_size_bytes, asset?.deliveryBytes, 0),
+    }))
+    .filter((asset) => {
+      if (!asset.url) return false;
+      const key = normalizedImageKey(asset.url);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+}
+
+function imageUrlsFromValue(value: unknown): string[] {
+  if (!value) return [];
+  if (typeof value === 'string') return /^https?:\/\//i.test(value) || value.startsWith('/') ? [value] : [];
+  if (Array.isArray(value)) return value.flatMap(imageUrlsFromValue);
+  if (typeof value === 'object') return Object.values(value as Record<string, unknown>).flatMap(imageUrlsFromValue);
+  return [];
+}
+
+function objectValue(value: unknown): Record<string, any> | null {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, any> : null;
+}
+
+function stringValue(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value !== 'string') continue;
+    const trimmed = value.trim();
+    if (trimmed) return trimmed;
+  }
+  return '';
+}
+
+function numberValue(...values: unknown[]) {
+  for (const value of values) {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value !== 'string') continue;
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return 0;
+}
+
+function normalizedImageKey(image: string) {
+  return image.split('?')[0].trim().toLowerCase();
 }
 
 function PreviewBookingNotice({ kind, onDismiss }: { kind: PreviewNoticeKind | null; onDismiss: () => void }) {

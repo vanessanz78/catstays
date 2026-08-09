@@ -36,7 +36,11 @@ describe('persistScrapedImages', () => {
     assert.match(assets[0].path, /^website-imports\/cattery-1\/import-1\/fancyfelines\.example\//);
     assert.equal(result.heroImage, assets[0].storedUrl);
     assert.equal(result.galleryImages[0].url, assets[0].storedUrl);
+    assert.equal(assets[0].deliveryStatus, 200);
     assert.equal((result.websiteSettings.mediaImport as Record<string, any>).imagesStored, 1);
+    assert.equal((result.websiteSettings.mediaImport as Record<string, any>).imagesUploaded, 1);
+    assert.equal((result.websiteSettings.mediaImport as Record<string, any>).imagesBrowserLoadable, 1);
+    assert.equal((result.websiteSettings.mediaImport as Record<string, any>).mediaRecordsCreated, 0);
     assert.equal((result.websiteSettings.importReport as Record<string, any>).imagesStored, 1);
   });
 
@@ -76,6 +80,40 @@ describe('persistScrapedImages', () => {
     assert.equal(mediaImport.imagesDownloaded, 1);
     assert.equal(mediaImport.imagesStored, 0);
     assert.equal(mediaImport.failures[0].stage, 'upload');
+  });
+
+  it('does not rewrite image URLs when the stored public URL is not browser-loadable', async () => {
+    const uploads: Array<{ bucket: string; path: string; body: Buffer; contentType?: string }> = [];
+    let calls = 0;
+    globalThis.fetch = async () => {
+      calls += 1;
+      if (calls === 1) {
+        return new Response(jpegBytes(), {
+          status: 200,
+          headers: { 'content-type': 'image/jpeg', 'content-length': String(jpegBytes().byteLength) },
+        });
+      }
+      return new Response('<html>private</html>', {
+        status: 403,
+        headers: { 'content-type': 'text/html' },
+      });
+    };
+
+    const result = await persistScrapedImages(baseScrape(), {
+      supabase: fakeStorage(uploads),
+      skipHostSafetyCheck: true,
+    });
+
+    const mediaImport = result.websiteSettings.mediaImport as Record<string, any>;
+    assert.equal(uploads.length, 1);
+    assert.equal((result.websiteSettings.importedImageAssets as StoredImageAsset[]).length, 0);
+    assert.equal(result.heroImage, 'https://fancyfelines.example/images/hero.jpg');
+    assert.equal(mediaImport.status, 'failed');
+    assert.equal(mediaImport.imagesUploaded, 1);
+    assert.equal(mediaImport.imagesBrowserLoadable, 0);
+    assert.equal(mediaImport.imagesStored, 0);
+    assert.equal(mediaImport.failures[0].stage, 'public_url');
+    assert.equal(mediaImport.failures[0].reason, 'http_403');
   });
 
   it('fails loudly when storage is required and no service-role key is configured', async () => {
