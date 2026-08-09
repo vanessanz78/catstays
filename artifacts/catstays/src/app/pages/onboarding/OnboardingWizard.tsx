@@ -68,6 +68,7 @@ import {
   type ImportedCatteryScrape,
 } from '../../lib/previewTemplates';
 import { DELORAINE_SOURCE_URL } from '../../lib/deloraineDemo';
+import { sourceRebuildHtmlFromData } from '../../lib/sourceRebuildPreview';
 import { normalizeWebsiteImportUrl } from '../../lib/websiteImportUrl';
 import { getTenantWebsiteUrl } from '../../../utils/appUrl';
 
@@ -89,6 +90,7 @@ function lightweightOnboardingState(data: Record<string, any>) {
     importSourceUrl: data.importSourceUrl,
     sourceUrl: data.sourceUrl,
     sourceHost: data.sourceHost,
+    sourceArchive: data.sourceArchive,
     previewImportRecordId: data.previewImportRecordId,
     contentSourceId: data.contentSourceId,
     contentSourceHash: data.contentSourceHash,
@@ -171,6 +173,7 @@ const websiteBuilderDraftKeys = [
   'footerAbout',
   'siteContentLibrary',
   'contentLibrary',
+  'sourceArchive',
   'sectionsOrder',
 ] as const;
 
@@ -296,10 +299,12 @@ function OnboardingTemplateSnapshot({
   } as const;
 
   if (template === 'original') {
+    const rebuildHtml = sourceRebuildHtmlFromData(data);
     return (
       <div className="relative h-full overflow-hidden bg-white">
         <iframe
-          src={sourceUrlForTemplateSnapshot(data)}
+          src={rebuildHtml ? undefined : sourceUrlForTemplateSnapshot(data)}
+          srcDoc={rebuildHtml || undefined}
           title={`${data.businessName || 'Original website'} thumbnail`}
           loading="lazy"
           className="absolute left-0 top-0 border-0 bg-white"

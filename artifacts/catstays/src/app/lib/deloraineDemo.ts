@@ -222,6 +222,7 @@ export interface ImportedCatteryScrape {
   };
   virtualTourUrl?: string;
   siteContentLibrary?: CatterySiteContentLibrary;
+  sourceArchive?: Record<string, any>;
   websiteSettings?: Record<string, any>;
   bodyText?: string;
   extractedFrom?: {
@@ -274,6 +275,7 @@ export interface DelorainePreviewData {
   };
   virtualTourUrl?: string;
   siteContentLibrary?: CatterySiteContentLibrary;
+  sourceArchive?: Record<string, any>;
   sectionsOrder?: string[];
   roomTypes?: Array<{
     name: string;
@@ -1118,6 +1120,7 @@ export function buildPreviewDataFromScrape(inputScrape: ImportedCatteryScrape): 
     hours,
     socialLinks,
     virtualTourUrl,
+    sourceArchive: scrape.sourceArchive,
     siteContentLibrary,
     sectionsOrder: ['hero', 'about', 'why-choose-us', 'facilities', 'suites', 'services', 'gallery', 'reviews', 'location', 'contact'],
     roomTypes: rooms.map((room) => ({

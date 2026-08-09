@@ -11,6 +11,7 @@ import { ChatWidget } from '../../components/ChatWidget';
 import { WebsiteHeader } from '../../components/WebsiteHeader';
 import { CatstaysTemplateSite } from './CatstaysTemplateSite';
 import { isOriginalTemplate, normalizePreviewTemplateId } from '../../lib/previewTemplates';
+import { sourcePreviewProxyUrl, sourcePreviewUrlFromData, sourceRebuildHtmlFromData } from '../../lib/sourceRebuildPreview';
 import {
   WhyChooseUsSection,
   FacilitiesSection,
@@ -68,6 +69,9 @@ interface FullWebsitePreviewProps {
     sourceUrl?: string;
     sourceHost?: string;
     importSourceUrl?: string;
+    sourceArchive?: Record<string, any>;
+    websiteSettings?: Record<string, any>;
+    previewImportRecord?: Record<string, any>;
     // Section visibility
     sectionsOrder?: string[];
     // Booking setup data from Step 5
@@ -141,17 +145,18 @@ export function FullWebsitePreview({
 
   // Render the imported customer website exactly when a source URL exists.
   const renderWebsitePreview = (fillHeight = true) => {
-    const sourcePreviewUrl = importedPreviewUrl(data);
+    const sourcePreviewUrl = sourcePreviewUrlFromData(data);
     console.info('[CatStays Original trace]', {
       file: 'FullWebsitePreview.tsx',
       function: 'renderWebsitePreview',
       selectedTemplate: data.selectedTemplate,
       sourcePreviewUrl,
-      route: sourcePreviewUrl && isOriginalTemplate(data.selectedTemplate) ? 'SourceWebsitePreview' : 'CatstaysTemplateSite',
+      route: sourcePreviewUrl && isOriginalTemplate(data.selectedTemplate) ? 'RebuiltSourceWebsitePreview' : 'CatstaysTemplateSite',
     });
     if (sourcePreviewUrl && isOriginalTemplate(data.selectedTemplate)) {
       return (
         <SourceWebsitePreview
+          data={data}
           sourceUrl={sourcePreviewUrl}
           title={`${data.businessName || 'Imported cattery'} website preview`}
           fillHeight={fillHeight}
@@ -584,24 +589,13 @@ export function FullWebsitePreview({
   );
 }
 
-function importedPreviewUrl(data: FullWebsitePreviewProps['data']) {
-  const rawUrl = data.importSourceUrl || data.sourceUrl;
-  if (!rawUrl || typeof rawUrl !== 'string') return '';
-
-  try {
-    const url = new URL(rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`);
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') return '';
-    return url.toString();
-  } catch {
-    return '';
-  }
-}
-
 function SourceWebsitePreview({
+  data,
   sourceUrl,
   title,
   fillHeight,
 }: {
+  data: FullWebsitePreviewProps['data'];
   sourceUrl: string;
   title: string;
   fillHeight: boolean;
@@ -609,14 +603,16 @@ function SourceWebsitePreview({
   const heightStyle = fillHeight
     ? { height: '100%' }
     : { height: '900px', minHeight: 'calc(100vh - 170px)' };
-  const previewUrl = `/api/website/source-preview?url=${encodeURIComponent(sourceUrl)}`;
+  const rebuildHtml = sourceRebuildHtmlFromData(data);
+  const previewUrl = rebuildHtml ? '' : sourcePreviewProxyUrl(sourceUrl);
   console.info('[CatStays Original trace]', {
     file: 'FullWebsitePreview.tsx',
     function: 'SourceWebsitePreview',
     selectedTemplate: 'original',
     sourcePreviewUrl: sourceUrl,
     previewUrl,
-    finalIframeSrc: previewUrl,
+    finalIframeSrc: rebuildHtml ? 'srcDoc:sourceArchive.rebuild.html' : previewUrl,
+    route: rebuildHtml ? 'rebuilt source archive' : 'live source proxy fallback',
   });
 
   return (
@@ -624,7 +620,8 @@ function SourceWebsitePreview({
       <iframe
         key={sourceUrl}
         title={title}
-        src={previewUrl}
+        src={rebuildHtml ? undefined : previewUrl}
+        srcDoc={rebuildHtml || undefined}
         className="block h-full min-h-[inherit] w-full border-0 bg-white"
         loading="eager"
         referrerPolicy="no-referrer-when-downgrade"

@@ -109,6 +109,18 @@ export interface CatterySourceArchive {
   sourceUrl: string;
   sourceHost: string;
   capturedAt: string;
+  rebuild: {
+    status: 'rebuilt';
+    sourceUrl: string;
+    capturedAt: string;
+    html: string;
+    assets: {
+      images: number;
+      scripts: number;
+      stylesheets: number;
+    };
+    notes: string[];
+  };
   pages: CatterySourceArchivePage[];
   assets: {
     images: string[];
@@ -355,6 +367,8 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
     scriptUrls,
     scriptTexts,
     homeBodyText,
+    html,
+    root,
     supplementalPages,
   });
 
@@ -480,9 +494,16 @@ function buildSourceArchive(input: {
   scriptUrls: Array<string | URL>;
   scriptTexts: string[];
   homeBodyText: string;
+  html: string;
+  root: ReturnType<typeof parse>;
   supplementalPages: ScrapedPage[];
 }): CatterySourceArchive {
   const homeText = cleanText(input.homeBodyText);
+  const stylesheetCount = input.root
+    .querySelectorAll('link[href]')
+    .filter((link) => /stylesheet|preload|modulepreload/i.test(link.getAttribute('rel') ?? ''))
+    .length;
+  const capturedAt = new Date().toISOString();
   const pages: CatterySourceArchivePage[] = [
     {
       sourceUrl: input.parsedUrl.toString(),
@@ -515,7 +536,22 @@ function buildSourceArchive(input: {
     captureMethod: 'http-html-with-script-and-sitemap-crawl',
     sourceUrl: input.parsedUrl.toString(),
     sourceHost: input.sourceHost,
-    capturedAt: new Date().toISOString(),
+    capturedAt,
+    rebuild: {
+      status: 'rebuilt',
+      sourceUrl: input.parsedUrl.toString(),
+      capturedAt,
+      html: rewriteSourcePreviewHtml(input.html, input.parsedUrl, ''),
+      assets: {
+        images: input.images.length,
+        scripts: input.scriptUrls.length,
+        stylesheets: stylesheetCount,
+      },
+      notes: [
+        'Captured and rebuilt from fetched source HTML during import.',
+        'Asset URLs are rewritten through the CatStays source asset proxy for preview isolation.',
+      ],
+    },
     pages,
     assets: {
       images: input.images,
