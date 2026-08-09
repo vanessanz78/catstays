@@ -304,11 +304,35 @@ function collectSourceImages(input: {
     caption: stringFrom((image as AnyRecord).caption),
     semanticRole: 'gallery',
   }));
+  add(input.normalized.heroImage, { semanticRole: 'hero' });
+  add(input.normalized.aboutImage, { semanticRole: 'about' });
+  add(input.normalized.facilitiesImage, { semanticRole: 'facilities' });
+  add(input.normalized.ownerData?.image, { semanticRole: 'story' });
+  add(input.data.heroImage, { semanticRole: 'hero' });
+  add(input.data.aboutImage, { semanticRole: 'about' });
+  add(input.data.facilitiesImage, { semanticRole: 'facilities' });
+  add(input.data.ownerData?.image, { semanticRole: 'story' });
+  arrayFrom(input.normalized.images).forEach((url) => add(url));
+  arrayFrom(input.normalized.media?.images).forEach((url) => add(url));
+  arrayFrom(input.data.images).forEach((url) => add(url));
+  arrayFrom(input.data.media?.images).forEach((url) => add(url));
+  arrayFrom(input.normalized.galleryImages).forEach((image) => add(typeof image === 'string' ? image : (image as AnyRecord).url, {
+    caption: typeof image === 'string' ? '' : stringFrom((image as AnyRecord).caption),
+    semanticRole: 'gallery',
+  }));
+  arrayFrom(input.normalized.media?.galleryImages).forEach((image) => add(typeof image === 'string' ? image : (image as AnyRecord).url, {
+    caption: typeof image === 'string' ? '' : stringFrom((image as AnyRecord).caption),
+    semanticRole: 'gallery',
+  }));
   arrayFrom(input.normalized.galleryData?.galleryImages).forEach((image) => add((image as AnyRecord).url, {
     caption: stringFrom((image as AnyRecord).caption),
     semanticRole: 'gallery',
   }));
   arrayFrom(input.data.galleryImages).forEach((image) => add(typeof image === 'string' ? image : (image as AnyRecord).url, {
+    semanticRole: 'gallery',
+  }));
+  arrayFrom(input.data.galleryData?.galleryImages).forEach((image) => add(typeof image === 'string' ? image : (image as AnyRecord).url, {
+    caption: typeof image === 'string' ? '' : stringFrom((image as AnyRecord).caption),
     semanticRole: 'gallery',
   }));
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router';
-import { ArrowLeft, CheckCircle, Globe, LayoutDashboard, Monitor, Smartphone, Tablet, UserRound } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Globe, LayoutDashboard, Loader2, Monitor, Smartphone, Tablet, UserRound } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { CatstaysTemplateSite } from '../onboarding/CatstaysTemplateSite';
 import { FullWebsitePreview } from '../onboarding/FullWebsitePreview';
@@ -94,11 +94,14 @@ export function DeloraineDemoClientPortal() {
 function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) {
   const location = useLocation();
   const [requestedImportUrl] = useState(() => readRequestedImportUrl());
-  const [previewData, setPreviewData] = useState<DelorainePreviewData>(() => readInitialPreviewData(requestedImportUrl));
+  const [initialPreviewState] = useState(() => readInitialPreviewState(requestedImportUrl));
+  const [previewData, setPreviewData] = useState<DelorainePreviewData>(() => initialPreviewState.data);
   const [previewMode, setPreviewMode] = useState<DemoMode>(initialMode);
   const [hoveredMode, setHoveredMode] = useState<DemoMode | null>(null);
   const [deviceType, setDeviceTypeState] = useState<DeviceMode>('desktop');
+  const [isImportRefreshing, setIsImportRefreshing] = useState(initialPreviewState.isLoading);
   const [importError, setImportError] = useState('');
+  const hasInitialImportedPreviewRef = useRef(initialPreviewState.hasStoredPreview);
   const preserveTemporaryPreviewRef = useRef(false);
 
   useEffect(() => {
@@ -163,6 +166,7 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
     let cancelled = false;
 
     async function loadImportedWebsite() {
+      setIsImportRefreshing(!hasInitialImportedPreviewRef.current);
       try {
         const savedPreview = await fetchSavedTemporaryPreview();
         if (savedPreview && sameSourceUrl(savedPreview.sourceUrl, requestedImportUrl)) {
@@ -170,6 +174,7 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
           const importedPreview = previewDataForScrape(migrateDeloraineAssetsInValue(savedPreview));
           setImportError('');
           setPreviewData(dataForTemplate(importedPreview, selectedTemplateRef.current));
+          setIsImportRefreshing(false);
           return;
         }
 
@@ -187,6 +192,7 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
         const importedPreview = previewDataForScrape(migrateDeloraineAssetsInValue(payload as ImportedCatteryScrape));
         setImportError('');
         setPreviewData(dataForTemplate(importedPreview, selectedTemplateRef.current));
+        setIsImportRefreshing(false);
       } catch (error) {
         if (cancelled) return;
         setImportError((error as Error).message || 'Import failed');
@@ -195,6 +201,7 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
             if (hasImportedPreviewData(current, requestedImportUrl)) return current;
             return current;
           });
+          setIsImportRefreshing(false);
           return;
         }
         const fallbackScrape = isDeloraineRequest(requestedImportUrl)
@@ -202,6 +209,7 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
           : buildFallbackScrapeForUrl(requestedImportUrl);
         const fallbackPreview = previewDataForScrape(migrateDeloraineAssetsInValue(fallbackScrape));
         setPreviewData(dataForTemplate(fallbackPreview, selectedTemplateRef.current));
+        setIsImportRefreshing(false);
       }
     }
 
@@ -305,7 +313,7 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
         </div>
       </div>
 
-      {previewMode === 'website' && (
+      {previewMode === 'website' && !isImportRefreshing && (
         <TemplatePreviewStrip
           data={previewData}
           selectedTemplate={selectedTemplate}
@@ -319,14 +327,35 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
       )}
 
       <main className={previewMode === 'website' && deviceType === 'desktop' ? 'w-full p-0' : 'mx-auto w-full px-4 py-4 sm:px-6 lg:px-8'}>
-        <FullWebsitePreview
-          data={previewData}
-          controlledMode={previewMode}
-          controlledDevice={deviceType}
-          showControls={false}
-          showInfoCard={false}
-        />
+        {isImportRefreshing ? (
+          <PreparingImportedPreview sourceUrl={requestedImportUrl} />
+        ) : (
+          <FullWebsitePreview
+            data={previewData}
+            controlledMode={previewMode}
+            controlledDevice={deviceType}
+            showControls={false}
+            showInfoCard={false}
+          />
+        )}
       </main>
+    </div>
+  );
+}
+
+function PreparingImportedPreview({ sourceUrl }: { sourceUrl: string }) {
+  return (
+    <div className="flex min-h-[62vh] items-center justify-center bg-[#f8f4ed] px-6 py-16 text-center">
+      <div className="max-w-xl rounded-2xl border border-[#C46A3A]/25 bg-white p-8 shadow-sm">
+        <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-[#C46A3A]/10 text-[#A85A30]">
+          <Loader2 className="h-6 w-6 animate-spin" />
+        </div>
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-[#A85A30]">Preparing imported website</p>
+        <h1 className="mt-3 font-serif text-3xl text-[#10251f]">Pulling through the scraped content</h1>
+        <p className="mt-3 text-sm leading-6 text-[#10251f]/70">
+          Images and page content from {hostLabel(sourceUrl)} are still being saved and matched to the previews.
+        </p>
+      </div>
     </div>
   );
 }
@@ -520,11 +549,23 @@ function readRequestedImportUrl(): string {
   return requestedUrl;
 }
 
-function readInitialPreviewData(requestedUrl: string): DelorainePreviewData {
+function readInitialPreviewState(requestedUrl: string): {
+  data: DelorainePreviewData;
+  hasStoredPreview: boolean;
+  isLoading: boolean;
+} {
   const storedPreview = readStoredPreviewData(requestedUrl);
-  if (storedPreview) return storedPreview;
-  if (isDeloraineRequest(requestedUrl)) return previewDataForScrape(fallbackDeloraineScrape);
-  return previewDataForScrape(buildFallbackScrapeForUrl(requestedUrl));
+  if (storedPreview) {
+    return { data: storedPreview, hasStoredPreview: true, isLoading: false };
+  }
+  if (isDeloraineRequest(requestedUrl)) {
+    return { data: previewDataForScrape(fallbackDeloraineScrape), hasStoredPreview: true, isLoading: false };
+  }
+  return {
+    data: previewDataForScrape(buildFallbackScrapeForUrl(requestedUrl)),
+    hasStoredPreview: false,
+    isLoading: true,
+  };
 }
 
 function isDeloraineRequest(requestedUrl: string): boolean {
@@ -640,6 +681,14 @@ function hasImportedPreviewData(data: Record<string, any> | null | undefined, re
 function sameSourceUrl(left: unknown, right: unknown): boolean {
   if (typeof left !== 'string' || typeof right !== 'string' || !left || !right) return false;
   return normalizeWebsiteImportUrl(left, '').replace(/\/$/, '') === normalizeWebsiteImportUrl(right, '').replace(/\/$/, '');
+}
+
+function hostLabel(value: string) {
+  try {
+    return new URL(normalizeWebsiteImportUrl(value, DELORAINE_SOURCE_URL)).hostname.replace(/^www\./, '');
+  } catch {
+    return 'the source website';
+  }
 }
 
 function stringFromStoredJson(storageKey: string, path: string[]): string {

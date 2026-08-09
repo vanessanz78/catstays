@@ -1920,6 +1920,7 @@ export function OnboardingWizard() {
                           onClick={() => setShowTemplateSelection(true)}
                           variant="outline"
                           className="rounded-xl"
+                          disabled={data.isImporting}
                         >
                           Start from Template
                           <ChevronRight className="w-4 h-4 ml-2" />
@@ -1939,11 +1940,11 @@ export function OnboardingWizard() {
                     Back
                   </Button>
                   <Button 
-                    onClick={handleNext}
-                    disabled={!data.businessName || !data.location}
+                    onClick={data.importComplete ? handleContinueImportedWebsite : handleNext}
+                    disabled={!data.businessName || !data.location || data.isImporting}
                     className="bg-sage hover:bg-sage-dark text-white rounded-xl px-8"
                   >
-                    Continue
+                    {data.isImporting ? 'Importing...' : 'Continue'}
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
                 </div>

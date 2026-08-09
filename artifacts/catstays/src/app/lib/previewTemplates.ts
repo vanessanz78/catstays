@@ -450,13 +450,14 @@ function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<s
   const facilitiesSection = bestSectionByRole(model, 'facilities') ?? accommodationSection ?? aboutSection;
   const healthSection = bestSectionByRole(model, 'health-care');
   const groomingSection = bestSectionByRole(model, 'grooming');
+  const servicesSection = bestSectionByRole(model, 'services');
   const pricingSection = bestSectionByRole(model, 'pricing');
   const contactSection = sectionByRole(model, 'contact') ?? sectionByRole(model, 'location');
   const imagePlan = createSourceImagePlan(model.media.images);
   const heroImage = imagePlan.takeForRoles(['hero', 'accommodation', 'gallery']);
   const aboutImage = imagePlan.takeFromSection(aboutSection);
   const facilityImage = imagePlan.takeFromSection(facilitiesSection);
-  const sourceServices = [accommodationSection, healthSection, groomingSection]
+  const sourceServices = uniqueSections([accommodationSection, healthSection, groomingSection, servicesSection])
     .filter((section): section is WebsiteUnderstandingSection => Boolean(section))
     .map((section) => ({
       image: imagePlan.takeFromSection(section),
@@ -484,7 +485,7 @@ function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<s
       }))
     : [];
   const suites = [...accommodationSuites, ...pricingSuites].filter((suite) => suite.title || suite.text || suite.image).slice(0, 8);
-  const featureSections = [aboutSection, accommodationSection, healthSection, groomingSection]
+  const featureSections = uniqueSections([aboutSection, accommodationSection, healthSection, groomingSection, servicesSection])
     .filter((section): section is WebsiteUnderstandingSection => Boolean(section))
     .slice(0, 4);
   const features = featureSections.map((section) => ({
@@ -1189,6 +1190,15 @@ function withOnboardingCollections(data: Record<string, any>, fallback: Record<s
 
 function sectionByRole(model: WebsiteUnderstandingModel, role: WebsiteUnderstandingSection['semanticRole']) {
   return model.sections.find((section) => section.semanticRole === role);
+}
+
+function uniqueSections(sections: Array<WebsiteUnderstandingSection | undefined>) {
+  const seen = new Set<string>();
+  return sections.filter((section): section is WebsiteUnderstandingSection => {
+    if (!section || seen.has(section.id)) return false;
+    seen.add(section.id);
+    return true;
+  });
 }
 
 function bestSectionByRole(model: WebsiteUnderstandingModel, role: WebsiteUnderstandingSection['semanticRole']) {
