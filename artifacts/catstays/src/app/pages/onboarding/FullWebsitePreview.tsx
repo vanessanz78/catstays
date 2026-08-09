@@ -111,6 +111,7 @@ interface FullWebsitePreviewProps {
   controlledDevice?: 'mobile' | 'tablet' | 'desktop';
   showControls?: boolean;
   showInfoCard?: boolean;
+  forceFrame?: boolean;
 }
 
 export function FullWebsitePreview({
@@ -121,6 +122,7 @@ export function FullWebsitePreview({
   controlledDevice,
   showControls = true,
   showInfoCard = true,
+  forceFrame = false,
 }: FullWebsitePreviewProps) {
   const [internalPreviewMode, setInternalPreviewMode] = useState<'website' | 'dashboard' | 'client'>(initialMode);
   const [internalDeviceType, setInternalDeviceType] = useState<'mobile' | 'tablet' | 'desktop'>(initialDevice);
@@ -137,7 +139,7 @@ export function FullWebsitePreview({
     if (!controlledDevice) setInternalDeviceType(device);
   };
 
-  const isEmbeddedDemoSurface = !showControls && !showInfoCard;
+  const isEmbeddedDemoSurface = !showControls && !showInfoCard && !forceFrame;
 
   const handleBookingSearch = (searchData: any) => {
     setShowBookingModal(true);
