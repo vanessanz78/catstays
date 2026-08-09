@@ -11,6 +11,8 @@ const MAX_REDIRECTS = 5;
 const MAX_CRAWLED_PAGES = 8;
 const MAX_SITEMAP_DOCUMENTS = 4;
 const MAX_SITEMAP_URLS = 24;
+const MAX_REBUILD_ASSETS = 90;
+const MAX_REBUILD_TOTAL_ASSET_BYTES = 9_000_000;
 
 const REVELATION_PETS_REVIEW_FALLBACKS: CatteryScrapedReview[] = [
   {
@@ -105,12 +107,12 @@ export interface CatterySourceArchivePage {
 
 export interface CatterySourceArchive {
   schemaVersion: 1;
-  captureMethod: 'http-html-with-script-and-sitemap-crawl';
+  captureMethod: 'rendered-browser-or-http-source-rebuild';
   sourceUrl: string;
   sourceHost: string;
   capturedAt: string;
   rebuild: {
-    status: 'rebuilt';
+    status: 'rebuilt' | 'partial';
     sourceUrl: string;
     capturedAt: string;
     html: string;
@@ -118,7 +120,16 @@ export interface CatterySourceArchive {
       images: number;
       scripts: number;
       stylesheets: number;
+      embedded: number;
+      failed: number;
+      totalBytes: number;
+      truncated: boolean;
     };
+    pages: Array<{
+      sourceUrl: string;
+      html: string;
+      htmlBytes: number;
+    }>;
     notes: string[];
   };
   pages: CatterySourceArchivePage[];
@@ -212,6 +223,31 @@ type ScrapedPage = {
   heading: string;
   bodyText: string;
   images: string[];
+};
+
+type SourceRebuildAsset = {
+  sourceUrl: string;
+  finalUrl: string;
+  contentType: string;
+  bytes: number;
+  dataUrl: string;
+  kind: 'image' | 'script' | 'stylesheet' | 'font' | 'media' | 'asset';
+};
+
+type SourceRebuildBundle = {
+  html: string;
+  method: 'rendered-browser' | 'http-html';
+  notes: string[];
+  assets: SourceRebuildAsset[];
+  failedAssets: Array<{ sourceUrl: string; error: string }>;
+  truncated: boolean;
+  totalBytes: number;
+};
+
+type MutableHtmlNode = {
+  getAttribute?: (name: string) => string | undefined;
+  setAttribute?: (name: string, value: string) => void;
+  removeAttribute?: (name: string) => void;
 };
 
 export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsiteScrapeResult> {
@@ -352,7 +388,7 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
     virtualTourUrl,
     siteContentLibrary,
   });
-  const sourceArchive = buildSourceArchive({
+  const sourceArchive = await buildSourceArchive({
     parsedUrl,
     sourceHost,
     title,
@@ -453,6 +489,445 @@ export async function fetchSourceWebsitePreviewAsset(
   };
 }
 
+async function buildSourceRebuildBundle(
+  html: string,
+  baseUrl: URL,
+  scriptUrls: Array<string | URL>,
+): Promise<SourceRebuildBundle> {
+  const renderedCapture = await captureRenderedHtml(baseUrl);
+  const captureHtml = renderedCapture?.html || html;
+  const method = renderedCapture ? 'rendered-browser' : 'http-html';
+  const notes = renderedCapture?.notes ?? ['Rendered browser capture was unavailable; rebuilt from fetched HTML.'];
+  const root = parse(captureHtml);
+  const assetUrls = collectRebuildAssetUrls(root, baseUrl, scriptUrls);
+  const assetBundle = await fetchRebuildAssets(assetUrls, baseUrl);
+  const rebuiltHtml = rewriteRebuildHtml(root, baseUrl, assetBundle.assetByUrl, method);
+
+  return {
+    html: rebuiltHtml,
+    method,
+    notes,
+    assets: assetBundle.assets,
+    failedAssets: assetBundle.failedAssets,
+    truncated: assetBundle.truncated,
+    totalBytes: assetBundle.totalBytes,
+  };
+}
+
+async function captureRenderedHtml(baseUrl: URL): Promise<{ html: string; notes: string[] } | null> {
+  try {
+    const runtimeImport = new Function('specifier', 'return import(specifier)') as (
+      specifier: string,
+    ) => Promise<{ chromium?: unknown }>;
+    const playwright = await runtimeImport('playwright');
+    const chromium = playwright.chromium as {
+      launch: (options: Record<string, unknown>) => Promise<{
+        newContext: (options: Record<string, unknown>) => Promise<{
+          newPage: () => Promise<{
+            goto: (url: string, options: Record<string, unknown>) => Promise<unknown>;
+            waitForLoadState: (state: string, options: Record<string, unknown>) => Promise<unknown>;
+            waitForTimeout: (timeout: number) => Promise<unknown>;
+            evaluate: (script: string) => Promise<unknown>;
+            content: () => Promise<string>;
+          }>;
+        }>;
+        close: () => Promise<void>;
+      }>;
+    };
+    if (!chromium?.launch) return null;
+
+    const browser = await chromium.launch({ headless: true });
+    try {
+      const context = await browser.newContext({
+        viewport: { width: 1440, height: 1100 },
+        userAgent: 'Mozilla/5.0 (compatible; CatStays-rendered-capture/1.0; +https://catstays.app)',
+      });
+      const page = await context.newPage();
+      const notes: string[] = ['Rendered browser capture used Playwright Chromium before rebuilding the source preview.'];
+      await page.goto(baseUrl.toString(), { waitUntil: 'domcontentloaded', timeout: 30_000 });
+      await page.waitForLoadState('load', { timeout: 12_000 }).catch(() => {
+        notes.push('Full browser load timed out; captured after DOMContentLoaded and render settling.');
+      });
+      await page.waitForTimeout(1800);
+      await page.evaluate(`
+        new Promise((resolve) => {
+          let total = 0;
+          let steps = 0;
+          const distance = Math.max(350, Math.floor(window.innerHeight * 0.7));
+          const timer = setInterval(() => {
+            window.scrollBy(0, distance);
+            total += distance;
+            steps += 1;
+            if (total >= document.body.scrollHeight + window.innerHeight || steps >= 24) {
+              clearInterval(timer);
+              window.scrollTo(0, 0);
+              resolve(undefined);
+            }
+          }, 120);
+        })
+      `);
+      await page.waitForTimeout(700);
+      return { html: await page.content(), notes };
+    } finally {
+      await browser.close().catch(() => {});
+    }
+  } catch (error) {
+    return null;
+  }
+}
+
+function collectRebuildAssetUrls(
+  root: ReturnType<typeof parse>,
+  baseUrl: URL,
+  scriptUrls: Array<string | URL>,
+): string[] {
+  const urls: string[] = scriptUrls.map((url) => url.toString());
+
+  const pushAttr = (selector: string, attrName: string) => {
+    for (const node of root.querySelectorAll(selector)) {
+      const value = node.getAttribute(attrName);
+      const absolute = absoluteUrl(value ?? '', baseUrl);
+      if (absolute) urls.push(absolute);
+    }
+  };
+
+  pushAttr('script[src]', 'src');
+  pushAttr('img[src]', 'src');
+  pushAttr('source[src]', 'src');
+  pushAttr('video[src]', 'src');
+  pushAttr('video[poster]', 'poster');
+  pushAttr('audio[src]', 'src');
+  pushAttr('link[href]', 'href');
+
+  for (const node of root.querySelectorAll('img[srcset], source[srcset]')) {
+    for (const src of urlsFromSrcset(node.getAttribute('srcset') ?? '', baseUrl)) {
+      urls.push(src);
+    }
+  }
+
+  for (const node of root.querySelectorAll('[style]')) {
+    for (const src of urlsFromCss(node.getAttribute('style') ?? '', baseUrl)) {
+      urls.push(src);
+    }
+  }
+
+  return uniqueUrls(urls).slice(0, MAX_REBUILD_ASSETS);
+}
+
+async function fetchRebuildAssets(
+  seedUrls: string[],
+  baseUrl: URL,
+): Promise<{
+  assets: SourceRebuildAsset[];
+  assetByUrl: Map<string, SourceRebuildAsset>;
+  failedAssets: Array<{ sourceUrl: string; error: string }>;
+  truncated: boolean;
+  totalBytes: number;
+}> {
+  const queue = [...seedUrls];
+  const seen = new Set<string>();
+  const rawAssets: Array<{
+    sourceUrl: string;
+    finalUrl: string;
+    contentType: string;
+    body: Buffer;
+    kind: SourceRebuildAsset['kind'];
+  }> = [];
+  const failedAssets: Array<{ sourceUrl: string; error: string }> = [];
+  let totalBytes = 0;
+  let truncated = false;
+
+  while (queue.length && rawAssets.length < MAX_REBUILD_ASSETS) {
+    const next = queue.shift();
+    if (!next || seen.has(next) || /^data:|^blob:/i.test(next)) continue;
+    seen.add(next);
+
+    try {
+      const result = await fetchBytes(new URL(next), { maxBytes: MAX_ASSET_BYTES });
+      if (totalBytes + result.body.byteLength > MAX_REBUILD_TOTAL_ASSET_BYTES) {
+        truncated = true;
+        continue;
+      }
+      totalBytes += result.body.byteLength;
+      const contentType = normalizeContentType(result.contentType, next);
+      const kind = kindForAsset(contentType, next);
+      rawAssets.push({
+        sourceUrl: next,
+        finalUrl: next,
+        contentType,
+        body: result.body,
+        kind,
+      });
+
+      if (kind === 'stylesheet' || kind === 'script') {
+        const text = result.body.toString('utf8');
+        const nestedUrls = kind === 'stylesheet'
+          ? urlsFromCss(text, new URL(next))
+          : urlsFromScript(text, new URL(next));
+        for (const nestedUrl of nestedUrls) {
+          if (!seen.has(nestedUrl) && queue.length + rawAssets.length < MAX_REBUILD_ASSETS) {
+            queue.push(nestedUrl);
+          } else if (!seen.has(nestedUrl)) {
+            truncated = true;
+          }
+        }
+      }
+    } catch (error) {
+      failedAssets.push({
+        sourceUrl: next,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  if (queue.length) truncated = true;
+
+  const provisionalUrlBySource = new Map<string, string>();
+  for (const asset of rawAssets) {
+    provisionalUrlBySource.set(asset.sourceUrl, bufferToDataUrl(asset.body, asset.contentType));
+  }
+
+  const assets = rawAssets.map((asset): SourceRebuildAsset => {
+    let body = asset.body;
+    if (asset.kind === 'stylesheet' || asset.kind === 'script') {
+      const text = asset.body.toString('utf8');
+      const rewritten = rewriteTextAssetUrls(text, new URL(asset.sourceUrl), provisionalUrlBySource);
+      body = Buffer.from(rewritten, 'utf8');
+    }
+    return {
+      sourceUrl: asset.sourceUrl,
+      finalUrl: asset.finalUrl,
+      contentType: asset.contentType,
+      bytes: body.byteLength,
+      dataUrl: bufferToDataUrl(body, asset.contentType),
+      kind: asset.kind,
+    };
+  });
+
+  const assetByUrl = new Map<string, SourceRebuildAsset>();
+  for (const asset of assets) {
+    assetByUrl.set(asset.sourceUrl, asset);
+    assetByUrl.set(asset.finalUrl, asset);
+  }
+
+  return { assets, assetByUrl, failedAssets, truncated, totalBytes };
+}
+
+function rewriteRebuildHtml(
+  root: ReturnType<typeof parse>,
+  baseUrl: URL,
+  assetByUrl: Map<string, SourceRebuildAsset>,
+  method: SourceRebuildBundle['method'],
+): string {
+  root.querySelectorAll('base').forEach((node) => node.remove());
+
+  const head = root.querySelector('head');
+  if (head) {
+    head.insertAdjacentHTML('afterbegin', `<base href="${escapeHtml(baseUrl.toString())}">`);
+    head.insertAdjacentHTML(
+      'beforeend',
+      '<style>[src*="replit-dev-banner"], replit-dev-banner { display: none !important; }</style>',
+    );
+  }
+
+  if (method === 'rendered-browser') {
+    root.querySelectorAll('script').forEach((script) => script.remove());
+  } else {
+    rewriteAttr(root, 'script[src]', 'src', baseUrl, assetByUrl);
+  }
+
+  for (const link of root.querySelectorAll('link[href]')) {
+    const rel = (link.getAttribute('rel') ?? '').toLowerCase();
+    if (!/(stylesheet|preload|modulepreload|icon|apple-touch-icon)/i.test(rel)) continue;
+    rewriteNodeAttr(link, 'href', baseUrl, assetByUrl);
+    link.removeAttribute('integrity');
+    link.removeAttribute('crossorigin');
+  }
+
+  rewriteAttr(root, 'img[src]', 'src', baseUrl, assetByUrl);
+  rewriteAttr(root, 'source[src]', 'src', baseUrl, assetByUrl);
+  rewriteAttr(root, 'video[src]', 'src', baseUrl, assetByUrl);
+  rewriteAttr(root, 'video[poster]', 'poster', baseUrl, assetByUrl);
+  rewriteAttr(root, 'audio[src]', 'src', baseUrl, assetByUrl);
+
+  for (const node of root.querySelectorAll('img[srcset], source[srcset]')) {
+    const srcset = node.getAttribute('srcset') ?? '';
+    const rewritten = rewriteSrcsetAssetUrls(srcset, baseUrl, assetByUrl);
+    if (rewritten) node.setAttribute('srcset', rewritten);
+  }
+
+  for (const node of root.querySelectorAll('[style]')) {
+    const style = node.getAttribute('style') ?? '';
+    node.setAttribute('style', rewriteInlineCssAssetUrls(style, baseUrl, assetByUrl));
+  }
+
+  return `<!doctype html>\n${root.toString()}`;
+}
+
+function rewriteAttr(
+  root: ReturnType<typeof parse>,
+  selector: string,
+  attrName: string,
+  baseUrl: URL,
+  assetByUrl: Map<string, SourceRebuildAsset>,
+) {
+  for (const node of root.querySelectorAll(selector)) {
+    rewriteNodeAttr(node, attrName, baseUrl, assetByUrl);
+    node.removeAttribute('integrity');
+    node.removeAttribute('crossorigin');
+  }
+}
+
+function rewriteNodeAttr(
+  node: MutableHtmlNode,
+  attrName: string,
+  baseUrl: URL,
+  assetByUrl: Map<string, SourceRebuildAsset>,
+) {
+  const value = typeof node.getAttribute === 'function' ? node.getAttribute(attrName) : '';
+  if (!value) return;
+  const rewritten = rewriteAssetUrl(value, baseUrl, assetByUrl);
+  if (rewritten && typeof node.setAttribute === 'function') {
+    node.setAttribute(attrName, rewritten);
+  }
+}
+
+function rewriteAssetUrl(value: string, baseUrl: URL, assetByUrl: Map<string, SourceRebuildAsset>): string {
+  if (!value || /^(data:|blob:|#)/i.test(value)) return value;
+  const absolute = absoluteUrl(value, baseUrl);
+  if (!absolute) return value;
+  return assetByUrl.get(absolute)?.dataUrl ?? absolute;
+}
+
+function rewriteInlineCssAssetUrls(
+  css: string,
+  baseUrl: URL,
+  assetByUrl: Map<string, SourceRebuildAsset>,
+): string {
+  return css.replace(/url\((['"]?)(.*?)\1\)/gi, (match, quote: string, rawUrl: string) => {
+    if (!rawUrl || /^(data:|#)/i.test(rawUrl)) return match;
+    const rewritten = rewriteAssetUrl(rawUrl, baseUrl, assetByUrl);
+    return `url(${quote}${rewritten}${quote})`;
+  });
+}
+
+function urlsFromSrcset(srcset: string, baseUrl: URL): string[] {
+  const candidates = Array.from(srcset.matchAll(/(?:^|,\s*)(\S+)\s+(\d+(?:\.\d+)?[wx])(?=,|$)/g))
+    .map((match) => match[1]);
+  const fallbackCandidates = candidates.length ? candidates : srcset.split(',').map((part) => srcsetCandidateParts(part)[0]);
+  return fallbackCandidates.map((url) => absoluteUrl(url, baseUrl)).filter(Boolean);
+}
+
+function srcsetCandidateParts(part: string): [string, string] {
+  const trimmed = part.trim();
+  const descriptorMatch = trimmed.match(/\s+(\d+(?:\.\d+)?[wx])$/);
+  if (!descriptorMatch) return [trimmed, ''];
+  return [trimmed.slice(0, descriptorMatch.index).trim(), descriptorMatch[1]];
+}
+
+function rewriteSrcsetAssetUrls(
+  srcset: string,
+  baseUrl: URL,
+  assetByUrl: Map<string, SourceRebuildAsset>,
+): string {
+  if (!srcset) return '';
+  if (/(?:^|,\s*)\S+\s+\d+(?:\.\d+)?[wx](?=,|$)/.test(srcset)) {
+    return srcset.replace(
+      /(^|,\s*)(\S+)\s+(\d+(?:\.\d+)?[wx])(?=,|$)/g,
+      (match, prefix: string, url: string, descriptor: string) =>
+        `${prefix}${rewriteAssetUrl(url, baseUrl, assetByUrl)} ${descriptor}`,
+    );
+  }
+
+  return srcset.split(',').map((part) => {
+    const [url, descriptor] = srcsetCandidateParts(part);
+    if (!url) return '';
+    return [rewriteAssetUrl(url, baseUrl, assetByUrl), descriptor].filter(Boolean).join(' ');
+  }).filter(Boolean).join(', ');
+}
+
+function urlsFromCss(css: string, baseUrl: URL): string[] {
+  const urls: string[] = [];
+  for (const match of css.matchAll(/url\((['"]?)(.*?)\1\)/gi)) {
+    const rawUrl = match[2];
+    if (!rawUrl || /^(data:|#)/i.test(rawUrl)) continue;
+    const absolute = absoluteUrl(rawUrl, baseUrl);
+    if (absolute) urls.push(absolute);
+  }
+  return urls;
+}
+
+function urlsFromScript(script: string, baseUrl: URL): string[] {
+  const urls: string[] = [];
+  const patterns = [
+    /import\((["'`])((?:\.{1,2}\/|\/assets\/|https?:\/\/)[^"'`]+?)\1\)/g,
+    /\bfrom\s*(["'`])((?:\.{1,2}\/|\/assets\/|https?:\/\/)[^"'`]+?)\1/g,
+    /\bimport\s*(["'`])((?:\.{1,2}\/|\/assets\/|https?:\/\/)[^"'`]+?)\1/g,
+    /["'`]((?:\/assets\/|https?:\/\/)[^"'`\s)]+?\.(?:js|css|jpe?g|png|webp|avif|svg|woff2?)(?:\?[^"'`\s)]*)?)["'`]/gi,
+  ];
+  for (const pattern of patterns) {
+    for (const match of script.matchAll(pattern)) {
+      const rawUrl = match[2] ?? match[1];
+      const absolute = absoluteUrl(rawUrl, baseUrl);
+      if (absolute) urls.push(absolute);
+    }
+  }
+  return urls;
+}
+
+function rewriteTextAssetUrls(text: string, baseUrl: URL, dataUrlBySource: Map<string, string>): string {
+  const replaceUrl = (rawUrl: string) => {
+    const absolute = absoluteUrl(rawUrl, baseUrl);
+    return absolute ? dataUrlBySource.get(absolute) ?? rawUrl : rawUrl;
+  };
+
+  return text
+    .replace(/url\((['"]?)(.*?)\1\)/gi, (match, quote: string, rawUrl: string) => {
+      if (!rawUrl || /^(data:|#)/i.test(rawUrl)) return match;
+      return `url(${quote}${replaceUrl(rawUrl)}${quote})`;
+    })
+    .replace(
+      /import\((["'`])((?:\.{1,2}\/|\/assets\/|https?:\/\/)[^"'`]+?)\1\)/g,
+      (match, quote: string, rawUrl: string) => `import(${quote}${replaceUrl(rawUrl)}${quote})`,
+    )
+    .replace(
+      /\b(from\s*)(["'`])((?:\.{1,2}\/|\/assets\/|https?:\/\/)[^"'`]+?)\2/g,
+      (match, prefix: string, quote: string, rawUrl: string) => `${prefix}${quote}${replaceUrl(rawUrl)}${quote}`,
+    )
+    .replace(
+      /\b(import\s*)(["'`])((?:\.{1,2}\/|\/assets\/|https?:\/\/)[^"'`]+?)\2/g,
+      (match, prefix: string, quote: string, rawUrl: string) => `${prefix}${quote}${replaceUrl(rawUrl)}${quote}`,
+    );
+}
+
+function bufferToDataUrl(body: Buffer, contentType: string): string {
+  return `data:${contentType || 'application/octet-stream'};base64,${body.toString('base64')}`;
+}
+
+function normalizeContentType(contentType: string, url: string): string {
+  if (contentType) return contentType.split(';')[0].trim() || 'application/octet-stream';
+  const pathname = new URL(url).pathname.toLowerCase();
+  if (pathname.endsWith('.css')) return 'text/css';
+  if (pathname.endsWith('.js') || pathname.endsWith('.mjs')) return 'application/javascript';
+  if (pathname.endsWith('.svg')) return 'image/svg+xml';
+  if (pathname.endsWith('.png')) return 'image/png';
+  if (pathname.endsWith('.webp')) return 'image/webp';
+  if (pathname.endsWith('.avif')) return 'image/avif';
+  if (pathname.endsWith('.jpg') || pathname.endsWith('.jpeg')) return 'image/jpeg';
+  if (pathname.endsWith('.woff')) return 'font/woff';
+  if (pathname.endsWith('.woff2')) return 'font/woff2';
+  return 'application/octet-stream';
+}
+
+function kindForAsset(contentType: string, url: string): SourceRebuildAsset['kind'] {
+  if (/text\/css/i.test(contentType) || /\.css(?:\?|$)/i.test(url)) return 'stylesheet';
+  if (/javascript|ecmascript/i.test(contentType) || /\.m?js(?:\?|$)/i.test(url)) return 'script';
+  if (/^image\//i.test(contentType)) return 'image';
+  if (/^font\//i.test(contentType) || /\.(?:woff2?|ttf|otf)(?:\?|$)/i.test(url)) return 'font';
+  if (/^(video|audio)\//i.test(contentType)) return 'media';
+  return 'asset';
+}
+
 async function fetchSupplementalPages(baseUrl: URL, root: ReturnType<typeof parse>): Promise<ScrapedPage[]> {
   const urls = await collectSupplementalPageUrls(baseUrl, root);
   const pages = await Promise.all(
@@ -479,7 +954,7 @@ async function fetchSupplementalPages(baseUrl: URL, root: ReturnType<typeof pars
   return pages.filter((page): page is ScrapedPage => Boolean(page));
 }
 
-function buildSourceArchive(input: {
+async function buildSourceArchive(input: {
   parsedUrl: URL;
   sourceHost: string;
   title: string;
@@ -497,7 +972,7 @@ function buildSourceArchive(input: {
   html: string;
   root: ReturnType<typeof parse>;
   supplementalPages: ScrapedPage[];
-}): CatterySourceArchive {
+}): Promise<CatterySourceArchive> {
   const homeText = cleanText(input.homeBodyText);
   const stylesheetCount = input.root
     .querySelectorAll('link[href]')
@@ -530,26 +1005,47 @@ function buildSourceArchive(input: {
   if (!pages.length) {
     unsupported.push('No readable pages were captured.');
   }
+  const rebuildBundle = await buildSourceRebuildBundle(input.html, input.parsedUrl, input.scriptUrls);
+  if (rebuildBundle.failedAssets.length) {
+    unsupported.push(`${rebuildBundle.failedAssets.length} source assets could not be embedded in the rebuilt original preview.`);
+  }
+  if (rebuildBundle.truncated) {
+    unsupported.push('The rebuilt original preview reached the Stage 1 asset budget and may still reference some original remote assets.');
+  }
 
   return {
     schemaVersion: 1,
-    captureMethod: 'http-html-with-script-and-sitemap-crawl',
+    captureMethod: 'rendered-browser-or-http-source-rebuild',
     sourceUrl: input.parsedUrl.toString(),
     sourceHost: input.sourceHost,
     capturedAt,
     rebuild: {
-      status: 'rebuilt',
+      status: rebuildBundle.failedAssets.length || rebuildBundle.truncated ? 'partial' : 'rebuilt',
       sourceUrl: input.parsedUrl.toString(),
       capturedAt,
-      html: rewriteSourcePreviewHtml(input.html, input.parsedUrl, ''),
+      html: rebuildBundle.html,
       assets: {
         images: input.images.length,
         scripts: input.scriptUrls.length,
         stylesheets: stylesheetCount,
+        embedded: rebuildBundle.assets.length,
+        failed: rebuildBundle.failedAssets.length,
+        totalBytes: rebuildBundle.totalBytes,
+        truncated: rebuildBundle.truncated,
       },
+      pages: [
+        {
+          sourceUrl: input.parsedUrl.toString(),
+          html: rebuildBundle.html,
+          htmlBytes: Buffer.byteLength(rebuildBundle.html, 'utf8'),
+        },
+      ],
       notes: [
-        'Captured and rebuilt from fetched source HTML during import.',
-        'Asset URLs are rewritten through the CatStays source asset proxy for preview isolation.',
+        rebuildBundle.method === 'rendered-browser'
+          ? 'Captured from a rendered browser DOM during import, then rebuilt for CatStays original-site preview.'
+          : 'Captured from fetched source HTML during import, then rebuilt for CatStays original-site preview.',
+        'Stage 1 stores the rebuilt original preview inside the content source raw data so it can be replayed without stock imagery.',
+        ...rebuildBundle.notes,
       ],
     },
     pages,
@@ -1106,8 +1602,7 @@ function collectHtmlImages(root: ReturnType<typeof parse>, baseUrl: URL): string
 
     const srcset = node.getAttribute('srcset') || node.getAttribute('data-srcset');
     if (srcset) {
-      for (const candidate of srcset.split(',')) {
-        const [candidateUrl] = candidate.trim().split(/\s+/);
+      for (const candidateUrl of urlsFromSrcset(srcset, baseUrl)) {
         if (candidateUrl) images.push(candidateUrl);
       }
     }

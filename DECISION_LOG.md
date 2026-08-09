@@ -133,6 +133,21 @@ Impact:
 - Normalized Content Source data exposes the archive summary so future Media Library, Content Library, verification, and preview phases can use durable capture evidence.
 - This remains within Phase 2 Content Sources and does not begin Phase 3 Media Library or preview rendering work.
 
+## 2026-08-09 - Stage 1 Original Website Rebuild Saved
+
+Working ref: `phase2/content-sources-20260803`.
+
+Decision: Treat Stage 1 website import as a saved original-site rebuild, not only a source evidence archive.
+
+Reason: Some catteries may want the original website preserved as their first CatStays website view before choosing a modernized template. The imported original preview must therefore be replayed from saved scrape data rather than a live iframe/proxy, and source images must remain eligible for later generated-template selection.
+
+Impact:
+
+- `sourceArchive.rebuild.html` now stores a replayable original preview document in `content_sources.raw_data`.
+- Rebuilt original previews inline captured assets as data URLs where possible and record embedded, failed, byte-count, and truncation metrics.
+- The Original preview iframe remains only as a browser isolation shell; it is fed saved rebuilt HTML when available.
+- Wix-style image `srcset` URLs with comma-based transform segments are parsed as whole URLs so Fancy Felines source images are not replaced by stock/generic fallbacks.
+
 ## Open Decisions
 
 - Whether the client-side publish handler should also be hardened so no future account/provisioning error can force a step-1 reset.
