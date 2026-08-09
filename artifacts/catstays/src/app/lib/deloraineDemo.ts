@@ -1373,21 +1373,55 @@ export function rememberCatteryPreview(scrape: ImportedCatteryScrape, previewDat
 
 function lightweightStoredPreviewData(previewData: DelorainePreviewData, sourceUrl?: string): DelorainePreviewData {
   const previewRecord = previewData as unknown as Record<string, unknown>;
-  const {
-    previewImportRecord: _previewImportRecord,
-    sourceArchive: _sourceArchive,
-    ...rest
-  } = previewRecord;
 
   return {
-    ...rest,
+    ...previewRecord,
     sourceUrl: previewData.sourceUrl || sourceUrl,
     importSourceUrl: typeof previewRecord.importSourceUrl === 'string'
       ? previewRecord.importSourceUrl
       : previewData.sourceUrl || sourceUrl,
-    previewImportRecord: undefined,
-    sourceArchive: undefined,
+    previewImportRecord: sanitizePreviewImportRecord(previewRecord.previewImportRecord),
+    sourceArchive: sanitizeSourceArchive(previewRecord.sourceArchive),
   } as unknown as DelorainePreviewData;
+}
+
+function sanitizePreviewImportRecord(value: unknown): unknown {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+  const record = value as Record<string, unknown>;
+  const source = record.source && typeof record.source === 'object' && !Array.isArray(record.source)
+    ? {
+        ...(record.source as Record<string, unknown>),
+        sourceArchive: sanitizeSourceArchive((record.source as Record<string, unknown>).sourceArchive),
+      }
+    : record.source;
+  const normalizedPreviewData = record.normalizedPreviewData && typeof record.normalizedPreviewData === 'object' && !Array.isArray(record.normalizedPreviewData)
+    ? {
+        ...(record.normalizedPreviewData as Record<string, unknown>),
+        sourceArchive: sanitizeSourceArchive((record.normalizedPreviewData as Record<string, unknown>).sourceArchive),
+      }
+    : record.normalizedPreviewData;
+
+  return {
+    ...record,
+    source,
+    normalizedPreviewData,
+  };
+}
+
+function sanitizeSourceArchive(value: unknown): unknown {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return value;
+  const archive = value as Record<string, unknown>;
+  const rebuild = archive.rebuild && typeof archive.rebuild === 'object' && !Array.isArray(archive.rebuild)
+    ? {
+        ...(archive.rebuild as Record<string, unknown>),
+        html: undefined,
+      }
+    : archive.rebuild;
+
+  return {
+    ...archive,
+    rebuild,
+  };
 }
 
 export function sourceMatchesRequest(sourceUrl: string | undefined, requestedUrl: string): boolean {

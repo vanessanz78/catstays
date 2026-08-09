@@ -152,18 +152,6 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
   };
 
   useEffect(() => {
-    const abandonOnPageExit = () => {
-      if (preserveTemporaryPreviewRef.current) return;
-      void abandonSavedTemporaryPreview();
-    };
-
-    window.addEventListener('pagehide', abandonOnPageExit);
-    return () => {
-      window.removeEventListener('pagehide', abandonOnPageExit);
-    };
-  }, []);
-
-  useEffect(() => {
     let cancelled = false;
 
     async function loadImportedWebsite() {
