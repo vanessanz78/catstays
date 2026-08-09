@@ -347,36 +347,14 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
 function PreparingImportedPreview({ sourceUrl }: { sourceUrl: string }) {
   return (
     <section className="mx-auto flex min-h-[64vh] max-w-7xl items-center justify-center py-8 text-white">
-      <div className="w-full max-w-3xl rounded-2xl border border-[#C46A3A]/45 bg-[#0A1128] px-7 py-8 shadow-2xl shadow-black/30 sm:px-10 sm:py-10">
-        <div className="mb-6 flex items-center justify-between gap-4">
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#F5C08A]">Website preview</p>
-            <h1 className="mt-2 font-serif text-3xl leading-tight text-white sm:text-4xl">Building your imported site</h1>
-          </div>
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-[#C46A3A]/50 bg-[#C46A3A]/15 text-[#F5C08A]">
-            <Loader2 className="h-6 w-6 animate-spin" />
-          </div>
+      <div className="w-full max-w-xl rounded-lg border border-[#C46A3A]/35 bg-[#151d24] px-7 py-8 text-center shadow-2xl shadow-black/30 sm:px-10">
+        <div className="mx-auto mb-6 flex h-12 w-12 items-center justify-center rounded-full text-[#C46A3A]">
+          <Loader2 className="h-8 w-8 animate-spin" />
         </div>
-
-        <div className="rounded-xl border border-white/10 bg-white/[0.06] p-5">
-          <p className="text-base leading-7 text-white/82">
-            We are scraping {hostLabel(sourceUrl)}, saving the source content, and preparing the preview versions.
-          </p>
-          <div className="mt-5 grid gap-3 text-sm text-white/72 sm:grid-cols-3">
-            <div className="rounded-lg border border-white/10 bg-black/15 p-3">
-              <span className="block font-semibold text-white">Source pages</span>
-              <span>Reading page content</span>
-            </div>
-            <div className="rounded-lg border border-white/10 bg-black/15 p-3">
-              <span className="block font-semibold text-white">Photos</span>
-              <span>Matching images</span>
-            </div>
-            <div className="rounded-lg border border-white/10 bg-black/15 p-3">
-              <span className="block font-semibold text-white">Versions</span>
-              <span>Preparing previews</span>
-            </div>
-          </div>
-        </div>
+        <h1 className="font-serif text-3xl leading-tight text-white sm:text-4xl">Preparing your preview</h1>
+        <p className="mx-auto mt-5 max-w-md text-base leading-7 text-white/65">
+          CatStays is preparing {hostLabel(sourceUrl)} so you can review the original site and preview versions next.
+        </p>
       </div>
     </section>
   );
