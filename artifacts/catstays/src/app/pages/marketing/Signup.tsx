@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { ArrowRight, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { PREVIEW_SOURCE_TOKEN_STORAGE_KEY } from '../../lib/deloraineDemo';
 
 const logoIcon = '/assets/b463d12091f20e48be52186dedd2a0f6707d0b66.png';
 const logoText = '/assets/9900b394e20a5e059447324d58daad1b1bf43ed6.png';
@@ -23,6 +24,9 @@ const signupImportStateKeys = [
   'contentSourceHash',
   'contentSourceImportVersion',
   'previewRecordStatus',
+  'previewSourceId',
+  'previewSourceToken',
+  'previewSourceExpiresAt',
   'importComplete',
   'primaryColor',
   'accentColor',
@@ -99,6 +103,17 @@ function compactSignupImportState(data: Record<string, any>) {
   }, {});
 }
 
+function readPreviewSourceToken() {
+  return localStorage.getItem(PREVIEW_SOURCE_TOKEN_STORAGE_KEY) ||
+    sessionStorage.getItem(PREVIEW_SOURCE_TOKEN_STORAGE_KEY) ||
+    '';
+}
+
+function clearPreviewSourceToken() {
+  localStorage.removeItem(PREVIEW_SOURCE_TOKEN_STORAGE_KEY);
+  sessionStorage.removeItem(PREVIEW_SOURCE_TOKEN_STORAGE_KEY);
+}
+
 export function Signup() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
@@ -133,8 +148,9 @@ export function Signup() {
     }
 
     const savedOnboardingData = compactSignupImportState(readSavedOnboardingData());
-    const onboardingData = {
+    const onboardingData: Record<string, any> = {
       ...savedOnboardingData,
+      previewSourceToken: savedOnboardingData.previewSourceToken || readPreviewSourceToken(),
       businessName: formData.businessName.trim() || savedOnboardingData.businessName,
       name: formData.ownerName.trim(),
       email: formData.email.trim().toLowerCase(),
@@ -156,6 +172,7 @@ export function Signup() {
         catteryId?: string;
         onboardingDraftToken?: string;
         slug?: string;
+        contentSourceId?: string | null;
       } = {};
 
       try {
@@ -173,13 +190,16 @@ export function Signup() {
         return;
       }
 
-      const savedData = {
+      const savedData: Record<string, any> = {
         ...onboardingData,
         password: '',
         provisionedCatteryId: payload.catteryId || '',
         onboardingDraftToken: payload.onboardingDraftToken || '',
         subdomain: payload.slug || '',
+        contentSourceId: payload.contentSourceId || onboardingData.contentSourceId || '',
+        previewImportRecordId: payload.contentSourceId || onboardingData.previewImportRecordId || '',
       };
+      if (payload.contentSourceId) clearPreviewSourceToken();
 
       localStorage.setItem('catstays_account', JSON.stringify({
         name: savedData.name,

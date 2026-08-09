@@ -32,6 +32,9 @@ export interface PreviewImportRecord {
     contentHash?: string;
     importVersion?: string;
     persistedAt?: string;
+    previewSourceId?: string;
+    previewSourceToken?: string;
+    previewSourceExpiresAt?: string;
     extractedFrom?: ImportedCatteryScrape['extractedFrom'];
     sourceArchive?: ImportedCatteryScrape['sourceArchive'];
   };
@@ -275,6 +278,9 @@ export function buildPreviewImportRecord(scrape: ImportedCatteryScrape): Preview
       contentHash: migratedScrape.contentHash,
       importVersion: migratedScrape.importVersion,
       persistedAt: migratedScrape.persistedAt,
+      previewSourceId: migratedScrape.previewSourceId,
+      previewSourceToken: migratedScrape.previewSourceToken,
+      previewSourceExpiresAt: migratedScrape.previewSourceExpiresAt,
       extractedFrom: migratedScrape.extractedFrom,
       sourceArchive: migratedScrape.sourceArchive,
     },
@@ -351,6 +357,9 @@ export function dataFromPreviewRecord(
     contentSourceId: record.source.contentSourceId,
     contentSourceHash: record.source.contentHash,
     contentSourceImportVersion: record.source.importVersion,
+    previewSourceId: record.source.previewSourceId,
+    previewSourceToken: record.source.previewSourceToken,
+    previewSourceExpiresAt: record.source.previewSourceExpiresAt,
     previewRecordStatus: 'in_progress',
     importComplete: true,
     importSourceUrl: record.source.url,

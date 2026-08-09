@@ -3,6 +3,7 @@ import { normalizeWebsiteImportUrl } from './websiteImportUrl';
 export const DELORAINE_SOURCE_URL = 'https://www.delorainecattery.com/';
 export const PREVIEW_URL_STORAGE_KEY = 'catstays_preview_url';
 export const PREVIEW_SOURCE_INTENT_STORAGE_KEY = 'catstays_preview_source_intent';
+export const PREVIEW_SOURCE_TOKEN_STORAGE_KEY = 'catstays_preview_source_token';
 export const IMPORT_URL_STORAGE_KEY = 'catstays_import_url';
 
 export const currentDeloraineAssets = {
@@ -166,6 +167,9 @@ export interface ImportedCatteryScrape {
   contentHash?: string;
   importVersion?: string;
   persistedAt?: string;
+  previewSourceId?: string;
+  previewSourceToken?: string;
+  previewSourceExpiresAt?: string;
   sourceUrl?: string;
   sourceHost?: string;
   title?: string;

@@ -67,7 +67,7 @@ import {
   type PreviewTemplateId,
   type ImportedCatteryScrape,
 } from '../../lib/previewTemplates';
-import { DELORAINE_SOURCE_URL } from '../../lib/deloraineDemo';
+import { DELORAINE_SOURCE_URL, PREVIEW_SOURCE_TOKEN_STORAGE_KEY } from '../../lib/deloraineDemo';
 import { sourceRebuildHtmlFromData } from '../../lib/sourceRebuildPreview';
 import { normalizeWebsiteImportUrl } from '../../lib/websiteImportUrl';
 import { getTenantWebsiteDisplayUrl, getTenantWebsiteUrl } from '../../../utils/appUrl';
@@ -95,6 +95,9 @@ function lightweightOnboardingState(data: Record<string, any>) {
     contentSourceId: data.contentSourceId,
     contentSourceHash: data.contentSourceHash,
     contentSourceImportVersion: data.contentSourceImportVersion,
+    previewSourceId: data.previewSourceId,
+    previewSourceToken: data.previewSourceToken,
+    previewSourceExpiresAt: data.previewSourceExpiresAt,
     previewRecordStatus: data.previewRecordStatus,
     selectedTemplate: data.selectedTemplate,
     liveTemplate: data.liveTemplate,
@@ -118,6 +121,23 @@ function saveOnboardingUiState(step: number, data: Record<string, any>, accountC
     data: lightweightOnboardingState(data),
     accountCreated,
   }));
+}
+
+function stringFromStorage(key: string) {
+  if (typeof window === 'undefined') return '';
+  return window.localStorage.getItem(key) || window.sessionStorage.getItem(key) || '';
+}
+
+function rememberPreviewSourceToken(token: unknown) {
+  if (typeof window === 'undefined' || typeof token !== 'string' || !token.trim()) return;
+  window.localStorage.setItem(PREVIEW_SOURCE_TOKEN_STORAGE_KEY, token);
+  window.sessionStorage.setItem(PREVIEW_SOURCE_TOKEN_STORAGE_KEY, token);
+}
+
+function clearPreviewSourceToken() {
+  if (typeof window === 'undefined') return;
+  window.localStorage.removeItem(PREVIEW_SOURCE_TOKEN_STORAGE_KEY);
+  window.sessionStorage.removeItem(PREVIEW_SOURCE_TOKEN_STORAGE_KEY);
 }
 
 const websiteBuilderDraftKeys = [
@@ -207,6 +227,9 @@ const onboardingStringKeys = [
   'contentSourceId',
   'contentSourceHash',
   'contentSourceImportVersion',
+  'previewSourceId',
+  'previewSourceToken',
+  'previewSourceExpiresAt',
   'previewRecordStatus',
   'subdomain',
   'provisionedCatteryId',
@@ -423,6 +446,9 @@ export function OnboardingWizard() {
     contentSourceId: '',
     contentSourceHash: '',
     contentSourceImportVersion: '',
+    previewSourceId: '',
+    previewSourceToken: '',
+    previewSourceExpiresAt: '',
     previewRecordStatus: 'draft',
     isImporting: false,
     importComplete: false,
@@ -665,7 +691,12 @@ export function OnboardingWizard() {
       setData(prev => ({ ...prev, websiteUrl: normalizedWebsiteUrl, isImporting: true, importError: '' }));
       const { data: sessionData } = await supabase.auth.getSession();
       const accessToken = sessionData.session?.access_token;
-      const scrapePayload: Record<string, unknown> = { url: normalizedWebsiteUrl };
+      const previewSourceToken = stringFromStorage(PREVIEW_SOURCE_TOKEN_STORAGE_KEY) || data.previewSourceToken || '';
+      const scrapePayload: Record<string, unknown> = {
+        url: normalizedWebsiteUrl,
+        persistPreview: true,
+      };
+      if (previewSourceToken) scrapePayload.previewSourceToken = previewSourceToken;
       if (accessToken && data.provisionedCatteryId) scrapePayload.catteryId = data.provisionedCatteryId;
 
       const res = await fetch('/api/website/scrape', {
@@ -689,6 +720,7 @@ export function OnboardingWizard() {
       }
 
       const previewRecord = buildPreviewImportRecord(payload);
+      rememberPreviewSourceToken(payload.previewSourceToken);
       const importedData: Record<string, any> = {
         ...dataFromPreviewRecord(previewRecord, 'original', {
           ...data,
@@ -712,6 +744,7 @@ export function OnboardingWizard() {
                 contentSourceId: progress.contentSourceId,
                 previewImportRecordId: progress.contentSourceId,
               };
+              clearPreviewSourceToken();
               saveOnboardingUiState(2, updated, accountCreated);
               return updated;
             });
@@ -833,6 +866,9 @@ export function OnboardingWizard() {
           contentSourceId: data.contentSourceId,
           contentSourceHash: data.contentSourceHash,
           contentSourceImportVersion: data.contentSourceImportVersion,
+          previewSourceId: data.previewSourceId,
+          previewSourceToken: data.previewSourceToken,
+          previewSourceExpiresAt: data.previewSourceExpiresAt,
           previewRecordStatus: data.previewRecordStatus,
           liveTemplate: data.selectedTemplate,
           testimonials: data.testimonials,
@@ -958,6 +994,9 @@ export function OnboardingWizard() {
         contentSourceId: ws.contentSourceId || prev.contentSourceId,
         contentSourceHash: ws.contentSourceHash || prev.contentSourceHash,
         contentSourceImportVersion: ws.contentSourceImportVersion || prev.contentSourceImportVersion,
+        previewSourceId: ws.previewSourceId || prev.previewSourceId,
+        previewSourceToken: ws.previewSourceToken || prev.previewSourceToken,
+        previewSourceExpiresAt: ws.previewSourceExpiresAt || prev.previewSourceExpiresAt,
         previewRecordStatus: ws.previewRecordStatus || prev.previewRecordStatus,
         liveTemplate: ws.liveTemplate || prev.liveTemplate,
         selectedTemplate: ws.selectedTemplate || ws.liveTemplate || prev.selectedTemplate,
@@ -1286,6 +1325,7 @@ export function OnboardingWizard() {
             previewImportRecordId: progress.contentSourceId,
           };
           setData(builderData);
+          clearPreviewSourceToken();
           saveOnboardingUiState(3, builderData, accountCreated);
         }
       } catch (error) {
@@ -1307,6 +1347,7 @@ export function OnboardingWizard() {
       if (!activeCatteryId && liveData.provisionedCatteryId && liveData.onboardingDraftToken) {
         const payload = await saveProvisionedDraftProgress(liveData, true);
         activeCatteryId = payload?.catteryId || liveData.provisionedCatteryId;
+        if (payload?.contentSourceId) clearPreviewSourceToken();
         if (payload?.slug || payload?.contentSourceId) {
           setData((prev: any) => ({
             ...prev,
@@ -1365,6 +1406,7 @@ export function OnboardingWizard() {
         }
 
         activeCatteryId = payload.catteryId || null;
+        clearPreviewSourceToken();
         if (payload.slug && payload.slug !== data.subdomain) {
           setData((prev: any) => ({ ...prev, subdomain: payload.slug }));
         }

@@ -15,11 +15,22 @@ import {
   type OpenHomeContentSourceType,
 } from '../lib/openHomeContentSources';
 import { persistScrapedImages } from '../lib/persistScrapedImages';
+import {
+  abandonTemporaryPreviewSource,
+  attachTemporaryPreviewMetadata,
+  saveTemporaryPreviewSource,
+  temporaryPreviewScrapeByToken,
+} from '../lib/temporaryPreviewSources';
 
 const router: IRouter = Router();
 
 router.post('/website/scrape', async (req, res) => {
-  const { url, catteryId } = req.body as { url?: string; catteryId?: string };
+  const { url, catteryId, previewSourceToken, persistPreview } = req.body as {
+    url?: string;
+    catteryId?: string;
+    previewSourceToken?: string;
+    persistPreview?: boolean;
+  };
 
   if (!url || typeof url !== 'string') {
     res.status(400).json({ error: 'url is required' });
@@ -63,6 +74,21 @@ router.post('/website/scrape', async (req, res) => {
       return;
     }
 
+    if (persistPreview !== false) {
+      const serviceClient = createServiceClient();
+      if (!serviceClient) {
+        res.status(503).json({ error: 'Temporary preview storage is not configured.' });
+        return;
+      }
+
+      const preview = await saveTemporaryPreviewSource(serviceClient, {
+        scrape: result,
+        previewToken: typeof previewSourceToken === 'string' ? previewSourceToken : undefined,
+      });
+      res.json(attachTemporaryPreviewMetadata(result, preview.record, preview.previewToken));
+      return;
+    }
+
     res.json(result);
   } catch (err) {
     const msg = (err as Error).message;
@@ -99,6 +125,57 @@ router.post('/website/scrape', async (req, res) => {
       });
     }
     return;
+  }
+});
+
+router.get('/website/preview-source', async (req, res) => {
+  const previewSourceToken = typeof req.query.previewSourceToken === 'string'
+    ? req.query.previewSourceToken
+    : '';
+  if (!previewSourceToken) {
+    res.status(400).json({ error: 'previewSourceToken is required' });
+    return;
+  }
+
+  const serviceClient = createServiceClient();
+  if (!serviceClient) {
+    res.status(503).json({ error: 'Temporary preview storage is not configured.' });
+    return;
+  }
+
+  try {
+    const preview = await temporaryPreviewScrapeByToken(serviceClient, previewSourceToken);
+    if (!preview) {
+      res.status(404).json({ error: 'Temporary preview source was not found or has expired.' });
+      return;
+    }
+
+    res.json(attachTemporaryPreviewMetadata(preview.scrape, preview.record, previewSourceToken));
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message || 'Unable to read temporary preview source.' });
+  }
+});
+
+router.post('/website/preview-source/abandon', async (req, res) => {
+  const previewSourceToken = typeof req.body?.previewSourceToken === 'string'
+    ? req.body.previewSourceToken
+    : '';
+  if (!previewSourceToken) {
+    res.status(400).json({ error: 'previewSourceToken is required' });
+    return;
+  }
+
+  const serviceClient = createServiceClient();
+  if (!serviceClient) {
+    res.status(503).json({ error: 'Temporary preview storage is not configured.' });
+    return;
+  }
+
+  try {
+    const abandoned = await abandonTemporaryPreviewSource(serviceClient, previewSourceToken);
+    res.json({ success: true, abandoned });
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message || 'Unable to abandon temporary preview source.' });
   }
 });
 
@@ -290,6 +367,21 @@ function createAuthenticatedClient(req: Request): SupabaseClient | null {
   return createClient(supabaseUrl, supabaseAnonKey, {
     auth: { autoRefreshToken: false, persistSession: false },
     global: { headers: { Authorization: authorization } },
+  });
+}
+
+function createServiceClient(): SupabaseClient | null {
+  const supabaseUrl = readEnvValue('VITE_SUPABASE_URL', 'SUPABASE_URL', 'SUPABASE_PROJECT_URL');
+  const supabaseServiceKey = readEnvValue(
+    'SUPABASE_SERVICE_ROLE_KEY',
+    'SUPABASE_SERVICE_KEY',
+    'SUPABASE_SECRET_KEY',
+  );
+
+  if (!supabaseUrl || !supabaseServiceKey) return null;
+
+  return createClient(supabaseUrl, supabaseServiceKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
   });
 }
 

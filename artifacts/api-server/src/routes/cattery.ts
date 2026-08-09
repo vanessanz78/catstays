@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import dns from 'dns/promises';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { createContentSourceFromOnboardingDraft } from '../lib/openHomeContentSources';
+import { adoptTemporaryPreviewSource } from '../lib/temporaryPreviewSources';
 
 const router: IRouter = Router();
 
@@ -117,6 +118,7 @@ type OnboardingDraft = {
   subdomain?: string;
   provisionedCatteryId?: string;
   onboardingDraftToken?: string;
+  previewSourceToken?: string;
   roomTypes?: RoomTypeDraft[];
   pricingRates?: PricingRateDraft[];
   [key: string]: unknown;
@@ -183,6 +185,9 @@ const websiteSettingKeys = [
   'contentSourceHash',
   'contentSourceImportVersion',
   'previewRecordStatus',
+  'previewSourceId',
+  'previewSourceToken',
+  'previewSourceExpiresAt',
   'liveTemplate',
   'testimonials',
   'faqs',
@@ -269,7 +274,6 @@ function stringSetting(value: unknown) {
 function hasExistingContentSource(settings: Record<string, unknown>) {
   return Boolean(
     stringSetting(settings.contentSourceId) ||
-      stringSetting(settings.previewImportRecordId) ||
       stringSetting(settings.contentSourceHash),
   );
 }
@@ -284,6 +288,7 @@ function hasImportPayload(draft: OnboardingDraft) {
   }
 
   return Boolean(
+    stringSetting(draft.previewSourceToken) ||
     stringSetting(draft.importSourceUrl) ||
       stringSetting(draft.sourceUrl) ||
       draft.siteContentLibrary ||
@@ -445,11 +450,18 @@ router.post('/cattery/provision', async (req: Request, res: Response) => {
     const onboardingDraftToken = createOnboardingDraftToken();
     websiteSettings.onboardingDraftTokenHash = hashOnboardingDraftToken(onboardingDraftToken);
     websiteSettings.onboardingDraftTokenCreatedAt = new Date().toISOString();
-    const contentSource = await createContentSourceFromOnboardingDraft(serviceClient, {
+    let contentSource = await adoptTemporaryPreviewSource(serviceClient, {
+      previewToken: draft.previewSourceToken,
       catteryId: cattery.id,
-      draft,
       actorId: user.id,
     });
+    if (!contentSource) {
+      contentSource = await createContentSourceFromOnboardingDraft(serviceClient, {
+        catteryId: cattery.id,
+        draft,
+        actorId: user.id,
+      });
+    }
 
     if (contentSource) {
       websiteSettings.previewImportRecordId = contentSource.id;
@@ -561,11 +573,18 @@ router.patch('/cattery/draft-progress', async (req: Request, res: Response) => {
 
     let contentSource: Awaited<ReturnType<typeof createContentSourceFromOnboardingDraft>> = null;
     if (hasImportPayload(draft) && !hasExistingContentSource(websiteSettings)) {
-      contentSource = await createContentSourceFromOnboardingDraft(serviceClient, {
+      contentSource = await adoptTemporaryPreviewSource(serviceClient, {
+        previewToken: draft.previewSourceToken,
         catteryId,
-        draft,
         actorId: cattery.owner_id,
       });
+      if (!contentSource) {
+        contentSource = await createContentSourceFromOnboardingDraft(serviceClient, {
+          catteryId,
+          draft,
+          actorId: cattery.owner_id,
+        });
+      }
 
       if (contentSource) {
         websiteSettings.previewImportRecordId = contentSource.id;

@@ -11,6 +11,7 @@ import {
   IMPORT_URL_STORAGE_KEY,
   migrateDeloraineAssetsInValue,
   PREVIEW_SOURCE_INTENT_STORAGE_KEY,
+  PREVIEW_SOURCE_TOKEN_STORAGE_KEY,
   PREVIEW_URL_STORAGE_KEY,
   rememberCatteryPreview,
   type DelorainePreviewData,
@@ -98,6 +99,7 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
   const [hoveredMode, setHoveredMode] = useState<DemoMode | null>(null);
   const [deviceType, setDeviceTypeState] = useState<DeviceMode>('desktop');
   const [importError, setImportError] = useState('');
+  const preserveTemporaryPreviewRef = useRef(false);
 
   useEffect(() => {
     setPreviewMode(initialMode);
@@ -131,6 +133,7 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
   };
 
   const persistSelectedPreviewForSignup = () => {
+    preserveTemporaryPreviewRef.current = true;
     const nextData = dataForTemplate(previewData, selectedTemplate);
     saveSelectedDemoTemplate(selectedTemplate);
     try {
@@ -145,10 +148,31 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
   };
 
   useEffect(() => {
+    const abandonOnPageExit = () => {
+      if (preserveTemporaryPreviewRef.current) return;
+      void abandonSavedTemporaryPreview();
+    };
+
+    window.addEventListener('pagehide', abandonOnPageExit);
+    return () => {
+      window.removeEventListener('pagehide', abandonOnPageExit);
+    };
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function loadImportedWebsite() {
       try {
+        const savedPreview = await fetchSavedTemporaryPreview();
+        if (savedPreview && sameSourceUrl(savedPreview.sourceUrl, requestedImportUrl)) {
+          if (cancelled) return;
+          const importedPreview = previewDataForScrape(migrateDeloraineAssetsInValue(savedPreview));
+          setImportError('');
+          setPreviewData(dataForTemplate(importedPreview, selectedTemplateRef.current));
+          return;
+        }
+
         const request = await scrapeRequestForUrl(requestedImportUrl);
         const response = await fetch('/api/website/scrape', {
           method: 'POST',
@@ -191,7 +215,13 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
     <div className="min-h-screen bg-[#f8f4ed] text-[#10251f]">
       <nav data-catstays-demo-header className="sticky top-0 z-50 border-b border-[#C46A3A]/40 bg-[#0A1128] text-white shadow-sm">
         <div className="relative mx-auto flex max-w-7xl items-center justify-between gap-3 px-5 py-2.5 sm:px-8 lg:px-10">
-          <Link to="/" className="flex items-center gap-2 text-sm font-semibold text-white hover:text-white/85">
+          <Link
+            to="/"
+            onClick={() => {
+              void abandonSavedTemporaryPreview();
+            }}
+            className="flex items-center gap-2 text-sm font-semibold text-white hover:text-white/85"
+          >
             <ArrowLeft className="h-4 w-4 text-[#D28A4A]" />
             Back to CatStays
           </Link>
@@ -433,6 +463,7 @@ function previewDataForScrape(scrape: ImportedCatteryScrape): DelorainePreviewDa
   const record = buildPreviewImportRecord(scrape);
   const selectedTemplate = readSavedDemoTemplate() || record.selectedTemplate;
   const previewData = dataFromPreviewRecord(record, selectedTemplate, record.normalizedPreviewData) as DelorainePreviewData;
+  rememberTemporaryPreviewSource(scrape);
   rememberCatteryPreview(scrape, previewData);
   return previewData;
 }
@@ -518,15 +549,65 @@ async function scrapeRequestForUrl(url: string): Promise<{
     },
     body: {
       url,
+      previewSourceToken: readSavedPreviewSourceToken(),
+      persistPreview: true,
       ...(catteryId ? { catteryId } : {}),
     },
   };
+}
+
+async function fetchSavedTemporaryPreview(): Promise<ImportedCatteryScrape | null> {
+  const token = readSavedPreviewSourceToken();
+  if (!token) return null;
+  const response = await fetch(`/api/website/preview-source?previewSourceToken=${encodeURIComponent(token)}`);
+  if (response.status === 404) {
+    clearTemporaryPreviewSource();
+    return null;
+  }
+  if (!response.ok) return null;
+  return await response.json() as ImportedCatteryScrape;
 }
 
 function readStoredCatteryId(): string {
   const accountId = stringFromStoredJson('catstays_account', ['catteryId']);
   if (accountId) return accountId;
   return stringFromStoredJson('catstays_onboarding', ['data', 'provisionedCatteryId']);
+}
+
+function readSavedPreviewSourceToken(): string {
+  if (typeof window === 'undefined') return '';
+  return window.localStorage.getItem(PREVIEW_SOURCE_TOKEN_STORAGE_KEY) ||
+    window.sessionStorage.getItem(PREVIEW_SOURCE_TOKEN_STORAGE_KEY) ||
+    '';
+}
+
+function rememberTemporaryPreviewSource(scrape: ImportedCatteryScrape) {
+  if (typeof window === 'undefined' || !scrape.previewSourceToken) return;
+  window.localStorage.setItem(PREVIEW_SOURCE_TOKEN_STORAGE_KEY, scrape.previewSourceToken);
+  window.sessionStorage.setItem(PREVIEW_SOURCE_TOKEN_STORAGE_KEY, scrape.previewSourceToken);
+}
+
+function clearTemporaryPreviewSource() {
+  if (typeof window === 'undefined') return;
+  window.localStorage.removeItem(PREVIEW_SOURCE_TOKEN_STORAGE_KEY);
+  window.sessionStorage.removeItem(PREVIEW_SOURCE_TOKEN_STORAGE_KEY);
+}
+
+async function abandonSavedTemporaryPreview() {
+  const token = readSavedPreviewSourceToken();
+  if (!token) return;
+  try {
+    await fetch('/api/website/preview-source/abandon', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ previewSourceToken: token }),
+      keepalive: true,
+    });
+  } catch {
+    // Expiry cleanup still removes abandoned temporary previews server-side.
+  } finally {
+    clearTemporaryPreviewSource();
+  }
 }
 
 function readStoredPreviewData(requestedUrl: string): DelorainePreviewData | null {
@@ -546,7 +627,7 @@ function readStoredPreviewData(requestedUrl: string): DelorainePreviewData | nul
 function hasImportedPreviewData(data: Record<string, any> | null | undefined, requestedUrl: string): boolean {
   if (!data) return false;
   const dataUrl = data.importSourceUrl || data.sourceUrl || data.websiteUrl || data.previewImportRecord?.source?.url || '';
-  if (!dataUrl || normalizeWebsiteImportUrl(dataUrl, '').replace(/\/$/, '') !== normalizeWebsiteImportUrl(requestedUrl, '').replace(/\/$/, '')) return false;
+  if (!sameSourceUrl(dataUrl, requestedUrl)) return false;
   const serialized = JSON.stringify([
     data.previewImportRecord?.media,
     data.galleryData,
@@ -554,6 +635,11 @@ function hasImportedPreviewData(data: Record<string, any> | null | undefined, re
     data.siteContentLibrary,
   ]);
   return /static\.wixstatic\.com|sourceArchive|siteContentLibrary|galleryImages/i.test(serialized) && !/images\.unsplash\.com/i.test(serialized);
+}
+
+function sameSourceUrl(left: unknown, right: unknown): boolean {
+  if (typeof left !== 'string' || typeof right !== 'string' || !left || !right) return false;
+  return normalizeWebsiteImportUrl(left, '').replace(/\/$/, '') === normalizeWebsiteImportUrl(right, '').replace(/\/$/, '');
 }
 
 function stringFromStoredJson(storageKey: string, path: string[]): string {
@@ -586,6 +672,9 @@ function lightweightPreviewState(previewData: DelorainePreviewData, requestedUrl
     contentSourceId: record?.source.contentSourceId || (previewData as any).contentSourceId || '',
     contentSourceHash: record?.source.contentHash || (previewData as any).contentSourceHash || '',
     contentSourceImportVersion: record?.source.importVersion || (previewData as any).contentSourceImportVersion || '',
+    previewSourceId: record?.source.previewSourceId || (previewData as any).previewSourceId || '',
+    previewSourceToken: record?.source.previewSourceToken || (previewData as any).previewSourceToken || readSavedPreviewSourceToken(),
+    previewSourceExpiresAt: record?.source.previewSourceExpiresAt || (previewData as any).previewSourceExpiresAt || '',
     previewRecordStatus: (previewData as any).previewRecordStatus || record?.status || 'preview',
     importComplete: true,
   };
