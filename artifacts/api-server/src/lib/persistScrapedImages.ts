@@ -15,6 +15,7 @@ type StoredAsset = {
   storedUrl: string;
   path: string;
   contentType: string;
+  storageBucket: string;
 };
 
 type ImageFetchResult = {
@@ -55,6 +56,7 @@ export async function persistScrapedImages(
         storedUrl: data.publicUrl,
         path,
         contentType: asset.contentType,
+        storageBucket: storageBucket(),
       });
     } catch {
       // A single blocked, private, unsupported, or oversized image should not fail the import.
