@@ -47,7 +47,7 @@ export function MarketingKit() {
                 Marketing Studio
               </h1>
               <p className="text-sm" style={{ color: '#6b7a6d' }}>
-                Download branded marketing materials
+                Create posts, campaigns, and client-ready graphics
               </p>
             </div>
           </div>
@@ -59,7 +59,7 @@ export function MarketingKit() {
       </div>
 
       {/* Content */}
-      <div className="max-w-5xl mx-auto p-4 md:p-6 pb-24 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 80px)' }}>
+      <div className="mx-auto max-w-[1680px] p-4 pb-24 md:p-6">
         <MarketingStudio businessData={businessData} />
       </div>
     </div>
