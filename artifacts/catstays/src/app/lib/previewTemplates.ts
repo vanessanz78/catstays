@@ -210,6 +210,25 @@ export interface CatstaysTemplateContent {
     facebook: string;
     instagram: string;
   };
+  sourceSections?: Array<{
+    id: string;
+    anchor: string;
+    role: WebsiteUnderstandingSection['semanticRole'];
+    title: string;
+    text: string;
+    sourceOrder: number;
+    sourcePage?: string;
+    items: Array<{
+      title: string;
+      text: string;
+      price?: string;
+      image?: string;
+    }>;
+    images: Array<{
+      image: string;
+      caption: string;
+    }>;
+  }>;
   contentLibrary: CatterySiteContentLibrary;
   sourceTruth?: WebsiteUnderstandingModel;
   contentIntelligencePlan?: ContentIntelligencePlan;
@@ -475,7 +494,7 @@ function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<s
   const facilitiesLabel = friendlySectionTitle(facilitiesSection, 'Facilities');
   const contactSection = sectionByRole(model, 'contact') ?? sectionByRole(model, 'location');
   const imagePlan = createSourceImagePlan(model.media.images);
-  const heroImage = imagePlan.takeForRoles(['hero', 'accommodation', 'gallery']);
+  const heroImage = imagePlan.takeForRoles(['hero', 'accommodation']) || imagePlan.takeForRoles(['gallery'], { allowGalleryFallback: true });
   const aboutImage = imagePlan.takeFromSection(aboutSection);
   const facilityImage = imagePlan.takeFromSection(facilitiesSection);
   const sourceServices = uniqueSections([accommodationSection, healthSection, groomingSection, servicesSection])
@@ -519,13 +538,14 @@ function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<s
     image: imagePlan.takeNext(),
     location: testimonial.location || '',
   }));
-  const ownerImage = imagePlan.takeFromSection(storySection) || imagePlan.takeNext() || aboutImage;
+  const ownerImage = imagePlan.takeFromSection(storySection) || imagePlan.takeNext();
   const gallery = imagePlan.remaining(96).map((image, index) => ({
     image: image.url,
     caption: image.caption || image.nearbyHeading || `${businessName} photo ${index + 1}`,
   }));
   const contactText = [model.contact.address, model.contact.phone, model.contact.email, model.contact.hours].filter(Boolean).join(' | ');
   const navContentLibrary = contentLibraryFromSourceTruth(model);
+  const sourceSections = sourceSectionsFromModel(model);
 
   return {
     business: {
@@ -619,6 +639,7 @@ function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<s
       facebook: model.contact.socialLinks.facebook || '',
       instagram: model.contact.socialLinks.instagram || '',
     },
+    sourceSections,
     contentLibrary: navContentLibrary,
     sourceTruth: model,
     contentIntelligencePlan,
@@ -1249,6 +1270,7 @@ function bestSectionByRole(model: WebsiteUnderstandingModel, role: WebsiteUnders
 
 function createSourceImagePlan(images: WebsiteUnderstandingModel['media']['images']) {
   const orderedImages = uniqueSourceImages(images.filter((image) => !isStockImage(image.url)));
+  const nonGalleryImages = orderedImages.filter((image) => image.semanticRole !== 'gallery');
   const imageByUrl = new Map(orderedImages.map((image) => [normalizedImageKey(image.url), image]));
   const imageByIdentity = new Map(orderedImages.map((image) => [sourceImageIdentityKey(image.url, image.originalUrl), image]));
   const used = new Set<string>();
@@ -1268,7 +1290,7 @@ function createSourceImagePlan(images: WebsiteUnderstandingModel['media']['image
     } satisfies WebsiteUnderstandingModel['media']['images'][number]];
   };
 
-  const take = (candidates: WebsiteUnderstandingModel['media']['images'] = []) => {
+  const take = (candidates: WebsiteUnderstandingModel['media']['images'] = [], options: { allowGalleryFallback?: boolean } = {}) => {
     for (const candidate of candidates) {
       const candidateKey = sourceImageIdentityKey(candidate.url, candidate.originalUrl);
       const plannedImage = imageByUrl.get(normalizedImageKey(candidate.url)) || imageByIdentity.get(candidateKey) || candidate;
@@ -1277,7 +1299,8 @@ function createSourceImagePlan(images: WebsiteUnderstandingModel['media']['image
       used.add(key);
       return plannedImage.url;
     }
-    for (const image of orderedImages) {
+    const fallbackImages = options.allowGalleryFallback ? orderedImages : nonGalleryImages;
+    for (const image of fallbackImages) {
       const key = sourceImageIdentityKey(image.url, image.originalUrl);
       if (used.has(key)) continue;
       used.add(key);
@@ -1287,16 +1310,16 @@ function createSourceImagePlan(images: WebsiteUnderstandingModel['media']['image
   };
 
   return {
-    takeForRoles(roles: Array<WebsiteUnderstandingSection['semanticRole']>) {
-      return take(orderedImages.filter((image) => roles.includes(image.semanticRole as WebsiteUnderstandingSection['semanticRole'])));
+    takeForRoles(roles: Array<WebsiteUnderstandingSection['semanticRole']>, options?: { allowGalleryFallback?: boolean }) {
+      return take(orderedImages.filter((image) => roles.includes(image.semanticRole as WebsiteUnderstandingSection['semanticRole'])), options);
     },
     takeFromSection(section: WebsiteUnderstandingSection | undefined) {
-      return take(section?.images ?? []);
+      return take(section?.images.filter((image) => section?.semanticRole === 'gallery' || image.semanticRole !== 'gallery') ?? []);
     },
     takeFromItem(image: unknown, section: WebsiteUnderstandingSection | undefined) {
       return take([
         ...candidateFromUrl(image, section),
-        ...(section?.images ?? []),
+        ...(section?.images.filter((sourceImage) => section?.semanticRole === 'gallery' || sourceImage.semanticRole !== 'gallery') ?? []),
       ]);
     },
     takeNext() {
@@ -1308,6 +1331,121 @@ function createSourceImagePlan(images: WebsiteUnderstandingModel['media']['image
       return rows;
     },
   };
+}
+
+function sourceSectionsFromModel(model: WebsiteUnderstandingModel): CatstaysTemplateContent['sourceSections'] {
+  const galleryKeys = new Set<string>();
+  for (const section of model.sections) {
+    if (section.semanticRole !== 'gallery') continue;
+    for (const image of section.images) galleryKeys.add(sourceImageIdentityKey(image.url, image.originalUrl));
+    for (const item of section.items) {
+      const imageUrl = stringFrom(item.image);
+      if (imageUrl) galleryKeys.add(sourceImageIdentityKey(imageUrl));
+    }
+  }
+
+  const usedNonGalleryImages = new Set<string>();
+  const usedAnchors = new Map<string, number>();
+  return model.sections
+    .filter((section) => shouldRenderSourceSection(section))
+    .map((section) => {
+      const isGallery = section.semanticRole === 'gallery';
+      const images: NonNullable<CatstaysTemplateContent['sourceSections']>[number]['images'] = [];
+      const seenSectionImages = new Set<string>();
+      const addImage = (url: unknown, caption: unknown, originalUrl?: string) => {
+        const image = stringFrom(url);
+        if (!image || isStockImage(image)) return;
+        const key = sourceImageIdentityKey(image, originalUrl);
+        if (seenSectionImages.has(key)) return;
+        if (!isGallery) {
+          if (galleryKeys.has(key)) return;
+          if (usedNonGalleryImages.has(key)) return;
+          usedNonGalleryImages.add(key);
+        }
+        seenSectionImages.add(key);
+        images.push({
+          image,
+          caption: stringFrom(caption, section.heading, model.identity.businessName),
+        });
+      };
+
+      for (const image of section.images) {
+        addImage(image.url, image.caption || image.nearbyHeading || section.heading, image.originalUrl);
+      }
+      if (isGallery) {
+        for (const item of section.items) {
+          addImage(item.image, item.title || section.heading);
+        }
+      }
+
+      const reserveItemImage = (url: unknown) => {
+        if (isGallery) return undefined;
+        const image = stringFrom(url);
+        if (!image || isStockImage(image)) return undefined;
+        const key = sourceImageIdentityKey(image);
+        if (galleryKeys.has(key)) return undefined;
+        if (seenSectionImages.has(key)) return undefined;
+        if (usedNonGalleryImages.has(key)) return undefined;
+        usedNonGalleryImages.add(key);
+        return image;
+      };
+
+      const anchorBase = sourceSectionAnchor(section);
+      const anchorCount = usedAnchors.get(anchorBase) ?? 0;
+      usedAnchors.set(anchorBase, anchorCount + 1);
+      const anchor = anchorCount ? `${anchorBase}-${anchorCount + 1}` : anchorBase;
+
+      return {
+        id: section.id,
+        anchor,
+        role: section.semanticRole,
+        title: sectionTitle(section, model.identity.businessName),
+        text: excerpt(section.body, section.semanticRole === 'policies' ? 900 : 680),
+        sourceOrder: section.sourceOrder,
+        sourcePage: section.sourcePage,
+        items: section.items.map((item) => ({
+          title: item.title,
+          text: excerpt(item.text, 360),
+          price: item.price,
+          image: reserveItemImage(item.image),
+        })).filter((item) => item.title || item.text || item.price || item.image),
+        images,
+      };
+    })
+    .filter((section) => section.title || section.text || section.items.length || section.images.length)
+    .sort((a, b) => a.sourceOrder - b.sourceOrder);
+}
+
+function shouldRenderSourceSection(section: WebsiteUnderstandingSection) {
+  if (['hero', 'footer', 'cta', 'booking'].includes(section.semanticRole)) return false;
+  if (!section.heading && !section.body && !section.items.length && !section.images.length) return false;
+  if (section.semanticRole === 'gallery') return section.images.length > 0 || section.items.some((item) => item.image);
+  const text = `${section.heading} ${section.body}`.trim();
+  if (!text && section.items.length === 0 && section.images.length === 0) return false;
+  return true;
+}
+
+function sourceSectionAnchor(section: WebsiteUnderstandingSection) {
+  if (section.semanticRole === 'introduction' || section.semanticRole === 'story') return 'about';
+  if (section.semanticRole === 'accommodation' || section.semanticRole === 'rooms' || section.semanticRole === 'pricing') return 'suites';
+  if (section.semanticRole === 'health-care' || section.semanticRole === 'daily-care') return 'care';
+  if (section.semanticRole === 'grooming' || section.semanticRole === 'services') return 'services';
+  if (section.semanticRole === 'testimonials') return 'reviews';
+  if (section.semanticRole === 'faq') return 'faqs';
+  if (section.semanticRole === 'policies') return 'policies';
+  if (section.semanticRole === 'location') return 'location';
+  if (section.semanticRole === 'contact') return 'contact';
+  if (section.semanticRole === 'gallery') return 'gallery';
+  if (section.semanticRole === 'facilities') return 'facilities';
+  return slugifyLocal(section.heading || section.semanticRole || 'section') || 'section';
+}
+
+function slugifyLocal(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48);
 }
 
 function uniqueSourceImages(images: WebsiteUnderstandingModel['media']['images']) {

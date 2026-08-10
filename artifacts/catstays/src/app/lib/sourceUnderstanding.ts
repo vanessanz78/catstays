@@ -613,7 +613,9 @@ function semanticRoleForPage(url: string, title: string, heading: string, body: 
       return url.toLowerCase();
     }
   })();
+  const pageLabel = `${path} ${title} ${heading}`.toLowerCase();
   if (index === 0) return 'hero';
+  if (/gallery|photos?/.test(pageLabel)) return 'gallery';
   if (/booking-engine|accomodation|accommodation/.test(path)) return 'accommodation';
   if (/homestay-fees/.test(path)) return 'pricing';
   if (/grooming-gallery|fancy-felines-services|prices/.test(path)) return 'grooming';
@@ -624,7 +626,7 @@ function semanticRoleForPage(url: string, title: string, heading: string, body: 
   if (/faq|q\s*&?\s*a|question|without grooming|grooming only/i.test(source)) return 'faq';
   if (/homestay|fee|price|pricing|cost|\$\s*\d|per\s+24/i.test(source)) return 'pricing';
   if (/contact|call|txt|email|address|whareora/i.test(source)) return 'contact';
-  if (/gallery|photo|before|after/i.test(source)) return 'gallery';
+  if (/gallery/i.test(source)) return 'gallery';
   return 'about';
 }
 

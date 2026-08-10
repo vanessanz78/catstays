@@ -256,4 +256,86 @@ describe('content intelligence plan', () => {
     assert.ok(content.gallery.some((image) => image.image.startsWith('https://template-images.example/gallery-')));
     assert.ok(content.contentLibrary.blocks.some((block) => block.items.some((item) => item.image === 'https://template-images.example/garden-suite.jpg')));
   });
+
+  it('builds source-ordered template sections without stealing gallery photos', () => {
+    const content = buildCatstaysTemplateContent({
+      sourceUrl: 'https://ordered.example/',
+      sourceHost: 'ordered.example',
+      businessName: 'Ordered Cattery',
+      sourceArchive: {
+        pages: [
+          {
+            sourceUrl: 'https://ordered.example/',
+            title: 'Ordered Cattery',
+            heading: 'Ordered Cattery',
+            bodyText: 'A calm boutique cattery for local cats.',
+            images: ['https://ordered.example/hero.jpg'],
+          },
+          {
+            sourceUrl: 'https://ordered.example/accommodation',
+            title: 'Accommodation',
+            heading: 'Boutique Accommodation',
+            bodyText: 'Private suites are arranged for quiet, comfortable stays.',
+            images: ['https://ordered.example/rooms.jpg'],
+          },
+          {
+            sourceUrl: 'https://ordered.example/health-care',
+            title: 'Health Care',
+            heading: 'Feline Health Care',
+            bodyText: 'Medication support and calm health care are available.',
+            images: ['https://ordered.example/health.jpg'],
+          },
+          {
+            sourceUrl: 'https://ordered.example/gallery',
+            title: 'Gallery',
+            heading: 'Gallery',
+            bodyText: 'Photos from the cattery.',
+            images: [
+              'https://ordered.example/gallery-1.jpg',
+              'https://ordered.example/gallery-2.jpg',
+            ],
+          },
+        ],
+      },
+      siteContentLibrary: {
+        schemaVersion: 1,
+        sourceUrl: 'https://ordered.example/',
+        sourceHost: 'ordered.example',
+        businessName: 'Ordered Cattery',
+        capturedAt: '2026-08-11T00:00:00.000Z',
+        blocks: [
+          {
+            id: 'rooms',
+            category: 'rooms',
+            title: 'Boutique Accommodation',
+            text: 'Choose the space that fits your cat.',
+            items: [
+              {
+                title: 'Sunny Room',
+                text: 'A private room with daily care.',
+                image: 'https://ordered.example/sunny-room.jpg',
+              },
+            ],
+            images: [{ url: 'https://ordered.example/rooms.jpg', caption: 'Rooms' }],
+          },
+        ],
+      },
+    });
+
+    const sourceSections = content.sourceSections ?? [];
+
+    assert.deepEqual(
+      sourceSections.map((section) => section.role),
+      ['accommodation', 'health-care', 'gallery'],
+    );
+    assert.equal(sourceSections.find((section) => section.role === 'accommodation')?.items[0]?.image, 'https://ordered.example/sunny-room.jpg');
+    assert.deepEqual(
+      sourceSections.find((section) => section.role === 'gallery')?.images.map((image) => image.image),
+      [
+        'https://ordered.example/gallery-1.jpg',
+        'https://ordered.example/gallery-2.jpg',
+      ],
+    );
+    assert.ok(!sourceSections.some((section) => section.role !== 'gallery' && section.images.some((image) => image.image.includes('gallery-'))));
+  });
 });
