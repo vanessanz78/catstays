@@ -66,16 +66,16 @@ export function RightMenu() {
 
       {isOpen && (
         <div
-          className="fixed inset-0 z-50 bg-black/50 transition-opacity"
+          className="fixed inset-0 z-40 bg-black/50 transition-opacity"
           onClick={() => setIsOpen(false)}
         />
       )}
 
       <div
-        className={`fixed bottom-0 right-0 top-0 z-50 flex w-80 transform flex-col bg-white shadow-2xl transition-transform duration-300 ${
+        className={`fixed inset-y-0 right-0 z-50 flex h-screen max-h-screen w-80 transform flex-col bg-white shadow-2xl transition-transform duration-300 ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
-        style={{ maxWidth: '85vw' }}
+        style={{ maxWidth: '85vw', height: '100vh' }}
       >
         <div className="flex shrink-0 items-center justify-between border-b p-4" style={{ backgroundColor: '#F6F4EF' }}>
           <div>
@@ -95,7 +95,7 @@ export function RightMenu() {
           </Button>
         </div>
 
-        <nav className="min-h-0 flex-1 overflow-y-auto pb-6">
+        <nav className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-8">
           <div className="p-2">
             {menuItems.map((item) => {
               const Icon = item.icon;
