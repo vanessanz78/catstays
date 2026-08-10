@@ -458,6 +458,7 @@ function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<s
   const groomingSection = bestSectionByRole(model, 'grooming');
   const servicesSection = bestSectionByRole(model, 'services');
   const pricingSection = bestSectionByRole(model, 'pricing');
+  const storySection = sectionByRole(model, 'story');
   const heroText = bestWebsiteText(
     [
       ...model.sections.filter(isHeroStorySection),
@@ -488,7 +489,7 @@ function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<s
     .filter((service) => service.title || service.text || service.image);
   const pricingSuites = pricingSection?.items.length
     ? pricingSection.items.map((item) => ({
-        image: imagePlan.takeFromSection(pricingSection),
+        image: imagePlan.takeFromItem(item.image, pricingSection),
         title: item.title,
         text: item.text || 'Comfortable accommodation with daily care and secure access.',
         price: item.price || '',
@@ -497,7 +498,7 @@ function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<s
     : [];
   const accommodationSuites = accommodationSection?.items.length
     ? accommodationSection.items.map((item) => ({
-        image: item.image || imagePlan.takeFromSection(accommodationSection),
+        image: imagePlan.takeFromItem(item.image, accommodationSection),
         title: item.title,
         text: item.text || 'Comfortable accommodation with daily care and secure access.',
         price: item.price || '',
@@ -512,6 +513,13 @@ function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<s
     title: sectionTitle(section, 'Source section'),
     text: excerpt(section.body, 220),
   })).filter((feature) => feature.title || feature.text);
+  const testimonials = model.testimonials.map((testimonial) => ({
+    quote: testimonial.text,
+    author: testimonial.name || 'Happy client',
+    image: imagePlan.takeNext(),
+    location: testimonial.location || '',
+  }));
+  const ownerImage = imagePlan.takeFromSection(storySection) || imagePlan.takeNext() || aboutImage;
   const gallery = imagePlan.remaining(96).map((image, index) => ({
     image: image.url,
     caption: image.caption || image.nearbyHeading || `${businessName} photo ${index + 1}`,
@@ -573,20 +581,15 @@ function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<s
     },
     gallery,
     suites,
-    testimonials: model.testimonials.map((testimonial) => ({
-      quote: testimonial.text,
-      author: testimonial.name || 'Happy client',
-      image: imagePlan.takeNext(),
-      location: testimonial.location || '',
-    })),
+    testimonials,
     faqs: model.faq.map((faq) => ({
       question: faq.question,
       answer: faq.answer,
     })),
     owner: {
-      title: sectionTitle(sectionByRole(model, 'story'), `About ${businessName}`),
-      text: excerpt(sectionByRole(model, 'story')?.body || aboutSection?.body, 520),
-      image: imagePlan.takeFromSection(sectionByRole(model, 'story')) || aboutImage,
+      title: sectionTitle(storySection, `About ${businessName}`),
+      text: excerpt(storySection?.body || aboutSection?.body, 520),
+      image: ownerImage,
     },
     commitment: {
       title: `${businessName} care standards`,
@@ -832,30 +835,29 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   const suiteContent = editedRooms && editedRooms.length === 0
     ? []
     : ensureSuiteCount(rooms, fallbackImages, data.pricePerNight || normalized.pricePerNight, usedImages);
-  const usedServiceImages = new Set<string>();
   const serviceContent = services.map((service: any, index: number) => ({
-    image: serviceImageFor(service, serviceImageCandidates, usedServiceImages),
+    image: serviceImageFor(service, serviceImageCandidates, usedImages, fallbackImages),
     title: stringFrom(service.title, service.name, `Care service ${index + 1}`),
     text: stringFrom(service.description, service.text, 'Additional support available during the stay.'),
     price: stringFrom(service.price),
   }));
-  const gallerySourceImages = explicitGalleryImages.length
-    ? explicitGalleryImages
-    : (() => {
-        for (const service of serviceContent) {
-          rememberImage(usedImages, service.image);
-        }
-        const galleryAvailableImages = galleryImages.filter((image) => !hasSeenImage(usedImages, image) && !isOpenGraphImage(image));
-        const galleryPreferredImages = imagesMatching(galleryAvailableImages, /kitty|wally|lola|gallery/i);
-        return uniqueImagesByKey([
-          ...galleryPreferredImages,
-          ...galleryAvailableImages,
-        ]);
-      })();
+  const gallerySourceImages = (() => {
+    const explicitUnusedImages = explicitGalleryImages.filter((image) => !hasSeenImage(usedImages, image) && !isOpenGraphImage(image));
+    if (explicitUnusedImages.length) return explicitUnusedImages;
+    const galleryAvailableImages = galleryImages.filter((image) => !hasSeenImage(usedImages, image) && !isOpenGraphImage(image));
+    const galleryPreferredImages = imagesMatching(galleryAvailableImages, /kitty|wally|lola|gallery/i);
+    return uniqueImagesByKey([
+      ...galleryPreferredImages,
+      ...galleryAvailableImages,
+    ]);
+  })();
   const galleryContent = gallerySourceImages.map((image, index) => ({
     image,
     caption: stringFrom(record?.media.galleryImages?.[index]?.caption, `${businessName} photo ${index + 1}`),
-  }));
+  })).map((item) => {
+    rememberImage(usedImages, item.image);
+    return item;
+  });
 
   return {
     business: {
@@ -911,7 +913,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
     },
     gallery: galleryContent,
     suites: suiteContent,
-    testimonials: ensureTestimonials(testimonials, businessName, fallbackImages, heroImage, data.testimonialImage),
+    testimonials: ensureTestimonials(testimonials, businessName, fallbackImages, heroImage, data.testimonialImage, usedImages),
     faqs: faqs.map((faq: any) => ({
       question: stringFrom(faq.question),
       answer: stringFrom(faq.answer),
@@ -1250,6 +1252,21 @@ function createSourceImagePlan(images: WebsiteUnderstandingModel['media']['image
   const imageByUrl = new Map(orderedImages.map((image) => [normalizedImageKey(image.url), image]));
   const imageByIdentity = new Map(orderedImages.map((image) => [sourceImageIdentityKey(image.url, image.originalUrl), image]));
   const used = new Set<string>();
+  const candidateFromUrl = (url: unknown, section?: WebsiteUnderstandingSection) => {
+    const imageUrl = stringFrom(url);
+    if (!imageUrl || isStockImage(imageUrl)) return [];
+    const knownImage = imageByUrl.get(normalizedImageKey(imageUrl)) || imageByIdentity.get(sourceImageIdentityKey(imageUrl));
+    if (knownImage) return [knownImage];
+    return [{
+      url: imageUrl,
+      sourceOrder: orderedImages.length,
+      semanticRole: section?.semanticRole ?? 'media',
+      sourcePage: section?.sourcePage,
+      sourceSectionId: section?.id,
+      nearbyHeading: section?.heading,
+      nearbyText: section?.body,
+    } satisfies WebsiteUnderstandingModel['media']['images'][number]];
+  };
 
   const take = (candidates: WebsiteUnderstandingModel['media']['images'] = []) => {
     for (const candidate of candidates) {
@@ -1275,6 +1292,12 @@ function createSourceImagePlan(images: WebsiteUnderstandingModel['media']['image
     },
     takeFromSection(section: WebsiteUnderstandingSection | undefined) {
       return take(section?.images ?? []);
+    },
+    takeFromItem(image: unknown, section: WebsiteUnderstandingSection | undefined) {
+      return take([
+        ...candidateFromUrl(image, section),
+        ...(section?.images ?? []),
+      ]);
     },
     takeNext() {
       return take();
@@ -1457,28 +1480,23 @@ function imagesMatching(images: string[], pattern: RegExp): string[] {
   return images.filter((image) => imageMatches(image, pattern));
 }
 
-function serviceImageFor(service: any, serviceImages: string[], usedServiceImages?: Set<string>) {
+function serviceImageFor(service: any, serviceImages: string[], usedImages: Set<string>, fallbackImages: string[]) {
   const title = stringFrom(service.title, service.name);
   const currentImage = stringFrom(service.image);
   const titlePattern = serviceTitlePattern(title);
-  const firstUnused = (images: string[]) => {
-    for (const image of images) {
-      if (!image || usedServiceImages?.has(normalizedImageKey(image))) continue;
-      usedServiceImages?.add(normalizedImageKey(image));
-      return image;
-    }
-    return '';
-  };
 
   if (titlePattern) {
-    return firstUnused([
+    return pickUniqueImage(usedImages, [
       imageMatches(currentImage, titlePattern) ? currentImage : '',
       ...imagesMatching(serviceImages, titlePattern),
-    ]);
+    ], [...serviceImages, ...fallbackImages]);
   }
 
   const specificServiceImage = imagesMatching([currentImage], /groom|brush|medicine|medical|vet|transport|airport|flea|worm/i)[0];
-  return firstUnused([specificServiceImage]);
+  return pickUniqueImage(usedImages, [
+    specificServiceImage,
+    isUsableGalleryImage(currentImage) ? currentImage : '',
+  ], [...serviceImages, ...fallbackImages]);
 }
 
 function serviceTitlePattern(title: string): RegExp | null {
@@ -1665,12 +1683,15 @@ function ensureTestimonials(
   images: string[],
   heroImage: string,
   testimonialImage?: unknown,
+  usedImages?: Set<string>,
 ) {
   const mapped = testimonials
     .map((testimonial: any, index: number) => ({
       quote: stringFrom(testimonial.text, testimonial.quote),
       author: stringFrom(testimonial.name, testimonial.author, testimonial.customer, 'Guest family'),
-      image: imageFrom(testimonial.image, index === 0 ? testimonialImage : undefined, images[index + 4], images[index], heroImage),
+      image: usedImages
+        ? pickUniqueImage(usedImages, [testimonial.image, index === 0 ? testimonialImage : undefined, images[index + 4], images[index]], images)
+        : imageFrom(testimonial.image, index === 0 ? testimonialImage : undefined, images[index + 4], images[index], heroImage),
       location: stringFrom(testimonial.location),
     }))
     .filter((testimonial) => testimonial.quote);
@@ -1681,7 +1702,7 @@ function ensureTestimonials(
     {
       quote: "I built this because I needed it, and now I wouldn't run my cattery without it.",
       author: 'Vanessa',
-      image: imageFrom(testimonialImage, images[3], heroImage),
+      image: usedImages ? pickUniqueImage(usedImages, [testimonialImage, images[3]], images) : imageFrom(testimonialImage, images[3], heroImage),
       location: businessName,
     },
   ];

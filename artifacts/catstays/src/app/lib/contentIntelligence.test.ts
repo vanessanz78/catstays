@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { buildContentIntelligencePlan } from './contentIntelligence';
+import { buildCatstaysTemplateContent } from './previewTemplates';
 
 describe('content intelligence plan', () => {
   it('preserves source order and maps sections to template slots', () => {
@@ -165,5 +166,94 @@ describe('content intelligence plan', () => {
     assert.ok(roomCluster?.images.some((image) => image.url === 'https://rooms.example/garden-suite.jpg'));
     assert.ok(roomCluster?.images.some((image) => image.url === 'https://rooms.example/family-suite.jpg'));
     assert.ok(plan.templateSlots.find((slot) => slot.slot === 'rooms')?.clusterIds.includes(roomCluster?.id || ''));
+  });
+
+  it('keeps scraped template images available without repeating them while unused photos exist', () => {
+    const content = buildCatstaysTemplateContent({
+      sourceUrl: 'https://template-images.example/',
+      sourceHost: 'template-images.example',
+      businessName: 'Photos Example',
+      sourceArchive: {
+        pages: [
+          {
+            sourceUrl: 'https://template-images.example/',
+            title: 'Photos Example',
+            heading: 'Photos Example',
+            bodyText: 'A calm boutique cattery with individual care for each guest.',
+            images: ['https://template-images.example/hero.jpg'],
+          },
+          {
+            sourceUrl: 'https://template-images.example/about',
+            title: 'About',
+            heading: 'About Photos Example',
+            bodyText: 'Our team provides reassuring daily care, quiet rooms, and plenty of attention.',
+            images: ['https://template-images.example/about.jpg'],
+          },
+          {
+            sourceUrl: 'https://template-images.example/gallery',
+            title: 'Gallery',
+            heading: 'Gallery',
+            bodyText: 'Photos from the cattery and guest spaces.',
+            images: [
+              'https://template-images.example/gallery-1.jpg',
+              'https://template-images.example/gallery-2.jpg',
+              'https://template-images.example/gallery-3.jpg',
+              'https://template-images.example/gallery-4.jpg',
+            ],
+          },
+        ],
+      },
+      siteContentLibrary: {
+        schemaVersion: 1,
+        sourceUrl: 'https://template-images.example/',
+        sourceHost: 'template-images.example',
+        businessName: 'Photos Example',
+        capturedAt: '2026-08-11T00:00:00.000Z',
+        blocks: [
+          {
+            id: 'rooms',
+            category: 'rooms',
+            title: 'Accommodation',
+            text: 'Choose the space that fits your cat.',
+            items: [
+              {
+                title: 'Garden Suite',
+                text: 'Quiet suite with garden outlook.',
+                price: '$45',
+                image: 'https://template-images.example/garden-suite.jpg',
+              },
+              {
+                title: 'Family Suite',
+                text: 'Larger room for cats from one home.',
+                price: '$65',
+                image: 'https://template-images.example/family-suite.jpg',
+              },
+            ],
+            images: [{ url: 'https://template-images.example/rooms-overview.jpg', caption: 'Room overview' }],
+          },
+          {
+            id: 'grooming',
+            category: 'grooming',
+            title: 'Grooming',
+            text: 'Gentle grooming support is available by arrangement.',
+            images: [{ url: 'https://template-images.example/grooming.jpg', caption: 'Grooming room' }],
+          },
+        ],
+      },
+    });
+
+    const renderedImages = [
+      content.hero.image,
+      content.about.image,
+      content.facilities.image,
+      content.owner.image,
+      ...content.suites.map((suite) => suite.image),
+      ...content.services.map((service) => service.image),
+      ...content.gallery.slice(0, 4).map((image) => image.image),
+    ].filter(Boolean);
+
+    assert.equal(new Set(renderedImages).size, renderedImages.length);
+    assert.ok(content.gallery.some((image) => image.image.startsWith('https://template-images.example/gallery-')));
+    assert.ok(content.contentLibrary.blocks.some((block) => block.items.some((item) => item.image === 'https://template-images.example/garden-suite.jpg')));
   });
 });
