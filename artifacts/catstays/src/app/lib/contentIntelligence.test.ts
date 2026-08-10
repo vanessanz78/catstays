@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 
 import { buildContentIntelligencePlan } from './contentIntelligence';
 import { buildCatstaysTemplateContent } from './previewTemplates';
+import { sourceImageIdentityKey } from './sourceUnderstanding';
 
 describe('content intelligence plan', () => {
   it('preserves source order and maps sections to template slots', () => {
@@ -337,5 +338,51 @@ describe('content intelligence plan', () => {
       ],
     );
     assert.ok(!sourceSections.some((section) => section.role !== 'gallery' && section.images.some((image) => image.image.includes('gallery-'))));
+  });
+
+  it('deduplicates WordPress-generated image size variants', () => {
+    assert.equal(
+      sourceImageIdentityKey('https://wordpress.example/wp-content/uploads/2026/08/beanie-zac-300x225.jpg'),
+      sourceImageIdentityKey('https://wordpress.example/wp-content/uploads/2026/08/beanie-zac.jpg'),
+    );
+    assert.equal(
+      sourceImageIdentityKey('https://wordpress.example/wp-content/uploads/2026/08/beanie-zac-1024x768-scaled.jpg'),
+      sourceImageIdentityKey('https://wordpress.example/wp-content/uploads/2026/08/beanie-zac-scaled.jpg'),
+    );
+
+    const content = buildCatstaysTemplateContent({
+      sourceUrl: 'https://wordpress.example/',
+      sourceHost: 'wordpress.example',
+      businessName: 'WordPress Cattery',
+      sourceArchive: {
+        pages: [
+          {
+            sourceUrl: 'https://wordpress.example/',
+            title: 'WordPress Cattery',
+            heading: 'WordPress Cattery',
+            bodyText: 'Comfortable cat care.',
+            images: ['https://wordpress.example/wp-content/uploads/2026/08/hero.jpg'],
+          },
+          {
+            sourceUrl: 'https://wordpress.example/gallery',
+            title: 'Gallery',
+            heading: 'Gallery',
+            bodyText: 'Guest photos.',
+            images: [
+              'https://wordpress.example/wp-content/uploads/2026/08/beanie-zac.jpg',
+              'https://wordpress.example/wp-content/uploads/2026/08/beanie-zac-300x225.jpg',
+              'https://wordpress.example/wp-content/uploads/2026/08/rocket.jpg',
+            ],
+          },
+        ],
+      },
+    });
+
+    const galleryImages = content.sourceSections?.find((section) => section.role === 'gallery')?.images.map((image) => image.image) ?? [];
+
+    assert.deepEqual(galleryImages, [
+      'https://wordpress.example/wp-content/uploads/2026/08/beanie-zac.jpg',
+      'https://wordpress.example/wp-content/uploads/2026/08/rocket.jpg',
+    ]);
   });
 });

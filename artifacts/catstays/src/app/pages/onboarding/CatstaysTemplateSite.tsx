@@ -32,6 +32,7 @@ import {
   normalizePreviewTemplateId,
   type PreviewTemplateId,
 } from '../../lib/previewTemplates';
+import { sourceImageIdentityKey } from '../../lib/sourceUnderstanding';
 import { ChatWidget } from '../../components/ChatWidget';
 
 interface CatstaysTemplateSiteProps {
@@ -629,7 +630,8 @@ function SourceGallerySection({ section }: { section: SourcePreviewSection }) {
 
 function SourcePhotoRail({ images, title }: { images: SourcePreviewSection['images']; title: string }) {
   const railRef = useRef<HTMLDivElement | null>(null);
-  if (!images.length) return null;
+  const uniqueImages = uniquePreviewImages(images);
+  if (!uniqueImages.length) return null;
 
   const scrollRail = (direction: -1 | 1) => {
     railRef.current?.scrollBy({ left: direction * 460, behavior: 'smooth' });
@@ -649,7 +651,7 @@ function SourcePhotoRail({ images, title }: { images: SourcePreviewSection['imag
         </div>
       </div>
       <div ref={railRef} className="flex snap-x gap-5 overflow-x-auto px-1 pb-3 [scrollbar-width:thin]">
-        {images.map((item, index) => (
+        {uniqueImages.map((item, index) => (
           <figure key={`${item.image}-${index}`} className="min-w-[82vw] snap-start overflow-hidden rounded-md bg-white shadow-sm sm:min-w-[46vw] lg:min-w-[31vw]">
             <TemplateImage src={item.image} alt="" className="h-72 w-full object-cover" />
           </figure>
@@ -719,8 +721,9 @@ function imageFocalStyle(image: string): CSSProperties | undefined {
 
 function ShowcaseGalleryRail({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
   const railRef = useRef<HTMLDivElement | null>(null);
-  const images = content.gallery.filter((item) => item.image !== content.hero.image);
-  const railImages = images.length >= 3 ? images : content.gallery;
+  const galleryImages = uniquePreviewImages(content.gallery);
+  const images = galleryImages.filter((item) => item.image !== content.hero.image);
+  const railImages = images.length >= 3 ? images : galleryImages;
 
   const scrollRail = (direction: -1 | 1) => {
     railRef.current?.scrollBy({ left: direction * 420, behavior: 'smooth' });
@@ -886,7 +889,7 @@ function ConversionBanner({
 
 function GalleryStrip({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
   const railRef = useRef<HTMLDivElement | null>(null);
-  const images = content.gallery;
+  const images = uniquePreviewImages(content.gallery);
   if (!images.length) return null;
 
   const scrollRail = (direction: -1 | 1) => {
@@ -918,6 +921,16 @@ function GalleryStrip({ content }: { content: ReturnType<typeof buildCatstaysTem
       </div>
     </section>
   );
+}
+
+function uniquePreviewImages<T extends { image: string }>(images: T[]) {
+  const seen = new Set<string>();
+  return images.filter((image) => {
+    const key = sourceImageIdentityKey(image.image);
+    if (!image.image || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function ServicesGrid({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {

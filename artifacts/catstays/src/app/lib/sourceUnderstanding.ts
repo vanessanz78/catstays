@@ -814,12 +814,20 @@ export function sourceImageIdentityKey(url: string, originalUrl?: string) {
   if (wixTransform) return `wix:${wixTransform.replace(/~mv2.*$/i, '').replace(/\.(?:jpe?g|png|webp|avif|gif)$/i, '')}`;
 
   const storagePath = source.match(/\/storage\/v1\/object\/public\/catstays-media\/(.+)$/i)?.[1];
-  if (storagePath) return `storage:${storagePath}`;
+  if (storagePath) return `storage:${canonicalImportedImagePath(storagePath)}`;
 
-  return source
+  return canonicalImportedImagePath(source)
     .replace(/\/v1\/(?:fill|fit|crop|resize)\/.*$/i, '')
     .replace(/(?:[?&](?:w|h|width|height|fit|crop|quality|q)=[^&]+)/gi, '')
     .replace(/\/+$/, '');
+}
+
+function canonicalImportedImagePath(value: string) {
+  return value
+    .replace(/-scaled(?=\.(?:jpe?g|png|webp|avif|gif)(?:$|[?#]))/gi, '')
+    .replace(/-scaled(?=\.(?:jpe?g|png|webp|avif|gif)$)/gi, '')
+    .replace(/-\d{2,5}x\d{2,5}(?=\.(?:jpe?g|png|webp|avif|gif)(?:$|[?#]))/gi, '')
+    .replace(/-\d{2,5}x\d{2,5}(?=\.(?:jpe?g|png|webp|avif|gif)$)/gi, '');
 }
 
 function imageQualityScore(image: SourceTruthImage) {
