@@ -44,7 +44,7 @@ export function MarketingKit() {
             </Link>
             <div>
               <h1 className="text-xl font-serif font-semibold" style={{ color: '#2d3e2f' }}>
-                Marketing Kit
+                Marketing Studio
               </h1>
               <p className="text-sm" style={{ color: '#6b7a6d' }}>
                 Download branded marketing materials

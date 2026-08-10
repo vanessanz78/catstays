@@ -21,8 +21,8 @@ import {
   ChevronRight,
   Upload,
   Globe,
-  Download,
   Crown,
+  WandSparkles,
 } from 'lucide-react';
 
 export function RightMenu() {
@@ -46,7 +46,7 @@ export function RightMenu() {
     { path: '/staff-dashboard/cat-update-generator', icon: Camera, label: 'Cat Updates', description: 'Photo updates' },
     { path: '/staff-dashboard/website-editor', icon: Globe, label: 'Website', description: 'Edit your website' },
     { path: '/staff-dashboard/booking-setup', icon: Settings, label: 'Booking Setup', description: 'Rules & pricing' },
-    { path: '/staff-dashboard/marketing', icon: Download, label: 'Marketing Kit', description: 'Download materials' },
+    { path: '/staff-dashboard/marketing', icon: WandSparkles, label: 'Marketing Studio', description: 'Editable marketing materials' },
     { path: '/staff-dashboard/insights', icon: BarChart3, label: 'Insights', description: 'Analytics & reports' },
     { path: '/staff-dashboard/subscription', icon: Crown, label: 'Subscription', description: 'Manage your plan' },
     { path: '/staff-dashboard/settings', icon: Settings, label: 'Settings', description: 'Configure platform' },
@@ -72,12 +72,12 @@ export function RightMenu() {
       )}
 
       <div
-        className={`fixed bottom-0 right-0 top-0 z-50 w-80 transform bg-white shadow-2xl transition-transform duration-300 ${
+        className={`fixed bottom-0 right-0 top-0 z-50 flex w-80 transform flex-col bg-white shadow-2xl transition-transform duration-300 ${
           isOpen ? 'translate-x-0' : 'translate-x-full'
         }`}
         style={{ maxWidth: '85vw' }}
       >
-        <div className="flex items-center justify-between border-b p-4" style={{ backgroundColor: '#F6F4EF' }}>
+        <div className="flex shrink-0 items-center justify-between border-b p-4" style={{ backgroundColor: '#F6F4EF' }}>
           <div>
             <h2 className="font-serif text-xl font-semibold" style={{ color: '#2d3e2f' }}>
               Dashboard
@@ -95,7 +95,7 @@ export function RightMenu() {
           </Button>
         </div>
 
-        <nav className="h-full overflow-y-auto pb-24">
+        <nav className="min-h-0 flex-1 overflow-y-auto pb-6">
           <div className="p-2">
             {menuItems.map((item) => {
               const Icon = item.icon;

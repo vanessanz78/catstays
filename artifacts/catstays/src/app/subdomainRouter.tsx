@@ -7,6 +7,7 @@ import { TenantHome } from './pages/tenant/Home';
 import { BookingFlow } from './pages/tenant/BookingFlow';
 import { StaffDashboard } from './pages/staff/StaffDashboard';
 import { DashboardWebsiteEditor } from './pages/admin/WebsiteEditor';
+import { MarketingKit } from './pages/admin/MarketingKit';
 import { ClientPortalEntry } from './pages/customer/ClientPortalEntry';
 
 function TenantHomeSection({ section }: { section: string }) {
@@ -56,7 +57,6 @@ const staffDashboardRoutes = [
   '/staff-dashboard/settings',
   '/staff-dashboard/booking-setup',
   '/staff-dashboard/payment',
-  '/staff-dashboard/marketing',
   '/staff-dashboard/subscription',
 ].map((path) => ({ path, Component: StaffDashboard }));
 
@@ -81,6 +81,7 @@ export const subdomainRouter = createBrowserRouter([
   { path: '/booking', element: <TenantHomeSection section="booking" /> },
   ...staffDashboardRoutes,
   { path: '/staff-dashboard/website-editor', Component: DashboardWebsiteEditor },
+  { path: '/staff-dashboard/marketing', Component: MarketingKit },
   { path: '/client-portal', Component: ClientPortalEntry },
   { path: '/client-portal/bookings', Component: ClientPortalEntry },
   { path: '/client-portal/profile', Component: ClientPortalEntry },

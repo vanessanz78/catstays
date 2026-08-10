@@ -108,7 +108,6 @@ const tenantStaffDashboardPaths = [
   "/staff-dashboard/settings",
   "/staff-dashboard/booking-setup",
   "/staff-dashboard/payment",
-  "/staff-dashboard/marketing",
   "/staff-dashboard/subscription",
 ].map((path) => ({
   path,
@@ -206,6 +205,11 @@ export const router = createBrowserRouter([
   {
     path: "/staff-dashboard/website-editor",
     Component: DashboardWebsiteEditor,
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
+    path: "/staff-dashboard/marketing",
+    Component: MarketingKit,
     ErrorBoundary: RootErrorBoundary,
   },
 
