@@ -199,9 +199,8 @@ export function contentIntelligencePlanFromModel(model: WebsiteUnderstandingMode
 
 function clusterFromSection(section: WebsiteUnderstandingSection, model: WebsiteUnderstandingModel): ContentCluster {
   const role = clusterRoleForSection(section);
-  const text = [section.body, ...section.items.map((item) => [item.title, item.text, item.price].filter(Boolean).join(' - '))]
-    .filter(Boolean)
-    .join(' ');
+  const blocks = blocksFromSection(section, model.identity.sourceUrl);
+  const images = imagesFromSection(section);
 
   return {
     id: section.id,
@@ -210,19 +209,12 @@ function clusterFromSection(section: WebsiteUnderstandingSection, model: Website
     sourcePageUrl: section.sourcePage || model.identity.sourceUrl,
     sourceOrder: section.sourceOrder,
     originalHeading: section.heading,
-    blocks: text
-      ? [{
-          heading: section.heading,
-          text,
-          sourceSectionId: section.id,
-          sourcePageUrl: section.sourcePage || model.identity.sourceUrl,
-        }]
-      : [],
-    images: imagesFromSection(section),
-    media: section.images.map((image) => ({
+    blocks,
+    images,
+    media: images.map((image) => ({
       url: image.url,
       type: 'image',
-      sourcePageUrl: image.sourcePage,
+      sourcePageUrl: image.sourcePageUrl,
       sourceOrder: image.sourceOrder,
     })),
     links: section.links,
@@ -238,8 +230,34 @@ function clusterFromSection(section: WebsiteUnderstandingSection, model: Website
   };
 }
 
+function blocksFromSection(section: WebsiteUnderstandingSection, fallbackSourceUrl: string): CapturedTextBlock[] {
+  const sourcePageUrl = section.sourcePage || fallbackSourceUrl;
+  const blocks: CapturedTextBlock[] = [];
+  if (section.body) {
+    blocks.push({
+      heading: section.heading,
+      text: section.body,
+      sourceSectionId: section.id,
+      sourcePageUrl,
+    });
+  }
+
+  section.items.forEach((item, index) => {
+    const text = [item.text, item.price].filter(Boolean).join(item.text && item.price ? ' ' : '');
+    if (!item.title && !text) return;
+    blocks.push({
+      heading: item.title || section.heading,
+      text,
+      sourceSectionId: `${section.id}__item_${index}`,
+      sourcePageUrl,
+    });
+  });
+
+  return blocks;
+}
+
 function imagesFromSection(section: WebsiteUnderstandingSection): CapturedImage[] {
-  return section.images.map((image) => ({
+  const sectionImages = section.images.map((image) => ({
     url: image.url,
     originalUrl: image.originalUrl,
     caption: image.caption,
@@ -250,6 +268,32 @@ function imagesFromSection(section: WebsiteUnderstandingSection): CapturedImage[
     nearbyHeading: image.nearbyHeading,
     nearbyText: image.nearbyText,
   }));
+  const itemImages: CapturedImage[] = [];
+  section.items.forEach((item, index) => {
+    if (!item.image) return;
+    itemImages.push({
+      url: item.image,
+      caption: item.title,
+      alt: item.title || section.heading,
+      sourcePageUrl: section.sourcePage,
+      sourceSectionId: `${section.id}__item_${index}`,
+      sourceOrder: section.sourceOrder * 100 + index,
+      nearbyHeading: item.title || section.heading,
+      nearbyText: item.text || section.body,
+    });
+  });
+
+  return uniqueCapturedImages([...sectionImages, ...itemImages]);
+}
+
+function uniqueCapturedImages(images: CapturedImage[]) {
+  const seen = new Set<string>();
+  return images.filter((image) => {
+    const key = image.originalUrl || image.url;
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function clusterRoleForSection(section: WebsiteUnderstandingSection): ContentClusterRole {

@@ -98,4 +98,72 @@ describe('content intelligence plan', () => {
     assert.equal(plan.completeness.imagesRepresented, 2);
     assert.ok(plan.templateSlots.find((slot) => slot.slot === 'pet-fit')?.clusterIds.includes(healthCluster?.id || ''));
   });
+
+  it('enriches archive pages with grouped source-library blocks instead of dropping them', () => {
+    const plan = buildContentIntelligencePlan({
+      sourceUrl: 'https://rooms.example/',
+      sourceHost: 'rooms.example',
+      businessName: 'Rooms Example',
+      sourceArchive: {
+        pages: [
+          {
+            sourceUrl: 'https://rooms.example/',
+            title: 'Rooms Example',
+            heading: 'Rooms Example',
+            bodyText: 'A calm place for cats to stay.',
+            images: ['https://rooms.example/hero.jpg'],
+          },
+          {
+            sourceUrl: 'https://rooms.example/accommodation',
+            title: 'Accommodation',
+            heading: 'Accommodation',
+            bodyText: 'Private suites and daily care are available.',
+            images: ['https://rooms.example/accommodation.jpg'],
+          },
+        ],
+      },
+      siteContentLibrary: {
+        schemaVersion: 1,
+        sourceUrl: 'https://rooms.example/',
+        sourceHost: 'rooms.example',
+        businessName: 'Rooms Example',
+        capturedAt: '2026-08-09T00:00:00.000Z',
+        blocks: [
+          {
+            id: 'rooms',
+            category: 'rooms',
+            title: 'Accommodation',
+            text: 'Choose the space that fits your cat.',
+            items: [
+              {
+                title: 'Garden Suite',
+                text: 'Quiet suite with garden outlook.',
+                price: '$45',
+                image: 'https://rooms.example/garden-suite.jpg',
+              },
+              {
+                title: 'Family Suite',
+                text: 'Larger room for cats from one home.',
+                price: '$65',
+                image: 'https://rooms.example/family-suite.jpg',
+              },
+            ],
+            images: [{ url: 'https://rooms.example/rooms-overview.jpg', caption: 'Room overview' }],
+          },
+        ],
+      },
+    });
+
+    const roomCluster = plan.clusters.find((cluster) => cluster.role === 'rooms');
+
+    assert.ok(roomCluster);
+    assert.equal(roomCluster?.sourceOrder, 1);
+    assert.deepEqual(
+      roomCluster?.blocks.map((block) => block.heading),
+      ['Accommodation', 'Garden Suite', 'Family Suite'],
+    );
+    assert.ok(roomCluster?.images.some((image) => image.url === 'https://rooms.example/garden-suite.jpg'));
+    assert.ok(roomCluster?.images.some((image) => image.url === 'https://rooms.example/family-suite.jpg'));
+    assert.ok(plan.templateSlots.find((slot) => slot.slot === 'rooms')?.clusterIds.includes(roomCluster?.id || ''));
+  });
 });

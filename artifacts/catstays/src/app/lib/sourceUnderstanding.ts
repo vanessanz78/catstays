@@ -310,14 +310,120 @@ function sectionsFromBlocks(blocks: AnyRecord[], sourceUrl: string): WebsiteUnde
 }
 
 function mergeSections(pageSections: WebsiteUnderstandingSection[], blockSections: WebsiteUnderstandingSection[]) {
-  if (pageSections.length) {
-    const usefulBlocks = blockSections.filter((block) =>
-      ['hero', 'faq', 'contact', 'gallery'].includes(block.semanticRole) &&
-      !pageSections.some((page) => page.semanticRole === block.semanticRole && (page.body || page.images.length)),
-    );
-    return [...pageSections, ...usefulBlocks].sort((a, b) => a.sourceOrder - b.sourceOrder);
+  if (!pageSections.length) return blockSections.sort((a, b) => a.sourceOrder - b.sourceOrder);
+
+  const merged = [...pageSections];
+  for (const block of blockSections) {
+    if (!sectionHasEvidence(block)) continue;
+    const duplicateIndex = merged.findIndex((page) => shouldMergeSourceSections(page, block));
+    if (duplicateIndex >= 0) {
+      merged[duplicateIndex] = mergeSourceSectionEvidence(merged[duplicateIndex], block);
+    } else {
+      merged.push(block);
+    }
   }
-  return blockSections.sort((a, b) => a.sourceOrder - b.sourceOrder);
+
+  return merged.sort((a, b) => a.sourceOrder - b.sourceOrder);
+}
+
+function sectionHasEvidence(section: WebsiteUnderstandingSection) {
+  return Boolean(section.heading || section.body || section.items.length || section.images.length || section.links.length);
+}
+
+function shouldMergeSourceSections(page: WebsiteUnderstandingSection, block: WebsiteUnderstandingSection) {
+  if (page.semanticRole !== block.semanticRole) return false;
+  const pageHeading = normalizedTextKey(page.heading);
+  const blockHeading = normalizedTextKey(block.heading);
+  if (pageHeading && blockHeading && pageHeading === blockHeading) return true;
+  if (page.sourcePage && block.sourcePage && hostFromUrl(page.sourcePage) !== hostFromUrl(block.sourcePage)) return false;
+  if (hasMeaningfulTextOverlap(page.body, block.body)) return true;
+  return Boolean(block.items.length || block.images.length || block.links.length) && !hasConflictingHeadings(page.heading, block.heading);
+}
+
+function mergeSourceSectionEvidence(page: WebsiteUnderstandingSection, block: WebsiteUnderstandingSection): WebsiteUnderstandingSection {
+  const body = bestSectionBody(page.body, block.body);
+  return {
+    ...page,
+    heading: stringFrom(page.heading, block.heading),
+    body,
+    items: uniqueSectionItems([...page.items, ...block.items]),
+    images: uniqueSectionImages([...page.images, ...block.images]),
+    links: uniqueSectionLinks([...page.links, ...block.links]),
+    sourceOrder: Math.min(page.sourceOrder, block.sourceOrder),
+    importance: Math.max(page.importance, block.importance),
+    relationships: {
+      ...page.relationships,
+      mergedSources: [
+        ...arrayFrom(page.relationships?.mergedSources),
+        page.relationships?.source,
+        block.relationships?.source,
+      ].filter(Boolean),
+      mergedBlockIds: [
+        ...arrayFrom(page.relationships?.mergedBlockIds),
+        block.relationships?.sourceBlockId,
+      ].filter(Boolean),
+    },
+  };
+}
+
+function bestSectionBody(pageBody: string, blockBody: string) {
+  if (!pageBody) return blockBody;
+  if (!blockBody) return pageBody;
+  if (pageBody.includes(blockBody)) return pageBody;
+  if (blockBody.includes(pageBody)) return blockBody;
+  return pageBody.length >= blockBody.length ? pageBody : blockBody;
+}
+
+function uniqueSectionItems(items: WebsiteUnderstandingSection['items']) {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = normalizedTextKey(`${item.title}|${item.text}|${item.price || ''}|${item.image || ''}`);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function uniqueSectionImages(images: SourceTruthImage[]) {
+  const seen = new Set<string>();
+  return images.filter((image) => {
+    const key = sourceImageIdentityKey(image.url, image.originalUrl);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function uniqueSectionLinks(links: WebsiteUnderstandingSection['links']) {
+  const seen = new Set<string>();
+  return links.filter((link) => {
+    const key = normalizedTextKey(link.url || link.label);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function hasConflictingHeadings(left: string, right: string) {
+  const leftKey = normalizedTextKey(left);
+  const rightKey = normalizedTextKey(right);
+  if (!leftKey || !rightKey || leftKey === rightKey) return false;
+  return !leftKey.includes(rightKey) && !rightKey.includes(leftKey);
+}
+
+function hasMeaningfulTextOverlap(left: string, right: string) {
+  const leftWords = new Set(normalizedTextKey(left).split(' ').filter((word) => word.length > 4));
+  const rightWords = normalizedTextKey(right).split(' ').filter((word) => word.length > 4);
+  if (!leftWords.size || !rightWords.length) return false;
+  const overlap = rightWords.filter((word) => leftWords.has(word)).length;
+  return overlap >= Math.min(8, Math.ceil(rightWords.length * 0.45));
+}
+
+function normalizedTextKey(value: string) {
+  return cleanImportedText(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
 }
 
 function collectSourceImages(input: {
