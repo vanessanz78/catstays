@@ -238,11 +238,16 @@ export function MarketingStudio({ businessData }: MarketingStudioProps) {
       text: activeCaption,
       url: websiteUrl(businessData),
     };
-    if (navigator.share) {
-      await navigator.share(shareData);
-      return;
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+        return;
+      }
+      await navigator.clipboard.writeText(`${activeCaption}\n\n${websiteUrl(businessData)}`);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return;
+      console.warn('[CatStays] Marketing share failed', error);
     }
-    await navigator.clipboard.writeText(`${activeCaption}\n\n${websiteUrl(businessData)}`);
   };
 
   const downloadAsset = async () => {
@@ -402,7 +407,7 @@ export function MarketingStudio({ businessData }: MarketingStudioProps) {
             <div className="rounded-2xl bg-[#F6F4EF] p-4 sm:p-8">
               <div
                 className={`relative mx-auto w-full overflow-hidden rounded-2xl bg-[#0A1128] shadow-2xl ${previewStyle}`}
-                style={{ aspectRatio: `${canvasRatio}` }}
+                style={{ aspectRatio: `${canvasRatio}`, containerType: 'inline-size' }}
               >
                 <img src={draft.imageUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
                 <div
@@ -517,58 +522,120 @@ function PreviewContent({
   const isWide = template.id === 'facebook-post' || template.id === 'email-banner';
   const isStory = template.id === 'instagram-story';
   const isReview = template.id === 'review-card';
+  const isFlyer = template.id === 'flyer';
   const businessUrl = websiteUrl(businessData).replace(/^https?:\/\//, '');
+  const type = previewTypeScale(template.id);
 
   return (
-    <div className="absolute inset-0 flex flex-col justify-between p-[7%] text-white">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="text-[clamp(10px,2vw,18px)] font-bold uppercase tracking-[0.32em] text-white/85">
+    <div className="absolute inset-0 flex flex-col justify-between p-[7.5%] text-white">
+      <div className="flex items-start gap-4">
+        <div className="max-w-[76%]">
+          <div className="font-bold uppercase leading-tight tracking-[0.24em] text-white/85" style={{ fontSize: type.eyebrow }}>
             {promotion ? promotion.code : businessData.location || 'Cat boarding'}
           </div>
           <div className="mt-2 h-1 w-16 rounded-full" style={{ backgroundColor: draft.accentColor }} />
         </div>
-        <div className="grid aspect-square w-[14%] min-w-12 place-items-center rounded-full bg-white font-serif text-[clamp(22px,4vw,56px)] font-bold shadow-xl" style={{ color: draft.primaryColor }}>
-          {businessData.businessName.charAt(0).toUpperCase()}
-        </div>
       </div>
 
-      <div className={`${isWide ? 'max-w-[62%]' : 'max-w-[88%]'} ${isReview ? 'rounded-3xl bg-white/92 p-[6%] text-[#0A1128]' : ''}`}>
-        {isReview && <div className="mb-4 text-[clamp(20px,4vw,46px)]">*****</div>}
+      <div className={`${isWide ? 'max-w-[58%]' : isFlyer ? 'max-w-[78%]' : 'max-w-[82%]'} ${isReview ? 'rounded-3xl bg-white/92 p-[6%] text-[#0A1128]' : ''}`}>
+        {isReview && <div className="mb-4" style={{ fontSize: type.stars }}>*****</div>}
         <h4
-          className="font-serif font-bold leading-[0.95]"
+          className="max-h-[4.2em] overflow-hidden font-serif font-bold leading-[1.02]"
           style={{
             color: isReview ? draft.primaryColor : '#FFFFFF',
-            fontSize: isStory ? 'clamp(48px,9vw,118px)' : 'clamp(36px,7vw,98px)',
+            fontSize: type.headline,
           }}
         >
           {draft.headline}
         </h4>
         <p
-          className="mt-[4%] max-w-3xl font-medium leading-tight"
+          className="mt-[4%] max-h-[5.4em] max-w-3xl overflow-hidden font-medium leading-[1.18]"
           style={{
             color: isReview ? 'rgba(10,17,40,0.72)' : 'rgba(255,255,255,0.92)',
-            fontSize: isStory ? 'clamp(20px,4vw,46px)' : 'clamp(18px,3vw,38px)',
+            fontSize: type.subheadline,
           }}
         >
           {draft.subheadline}
         </p>
         {!isReview && (
           <div
-            className="mt-[7%] inline-flex rounded-full bg-white px-[7%] py-[3%] text-[clamp(14px,2.6vw,36px)] font-bold shadow-lg"
-            style={{ color: draft.accentColor }}
+            className="mt-[6%] inline-flex max-w-full rounded-full bg-white px-[6%] py-[2.4%] font-bold leading-none shadow-lg"
+            style={{ color: draft.accentColor, fontSize: type.cta }}
           >
             {draft.ctaText}
           </div>
         )}
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 text-[clamp(12px,2vw,28px)] font-bold">
-        <span>{businessData.businessName}</span>
-        <span className="rounded-full bg-white/18 px-4 py-2">{businessUrl}</span>
+      <div className="flex flex-wrap items-center justify-between gap-3 font-bold leading-tight" style={{ fontSize: type.footer }}>
+        <span className="max-w-[54%] truncate">{businessData.businessName}</span>
+        <span className="max-w-[44%] truncate rounded-full bg-white/18 px-4 py-2">{businessUrl}</span>
       </div>
     </div>
   );
+}
+
+function previewTypeScale(template: TemplateId) {
+  if (template === 'instagram-story') {
+    return {
+      eyebrow: 'clamp(10px, 3cqw, 16px)',
+      headline: 'clamp(38px, 12cqw, 82px)',
+      subheadline: 'clamp(18px, 5.5cqw, 34px)',
+      cta: 'clamp(15px, 4.2cqw, 28px)',
+      footer: 'clamp(12px, 3.3cqw, 20px)',
+      stars: 'clamp(18px, 5cqw, 32px)',
+    };
+  }
+
+  if (template === 'flyer') {
+    return {
+      eyebrow: 'clamp(9px, 2.5cqw, 14px)',
+      headline: 'clamp(34px, 8.2cqw, 58px)',
+      subheadline: 'clamp(16px, 3.9cqw, 26px)',
+      cta: 'clamp(14px, 3.3cqw, 22px)',
+      footer: 'clamp(11px, 2.8cqw, 18px)',
+      stars: 'clamp(18px, 4cqw, 28px)',
+    };
+  }
+
+  if (template === 'facebook-post' || template === 'email-banner') {
+    return {
+      eyebrow: 'clamp(9px, 1.7cqw, 13px)',
+      headline: 'clamp(30px, 6cqw, 56px)',
+      subheadline: 'clamp(15px, 2.9cqw, 26px)',
+      cta: 'clamp(13px, 2.4cqw, 20px)',
+      footer: 'clamp(11px, 1.8cqw, 16px)',
+      stars: 'clamp(17px, 3cqw, 26px)',
+    };
+  }
+
+  if (template === 'review-card') {
+    return {
+      eyebrow: 'clamp(9px, 2.2cqw, 14px)',
+      headline: 'clamp(34px, 7.4cqw, 64px)',
+      subheadline: 'clamp(16px, 3.7cqw, 28px)',
+      cta: 'clamp(14px, 3cqw, 22px)',
+      footer: 'clamp(11px, 2.4cqw, 17px)',
+      stars: 'clamp(18px, 4.4cqw, 34px)',
+    };
+  }
+
+  return {
+    eyebrow: 'clamp(9px, 2cqw, 14px)',
+    headline: 'clamp(32px, 7.4cqw, 62px)',
+    subheadline: 'clamp(16px, 3.8cqw, 28px)',
+    cta: 'clamp(14px, 3cqw, 22px)',
+    footer: 'clamp(11px, 2.3cqw, 17px)',
+    stars: 'clamp(18px, 4cqw, 30px)',
+  };
+}
+
+function canvasHeadlineSize(template: TemplateId, width: number) {
+  if (template === 'instagram-story') return width * 0.078;
+  if (template === 'flyer') return width * 0.052;
+  if (template === 'facebook-post' || template === 'email-banner') return width * 0.048;
+  if (template === 'review-card') return width * 0.058;
+  return width * 0.058;
 }
 
 function ColourInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
@@ -618,42 +685,32 @@ async function drawMarketingCanvas(
   ctx.fillText((promotion?.code || businessData.location || 'CAT BOARDING').toUpperCase(), pad, pad + 28);
   ctx.letterSpacing = '0px';
 
-  const badgeSize = Math.max(96, canvas.width * 0.13);
-  ctx.fillStyle = '#FFFFFF';
-  roundRect(ctx, canvas.width - pad - badgeSize, pad, badgeSize, badgeSize, badgeSize / 2);
-  ctx.fill();
-  ctx.strokeStyle = draft.accentColor;
-  ctx.lineWidth = Math.max(4, canvas.width * 0.004);
-  ctx.stroke();
-  ctx.fillStyle = draft.primaryColor;
-  ctx.font = `700 ${badgeSize * 0.48}px serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(businessData.businessName.charAt(0).toUpperCase(), canvas.width - pad - badgeSize / 2, pad + badgeSize / 2);
-
-  const headlineSize = template.id === 'instagram-story' ? canvas.width * 0.105 : canvas.width * 0.082;
+  const headlineSize = canvasHeadlineSize(template.id, canvas.width);
+  const subheadlineSize = Math.max(26, canvas.width * (template.id === 'flyer' ? 0.027 : 0.031));
+  const headlineLines = template.id === 'flyer' ? 3 : 4;
+  const subheadlineLines = template.id === 'flyer' ? 4 : 3;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
   ctx.fillStyle = '#FFFFFF';
   ctx.font = `700 ${headlineSize}px serif`;
-  wrapText(ctx, draft.headline, pad, canvas.height * 0.47, canvas.width - pad * 2, headlineSize * 0.98, 4);
+  wrapText(ctx, draft.headline, pad, canvas.height * 0.42, canvas.width - pad * 2, headlineSize * 1.06, headlineLines);
 
-  ctx.font = `500 ${Math.max(32, canvas.width * 0.038)}px sans-serif`;
-  wrapText(ctx, draft.subheadline, pad, canvas.height * 0.66, canvas.width - pad * 2, canvas.width * 0.052, 2);
+  ctx.font = `500 ${subheadlineSize}px sans-serif`;
+  wrapText(ctx, draft.subheadline, pad, canvas.height * 0.6, canvas.width - pad * 2, subheadlineSize * 1.34, subheadlineLines);
 
-  const buttonWidth = canvas.width * 0.34;
-  const buttonHeight = canvas.height * 0.07;
+  ctx.font = `700 ${Math.max(24, canvas.width * 0.028)}px sans-serif`;
+  const buttonWidth = Math.min(canvas.width * 0.36, Math.max(canvas.width * 0.24, ctx.measureText(draft.ctaText).width + canvas.width * 0.08));
+  const buttonHeight = canvas.height * 0.055;
   ctx.fillStyle = '#FFFFFF';
   roundRect(ctx, pad, canvas.height * 0.75, buttonWidth, buttonHeight, buttonHeight / 2);
   ctx.fill();
   ctx.fillStyle = draft.accentColor;
-  ctx.font = `700 ${Math.max(28, canvas.width * 0.036)}px sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(draft.ctaText, pad + buttonWidth / 2, canvas.height * 0.75 + buttonHeight / 2);
 
   ctx.fillStyle = 'rgba(255,255,255,0.92)';
-  ctx.font = `700 ${Math.max(28, canvas.width * 0.038)}px sans-serif`;
+  ctx.font = `700 ${Math.max(22, canvas.width * 0.028)}px sans-serif`;
   ctx.textAlign = 'center';
   ctx.fillText(websiteUrl(businessData).replace(/^https?:\/\//, ''), canvas.width / 2, canvas.height - pad);
 }
