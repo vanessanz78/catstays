@@ -5,8 +5,8 @@ import { Button } from '../../components/ui/button';
 import { CatstaysTemplateSite } from '../onboarding/CatstaysTemplateSite';
 import { FullWebsitePreview } from '../onboarding/FullWebsitePreview';
 import {
-  buildFallbackScrapeForUrl,
   DELORAINE_SOURCE_URL,
+  defaultDelorainePreviewData,
   fallbackDeloraineScrape,
   IMPORT_URL_STORAGE_KEY,
   migrateDeloraineAssetsInValue,
@@ -50,7 +50,7 @@ const modeOptions: Array<{
     label: 'Website',
     href: '/demo/deloraine',
     icon: Globe,
-    description: 'Preview the imported customer-facing website exactly as visitors will browse it.',
+    description: 'Preview the website exactly as visitors will browse it.',
   },
   {
     mode: 'dashboard',
@@ -160,11 +160,15 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
         const savedPreview = await fetchSavedTemporaryPreview();
         if (savedPreview && sameSourceUrl(savedPreview.sourceUrl, requestedImportUrl)) {
           if (cancelled) return;
-          const importedPreview = previewDataForScrape(migrateDeloraineAssetsInValue(savedPreview));
-          setImportError('');
-          setPreviewData(dataForTemplate(importedPreview, selectedTemplateRef.current));
-          setIsImportPreparing(false);
-          return;
+          if (!hasScrapedPreviewSource(savedPreview)) {
+            clearTemporaryPreviewSource();
+          } else {
+            const importedPreview = previewDataForScrape(migrateDeloraineAssetsInValue(savedPreview));
+            setImportError('');
+            setPreviewData(dataForTemplate(importedPreview, selectedTemplateRef.current));
+            setIsImportPreparing(false);
+            return;
+          }
         }
 
         const request = await scrapeRequestForUrl(requestedImportUrl);
@@ -188,18 +192,17 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
           setPreviewData((current) => {
             if (hasImportedPreviewData(current, requestedImportUrl)) {
               setImportError('');
+              setIsImportPreparing(false);
               return current;
             }
             setImportError((error as Error).message || 'Import failed');
             return current;
           });
-          setIsImportPreparing(false);
+          setIsImportPreparing(true);
           return;
         }
         setImportError((error as Error).message || 'Import failed');
-        const fallbackScrape = isDeloraineRequest(requestedImportUrl)
-          ? fallbackDeloraineScrape
-          : buildFallbackScrapeForUrl(requestedImportUrl);
+        const fallbackScrape = fallbackDeloraineScrape;
         const fallbackPreview = previewDataForScrape(migrateDeloraineAssetsInValue(fallbackScrape));
         setPreviewData(dataForTemplate(fallbackPreview, selectedTemplateRef.current));
         setIsImportPreparing(false);
@@ -313,12 +316,6 @@ function DeloraineDemoPage({ initialMode = 'website' }: DeloraineDemoPageProps) 
           onSelectTemplate={selectTemplate}
         />
       )}
-      {importError && !isDeloraineRequest(requestedImportUrl) && !hasImportedPreviewData(previewData, requestedImportUrl) && (
-        <div className="border-b border-[#C46A3A]/30 bg-[#fff7ed] px-5 py-3 text-sm font-semibold text-[#8A3F20] sm:px-8 lg:px-10">
-          Imported preview could not refresh from the source site. Keeping the last imported preview instead of replacing it with generic fallback content.
-        </div>
-      )}
-
       <main className={previewMode === 'website' ? 'w-full bg-[#111923] px-4 pb-10 pt-6 sm:px-8 lg:px-10' : 'mx-auto w-full px-4 py-4 sm:px-6 lg:px-8'}>
         {isImportPreparing ? (
           <PreparingImportedPreview sourceUrl={requestedImportUrl} />
@@ -346,7 +343,7 @@ function PreparingImportedPreview({ sourceUrl }: { sourceUrl: string }) {
         </div>
         <h1 className="font-serif text-3xl leading-tight text-white sm:text-4xl">Preparing your preview</h1>
         <p className="mx-auto mt-5 max-w-md text-base leading-7 text-white/65">
-          CatStays is preparing {hostLabel(sourceUrl)} so you can review the original site and preview versions next.
+          Preparing {hostLabel(sourceUrl)} so you can review the site and preview versions next.
         </p>
       </div>
     </section>
@@ -555,7 +552,7 @@ function readInitialPreviewState(requestedUrl: string): {
     return { data: previewDataForScrape(fallbackDeloraineScrape), hasStoredPreview: true, isPreparing: false };
   }
   return {
-    data: previewDataForScrape(buildFallbackScrapeForUrl(requestedUrl)),
+    data: defaultDelorainePreviewData,
     hasStoredPreview: false,
     isPreparing: true,
   };
@@ -685,6 +682,9 @@ function hasImportedPreviewData(data: Record<string, any> | null | undefined, re
   if (!sameSourceUrl(dataUrl, requestedUrl)) return false;
   const record = data.previewImportRecord;
   const sourceArchive = data.sourceArchive || record?.source?.sourceArchive || record?.normalizedPreviewData?.sourceArchive;
+  const extractedFrom = record?.source?.extractedFrom || data.extractedFrom || record?.normalizedPreviewData?.extractedFrom;
+  const contentBlocks = record?.contentLibrary?.blocks || data.siteContentLibrary?.blocks || record?.normalizedPreviewData?.siteContentLibrary?.blocks || [];
+  const sourcePages = Array.isArray(sourceArchive?.pages) ? sourceArchive.pages : [];
   const recordMediaImages = [
     ...(Array.isArray(record?.media?.images) ? record.media.images : []),
     ...(Array.isArray(record?.media?.galleryImages) ? record.media.galleryImages.map((image: any) => image?.url || image) : []),
@@ -692,9 +692,25 @@ function hasImportedPreviewData(data: Record<string, any> | null | undefined, re
   const galleryImages = Array.isArray(data.galleryData?.galleryImages)
     ? data.galleryData.galleryImages.map((image: any) => image?.url || image)
     : [];
-  const hasSourceTruth = Boolean(record || sourceArchive || recordMediaImages.length);
+  const hasScrapedContent =
+    sourcePages.length > 0 ||
+    Boolean(sourceArchive?.renderedSnapshot?.html || sourceArchive?.rebuiltPreview?.html) ||
+    Boolean(extractedFrom?.html || extractedFrom?.apiServices) ||
+    contentBlocks.some((block: any) => block?.source === 'scrape');
   const serialized = JSON.stringify([recordMediaImages, galleryImages, sourceArchive]);
-  return hasSourceTruth && !/images\.unsplash\.com/i.test(serialized);
+  return hasScrapedContent && !/images\.unsplash\.com/i.test(serialized);
+}
+
+function hasScrapedPreviewSource(scrape: ImportedCatteryScrape): boolean {
+  const sourceArchive = scrape.sourceArchive;
+  const sourcePages = Array.isArray(sourceArchive?.pages) ? sourceArchive.pages : [];
+  const blocks = scrape.siteContentLibrary?.blocks || scrape.websiteSettings?.siteContentLibrary?.blocks || [];
+  return (
+    sourcePages.length > 0 ||
+    Boolean(sourceArchive?.renderedSnapshot?.html || sourceArchive?.rebuiltPreview?.html) ||
+    Boolean(scrape.extractedFrom?.html || scrape.extractedFrom?.apiServices) ||
+    blocks.some((block: any) => block?.source === 'scrape')
+  );
 }
 
 function sameSourceUrl(left: unknown, right: unknown): boolean {
@@ -706,7 +722,7 @@ function hostLabel(value: string) {
   try {
     return new URL(normalizeWebsiteImportUrl(value, DELORAINE_SOURCE_URL)).hostname.replace(/^www\./, '');
   } catch {
-    return 'the source website';
+    return 'your website';
   }
 }
 

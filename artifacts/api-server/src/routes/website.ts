@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Request } from 'express';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import {
+  compactScrapeForPreview,
   fetchSourceWebsitePreviewAsset,
   fetchSourceWebsitePreviewHtml,
   scrapeCatteryWebsite,
@@ -38,10 +39,23 @@ router.post('/website/scrape', async (req, res) => {
   }
 
   try {
-    const scraped = await scrapeCatteryWebsite(url);
-    const result = await persistScrapedImages(scraped);
+    const scraped = await scrapeCatteryWebsite(url, { includeOriginalRebuild: false });
+    const hasCatteryId = typeof catteryId === 'string' && catteryId.trim();
+    const result = compactScrapeForPreview(await persistScrapedImages(scraped, hasCatteryId
+      ? {
+          maxImages: 48,
+          concurrency: 4,
+          fetchTimeoutMs: 5_000,
+          imageTaskTimeoutMs: 8_000,
+        }
+      : {
+          maxImages: 12,
+          concurrency: 4,
+          fetchTimeoutMs: 2_500,
+          imageTaskTimeoutMs: 4_000,
+        }));
 
-    if (typeof catteryId === 'string' && catteryId.trim()) {
+    if (hasCatteryId) {
       const supabase = createAuthenticatedClient(req);
       if (!supabase) {
         res.status(401).json({ error: 'Authentication is required to persist a Content Source.' });

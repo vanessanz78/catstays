@@ -13,6 +13,7 @@ const MAX_SITEMAP_DOCUMENTS = 4;
 const MAX_SITEMAP_URLS = 24;
 const MAX_REBUILD_ASSETS = 90;
 const MAX_REBUILD_TOTAL_ASSET_BYTES = 9_000_000;
+const MAX_STORED_REBUILD_HTML_BYTES = 1_500_000;
 
 const REVELATION_PETS_REVIEW_FALLBACKS: CatteryScrapedReview[] = [
   {
@@ -103,6 +104,43 @@ export interface CatterySourceArchivePage {
   bodyTextLength: number;
   textSample: string;
   images: string[];
+  extractionSource?: ScrapedPage['extractionSource'];
+}
+
+export type WebsitePlatformType =
+  | 'wordpress'
+  | 'wix'
+  | 'squarespace'
+  | 'shopify'
+  | 'webflow'
+  | 'react-spa'
+  | 'static-html'
+  | 'unknown';
+
+export interface CatteryPlatformExtractionRoute {
+  name: string;
+  status: 'used' | 'available' | 'skipped' | 'failed';
+  detail: string;
+  pages?: number;
+  images?: number;
+  textCharacters?: number;
+}
+
+export interface CatteryPlatformContentQuality {
+  score: number;
+  level: 'high' | 'medium' | 'low';
+  canBuildPreview: boolean;
+  shouldAvoidGenericFallback: boolean;
+  reasons: string[];
+}
+
+export interface CatteryPlatformIntelligence {
+  platform: WebsitePlatformType;
+  confidence: 'high' | 'medium' | 'low';
+  signals: string[];
+  builders: string[];
+  extractionRoutes: CatteryPlatformExtractionRoute[];
+  contentQuality: CatteryPlatformContentQuality;
 }
 
 export interface CatterySourceArchive {
@@ -111,6 +149,7 @@ export interface CatterySourceArchive {
   sourceUrl: string;
   sourceHost: string;
   capturedAt: string;
+  platform?: CatteryPlatformIntelligence;
   rebuild: {
     status: 'rebuilt' | 'partial';
     sourceUrl: string;
@@ -223,6 +262,15 @@ type ScrapedPage = {
   heading: string;
   bodyText: string;
   images: string[];
+  extractionSource?: 'home-html' | 'linked-html' | 'wordpress-rest';
+};
+
+type WordPressPageResponse = {
+  link?: string;
+  title?: { rendered?: string };
+  content?: { rendered?: string };
+  excerpt?: { rendered?: string };
+  featured_media?: number;
 };
 
 type SourceRebuildAsset = {
@@ -250,7 +298,14 @@ type MutableHtmlNode = {
   removeAttribute?: (name: string) => void;
 };
 
-export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsiteScrapeResult> {
+type CatteryWebsiteScrapeOptions = {
+  includeOriginalRebuild?: boolean;
+};
+
+export async function scrapeCatteryWebsite(
+  rawUrl: string,
+  options: CatteryWebsiteScrapeOptions = {},
+): Promise<CatteryWebsiteScrapeResult> {
   const parsedUrl = normalisePublicUrl(rawUrl);
   const html = await fetchText(parsedUrl, {
     maxBytes: MAX_HTML_BYTES,
@@ -406,6 +461,7 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
     html,
     root,
     supplementalPages,
+    includeOriginalRebuild: options.includeOriginalRebuild !== false,
   });
 
   return {
@@ -458,6 +514,45 @@ export async function scrapeCatteryWebsite(rawUrl: string): Promise<CatteryWebsi
       source_url: parsedUrl.toString(),
     },
     demoRooms: rooms,
+  };
+}
+
+export function compactScrapeForPreview(scrape: CatteryWebsiteScrapeResult): CatteryWebsiteScrapeResult {
+  const archive = scrape.sourceArchive;
+  const rebuild = archive?.rebuild;
+  if (!archive || !rebuild?.html) return scrape;
+
+  const htmlBytes = Buffer.byteLength(rebuild.html, 'utf8');
+  if (htmlBytes <= MAX_STORED_REBUILD_HTML_BYTES) return scrape;
+
+  return {
+    ...scrape,
+    sourceArchive: {
+      ...archive,
+      unsupported: [
+        ...(archive.unsupported ?? []),
+        `The rebuilt original preview was ${htmlBytes} bytes, so CatStays kept the scrape evidence and will use the live source preview route for the Original tab.`,
+      ],
+      rebuild: {
+        ...rebuild,
+        status: 'partial',
+        html: '',
+        assets: {
+          ...rebuild.assets,
+          embedded: 0,
+          truncated: true,
+        },
+        pages: rebuild.pages.map((page) => ({
+          ...page,
+          html: '',
+          htmlBytes: 0,
+        })),
+        notes: [
+          ...rebuild.notes,
+          'Stored rebuild HTML was trimmed from the preview payload to keep WordPress imports responsive.',
+        ],
+      },
+    },
   };
 }
 
@@ -930,7 +1025,7 @@ function kindForAsset(contentType: string, url: string): SourceRebuildAsset['kin
 
 async function fetchSupplementalPages(baseUrl: URL, root: ReturnType<typeof parse>): Promise<ScrapedPage[]> {
   const urls = await collectSupplementalPageUrls(baseUrl, root);
-  const pages = await Promise.all(
+  const htmlPages: Array<ScrapedPage | null> = await Promise.all(
     urls.map(async (url) => {
       try {
         const html = await fetchText(new URL(url), {
@@ -944,6 +1039,7 @@ async function fetchSupplementalPages(baseUrl: URL, root: ReturnType<typeof pars
           heading: cleanText(pageRoot.querySelector('h1')?.text ?? pageRoot.querySelector('h2')?.text ?? ''),
           bodyText: readableText(pageRoot),
           images: collectHtmlImages(pageRoot, baseUrl),
+          extractionSource: 'linked-html' as const,
         };
       } catch {
         return null;
@@ -951,7 +1047,325 @@ async function fetchSupplementalPages(baseUrl: URL, root: ReturnType<typeof pars
     }),
   );
 
-  return pages.filter((page): page is ScrapedPage => Boolean(page));
+  const wordpressPages = await fetchWordPressPages(baseUrl);
+  return mergeScrapedPages([
+    ...htmlPages.filter((page): page is ScrapedPage => Boolean(page)),
+    ...wordpressPages,
+  ]).slice(0, Math.max(MAX_CRAWLED_PAGES, wordpressPages.length));
+}
+
+function buildPlatformIntelligence(input: {
+  html: string;
+  root: ReturnType<typeof parse>;
+  scriptUrls: Array<string | URL>;
+  scriptTexts: string[];
+  pages: CatterySourceArchivePage[];
+  bodyText: string;
+  images: string[];
+  galleryImages: Array<{ url: string; caption: string }>;
+  rooms: CatteryScrapedRoom[];
+  services: CatteryScrapedService[];
+  faqs: Array<{ question: string; answer: string }>;
+  reviews: CatteryScrapedReview[];
+  rebuildMethod: SourceRebuildBundle['method'];
+}): CatteryPlatformIntelligence {
+  const source = `${input.html}\n${input.scriptUrls.map((url) => url.toString()).join('\n')}\n${input.scriptTexts.join('\n')}`;
+  const platformSignals = platformSignalsFromSource(source, input.root);
+  const platform = platformSignals.platform;
+  const htmlTextLength = cleanText(input.pages.find((page) => page.extractionSource === 'home-html')?.textSample ?? '').length;
+  const linkedPages = input.pages.filter((page) => page.extractionSource === 'linked-html');
+  const wordpressPages = input.pages.filter((page) => page.extractionSource === 'wordpress-rest');
+  const textCharacters = cleanText(input.bodyText).length;
+
+  const extractionRoutes: CatteryPlatformExtractionRoute[] = [
+    {
+      name: 'home-html',
+      status: htmlTextLength > 80 || input.images.length ? 'used' : 'failed',
+      detail: htmlTextLength > 80
+        ? 'Readable source HTML was extracted from the home page.'
+        : 'The home page HTML had little readable page text.',
+      pages: 1,
+      images: input.images.length,
+      textCharacters: htmlTextLength,
+    },
+    {
+      name: 'linked-pages-and-sitemap',
+      status: linkedPages.length ? 'used' : 'skipped',
+      detail: linkedPages.length
+        ? 'Same-site linked pages or sitemap pages contributed scrape evidence.'
+        : 'No extra linked HTML pages contributed useful scrape evidence.',
+      pages: linkedPages.length,
+      images: linkedPages.reduce((sum, page) => sum + page.images.length, 0),
+      textCharacters: linkedPages.reduce((sum, page) => sum + page.bodyTextLength, 0),
+    },
+    {
+      name: 'wordpress-rest',
+      status: platform === 'wordpress'
+        ? wordpressPages.length ? 'used' : 'failed'
+        : 'skipped',
+      detail: platform === 'wordpress'
+        ? wordpressPages.length
+          ? 'WordPress page content feed was used to recover structured page text and image evidence.'
+          : 'WordPress was detected, but the page content feed did not return useful records.'
+        : 'WordPress route not applicable for this source platform.',
+      pages: wordpressPages.length,
+      images: wordpressPages.reduce((sum, page) => sum + page.images.length, 0),
+      textCharacters: wordpressPages.reduce((sum, page) => sum + page.bodyTextLength, 0),
+    },
+    {
+      name: 'script-bundle',
+      status: input.scriptTexts.length ? 'used' : input.scriptUrls.length ? 'failed' : 'skipped',
+      detail: input.scriptTexts.length
+        ? 'Same-origin JavaScript bundles were inspected for embedded text or media.'
+        : input.scriptUrls.length
+          ? 'Same-origin JavaScript bundles were discovered but could not be read.'
+          : 'No same-origin JavaScript bundles were needed.',
+      pages: 0,
+      images: 0,
+      textCharacters: input.scriptTexts.reduce((sum, text) => sum + text.length, 0),
+    },
+    {
+      name: 'rendered-original-rebuild',
+      status: 'used',
+      detail: input.rebuildMethod === 'rendered-browser'
+        ? 'The original preview was rebuilt from a rendered browser DOM.'
+        : 'The original preview was rebuilt from fetched source HTML.',
+      pages: 1,
+    },
+  ];
+
+  return {
+    platform,
+    confidence: platformSignals.confidence,
+    signals: platformSignals.signals,
+    builders: platformSignals.builders,
+    extractionRoutes,
+    contentQuality: contentQualityFromEvidence({
+      pages: input.pages.length,
+      textCharacters,
+      images: input.images.length,
+      galleryImages: input.galleryImages.length,
+      rooms: input.rooms.length,
+      services: input.services.length,
+      faqs: input.faqs.length,
+      reviews: input.reviews.length,
+    }),
+  };
+}
+
+function platformSignalsFromSource(
+  source: string,
+  root: ReturnType<typeof parse>,
+): Pick<CatteryPlatformIntelligence, 'platform' | 'confidence' | 'signals' | 'builders'> {
+  const lower = source.toLowerCase();
+  const builders = uniqueStrings([
+    lower.includes('elementor') ? 'elementor' : '',
+    lower.includes('divi') || lower.includes('et_pb_') ? 'divi' : '',
+    lower.includes('wpbakery') || lower.includes('js_composer') ? 'wpbakery' : '',
+    lower.includes('woocommerce') ? 'woocommerce' : '',
+    lower.includes('wix-code') || lower.includes('static.wixstatic.com') ? 'wix' : '',
+    lower.includes('squarespace') ? 'squarespace' : '',
+    lower.includes('shopify') ? 'shopify' : '',
+    lower.includes('webflow') ? 'webflow' : '',
+  ].filter(Boolean));
+
+  const candidates: Array<{ platform: WebsitePlatformType; signals: string[] }> = [
+    {
+      platform: 'wordpress',
+      signals: [
+        lower.includes('/wp-content/') ? '/wp-content/' : '',
+        lower.includes('/wp-includes/') ? '/wp-includes/' : '',
+        lower.includes('/wp-json/') ? '/wp-json/' : '',
+        root.querySelector('meta[name="generator"][content*="WordPress" i]') ? 'generator:WordPress' : '',
+      ].filter(Boolean),
+    },
+    {
+      platform: 'wix',
+      signals: [
+        lower.includes('static.wixstatic.com') ? 'static.wixstatic.com' : '',
+        lower.includes('wix-code') ? 'wix-code' : '',
+        lower.includes('wixsite') ? 'wixsite' : '',
+      ].filter(Boolean),
+    },
+    {
+      platform: 'squarespace',
+      signals: [
+        lower.includes('static1.squarespace.com') ? 'static1.squarespace.com' : '',
+        lower.includes('squarespace') ? 'squarespace' : '',
+      ].filter(Boolean),
+    },
+    {
+      platform: 'shopify',
+      signals: [
+        lower.includes('cdn.shopify.com') ? 'cdn.shopify.com' : '',
+        lower.includes('shopify.theme') ? 'Shopify.theme' : '',
+        lower.includes('shopify-section') ? 'shopify-section' : '',
+      ].filter(Boolean),
+    },
+    {
+      platform: 'webflow',
+      signals: [
+        lower.includes('webflow.js') ? 'webflow.js' : '',
+        lower.includes('data-wf-page') ? 'data-wf-page' : '',
+        lower.includes('webflow.io') ? 'webflow.io' : '',
+      ].filter(Boolean),
+    },
+  ];
+
+  const winner = [...candidates].sort((left, right) => right.signals.length - left.signals.length)[0];
+  if (winner?.signals.length) {
+    return {
+      platform: winner.platform,
+      confidence: winner.signals.length >= 2 ? 'high' : 'medium',
+      signals: winner.signals,
+      builders,
+    };
+  }
+
+  const hasSpaShell =
+    Boolean(root.querySelector('#root, #app, [data-reactroot]')) &&
+    root.querySelectorAll('script[src]').length >= 1 &&
+    cleanText(root.querySelector('body')?.text ?? '').length < 400;
+  if (hasSpaShell) {
+    return {
+      platform: 'react-spa',
+      confidence: 'medium',
+      signals: ['thin-app-shell', 'script-rendered-content'],
+      builders,
+    };
+  }
+
+  return {
+    platform: cleanText(root.querySelector('body')?.text ?? '').length > 400 ? 'static-html' : 'unknown',
+    confidence: 'low',
+    signals: [],
+    builders,
+  };
+}
+
+function contentQualityFromEvidence(input: {
+  pages: number;
+  textCharacters: number;
+  images: number;
+  galleryImages: number;
+  rooms: number;
+  services: number;
+  faqs: number;
+  reviews: number;
+}): CatteryPlatformContentQuality {
+  const reasons: string[] = [];
+  let score = 0;
+
+  if (input.pages >= 3) score += 18;
+  else if (input.pages >= 1) score += 8;
+  else reasons.push('No readable source pages were captured.');
+
+  if (input.textCharacters >= 2500) score += 30;
+  else if (input.textCharacters >= 800) score += 18;
+  else if (input.textCharacters >= 250) score += 8;
+  else reasons.push('Very little readable source text was captured.');
+
+  if (input.images >= 8) score += 18;
+  else if (input.images >= 3) score += 12;
+  else if (input.images >= 1) score += 6;
+  else reasons.push('No owner-site images were captured.');
+
+  if (input.galleryImages >= 6) score += 10;
+  else if (input.galleryImages >= 1) score += 5;
+  else reasons.push('No gallery image set was available.');
+
+  if (input.rooms) score += 8;
+  if (input.services) score += 6;
+  if (input.faqs) score += 5;
+  if (input.reviews) score += 5;
+
+  const normalizedScore = Math.min(100, score);
+  const level: CatteryPlatformContentQuality['level'] =
+    normalizedScore >= 70 ? 'high' : normalizedScore >= 40 ? 'medium' : 'low';
+  const canBuildPreview = normalizedScore >= 40 && (input.images > 0 || input.textCharacters >= 800);
+  const shouldAvoidGenericFallback = level === 'low' || input.images === 0 || input.textCharacters < 250;
+
+  if (!canBuildPreview) {
+    reasons.push('Captured source evidence is not strong enough for a trustworthy generated preview.');
+  }
+  if (shouldAvoidGenericFallback) {
+    reasons.push('Do not replace missing source evidence with stock images or generic template copy.');
+  }
+
+  return {
+    score: normalizedScore,
+    level,
+    canBuildPreview,
+    shouldAvoidGenericFallback,
+    reasons: uniqueStrings(reasons),
+  };
+}
+
+async function fetchWordPressPages(baseUrl: URL): Promise<ScrapedPage[]> {
+  const apiUrl = new URL('/wp-json/wp/v2/pages', baseUrl);
+  apiUrl.searchParams.set('per_page', '24');
+  apiUrl.searchParams.set('_fields', 'link,title,content,excerpt,featured_media');
+
+  try {
+    const json = await fetchText(apiUrl, {
+      maxBytes: MAX_HTML_BYTES,
+      acceptedContent: /json|javascript|text\/plain/i,
+      allowByPath: /\/wp-json\/wp\/v2\/pages/i,
+    });
+    const records = JSON.parse(json) as WordPressPageResponse[];
+    if (!Array.isArray(records)) return [];
+
+    return records
+      .map((record) => wordpressPageToScrapedPage(record, baseUrl))
+      .filter((page): page is ScrapedPage => Boolean(page));
+  } catch {
+    return [];
+  }
+}
+
+function wordpressPageToScrapedPage(record: WordPressPageResponse, baseUrl: URL): ScrapedPage | null {
+  const url = absoluteUrl(record.link ?? '', baseUrl);
+  const renderedContent = record.content?.rendered ?? '';
+  const renderedExcerpt = record.excerpt?.rendered ?? '';
+  const contentRoot = parse(renderedContent || renderedExcerpt);
+  const title = cleanText(htmlToReadableText(record.title?.rendered ?? ''));
+  const bodyText = cleanText(htmlToReadableText(renderedContent) || htmlToReadableText(renderedExcerpt));
+  const heading = cleanText(contentRoot.querySelector('h1')?.text ?? contentRoot.querySelector('h2')?.text ?? title);
+  const images = collectHtmlImages(contentRoot, baseUrl);
+
+  if (!url || (!title && !bodyText && !images.length)) return null;
+  return {
+    url,
+    title,
+    heading: heading || title,
+    bodyText,
+    images,
+    extractionSource: 'wordpress-rest',
+  };
+}
+
+function htmlToReadableText(html: string): string {
+  if (!html) return '';
+  const root = parse(html);
+  root.querySelectorAll('script, style, noscript, svg, form').forEach((node) => node.remove());
+  return cleanText(root.text);
+}
+
+function mergeScrapedPages(pages: ScrapedPage[]): ScrapedPage[] {
+  const byUrl = new Map<string, ScrapedPage>();
+  for (const page of pages) {
+    const key = page.url.replace(/#.*$/, '').replace(/\/$/, '');
+    const existing = byUrl.get(key);
+    if (!existing || scrapedPageScore(page) > scrapedPageScore(existing)) {
+      byUrl.set(key, page);
+    }
+  }
+  return Array.from(byUrl.values())
+    .sort((left, right) => pagePriority(right.url) - pagePriority(left.url));
+}
+
+function scrapedPageScore(page: ScrapedPage): number {
+  return cleanText(page.bodyText).length + page.images.length * 25 + (page.heading ? 20 : 0);
 }
 
 async function buildSourceArchive(input: {
@@ -972,6 +1386,7 @@ async function buildSourceArchive(input: {
   html: string;
   root: ReturnType<typeof parse>;
   supplementalPages: ScrapedPage[];
+  includeOriginalRebuild: boolean;
 }): Promise<CatterySourceArchive> {
   const homeText = cleanText(input.homeBodyText);
   const stylesheetCount = input.root
@@ -987,6 +1402,7 @@ async function buildSourceArchive(input: {
       bodyTextLength: homeText.length,
       textSample: homeText.slice(0, 1200),
       images: input.images,
+      extractionSource: 'home-html',
     },
     ...input.supplementalPages.map((page) => ({
       sourceUrl: page.url,
@@ -995,6 +1411,7 @@ async function buildSourceArchive(input: {
       bodyTextLength: cleanText(page.bodyText).length,
       textSample: cleanText(page.bodyText).slice(0, 1200),
       images: page.images,
+      extractionSource: page.extractionSource,
     })),
   ];
 
@@ -1005,12 +1422,34 @@ async function buildSourceArchive(input: {
   if (!pages.length) {
     unsupported.push('No readable pages were captured.');
   }
-  const rebuildBundle = await buildSourceRebuildBundle(input.html, input.parsedUrl, input.scriptUrls);
+  const rebuildBundle = input.includeOriginalRebuild
+    ? await buildSourceRebuildBundle(input.html, input.parsedUrl, input.scriptUrls)
+    : lightweightSourceRebuildBundle(input.parsedUrl);
   if (rebuildBundle.failedAssets.length) {
     unsupported.push(`${rebuildBundle.failedAssets.length} source assets could not be embedded in the rebuilt original preview.`);
   }
   if (rebuildBundle.truncated) {
     unsupported.push('The rebuilt original preview reached the Stage 1 asset budget and may still reference some original remote assets.');
+  }
+  const platform = buildPlatformIntelligence({
+    html: input.html,
+    root: input.root,
+    scriptUrls: input.scriptUrls,
+    scriptTexts: input.scriptTexts,
+    pages,
+    bodyText: input.bodyText,
+    images: input.images,
+    galleryImages: input.galleryImages,
+    rooms: input.rooms,
+    services: input.services,
+    faqs: input.faqs,
+    reviews: input.reviews,
+    rebuildMethod: rebuildBundle.method,
+  });
+  if (platform.contentQuality.shouldAvoidGenericFallback) {
+    unsupported.push(
+      'Imported source confidence is low; generated previews should wait for richer source data instead of replacing it with generic template content.',
+    );
   }
 
   return {
@@ -1019,6 +1458,7 @@ async function buildSourceArchive(input: {
     sourceUrl: input.parsedUrl.toString(),
     sourceHost: input.sourceHost,
     capturedAt,
+    platform,
     rebuild: {
       status: rebuildBundle.failedAssets.length || rebuildBundle.truncated ? 'partial' : 'rebuilt',
       sourceUrl: input.parsedUrl.toString(),
@@ -1041,10 +1481,16 @@ async function buildSourceArchive(input: {
         },
       ],
       notes: [
-        rebuildBundle.method === 'rendered-browser'
-          ? 'Captured from a rendered browser DOM during import, then rebuilt for CatStays original-site preview.'
-          : 'Captured from fetched source HTML during import, then rebuilt for CatStays original-site preview.',
-        'Stage 1 stores the rebuilt original preview inside the content source raw data so it can be replayed without stock imagery.',
+        ...(input.includeOriginalRebuild
+          ? [
+              rebuildBundle.method === 'rendered-browser'
+                ? 'Captured from a rendered browser DOM during import, then rebuilt for CatStays original-site preview.'
+                : 'Captured from fetched source HTML during import, then rebuilt for CatStays original-site preview.',
+              'Stage 1 stores the rebuilt original preview inside the content source raw data so it can be replayed without stock imagery.',
+            ]
+          : [
+              'Original preview rebuild was skipped during fast website import; the Original tab can use the live source preview route.',
+            ]),
         ...rebuildBundle.notes,
       ],
     },
@@ -1065,6 +1511,18 @@ async function buildSourceArchive(input: {
       scripts: input.scriptTexts.length,
     },
     unsupported,
+  };
+}
+
+function lightweightSourceRebuildBundle(baseUrl: URL): SourceRebuildBundle {
+  return {
+    html: '',
+    method: 'http-html',
+    notes: [`Original preview rebuild skipped for fast import of ${baseUrl.hostname}.`],
+    assets: [],
+    failedAssets: [],
+    truncated: true,
+    totalBytes: 0,
   };
 }
 
@@ -1174,6 +1632,15 @@ function uniqueUrls(urls: string[]): string[] {
     const key = url.replace(/#.*$/, '').replace(/\/$/, '');
     if (seen.has(key)) return false;
     seen.add(key);
+    return true;
+  });
+}
+
+function uniqueStrings(values: string[]): string[] {
+  const seen = new Set<string>();
+  return values.filter((value) => {
+    if (!value || seen.has(value)) return false;
+    seen.add(value);
     return true;
   });
 }
@@ -2693,7 +3160,7 @@ function buildSiteDescription(
   const bundleSummary = firstText(bundleTexts, /cat boarding|cattery|feline|facility/i);
   if (!isWeakDescription(bundleSummary)) return cleanText(bundleSummary);
 
-  return 'A cat boarding website imported into CatStays.';
+  return 'Cat boarding and care information.';
 }
 
 function pageText(pages: ScrapedPage[], pattern: RegExp): string {
@@ -2831,7 +3298,7 @@ function buildCommitmentSection(
     : [
         {
           title: 'Safe and secure',
-          description: 'Imported care standards from the public cattery website.',
+          description: 'Care standards from the public cattery website.',
         },
       ];
   const vaccinationText = firstSentence(bodyText.match(/All cats must be vaccinated[^.]+(?:\.[^.]+)?/i)?.[0] ?? '');
@@ -3007,6 +3474,8 @@ function escapeHtml(value: string): string {
 
 function cleanText(value: string): string {
   return decodeEntities(value)
+    .replace(/<!doctype[^>]*>/gi, ' ')
+    .replace(/<!DOCTYPE[^>]*>/g, ' ')
     .replace(/\\n/g, ' ')
     .replace(/\\"/g, '"')
     .replace(/\\'/g, "'")

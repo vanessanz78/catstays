@@ -1160,7 +1160,7 @@ export function buildFallbackScrapeForUrl(rawUrl: string): ImportedCatteryScrape
     sourceUrl: sourceUrl.toString(),
     sourceHost: host,
     title: businessName,
-    description: `${businessName} has been imported into CatStays as a starter preview. Add rooms, pricing, photos, and booking rules to finish setup.`,
+    description: `${businessName} offers cat boarding and care for local families.`,
     heading: businessName,
     heroImage: genericCatAssets[0],
     images: genericCatAssets,
@@ -1209,7 +1209,7 @@ function buildSiteContentLibrary(input: {
       id: 'hero',
       category: 'hero',
       title: scrape.heading || businessName,
-      text: scrape.description || `${businessName} has been imported into CatStays.`,
+      text: scrape.description || `${businessName} offers cat boarding and care for local families.`,
       source: scrape.extractedFrom?.html ? 'scrape' : 'generated',
       images: input.galleryImages[0] ? [input.galleryImages[0]] : scrape.heroImage ? [{ url: scrape.heroImage, caption: businessName }] : [],
       links: scrape.bookingUrl ? [{ label: 'Book Now', url: scrape.bookingUrl }] : [],
@@ -1649,7 +1649,7 @@ function genericHighlights(): NonNullable<ImportedCatteryScrape['highlights']> {
     },
     {
       title: 'Online Booking Ready',
-      description: 'Turn the imported website into a booking-ready CatStays setup.',
+      description: 'Make enquiries simple with clear booking details and care information.',
     },
     {
       title: 'Owner Updates',

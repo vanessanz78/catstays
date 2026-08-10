@@ -14,6 +14,10 @@ import {
   type WebsiteUnderstandingModel,
   type WebsiteUnderstandingSection,
 } from './sourceUnderstanding';
+import {
+  contentIntelligencePlanFromModel,
+  type ContentIntelligencePlan,
+} from './contentIntelligence';
 
 export type { ImportedCatteryScrape } from './deloraineDemo';
 
@@ -208,6 +212,7 @@ export interface CatstaysTemplateContent {
   };
   contentLibrary: CatterySiteContentLibrary;
   sourceTruth?: WebsiteUnderstandingModel;
+  contentIntelligencePlan?: ContentIntelligencePlan;
 }
 
 export const previewTemplateCards: PreviewTemplateOption[] = [
@@ -443,6 +448,7 @@ export function normalizePreviewTemplateId(templateId: unknown): PreviewTemplate
 }
 
 function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<string, any>): CatstaysTemplateContent {
+  const contentIntelligencePlan = contentIntelligencePlanFromModel(model);
   const businessName = model.identity.businessName;
   const heroSection = sectionByRole(model, 'hero') ?? model.sections[0];
   const aboutSection = sectionByRole(model, 'about') ?? sectionByRole(model, 'introduction') ?? heroSection;
@@ -452,6 +458,20 @@ function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<s
   const groomingSection = bestSectionByRole(model, 'grooming');
   const servicesSection = bestSectionByRole(model, 'services');
   const pricingSection = bestSectionByRole(model, 'pricing');
+  const heroText = bestWebsiteText(
+    [
+      ...model.sections.filter(isHeroStorySection),
+      heroSection,
+      aboutSection,
+      facilitiesSection,
+      servicesSection,
+      accommodationSection,
+    ],
+    model.identity.tagline,
+    businessName,
+  );
+  const accommodationLabel = friendlySectionTitle(accommodationSection, 'Accommodation and pricing');
+  const facilitiesLabel = friendlySectionTitle(facilitiesSection, 'Facilities');
   const contactSection = sectionByRole(model, 'contact') ?? sectionByRole(model, 'location');
   const imagePlan = createSourceImagePlan(model.media.images);
   const heroImage = imagePlan.takeForRoles(['hero', 'accommodation', 'gallery']);
@@ -461,8 +481,8 @@ function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<s
     .filter((section): section is WebsiteUnderstandingSection => Boolean(section))
     .map((section) => ({
       image: imagePlan.takeFromSection(section),
-      title: sectionTitle(section, 'Source section'),
-      text: section.body,
+      title: sectionTitle(section, 'Care service'),
+      text: excerpt(section.body, 320),
       price: section.items.find((item) => item.price)?.price || '',
     }))
     .filter((service) => service.title || service.text || service.image);
@@ -470,7 +490,7 @@ function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<s
     ? pricingSection.items.map((item) => ({
         image: imagePlan.takeFromSection(pricingSection),
         title: item.title,
-        text: item.text || pricingSection.body,
+        text: item.text || 'Comfortable accommodation with daily care and secure access.',
         price: item.price || '',
         features: [],
       }))
@@ -479,7 +499,7 @@ function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<s
     ? accommodationSection.items.map((item) => ({
         image: item.image || imagePlan.takeFromSection(accommodationSection),
         title: item.title,
-        text: item.text || accommodationSection.body,
+        text: item.text || 'Comfortable accommodation with daily care and secure access.',
         price: item.price || '',
         features: [],
       }))
@@ -492,7 +512,7 @@ function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<s
     title: sectionTitle(section, 'Source section'),
     text: excerpt(section.body, 220),
   })).filter((feature) => feature.title || feature.text);
-  const gallery = imagePlan.remaining(18).map((image, index) => ({
+  const gallery = imagePlan.remaining(96).map((image, index) => ({
     image: image.url,
     caption: image.caption || image.nearbyHeading || `${businessName} photo ${index + 1}`,
   }));
@@ -502,18 +522,18 @@ function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<s
   return {
     business: {
       name: businessName,
-      tagline: model.identity.tagline || 'Imported owner website',
+      tagline: model.identity.tagline || model.identity.location || '',
       location: model.identity.location,
     },
     hero: {
-      eyebrow: 'Imported owner website',
+      eyebrow: model.identity.location || 'Cat boarding and care',
       heading: sectionTitle(heroSection, businessName),
-      text: excerpt(heroSection?.body || model.identity.tagline, 360),
+      text: excerpt(heroText, 360),
       image: heroImage,
       button: model.booking.label,
       primaryButton: model.booking.label,
       primaryHref: model.booking.url || '#contact',
-      secondaryButton: accommodationSection ? sectionTitle(accommodationSection, 'Accommodation') : 'Explore the site',
+      secondaryButton: accommodationSection ? accommodationLabel : 'Explore the site',
       secondaryHref: accommodationSection ? '#suites' : '#about',
     },
     theme: {
@@ -525,22 +545,22 @@ function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<s
       bodyFont: stringFrom(data.bodyFont, data.subheadingFont, 'inter'),
     },
     sectionHeadings: {
-      care: 'Source highlights',
-      facilities: sectionTitle(facilitiesSection, 'Facilities'),
-      suites: sectionTitle(accommodationSection ?? pricingSection, 'Accommodation and pricing'),
+      care: `Why choose ${businessName}`,
+      facilities: facilitiesLabel,
+      suites: friendlySectionTitle(accommodationSection ?? pricingSection, 'Accommodation and pricing'),
       services: 'Services',
-      gallery: 'Source photos',
+      gallery: 'Gallery',
       reviews: 'Testimonials',
       contact: 'Contact',
     },
     features,
     whyChoose: {
-      title: 'Source highlights',
+      title: `Why choose ${businessName}`,
       text: excerpt(aboutSection?.body || heroSection?.body, 420),
       items: features,
     },
     facilities: {
-      title: sectionTitle(facilitiesSection, 'Facilities'),
+      title: facilitiesLabel,
       text: excerpt(facilitiesSection?.body, 520),
       image: facilityImage,
       items: features,
@@ -555,7 +575,7 @@ function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<s
     suites,
     testimonials: model.testimonials.map((testimonial) => ({
       quote: testimonial.text,
-      author: testimonial.name || 'Source testimonial',
+      author: testimonial.name || 'Happy client',
       image: imagePlan.takeNext(),
       location: testimonial.location || '',
     })),
@@ -569,10 +589,10 @@ function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<s
       image: imagePlan.takeFromSection(sectionByRole(model, 'story')) || aboutImage,
     },
     commitment: {
-      title: 'Source commitments',
+      title: `${businessName} care standards`,
       text: excerpt(healthSection?.body || accommodationSection?.body || aboutSection?.body, 520),
       items: featureSections.map((section) => ({
-        title: sectionTitle(section, 'Source detail'),
+        title: sectionTitle(section, 'Care detail'),
         description: excerpt(section.body, 240),
       })).filter((item) => item.title || item.description),
     },
@@ -583,8 +603,8 @@ function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<s
       virtualTourUrl: '',
     },
     booking: {
-      text: model.booking.url ? 'Use the imported source booking link to enquire.' : 'Contact the business using the imported source details.',
-      bannerText: model.booking.url ? 'Book or enquire from the source website.' : 'Contact details imported from the source website.',
+      text: model.booking.url ? "Book or enquire about your cat's stay." : 'Contact the business to enquire about availability.',
+      bannerText: "Book or enquire about your cat's stay.",
       primaryCta: model.booking.label,
     },
     footer: {
@@ -598,12 +618,13 @@ function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<s
     },
     contentLibrary: navContentLibrary,
     sourceTruth: model,
+    contentIntelligencePlan,
   };
 }
 
 export function buildCatstaysTemplateContent(data: Record<string, any>): CatstaysTemplateContent {
   const sourceTruth = buildWebsiteUnderstandingModel(data);
-  if (sourceTruth.isImported && sourceTruth.sections.length) {
+  if (sourceTruth.isImported && (sourceTruth.sections.length || sourceTruth.diagnostics.shouldAvoidGenericFallback)) {
     return contentFromSourceTruth(sourceTruth, data);
   }
 
@@ -1282,11 +1303,56 @@ function sectionTitle(section: WebsiteUnderstandingSection | undefined, fallback
   return stringFrom(section?.heading, fallback);
 }
 
+function friendlySectionTitle(section: WebsiteUnderstandingSection | undefined, fallback: string) {
+  const title = sectionTitle(section, fallback);
+  if (/^tips when booking:?$/i.test(title)) return fallback;
+  return title;
+}
+
 function excerpt(value: unknown, length = 360) {
   const text = stringFrom(value);
   if (text.length <= length) return text;
   const clipped = text.slice(0, length).replace(/\s+\S*$/, '').trim();
   return clipped ? `${clipped}...` : text.slice(0, length);
+}
+
+function bestWebsiteText(
+  sections: Array<WebsiteUnderstandingSection | undefined>,
+  fallback: string,
+  businessName: string,
+) {
+  for (const section of sections) {
+    const text = stringFrom(section?.body);
+    if (!isWeakWebsiteText(text, businessName)) return text;
+  }
+  return fallback;
+}
+
+function isWeakWebsiteText(text: string, businessName: string) {
+  if (!text || text.length < 80) return true;
+  const normalized = text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+  const normalizedBusinessName = businessName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+  if (normalized === normalizedBusinessName) return true;
+  if (isTariffHeavyText(text)) return true;
+  return normalized.split(/\s+/).length < 14;
+}
+
+function isHeroStorySection(section: WebsiteUnderstandingSection) {
+  if (['pricing', 'contact', 'faq', 'gallery', 'footer'].includes(section.semanticRole)) return false;
+  if (/vaccination|terms|conditions?|policy|privacy|booking|fees?|pricing/i.test(`${section.heading} ${section.sourcePage || ''}`)) return false;
+  if (isTariffHeavyText(section.body)) return false;
+  return /welcome|about|resort|home|guest|family|managed|care/i.test(`${section.heading} ${section.body}`);
+}
+
+function isTariffHeavyText(text: string) {
+  const priceMentions = text.match(/\$\s*[0-9]/g)?.length ?? 0;
+  return priceMentions >= 3 || /Standard\s*-\s*1\s*Cat|Master Suite\s*-\s*1\s*Cat|Penthouse\s*-\s*1\s*Cat/i.test(text);
 }
 
 function contentLibraryFromSourceTruth(model: WebsiteUnderstandingModel): CatterySiteContentLibrary {

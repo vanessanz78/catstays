@@ -52,6 +52,27 @@ export interface WebsiteUnderstandingSection {
 
 export interface WebsiteUnderstandingModel {
   isImported: boolean;
+  platform?: {
+    platform: string;
+    confidence: string;
+    builders: string[];
+    signals: string[];
+    contentQuality?: {
+      score?: number;
+      level?: string;
+      canBuildPreview?: boolean;
+      shouldAvoidGenericFallback?: boolean;
+      reasons?: string[];
+    };
+    extractionRoutes?: Array<{
+      name?: string;
+      status?: string;
+      detail?: string;
+      pages?: number;
+      images?: number;
+      textCharacters?: number;
+    }>;
+  };
   identity: {
     businessName: string;
     sourceUrl: string;
@@ -89,6 +110,10 @@ export interface WebsiteUnderstandingModel {
     contentBlocks: number;
     importedImages: number;
     stockImagesRendered: number;
+    importPlatform: string;
+    importConfidence: string;
+    contentQualityScore: number;
+    shouldAvoidGenericFallback: boolean;
   };
 }
 
@@ -98,6 +123,7 @@ export function buildWebsiteUnderstandingModel(data: AnyRecord): WebsiteUndersta
   const record = data.previewImportRecord as AnyRecord | undefined;
   const normalized = (record?.normalizedPreviewData ?? data) as AnyRecord;
   const sourceArchive = (record?.source?.sourceArchive ?? normalized.sourceArchive ?? data.sourceArchive) as AnyRecord | undefined;
+  const platform = platformIntelligenceFromArchive(sourceArchive);
   const contentLibrary = (record?.contentLibrary ?? normalized.siteContentLibrary ?? data.siteContentLibrary) as CatterySiteContentLibrary | undefined;
   const sourceUrl = stringFrom(record?.source?.url, data.sourceUrl, data.importSourceUrl, normalized.sourceUrl);
   const sourceHost = stringFrom(record?.source?.host, data.sourceHost, normalized.sourceHost, hostFromUrl(sourceUrl));
@@ -128,6 +154,7 @@ export function buildWebsiteUnderstandingModel(data: AnyRecord): WebsiteUndersta
 
   return {
     isImported,
+    platform,
     identity: {
       businessName,
       sourceUrl,
@@ -159,7 +186,43 @@ export function buildWebsiteUnderstandingModel(data: AnyRecord): WebsiteUndersta
       contentBlocks: blocks.length,
       importedImages: images.length,
       stockImagesRendered: 0,
+      importPlatform: stringFrom(platform?.platform),
+      importConfidence: stringFrom(platform?.confidence),
+      contentQualityScore: Number(platform?.contentQuality?.score || 0),
+      shouldAvoidGenericFallback: Boolean(platform?.contentQuality?.shouldAvoidGenericFallback),
     },
+  };
+}
+
+function platformIntelligenceFromArchive(sourceArchive: AnyRecord | undefined): WebsiteUnderstandingModel['platform'] | undefined {
+  const platform = sourceArchive?.platform as AnyRecord | undefined;
+  if (!platform) return undefined;
+  const contentQuality = platform.contentQuality as AnyRecord | undefined;
+  return {
+    platform: stringFrom(platform.platform),
+    confidence: stringFrom(platform.confidence),
+    builders: arrayFrom(platform.builders).map((item) => stringFrom(item)).filter(Boolean),
+    signals: arrayFrom(platform.signals).map((item) => stringFrom(item)).filter(Boolean),
+    extractionRoutes: arrayFrom(platform.extractionRoutes).map((route) => {
+      const record = route as AnyRecord;
+      return {
+        name: stringFrom(record.name),
+        status: stringFrom(record.status),
+        detail: stringFrom(record.detail),
+        pages: typeof record.pages === 'number' ? record.pages : undefined,
+        images: typeof record.images === 'number' ? record.images : undefined,
+        textCharacters: typeof record.textCharacters === 'number' ? record.textCharacters : undefined,
+      };
+    }),
+    contentQuality: contentQuality
+      ? {
+          score: typeof contentQuality.score === 'number' ? contentQuality.score : undefined,
+          level: stringFrom(contentQuality.level),
+          canBuildPreview: typeof contentQuality.canBuildPreview === 'boolean' ? contentQuality.canBuildPreview : undefined,
+          shouldAvoidGenericFallback: typeof contentQuality.shouldAvoidGenericFallback === 'boolean' ? contentQuality.shouldAvoidGenericFallback : undefined,
+          reasons: arrayFrom(contentQuality.reasons).map((item) => stringFrom(item)).filter(Boolean),
+        }
+      : undefined,
   };
 }
 
@@ -482,6 +545,9 @@ function pageHeading(page: AnyRecord, businessName: string) {
 function itemsFromPageText(text: string, role: SourceSemanticRole) {
   if (!text) return [];
   if (role === 'pricing' || role === 'grooming' || role === 'health-care' || role === 'accommodation') {
+    const accommodationItems = accommodationPriceItems(text);
+    if (accommodationItems.length) return accommodationItems;
+
     return uniquePriceItems([
       ...['Basic Care', 'Moderate Care', 'Intense Care', 'Short Hair', 'Medium Hair', 'Long Hair', 'Matting Removal', 'Standard Grooming']
         .flatMap((name) => {
@@ -511,6 +577,23 @@ function itemsFromPageText(text: string, role: SourceSemanticRole) {
   return [];
 }
 
+function accommodationPriceItems(text: string) {
+  return uniquePriceItems(
+    [...text.matchAll(/\b(Standard|Master Suite|Penthouse)\s*-\s*(\d+)\s*Cats?\s+\$?\s*([0-9]{2,}(?:\s*\.\s*[0-9]{2})?)\s*\/?\s*(Day|day)?/gi)]
+      .map((match) => {
+        const packageName = cleanImportedText(match[1]);
+        const catCount = Number(match[2]);
+        const price = `$${String(match[3]).replace(/\s+/g, '')}`;
+        const unit = cleanImportedText(match[4] || 'day').toLowerCase();
+        return {
+          title: `${packageName} - ${catCount} ${catCount === 1 ? 'Cat' : 'Cats'}`,
+          price,
+          text: `Secure accommodation with indoor/outdoor access, full room service, customised feeding, and fresh water. Rate shown per ${unit}.`,
+        };
+      }),
+  );
+}
+
 function sourceImageFromUrl(url: string, input: Omit<SourceTruthImage, 'url'>): SourceTruthImage | null {
   if (!isUsableImportedImage(url)) return null;
   return { url, ...input };
@@ -520,7 +603,7 @@ function isUsableImportedImage(url: string) {
   if (!/^https?:\/\//i.test(url) && !/^data:image\//i.test(url)) return false;
   if (isStockImage(url)) return false;
   const decoded = safelyDecodeUrlPath(url.split('?')[0].toLowerCase());
-  return !/favicon|apple-touch-icon|placeholder|silhouette|catstays|\/logo[-_.]|cardb\.png/i.test(decoded);
+  return !/favicon|apple-touch-icon|placeholder|silhouette|catstays|(?:^|[-_/])logo(?:[-_.]|$)|cardb\.png/i.test(decoded);
 }
 
 export function isStockImage(url: string) {
@@ -566,7 +649,7 @@ function linkFromBlocks(blocks: AnyRecord[], pattern: RegExp) {
 }
 
 function taglineFromDescription(description: string) {
-  if (!description) return 'Imported owner website';
+  if (!description) return '';
   return description.split(/(?<=[.!?])\s+/)[0].slice(0, 120);
 }
 

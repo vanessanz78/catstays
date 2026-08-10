@@ -151,3 +151,33 @@ Impact:
 ## Open Decisions
 
 - Whether the client-side publish handler should also be hardened so no future account/provisioning error can force a step-1 reset.
+
+## 2026-08-09 - Website Builder V2 Content Intelligence Scaffold Started
+
+Working ref: `phase2/website-builder-v2-content-intelligence`.
+
+Decision: Start a V2 content-intelligence scaffold that formalizes the interpretation layer between saved imported source content and CatStays preview templates.
+
+Reason: The imported website data can persist correctly while preview templates still behave like generic template fills if they do not receive source-order, source-grouping, image-context, template-slot, completeness, and provenance signals. The new scaffold creates that contract without changing the frozen ADR-001 platform schema.
+
+Impact:
+
+- Saved imported source data can now be transformed into a `ContentIntelligencePlan`.
+- The plan groups source sections into ordered clusters, maps clusters to template slots, and records completeness/unsupported metrics.
+- Existing preview templates can carry the intelligence plan while continuing to render through the current CatStays template components.
+- This is not a database migration, not Phase 3 Media Library, and not the final Assignment Engine. It is a scoped bridge so the current preview layer can stop relying on loose fallback fields while the platform lifecycle remains intact.
+
+## 2026-08-09 - Platform-Aware Website Import Evidence Added
+
+Working ref: `phase2/website-builder-v2-content-intelligence`.
+
+Decision: Add platform detection, extraction route evidence, and source-quality scoring to imported website source archives.
+
+Reason: Harris Hillton exposed a generic importer gap: WordPress/Elementor pages can present thin/noisy HTML while the real page text and media are available through WordPress content feeds. Imported previews need to know which platform route succeeded and whether the captured evidence is strong enough before generated templates are trusted.
+
+Impact:
+
+- Website imports now record detected platform family, builder signals, extraction route statuses, and content-quality confidence in the saved source archive.
+- WordPress imports use the WordPress page content feed as an enrichment route rather than relying only on rendered/fetched HTML.
+- Generated-template source understanding reads the saved platform confidence and flags weak imports so they do not silently masquerade as complete generic template previews.
+- The change remains Phase 2-safe because it enriches existing `content_sources` JSON payloads and does not add a database migration or start Phase 3 Media Library.
