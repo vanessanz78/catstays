@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { WebsiteBuilder } from '../onboarding/WebsiteBuilder';
+import { InlineWebsiteEditor } from '../../components/InlineWebsiteEditor';
 import { RightMenu } from '../../components/RightMenu';
 import { NotificationBell } from '../../components/NotificationBell';
 import { ArrowLeft, Loader2 } from 'lucide-react';
@@ -118,11 +118,6 @@ export function DashboardWebsiteEditor() {
     }
   };
 
-  const handleAIRegenerate = (field: string) => {
-    console.log('AI Regenerate:', field);
-    // Placeholder for AI regeneration
-  };
-
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#F6F4EF' }}>
       {/* Header */}
@@ -149,33 +144,20 @@ export function DashboardWebsiteEditor() {
       </div>
 
       {/* Content */}
-      <div className="w-full p-4 md:p-6 pb-24 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 80px)' }}>
+      <div className="w-full">
         {loading ? (
           <div className="flex min-h-[420px] items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin" style={{ color: '#C46A3A' }} />
           </div>
         ) : (
-          <>
-            {saveError ? (
-              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {saveError}
-              </div>
-            ) : null}
-            {isSaving ? (
-              <div className="mb-4 rounded-lg border border-[#C46A3A]/20 bg-white px-4 py-3 text-sm text-[#0A1128]">
-                Saving your website changes...
-              </div>
-            ) : null}
-            <WebsiteBuilder
-              data={data}
-              setData={setData}
-              onNext={handleSave}
-              onBack={() => window.history.back()}
-              onAIRegenerate={handleAIRegenerate}
-              onChangeTemplate={() => {}}
-              showImportBanner={false}
-            />
-          </>
+          <InlineWebsiteEditor
+            data={data}
+            setData={setData}
+            onSave={handleSave}
+            onBack={() => window.history.back()}
+            isSaving={isSaving}
+            saveError={saveError}
+          />
         )}
       </div>
     </div>
