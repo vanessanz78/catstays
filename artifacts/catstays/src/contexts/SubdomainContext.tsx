@@ -31,7 +31,7 @@ export function detectSubdomainSlug(): string | null {
   if (hostname.includes('replit.dev') || hostname.includes('replit.app') || hostname.includes('kirk.replit')) return null;
   if (hostname === ROOT_DOMAIN || hostname === `www.${ROOT_DOMAIN}`) return null;
   if (hostname.endsWith(`.${ROOT_DOMAIN}`)) {
-    const slug = hostname.slice(0, -(ROOT_DOMAIN.length + 1));
+    const slug = hostname.slice(0, -(ROOT_DOMAIN.length + 1)).replace(/^www\./, '');
     return slug && slug !== 'www' ? slug : null;
   }
   return null;

@@ -516,6 +516,7 @@ function SourceSectionsFlow({ content }: { content: TemplateContent }) {
   return (
     <>
       {sections.map((section, index) => {
+        if (section.role === 'contact') return null;
         if (section.role === 'gallery') {
           return <SourceGallerySection key={section.id} section={section} />;
         }
@@ -1084,18 +1085,6 @@ function LocationSection({ content }: { content: ReturnType<typeof buildCatstays
               <p className="flex gap-3">
                 <MapPin className="mt-1 h-5 w-5 shrink-0 text-[#8c5b32]" />
                 <span>{address}</span>
-              </p>
-            ) : null}
-            {content.footer.phone ? (
-              <p className="flex gap-3">
-                <Phone className="mt-1 h-5 w-5 shrink-0 text-[#8c5b32]" />
-                <span>{content.footer.phone}</span>
-              </p>
-            ) : null}
-            {content.footer.email ? (
-              <p className="flex gap-3">
-                <Mail className="mt-1 h-5 w-5 shrink-0 text-[#8c5b32]" />
-                <span>{content.footer.email}</span>
               </p>
             ) : null}
           </div>

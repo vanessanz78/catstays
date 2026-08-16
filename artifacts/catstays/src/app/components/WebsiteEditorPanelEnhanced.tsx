@@ -1497,12 +1497,58 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
         </AccordionTrigger>
         <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-2">
+            <Label>Contact Section Heading</Label>
+            <Input
+              value={data.contactHeading || ''}
+              onChange={(e) => setData({ ...data, contactHeading: e.target.value })}
+              placeholder="Contact Us"
+              className="rounded-lg"
+            />
+          </div>
+
+          <div className="space-y-2">
             <Label>Business Address</Label>
             <Input
               value={data.address || ''}
-              onChange={(e) => setData({ ...data, address: e.target.value })}
+              onChange={(e) => setData({
+                ...data,
+                address: e.target.value,
+                locationData: { ...(data.locationData || {}), text: e.target.value },
+              })}
               placeholder="123 Cat Lane, Feline City, FC 12345"
               className="rounded-lg"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Location Section Heading</Label>
+            <Input
+              value={data.locationData?.heading || ''}
+              onChange={(e) => setData({ ...data, locationData: { ...(data.locationData || {}), heading: e.target.value } })}
+              placeholder="Our Location"
+              className="rounded-lg"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Location Details</Label>
+            <Textarea
+              value={data.locationData?.text || data.address || ''}
+              onChange={(e) => setData({ ...data, locationData: { ...(data.locationData || {}), text: e.target.value } })}
+              placeholder="50 Konini Street, Abbey Caves, Whangarei..."
+              className="rounded-lg"
+              rows={3}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Directions</Label>
+            <Textarea
+              value={data.locationData?.directions || ''}
+              onChange={(e) => setData({ ...data, locationData: { ...(data.locationData || {}), directions: e.target.value } })}
+              placeholder="Directions from town, landmarks, parking notes..."
+              className="rounded-lg"
+              rows={4}
             />
           </div>
 
@@ -1536,15 +1582,7 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
               rows={3}
             />
           </div>
-        </AccordionContent>
-      </AccordionItem>
 
-      {/* 12. CUSTOM SECTIONS */}
-      <AccordionItem value="custom-sections" className="order-11 border rounded-xl px-4 bg-white">
-        <AccordionTrigger className="hover:no-underline py-4">
-          <span className="font-semibold">{sectionTitles.custom}</span>
-        </AccordionTrigger>
-        <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-2">
             <Label>Virtual Tour Embed URL</Label>
             <Input
@@ -1558,7 +1596,15 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
               className="rounded-lg"
             />
           </div>
+        </AccordionContent>
+      </AccordionItem>
 
+      {/* 12. CUSTOM SECTIONS */}
+      <AccordionItem value="custom-sections" className="order-11 border rounded-xl px-4 bg-white">
+        <AccordionTrigger className="hover:no-underline py-4">
+          <span className="font-semibold">{sectionTitles.custom}</span>
+        </AccordionTrigger>
+        <AccordionContent className="space-y-4 pb-4">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <Label>Add your own sections</Label>
