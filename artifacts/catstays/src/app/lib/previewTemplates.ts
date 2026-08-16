@@ -469,7 +469,7 @@ export function normalizePreviewTemplateId(templateId: unknown): PreviewTemplate
 
 function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<string, any>): CatstaysTemplateContent {
   const contentIntelligencePlan = contentIntelligencePlanFromModel(model);
-  const businessName = model.identity.businessName;
+  const businessName = stringFrom(data.businessName, model.identity.businessName);
   const heroSection = sectionByRole(model, 'hero') ?? model.sections[0];
   const aboutSection = sectionByRole(model, 'about') ?? sectionByRole(model, 'introduction') ?? heroSection;
   const accommodationSection = bestSectionByRole(model, 'accommodation') ?? bestSectionByRole(model, 'rooms');
@@ -495,9 +495,9 @@ function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<s
   const facilitiesLabel = friendlySectionTitle(facilitiesSection, 'Facilities');
   const contactSection = sectionByRole(model, 'contact') ?? sectionByRole(model, 'location');
   const imagePlan = createSourceImagePlan(model.media.images);
-  const heroImage = imagePlan.takeForRoles(['hero', 'accommodation']) || imagePlan.takeForRoles(['gallery'], { allowGalleryFallback: true });
-  const aboutImage = imagePlan.takeFromSection(aboutSection);
-  const facilityImage = imagePlan.takeFromSection(facilitiesSection);
+  const heroImage = stringFrom(data.heroImage, imagePlan.takeForRoles(['hero', 'accommodation']) || imagePlan.takeForRoles(['gallery'], { allowGalleryFallback: true }));
+  const aboutImage = stringFrom(data.aboutImage, imagePlan.takeFromSection(aboutSection));
+  const facilityImage = stringFrom(data.facilitiesImage, imagePlan.takeFromSection(facilitiesSection));
   const sourceServices = uniqueSections([accommodationSection, healthSection, groomingSection, servicesSection])
     .filter((section): section is WebsiteUnderstandingSection => Boolean(section))
     .map((section) => ({
@@ -561,19 +561,19 @@ function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<s
   return {
     business: {
       name: businessName,
-      tagline: model.identity.tagline || model.identity.location || '',
-      location: model.identity.location,
+      tagline: stringFrom(data.tagline, model.identity.tagline, model.identity.location),
+      location: stringFrom(data.location, model.identity.location),
     },
     hero: {
-      eyebrow: model.identity.location || 'Cat boarding and care',
-      heading: sectionTitle(heroSection, businessName),
-      text: excerpt(heroText, 360),
+      eyebrow: stringFrom(data.heroEyebrow, model.identity.location, 'Cat boarding and care'),
+      heading: stringFrom(data.heroHeading, sectionTitle(heroSection, businessName)),
+      text: stringFrom(data.heroSubheading, excerpt(heroText, 360)),
       image: heroImage,
-      button: model.booking.label,
-      primaryButton: model.booking.label,
-      primaryHref: model.booking.url || '#contact',
-      secondaryButton: accommodationSection ? accommodationLabel : 'Explore the site',
-      secondaryHref: accommodationSection ? '#suites' : '#about',
+      button: stringFrom(data.ctaText, data.heroPrimaryCtaText, model.booking.label),
+      primaryButton: stringFrom(data.heroPrimaryCtaText, model.booking.label),
+      primaryHref: stringFrom(data.heroPrimaryCtaHref, model.booking.url, '#contact'),
+      secondaryButton: stringFrom(data.heroSecondaryCtaText, accommodationSection ? accommodationLabel : 'Explore the site'),
+      secondaryHref: stringFrom(data.heroSecondaryCtaHref, accommodationSection ? '#suites' : '#about'),
     },
     theme: {
       primaryColor: stringFrom(data.primaryColor, '#0A1128'),
@@ -584,30 +584,30 @@ function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<s
       bodyFont: stringFrom(data.bodyFont, data.subheadingFont, 'inter'),
     },
     sectionHeadings: {
-      care: `Why choose ${businessName}`,
-      facilities: facilitiesLabel,
-      suites: friendlySectionTitle(accommodationSection ?? pricingSection, 'Accommodation and pricing'),
-      services: 'Services',
-      gallery: 'Gallery',
-      reviews: 'Testimonials',
-      contact: 'Contact',
+      care: stringFrom(data.whyChooseUsHeading, `Why choose ${businessName}`),
+      facilities: stringFrom(data.facilitiesHeading, facilitiesLabel),
+      suites: stringFrom(data.suitesHeading, friendlySectionTitle(accommodationSection ?? pricingSection, 'Accommodation and pricing')),
+      services: stringFrom(data.additionalServicesHeading, 'Services'),
+      gallery: stringFrom(data.galleryHeading, 'Gallery'),
+      reviews: stringFrom(data.testimonialsHeading, 'Testimonials'),
+      contact: stringFrom(data.contactHeading, 'Contact'),
     },
     features,
     whyChoose: {
-      title: `Why choose ${businessName}`,
-      text: excerpt(aboutSection?.body || heroSection?.body, 420),
+      title: stringFrom(data.whyChooseUsHeading, `Why choose ${businessName}`),
+      text: stringFrom(data.whyChooseUsText, excerpt(aboutSection?.body || heroSection?.body, 420)),
       items: features,
     },
     facilities: {
-      title: facilitiesLabel,
-      text: excerpt(facilitiesSection?.body, 520),
+      title: stringFrom(data.facilitiesHeading, facilitiesLabel),
+      text: stringFrom(data.facilitiesText, excerpt(facilitiesSection?.body, 520)),
       image: facilityImage,
       items: features,
     },
     services: sourceServices,
     about: {
-      title: sectionTitle(aboutSection, `About ${businessName}`),
-      text: excerpt(aboutSection?.body || heroSection?.body, 620),
+      title: stringFrom(data.aboutHeading, sectionTitle(aboutSection, `About ${businessName}`)),
+      text: stringFrom(data.aboutText, excerpt(aboutSection?.body || heroSection?.body, 620)),
       image: aboutImage,
     },
     gallery,
@@ -637,9 +637,9 @@ function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<s
       virtualTourUrl: stringFrom(data.virtualTourUrl, locationData.virtualTourUrl, data.contactData?.virtualTourUrl),
     },
     booking: {
-      text: model.booking.url ? "Book or enquire about your cat's stay." : 'Contact the business to enquire about availability.',
-      bannerText: "Book or enquire about your cat's stay.",
-      primaryCta: model.booking.label,
+      text: stringFrom(data.bookingText, model.booking.url ? "Book or enquire about your cat's stay." : 'Contact the business to enquire about availability.'),
+      bannerText: stringFrom(data.bookingBannerText, "Book or enquire about your cat's stay."),
+      primaryCta: stringFrom(data.primaryCta, model.booking.label),
     },
     footer: {
       about: model.footer.about || excerpt(heroSection?.body, 300),
