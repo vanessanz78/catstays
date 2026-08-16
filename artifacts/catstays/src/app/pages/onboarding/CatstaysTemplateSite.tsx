@@ -231,6 +231,7 @@ function previewNavLinks(content: TemplateContent) {
   const seen = new Set(['home']);
   for (const section of content.sourceSections) {
     if (links.length >= 7) break;
+    if (section.hidden || section.role === 'contact' || section.role === 'location') continue;
     if (seen.has(section.anchor)) continue;
     seen.add(section.anchor);
     links.push([shortNavLabel(section), `#${section.anchor}`]);
@@ -510,13 +511,13 @@ function ShowcaseTemplate({
 }
 
 function SourceSectionsFlow({ content }: { content: TemplateContent }) {
-  const sections = content.sourceSections ?? [];
+  const sections = (content.sourceSections ?? []).filter((section) => !section.hidden);
   const hasGallerySection = sections.some((section) => section.role === 'gallery');
 
   return (
     <>
       {sections.map((section, index) => {
-        if (section.role === 'contact') return null;
+        if (section.role === 'contact' || section.role === 'location') return null;
         if (section.role === 'gallery') {
           return <SourceGallerySection key={section.id} section={section} />;
         }
@@ -1067,7 +1068,9 @@ function OwnerStorySection({ content }: { content: ReturnType<typeof buildCatsta
 
 function LocationSection({ content }: { content: ReturnType<typeof buildCatstaysTemplateContent> }) {
   const address = content.footer.address || content.locationDetails.text || content.business.location;
-  const hasLocation = address || content.locationDetails.text || content.locationDetails.directions;
+  const sourceLocationSection = content.sourceSections?.find((section) => !section.hidden && section.role === 'location');
+  const sourceLocationItems = sourceLocationSection?.items.filter((item) => item.title || item.text) ?? [];
+  const hasLocation = address || content.locationDetails.text || content.locationDetails.directions || sourceLocationItems.length;
   if (!hasLocation) return null;
 
   const mapUrl = safeMapUrl(address);
@@ -1080,6 +1083,16 @@ function LocationSection({ content }: { content: ReturnType<typeof buildCatstays
           <h2 className="text-3xl leading-tight md:text-5xl">{content.locationDetails.heading}</h2>
           {content.locationDetails.text ? <p className="mt-5 text-base leading-7 text-[#333]">{content.locationDetails.text}</p> : null}
           {content.locationDetails.directions ? <p className="mt-5 text-sm leading-7 text-[#555]">{content.locationDetails.directions}</p> : null}
+          {sourceLocationItems.length ? (
+            <div className="mt-7 grid gap-3 sm:grid-cols-2">
+              {sourceLocationItems.slice(0, 6).map((item, index) => (
+                <div key={`${item.title}-${index}`} className="rounded-md border border-[#222]/10 bg-[#f8f5ef] p-4">
+                  {item.title ? <p className="font-serif text-lg font-bold text-[#222]">{item.title}</p> : null}
+                  {item.text ? <p className="mt-2 text-sm leading-6 text-[#555]">{item.text}</p> : null}
+                </div>
+              ))}
+            </div>
+          ) : null}
           <div className="mt-7 space-y-3 text-sm leading-6 text-[#444]">
             {address ? (
               <p className="flex gap-3">

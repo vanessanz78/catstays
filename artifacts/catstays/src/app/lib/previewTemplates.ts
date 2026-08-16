@@ -218,6 +218,7 @@ export interface CatstaysTemplateContent {
     text: string;
     sourceOrder: number;
     sourcePage?: string;
+    hidden?: boolean;
     items: Array<{
       title: string;
       text: string;
@@ -543,9 +544,19 @@ function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<s
     image: image.url,
     caption: image.caption || image.nearbyHeading || `${businessName} photo ${index + 1}`,
   }));
-  const contactText = [model.contact.address, model.contact.phone, model.contact.email, model.contact.hours].filter(Boolean).join(' | ');
   const navContentLibrary = contentLibraryFromSourceTruth(model);
-  const sourceSections = sourceSectionsFromModel(model);
+  const editedSourceSections = Array.isArray(data.sourceSections) ? data.sourceSections : [];
+  const sourceSections = editedSourceSections.length
+    ? editedSourceSections
+    : sourceSectionsFromModel(model);
+  const sourceLocationSection = sourceSections?.find((section) => !section.hidden && section.role === 'location');
+  const locationData = data.locationData ?? data.contactData?.locationDetails ?? {};
+  const contactText = [
+    stringFrom(data.address, model.contact.address),
+    stringFrom(data.phone, model.contact.phone),
+    stringFrom(data.email, model.contact.email),
+    stringFrom(data.hours, data.contactData?.hours, model.contact.hours),
+  ].filter(Boolean).join(' | ');
 
   return {
     business: {
@@ -620,10 +631,10 @@ function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<s
       })).filter((item) => item.title || item.description),
     },
     locationDetails: {
-      heading: sectionTitle(contactSection, 'Contact'),
-      text: contactText || excerpt(contactSection?.body, 360),
-      directions: model.contact.address || excerpt(contactSection?.body, 220),
-      virtualTourUrl: '',
+      heading: stringFrom(locationData.heading, sourceLocationSection?.title, sectionTitle(contactSection, 'Contact')),
+      text: stringFrom(locationData.text, sourceLocationSection?.text, contactText, excerpt(contactSection?.body, 360)),
+      directions: stringFrom(locationData.directions, sourceLocationSection?.items?.[0]?.text, model.contact.address, excerpt(contactSection?.body, 220)),
+      virtualTourUrl: stringFrom(data.virtualTourUrl, locationData.virtualTourUrl, data.contactData?.virtualTourUrl),
     },
     booking: {
       text: model.booking.url ? "Book or enquire about your cat's stay." : 'Contact the business to enquire about availability.',
@@ -632,12 +643,12 @@ function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<s
     },
     footer: {
       about: model.footer.about || excerpt(heroSection?.body, 300),
-      phone: model.contact.phone,
-      email: model.contact.email,
-      address: model.contact.address,
-      hours: model.contact.hours,
-      facebook: model.contact.socialLinks.facebook || '',
-      instagram: model.contact.socialLinks.instagram || '',
+      phone: stringFrom(data.phone, model.contact.phone),
+      email: stringFrom(data.email, model.contact.email),
+      address: stringFrom(data.address, model.contact.address),
+      hours: stringFrom(data.hours, data.contactData?.hours, model.contact.hours),
+      facebook: stringFrom(data.facebookUrl, data.socialLinks?.facebook, model.contact.socialLinks.facebook),
+      instagram: stringFrom(data.instagramUrl, data.socialLinks?.instagram, model.contact.socialLinks.instagram),
     },
     sourceSections,
     contentLibrary: navContentLibrary,

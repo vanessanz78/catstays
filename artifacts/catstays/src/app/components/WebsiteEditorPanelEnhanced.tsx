@@ -21,6 +21,9 @@ interface WebsiteEditorPanelEnhancedProps {
 
 export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRegenerating }: WebsiteEditorPanelEnhancedProps) {
   const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
+  const sourceSections = Array.isArray(data.sourceSections) ? data.sourceSections : [];
+  const locationSourceIndex = sourceSections.findIndex((section: any) => section?.role === 'location');
+  const locationSourceSection = locationSourceIndex >= 0 ? sourceSections[locationSourceIndex] : null;
   const sectionTitles = {
     hero: 'Home / Hero',
     care: data.whyChooseUsHeading || 'Care Approach',
@@ -46,6 +49,31 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
 
   const toggleExpanded = (key: string) => {
     setExpandedItems(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const updateSourceSection = (index: number, patch: Record<string, any>) => {
+    const nextSections = [...sourceSections];
+    nextSections[index] = { ...(nextSections[index] || {}), ...patch };
+    setData({ ...data, sourceSections: nextSections });
+  };
+
+  const updateSourceSectionItem = (sectionIndex: number, itemIndex: number, patch: Record<string, any>) => {
+    const section = sourceSections[sectionIndex] || {};
+    const nextItems = [...(Array.isArray(section.items) ? section.items : [])];
+    nextItems[itemIndex] = { ...(nextItems[itemIndex] || {}), ...patch };
+    updateSourceSection(sectionIndex, { items: nextItems });
+  };
+
+  const addSourceSectionItem = (sectionIndex: number) => {
+    const section = sourceSections[sectionIndex] || {};
+    const nextItems = [...(Array.isArray(section.items) ? section.items : []), { title: '', text: '' }];
+    updateSourceSection(sectionIndex, { items: nextItems });
+  };
+
+  const removeSourceSectionItem = (sectionIndex: number, itemIndex: number) => {
+    const section = sourceSections[sectionIndex] || {};
+    const nextItems = (Array.isArray(section.items) ? section.items : []).filter((_: unknown, index: number) => index !== itemIndex);
+    updateSourceSection(sectionIndex, { items: nextItems });
   };
 
   // Helper to render icon options
@@ -1551,6 +1579,90 @@ export function WebsiteEditorPanelEnhanced({ data, setData, onAIRegenerate, isRe
               rows={4}
             />
           </div>
+
+          {locationSourceSection ? (
+            <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <Label>Location Details Block</Label>
+                  <p className="text-xs text-gray-500">These cards appear with the map and location details.</p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => updateSourceSection(locationSourceIndex, { hidden: !locationSourceSection.hidden })}
+                  className="h-8 shrink-0 text-xs"
+                >
+                  {locationSourceSection.hidden ? 'Show' : 'Hide'}
+                </Button>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Location Block Heading</Label>
+                <Input
+                  value={locationSourceSection.title || ''}
+                  onChange={(e) => updateSourceSection(locationSourceIndex, { title: e.target.value })}
+                  placeholder="Our Location"
+                  className="rounded-lg bg-white"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Location Block Text</Label>
+                <Textarea
+                  value={locationSourceSection.text || ''}
+                  onChange={(e) => updateSourceSection(locationSourceIndex, { text: e.target.value })}
+                  placeholder="Location details..."
+                  className="rounded-lg bg-white"
+                  rows={3}
+                />
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label>Direction Cards</Label>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => addSourceSectionItem(locationSourceIndex)}
+                    className="h-7 text-xs"
+                  >
+                    <Plus className="w-3 h-3 mr-1" />
+                    Add Card
+                  </Button>
+                </div>
+
+                {(locationSourceSection.items || []).map((item: any, index: number) => (
+                  <div key={index} className="space-y-2 rounded-lg border border-gray-200 bg-white p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <Label>Card {index + 1}</Label>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => removeSourceSectionItem(locationSourceIndex, index)}
+                        className="h-7 w-7 p-0 text-gray-500 hover:text-red-600"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <Input
+                      value={item.title || ''}
+                      onChange={(e) => updateSourceSectionItem(locationSourceIndex, index, { title: e.target.value })}
+                      placeholder="Direction step title"
+                      className="rounded-lg"
+                    />
+                    <Textarea
+                      value={item.text || ''}
+                      onChange={(e) => updateSourceSectionItem(locationSourceIndex, index, { text: e.target.value })}
+                      placeholder="Direction step details"
+                      className="rounded-lg"
+                      rows={2}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           <div className="space-y-2">
             <Label>Phone Number</Label>
