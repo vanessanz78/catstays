@@ -119,7 +119,9 @@ export function DashboardWebsiteEditor() {
   };
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#F6F4EF' }}>
+    <div className="min-h-screen lg:flex" style={{ backgroundColor: '#F6F4EF' }}>
+      <RightMenu mode="sidebar" />
+      <div className="min-w-0 flex-1">
       {/* Header */}
       <div className="sticky top-0 z-40 bg-white border-b shadow-sm">
         <div className="flex items-center justify-between px-4 py-3">
@@ -138,7 +140,9 @@ export function DashboardWebsiteEditor() {
           </div>
           <div className="flex items-center gap-2">
             <NotificationBell />
-            <RightMenu />
+            <div className="lg:hidden">
+              <RightMenu />
+            </div>
           </div>
         </div>
       </div>
@@ -159,6 +163,7 @@ export function DashboardWebsiteEditor() {
             saveError={saveError}
           />
         )}
+      </div>
       </div>
     </div>
   );

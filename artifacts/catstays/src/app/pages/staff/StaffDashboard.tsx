@@ -759,11 +759,15 @@ export function StaffDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F6F2EA] text-[#0A1128]">
+    <div className="min-h-screen bg-[#F6F2EA] text-[#0A1128] lg:flex">
+      <RightMenu mode="sidebar" />
+      <div className="min-w-0 flex-1">
       <header className="sticky top-0 z-30 border-b border-[#E8DED4] bg-white/95 shadow-sm backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
           <div className="flex items-center gap-3">
-            <RightMenu />
+            <div className="lg:hidden">
+              <RightMenu />
+            </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-[#C46A3A]">Staff dashboard</p>
               <h1 className="text-xl font-semibold">{businessName}</h1>
@@ -829,6 +833,7 @@ export function StaffDashboard() {
           'subscription',
         ].includes(section) && <ToolsSection section={section} />}
       </main>
+      </div>
     </div>
   );
 }
