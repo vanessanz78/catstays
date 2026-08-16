@@ -149,7 +149,7 @@ export function DashboardWebsiteEditor() {
       </div>
 
       {/* Content */}
-      <div className="max-w-6xl mx-auto p-4 md:p-6 pb-24 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 80px)' }}>
+      <div className="w-full p-4 md:p-6 pb-24 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 80px)' }}>
         {loading ? (
           <div className="flex min-h-[420px] items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin" style={{ color: '#C46A3A' }} />
