@@ -17,11 +17,17 @@ const STEPS = [
   { n: 4, label: 'Review & Submit', icon: ClipboardList },
 ];
 
+function parseCatsParam(value: string | null) {
+  const count = Number.parseInt(value || '1', 10);
+  return Number.isFinite(count) ? Math.min(Math.max(count, 1), 4) : 1;
+}
+
 export function BookingFlow() {
   const { tenantId } = useParams();
   const [searchParams] = useSearchParams();
   const { cattery, rooms, loading } = useTenantCattery(tenantId);
   const base = tenantId ? `/tenant/${tenantId}` : '/site';
+  const initialCatCount = parseCatsParam(searchParams.get('cats'));
 
   const [step, setStep] = useState(1);
   const [submitted, setSubmitted] = useState(false);
@@ -32,9 +38,9 @@ export function BookingFlow() {
   const [formData, setFormData] = useState({
     arrivalDate: searchParams.get('checkIn') || '',
     departureDate: searchParams.get('checkOut') || '',
-    numberOfCats: 1,
-    catNames: [''],
-    catBreeds: [''],
+    numberOfCats: initialCatCount,
+    catNames: Array(initialCatCount).fill(''),
+    catBreeds: Array(initialCatCount).fill(''),
     ownerName: '',
     email: '',
     phone: '',
@@ -113,8 +119,10 @@ export function BookingFlow() {
           customerEmail: formData.email,
           phone: formData.phone,
           catNames: formData.catNames,
-          checkIn: fmtDate(formData.arrivalDate),
-          checkOut: fmtDate(formData.departureDate),
+          checkIn: formData.arrivalDate,
+          checkOut: formData.departureDate,
+          displayCheckIn: fmtDate(formData.arrivalDate),
+          displayCheckOut: fmtDate(formData.departureDate),
           nights,
           roomName,
           roomId: selectedRoom?.id || null,
@@ -182,7 +190,7 @@ export function BookingFlow() {
               </div>
 
               <div className="bg-sage/10 rounded-2xl p-4 text-sm text-forest/70">
-                <p>A confirmation email has been sent to <strong>{formData.email}</strong>. We'll reach out within 24 hours to confirm the booking and arrange a deposit.</p>
+                <p>Your request is now in the cattery dashboard under Bookings as a pending request. We'll reach out within 24 hours to confirm the booking and arrange a deposit.</p>
               </div>
 
               <div className="flex gap-3">
@@ -270,9 +278,9 @@ export function BookingFlow() {
                     <div className="space-y-2">
                       <Label>Number of Cats</Label>
                       <div className="flex gap-2">
-                        {[1, 2, 3].map(n => (
+                        {[1, 2, 3, 4].map(n => (
                           <button key={n} type="button" onClick={() => handleCatCountChange(n)} className={`flex-1 py-2 rounded-xl border text-sm font-medium transition-all ${formData.numberOfCats === n ? 'bg-sage text-white border-sage' : 'border-sage/20 text-forest hover:border-sage/50'}`}>
-                            {n} {n === 1 ? 'Cat' : 'Cats'}
+                            {n === 4 ? '4+ Cats' : `${n} ${n === 1 ? 'Cat' : 'Cats'}`}
                           </button>
                         ))}
                       </div>

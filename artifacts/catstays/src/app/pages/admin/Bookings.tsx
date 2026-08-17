@@ -101,12 +101,17 @@ export function AdminBookings() {
   // Map real Supabase bookings to UI shape
   const bookings = rawBookings.map(b => {
     const nights = differenceInDays(new Date(b.check_out), new Date(b.check_in));
+    const linkedCatNames = (b.booking_cats ?? []).map(bc => bc.cat.name);
+    const guestCatNames = b.cat_names
+      ? b.cat_names.split(',').map(name => name.trim()).filter(Boolean)
+      : [];
+
     return {
       id: b.id,
-      customerName: b.customer?.name || 'Unknown',
-      customerEmail: b.customer?.email || '',
-      customerPhone: b.customer?.phone || '',
-      catNames: b.booking_cats.map(bc => bc.cat.name),
+      customerName: b.customer?.name || b.guest_name || 'Online customer',
+      customerEmail: b.customer?.email || b.guest_email || '',
+      customerPhone: b.customer?.phone || b.guest_phone || '',
+      catNames: linkedCatNames.length > 0 ? linkedCatNames : guestCatNames,
       checkIn: b.check_in,
       checkOut: b.check_out,
       roomType: b.room?.type || 'Room',

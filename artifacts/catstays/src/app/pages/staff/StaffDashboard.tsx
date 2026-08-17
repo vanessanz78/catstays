@@ -139,12 +139,12 @@ function staffSectionFromPath(pathname: string): StaffSection {
   return 'today';
 }
 
-function getCatNames(booking: { booking_cats?: { cat?: { name?: string | null } | null }[] }) {
+function getCatNames(booking: { booking_cats?: { cat?: { name?: string | null } | null }[]; cat_names?: string | null }) {
   const names = booking.booking_cats
     ?.map((entry) => entry.cat?.name)
     .filter((name): name is string => Boolean(name));
 
-  return names && names.length > 0 ? names.join(', ') : 'Cat guest';
+  return names && names.length > 0 ? names.join(', ') : booking.cat_names || 'Cat guest';
 }
 
 function BookingRow({
@@ -155,7 +155,7 @@ function BookingRow({
   actionLabel: string;
 }) {
   const catNames = getCatNames(booking);
-  const customerName = booking.customer?.name || 'New customer';
+  const customerName = booking.customer?.name || booking.guest_name || 'New customer';
   const roomName = booking.room?.name || 'Unassigned room';
 
   return (

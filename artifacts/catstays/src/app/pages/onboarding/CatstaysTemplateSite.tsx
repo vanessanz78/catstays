@@ -76,9 +76,23 @@ export function CatstaysTemplateSite({
   const [previewNoticeKind, setPreviewNoticeKind] = useState<PreviewNoticeKind | null>(null);
 
   const handlePreviewBookingAction = (event: MouseEvent<HTMLElement>) => {
-    if (!embedded) return;
     event.preventDefault();
-    setPreviewNoticeKind('booking');
+
+    if (embedded) {
+      setPreviewNoticeKind('booking');
+      return;
+    }
+
+    const bookingSection = event.currentTarget.closest('[data-booking-strip]');
+    const dateInputs = Array.from(bookingSection?.querySelectorAll('input[type="date"]') ?? []) as HTMLInputElement[];
+    const catsSelect = bookingSection?.querySelector('select[name="cats"]') as HTMLSelectElement | null;
+    const params = new URLSearchParams();
+
+    if (dateInputs[0]?.value) params.set('checkIn', dateInputs[0].value);
+    if (dateInputs[1]?.value) params.set('checkOut', dateInputs[1].value);
+    if (catsSelect?.value) params.set('cats', catsSelect.value);
+
+    window.location.href = `${liveBookingPath()}${params.toString() ? `?${params.toString()}` : ''}`;
   };
 
   const handlePreviewBookingInteraction = () => {
@@ -309,7 +323,7 @@ function FocusTemplate({
         </section>
 
         <section id="booking" className="relative z-10 mx-auto w-full max-w-[1400px] scroll-mt-28 px-6 md:-mt-16">
-          <div className="catstays-booking-strip grid gap-5 rounded-md border border-[#222]/15 bg-white/95 p-6 shadow-xl md:grid-cols-[1.4fr_1fr_1fr_0.85fr_1fr] md:items-end md:p-8">
+          <div data-booking-strip className="catstays-booking-strip grid gap-5 rounded-md border border-[#222]/15 bg-white/95 p-6 shadow-xl md:grid-cols-[1.4fr_1fr_1fr_0.85fr_1fr] md:items-end md:p-8">
             <div>
               <h3 className="text-3xl leading-tight">Book your cat's stay</h3>
               <p className="mt-3 text-sm leading-6 text-[#555]">{content.booking.text}</p>
@@ -320,12 +334,12 @@ function FocusTemplate({
                   <CalendarCheck className="h-4 w-4 text-[#8c5b32]" />
                   {label}
                 </span>
-                <input type="date" onFocus={onPreviewBookingInteraction} className="h-[58px] w-full rounded-md border border-[#222]/15 bg-white px-4 font-sans text-sm text-[#222]" />
+                <input name={label === 'Check-in' ? 'checkIn' : 'checkOut'} type="date" onFocus={onPreviewBookingInteraction} className="h-[58px] w-full rounded-md border border-[#222]/15 bg-white px-4 font-sans text-sm text-[#222]" />
               </label>
             ))}
             <label className="block">
               <span className="mb-2 block text-xs font-bold uppercase tracking-[0.12em]">Cats</span>
-              <select onFocus={onPreviewBookingInteraction} onChange={onPreviewBookingInteraction} defaultValue="1" className="h-[58px] w-full rounded-md border border-[#222]/15 bg-white px-4 font-sans text-sm text-[#222]">
+              <select name="cats" onFocus={onPreviewBookingInteraction} onChange={onPreviewBookingInteraction} defaultValue="1" className="h-[58px] w-full rounded-md border border-[#222]/15 bg-white px-4 font-sans text-sm text-[#222]">
                 <option value="1">1 cat</option>
                 <option value="2">2 cats</option>
                 <option value="3">3 cats</option>
@@ -858,7 +872,7 @@ function ConversionBanner({
 }) {
   return (
     <section id="booking" className="scroll-mt-28 bg-[#0A1128] px-6 py-12 text-white">
-      <div className="catstays-booking-strip mx-auto grid w-full max-w-[1400px] gap-5 md:grid-cols-[1.35fr_1fr_1fr_0.85fr_1fr] md:items-end">
+      <div data-booking-strip className="catstays-booking-strip mx-auto grid w-full max-w-[1400px] gap-5 md:grid-cols-[1.35fr_1fr_1fr_0.85fr_1fr] md:items-end">
         <div>
           <h2 className="text-3xl leading-tight">Book your cat's stay</h2>
           <p className="mt-2 text-sm text-white/80">{content.booking.bannerText}</p>
@@ -869,12 +883,12 @@ function ConversionBanner({
               <CalendarCheck className="h-4 w-4" />
               {label}
             </span>
-            <input type="date" onFocus={onPreviewBookingInteraction} className="h-[58px] w-full rounded-md border border-white/20 bg-white px-4 font-sans text-sm text-[#222]" />
+            <input name={label === 'Check-in' ? 'checkIn' : 'checkOut'} type="date" onFocus={onPreviewBookingInteraction} className="h-[58px] w-full rounded-md border border-white/20 bg-white px-4 font-sans text-sm text-[#222]" />
           </label>
         ))}
         <label className="block">
           <span className="mb-2 block text-xs font-bold uppercase tracking-[0.12em] text-white/80">Cats</span>
-          <select onFocus={onPreviewBookingInteraction} onChange={onPreviewBookingInteraction} defaultValue="1" className="h-[58px] w-full rounded-md border border-white/20 bg-white px-4 font-sans text-sm text-[#222]">
+          <select name="cats" onFocus={onPreviewBookingInteraction} onChange={onPreviewBookingInteraction} defaultValue="1" className="h-[58px] w-full rounded-md border border-white/20 bg-white px-4 font-sans text-sm text-[#222]">
             <option value="1">1 cat</option>
             <option value="2">2 cats</option>
             <option value="3">3 cats</option>
@@ -1242,6 +1256,14 @@ function serviceIconFor(title: string, index: number) {
 function safeMapUrl(address: string) {
   if (!address) return '';
   return `https://www.google.com/maps?q=${encodeURIComponent(address)}&output=embed`;
+}
+
+function liveBookingPath() {
+  const path = window.location.pathname;
+  const tenantMatch = path.match(/^\/tenant\/([^/]+)/);
+  if (tenantMatch?.[1]) return `/tenant/${tenantMatch[1]}/booking-flow`;
+  if (path.startsWith('/site')) return '/site/booking-flow';
+  return '/booking-flow';
 }
 
 function clipText(value: string, length: number) {

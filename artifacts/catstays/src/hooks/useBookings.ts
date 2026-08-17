@@ -11,6 +11,11 @@ export interface BookingWithDetails {
   total_amount: number | null;
   notes: string | null;
   created_at: string;
+  guest_name: string | null;
+  guest_email: string | null;
+  guest_phone: string | null;
+  cat_names: string | null;
+  number_of_cats: number | null;
   customer: {
     id: string;
     name: string;

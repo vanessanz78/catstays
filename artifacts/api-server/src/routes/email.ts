@@ -82,35 +82,82 @@ router.post('/bookings/request', async (req, res) => {
   const {
     catteryId, catteryName, catteryEmail, catteryPhone,
     customerName, customerEmail, phone,
-    catNames, checkIn, checkOut, nights,
+    catNames, checkIn, checkOut, displayCheckIn, displayCheckOut, nights,
     roomName, roomId, estimatedTotal, specialRequirements,
   } = req.body;
 
-  if (!customerName || !customerEmail || !catNames || !checkIn || !checkOut || !catteryEmail) {
+  if (!catteryId || !customerName || !customerEmail || !catNames || !checkIn || !checkOut) {
     res.status(400).json({ error: 'Missing required fields' });
     return;
   }
 
   try {
+    if (!supabase) {
+      res.status(500).json({ error: 'Booking could not be saved. Please contact the cattery directly.' });
+      return;
+    }
+
+    // Save the request before sending emails so online bookings always have a dashboard destination.
+    const amountStr = String(estimatedTotal || '').replace(/[^0-9.]/g, '');
+    const totalAmount = amountStr ? parseFloat(amountStr) : null;
+
+    let resolvedRoomId = roomId || null;
+    if (!resolvedRoomId && roomName) {
+      const { data: roomData } = await supabase
+        .from('rooms')
+        .select('id')
+        .eq('cattery_id', catteryId)
+        .ilike('name', roomName)
+        .single();
+      resolvedRoomId = roomData?.id || null;
+    }
+
+    const catNamesStr = Array.isArray(catNames) ? catNames.join(', ') : String(catNames || '');
+    const numCats = Array.isArray(catNames) ? catNames.length : 1;
+
+    const { error: bookingError } = await supabase.from('bookings').insert({
+      cattery_id: catteryId,
+      room_id: resolvedRoomId,
+      check_in: checkIn,
+      check_out: checkOut,
+      status: 'pending',
+      payment_status: 'unpaid',
+      total_amount: totalAmount,
+      notes: specialRequirements || null,
+      guest_name: customerName,
+      guest_email: customerEmail,
+      guest_phone: phone || null,
+      cat_names: catNamesStr,
+      number_of_cats: numCats,
+    });
+
+    if (bookingError) {
+      console.error('[bookings/request] DB insert failed:', bookingError);
+      res.status(500).json({ error: 'Booking could not be saved. Please contact the cattery directly.' });
+      return;
+    }
+
+    const emailCheckIn = displayCheckIn || checkIn;
+    const emailCheckOut = displayCheckOut || checkOut;
     const [ownerResult, customerResult] = await Promise.all([
-      resend.emails.send({
+      catteryEmail ? resend.emails.send({
         from: FROM_ADDRESS,
         to: catteryEmail,
         replyTo: customerEmail,
         subject: `New booking request from ${customerName}`,
         html: bookingRequestOwnerHtml({
           catteryName, customerName, customerEmail, phone,
-          catNames, checkIn, checkOut, nights,
+          catNames, checkIn: emailCheckIn, checkOut: emailCheckOut, nights,
           roomName, estimatedTotal, specialRequirements,
         }),
-      }),
+      }) : Promise.resolve({ data: null, error: new Error('Cattery email is not configured') }),
       resend.emails.send({
         from: FROM_ADDRESS,
         to: customerEmail,
         subject: `Your booking request at ${catteryName}`,
         html: bookingRequestCustomerHtml({
           customerName, catteryName, catteryEmail, catteryPhone,
-          catNames, checkIn, checkOut, nights,
+          catNames, checkIn: emailCheckIn, checkOut: emailCheckOut, nights,
           roomName, estimatedTotal,
         }),
       }),
@@ -123,53 +170,8 @@ router.post('/bookings/request', async (req, res) => {
       console.error('[bookings/request] customer email error:', customerResult.error);
     }
 
-    // Save pending booking to database
-    if (catteryId && supabase) {
-      try {
-        // Parse total amount (strip "$" and " incl. GST")
-        const amountStr = String(estimatedTotal || '').replace(/[^0-9.]/g, '');
-        const totalAmount = amountStr ? parseFloat(amountStr) : null;
-
-        // Look up room by name if room ID not provided
-        let resolvedRoomId = roomId || null;
-        if (!resolvedRoomId && roomName && catteryId) {
-          const { data: roomData } = await supabase
-            .from('rooms')
-            .select('id')
-            .eq('cattery_id', catteryId)
-            .ilike('name', roomName)
-            .single();
-          resolvedRoomId = roomData?.id || null;
-        }
-
-        const catNamesStr = Array.isArray(catNames) ? catNames.join(', ') : String(catNames || '');
-        const numCats = Array.isArray(catNames) ? catNames.length : 1;
-
-        await supabase.from('bookings').insert({
-          cattery_id: catteryId,
-          room_id: resolvedRoomId,
-          check_in: checkIn,
-          check_out: checkOut,
-          status: 'pending',
-          payment_status: 'unpaid',
-          total_amount: totalAmount,
-          notes: specialRequirements || null,
-          guest_name: customerName,
-          guest_email: customerEmail,
-          guest_phone: phone || null,
-          cat_names: catNamesStr,
-          number_of_cats: numCats,
-        });
-
-        console.log('[bookings/request] saved pending booking to DB for cattery', catteryId);
-      } catch (dbErr) {
-        console.error('[bookings/request] DB insert failed (emails still sent):', dbErr);
-      }
-    } else if (catteryId) {
-      console.warn('[bookings/request] Supabase env missing — skipped pending booking DB insert');
-    }
-
-    res.json({ success: true, ownerEmailId: ownerResult.data?.id, customerEmailId: customerResult.data?.id });
+    console.log('[bookings/request] saved pending booking to DB for cattery', catteryId);
+    res.json({ success: true, bookingStored: true, ownerEmailId: ownerResult.data?.id, customerEmailId: customerResult.data?.id });
   } catch (err) {
     console.error('[bookings/request] exception:', err);
     res.status(500).json({ error: 'Failed to send booking request' });

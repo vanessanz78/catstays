@@ -4,6 +4,7 @@
 
 - Fixed the staff website editor so the right-hand editing panel scrolls inside the viewport and added Edit mode support for clicking directly on page text and images, while preserving the detailed side-panel controls.
 - Updated generated imported-site templates so saved editor overrides for hero/business text, section headings, booking copy, and key images are reflected when the source-faithful template re-renders.
+- Fixed generated cattery websites so Book / Enquire opens the real booking flow, saves online requests as pending dashboard bookings, and shows public guest/cat details in staff booking screens.
 
 ## 2026-08-03
 
