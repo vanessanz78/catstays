@@ -44,6 +44,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .single();
       if (!error && data) {
         setCattery(data as Cattery);
+        void import('@/lib/pwa').then(({ recoverCatStaysPhoneNotifications }) => {
+          recoverCatStaysPhoneNotifications(String(data.id));
+        });
       } else {
         setCattery(null);
       }

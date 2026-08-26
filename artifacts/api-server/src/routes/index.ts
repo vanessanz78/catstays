@@ -4,6 +4,7 @@ import emailRouter from "./email";
 import catteryRouter from "./cattery";
 import billingRouter from "./billing";
 import websiteRouter from "./website";
+import pushRouter from "./push";
 
 const router: IRouter = Router();
 
@@ -12,5 +13,6 @@ router.use(emailRouter);
 router.use(catteryRouter);
 router.use(billingRouter);
 router.use(websiteRouter);
+router.use(pushRouter);
 
 export default router;

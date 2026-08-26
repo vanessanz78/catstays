@@ -8,6 +8,7 @@ import {
   testEmailHtml,
 } from '../lib/emailTemplates';
 import { createClient } from '@supabase/supabase-js';
+import { sendPushToCatteryOwner } from '../push/pushSender.js';
 
 const supabaseUrl = process.env['VITE_SUPABASE_URL'];
 const supabaseAnonKey = process.env['VITE_SUPABASE_ANON_KEY'];
@@ -136,6 +137,15 @@ router.post('/bookings/request', async (req, res) => {
       res.status(500).json({ error: 'Booking could not be saved. Please contact the cattery directly.' });
       return;
     }
+
+    void sendPushToCatteryOwner(catteryId, {
+      title: 'New booking request',
+      body: `${customerName} requested ${catNamesStr || 'a cat stay'} from ${displayCheckIn || checkIn} to ${displayCheckOut || checkOut}.`,
+      url: '/admin/bookings',
+      tag: `catstays-booking-${catteryId}`,
+    }).catch((pushError) => {
+      console.warn('[bookings/request] native notification failed:', pushError instanceof Error ? pushError.message : pushError);
+    });
 
     const emailCheckIn = displayCheckIn || checkIn;
     const emailCheckOut = displayCheckOut || checkOut;
