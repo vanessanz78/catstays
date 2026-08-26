@@ -27,6 +27,7 @@ import { AdminRoomPlanner } from "./pages/admin/RoomPlanner";
 import { AdminBookings } from "./pages/admin/Bookings";
 import { AdminCustomers } from "./pages/admin/Customers";
 import { AdminSettings } from "./pages/admin/Settings";
+import { NotificationSettings } from "./pages/admin/NotificationSettings";
 import { SettingsDataImport } from "./pages/tenant/SettingsDataImport";
 import { AdminAccounting } from "./pages/admin/Accounting";
 import { AdminMessages } from "./pages/admin/Messages";
@@ -262,6 +263,11 @@ export const router = createBrowserRouter([
   {
     path: "/admin/settings/data",
     Component: SettingsDataImport,
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
+    path: "/admin/settings/notifications",
+    Component: NotificationSettings,
     ErrorBoundary: RootErrorBoundary,
   },
   {

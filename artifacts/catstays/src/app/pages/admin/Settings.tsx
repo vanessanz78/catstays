@@ -71,8 +71,8 @@ export function AdminSettings() {
             <CardContent className="p-0">
               <Link to="/admin/settings/notifications" className="flex items-center justify-between p-4 hover:bg-[#F8F7F5]/50 transition-colors">
                 <div>
-                  <p className="font-medium text-[#0A1128]">Email & SMS Preferences</p>
-                  <p className="text-sm text-[#0A1128]/60">Manage notification settings</p>
+                  <p className="font-medium text-[#0A1128]">Phone Notifications</p>
+                  <p className="text-sm text-[#0A1128]/60">Connect native alerts to this phone</p>
                 </div>
                 <ChevronRight className="w-5 h-5 text-[#0A1128]/30" />
               </Link>
