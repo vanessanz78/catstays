@@ -7,7 +7,6 @@ create table if not exists public.platform_admins (
 alter table public.platform_admins enable row level security;
 
 revoke all on table public.platform_admins from anon, authenticated;
-grant select on table public.platform_admins to authenticated;
 grant all on table public.platform_admins to service_role;
 
 drop policy if exists "Platform admins can verify their own access" on public.platform_admins;
@@ -26,4 +25,4 @@ where slug = 'delorainecattery'
 on conflict (user_id) do update set role = excluded.role;
 
 comment on table public.platform_admins is
-  'Allow-list for the CatStays cross-tenant operations dashboard. Browser clients can only verify their own membership.';
+  'Server-only allow-list for the CatStays cross-tenant operations dashboard. Browser clients verify access through the authenticated platform API.';
