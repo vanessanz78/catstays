@@ -16,7 +16,7 @@ On the installed mobile CatStays staff app, `/staff-dashboard/bookings` rendered
 
 - Route the production staff bookings path to the interactive `AdminBookings` screen.
 - Keep New Booking inside the staff route and restore a real searchable customer input.
-- Add an inline Add Customer dialog with customer and optional cat creation, then continue the booking at step 2.
+- Add an inline Add Customer dialog with the customer and first cat, then continue the booking at step 2.
 - Link selected cats when staff create a booking.
 - Use inclusive day pricing and wording in the staff booking flow.
 - Keep the notification sheet below the phone safe area with a visible close button.
@@ -33,7 +33,7 @@ On the installed mobile CatStays staff app, `/staff-dashboard/bookings` rendered
 
 1. Open the installed CatStays app and choose **Bookings → New booking**.
 2. Tap **Search customers**, type part of a real customer name, and select the result.
-3. Reopen step 1, tap **Add new customer**, add a controlled customer and optional cat, and confirm the booking continues at step 2.
+3. Reopen step 1, tap **Add new customer**, add a controlled customer and their cat, and confirm the booking continues at step 2.
 4. Return to the booking list, tap a booking card or **View details**, and verify the bottom details sheet opens and closes.
 5. Tap the dashboard bell and verify the notification sheet begins below the phone header and its close cross remains visible.
 6. With a controlled notification present, dismiss it using its cross; repeat with a horizontal swipe and verify both remain dismissed after refresh.
