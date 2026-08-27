@@ -6,6 +6,8 @@ export interface BookingWithDetails {
   id: string;
   check_in: string;
   check_out: string;
+  check_in_time: string | null;
+  check_out_time: string | null;
   status: string;
   payment_status: string;
   total_amount: number | null;
@@ -79,6 +81,8 @@ export function useBookings() {
     room_id: string;
     check_in: string;
     check_out: string;
+    check_in_time: string;
+    check_out_time: string;
     total_amount: number;
     payment_status?: string;
     notes?: string;

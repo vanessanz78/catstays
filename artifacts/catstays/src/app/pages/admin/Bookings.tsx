@@ -37,8 +37,15 @@ import {
 } from 'lucide-react';
 import { RightMenu } from '../../components/RightMenu';
 import { NotificationBell } from '../../components/NotificationBell';
-import { format } from 'date-fns';
+import { format, parseISO, startOfToday } from 'date-fns';
+import type { DateRange } from 'react-day-picker';
 import { inclusiveStayDays } from '../../lib/bookingPricing';
+import {
+  bookingTimeSlotsForDate,
+  customerMatchesSearch,
+  formatBookingTime,
+} from '../../lib/bookingSchedule';
+import { Calendar as DateRangeCalendar } from '../../components/ui/calendar';
 import {
   Sheet,
   SheetContent,
@@ -66,6 +73,10 @@ export function AdminBookings() {
   const [cats, setCats] = useState<any[]>([]);
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
+  const [checkInTime, setCheckInTime] = useState('');
+  const [checkOutTime, setCheckOutTime] = useState('');
+  const [showDateRangePicker, setShowDateRangePicker] = useState(false);
+  const [draftDateRange, setDraftDateRange] = useState<DateRange>();
   const [selectedRoom, setSelectedRoom] = useState<any>(null);
   const [specialRequirements, setSpecialRequirements] = useState('');
   const [paymentStatus, setPaymentStatus] = useState('unpaid');
@@ -81,6 +92,19 @@ export function AdminBookings() {
   const { rooms: rawRooms } = useRooms();
   const [customerSearch, setCustomerSearch] = useState('');
 
+  const locallySavedBookingSettings = (() => {
+    try {
+      const saved = localStorage.getItem('bookingRules');
+      return saved ? JSON.parse(saved) as Record<string, unknown> : {};
+    } catch {
+      return {};
+    }
+  })();
+  const bookingSettings = {
+    ...locallySavedBookingSettings,
+    ...(cattery?.website_settings ?? {}),
+  };
+
   useEffect(() => {
     setShowCreateBooking(isCreating);
   }, [isCreating]);
@@ -94,10 +118,13 @@ export function AdminBookings() {
     cats: (c as any).cats?.map((cat: any) => ({ id: cat.id, name: cat.name })) || [],
   }));
 
-  const filteredCustomers = customers.filter(c =>
-    c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
-    c.email.toLowerCase().includes(customerSearch.toLowerCase())
-  );
+  const hasCustomerSearch = customerSearch.trim().length > 0;
+  const filteredCustomers = hasCustomerSearch
+    ? customers.filter((customer) => customerMatchesSearch(customer, customerSearch))
+    : [];
+
+  const checkInTimeSlots = bookingTimeSlotsForDate(bookingSettings, checkIn);
+  const checkOutTimeSlots = bookingTimeSlotsForDate(bookingSettings, checkOut);
 
   // Real rooms from Supabase
   const roomTypes = rawRooms
@@ -129,6 +156,8 @@ export function AdminBookings() {
       catNames: linkedCatNames.length > 0 ? linkedCatNames : guestCatNames,
       checkIn: b.check_in,
       checkOut: b.check_out,
+      checkInTime: b.check_in_time,
+      checkOutTime: b.check_out_time,
       roomType: b.room?.type || 'Room',
       roomNumber: b.room?.name || '',
       status: b.status,
@@ -221,6 +250,29 @@ export function AdminBookings() {
     return inclusiveStayDays(checkIn, checkOut);
   };
 
+  const openDateRangePicker = () => {
+    setDraftDateRange(checkIn
+      ? { from: parseISO(checkIn), to: checkOut ? parseISO(checkOut) : undefined }
+      : undefined);
+    setShowDateRangePicker(true);
+  };
+
+  const saveDateRange = () => {
+    if (!draftDateRange?.from || !draftDateRange.to) return;
+
+    const nextCheckIn = format(draftDateRange.from, 'yyyy-MM-dd');
+    const nextCheckOut = format(draftDateRange.to, 'yyyy-MM-dd');
+    setCheckIn(nextCheckIn);
+    setCheckOut(nextCheckOut);
+    if (!bookingTimeSlotsForDate(bookingSettings, nextCheckIn).includes(checkInTime)) {
+      setCheckInTime('');
+    }
+    if (!bookingTimeSlotsForDate(bookingSettings, nextCheckOut).includes(checkOutTime)) {
+      setCheckOutTime('');
+    }
+    setShowDateRangePicker(false);
+  };
+
   const handleAddCustomer = async () => {
     const name = newCustomer.name.trim();
     const email = newCustomer.email.trim();
@@ -262,7 +314,7 @@ export function AdminBookings() {
   };
 
   const handleCreateBooking = async () => {
-    if (!selectedCustomer || !checkIn || !checkOut || !selectedRoom) return;
+    if (!selectedCustomer || !checkIn || !checkOut || !checkInTime || !checkOutTime || !selectedRoom) return;
 
     setBookingError('');
 
@@ -271,6 +323,8 @@ export function AdminBookings() {
       room_id: String(selectedRoom.id),
       check_in: checkIn,
       check_out: checkOut,
+      check_in_time: checkInTime,
+      check_out_time: checkOutTime,
       total_amount: calculateTotal(),
       payment_status: paymentStatus,
       notes: specialRequirements || undefined,
@@ -291,8 +345,8 @@ export function AdminBookings() {
         catteryName: cattery.name,
         catName: cats[0]?.name,
         roomName: selectedRoom.name,
-        checkIn: format(new Date(checkIn), 'd MMM yyyy'),
-        checkOut: format(new Date(checkOut), 'd MMM yyyy'),
+        checkIn: `${format(parseISO(checkIn), 'd MMM yyyy')} at ${formatBookingTime(checkInTime)}`,
+        checkOut: `${format(parseISO(checkOut), 'd MMM yyyy')} at ${formatBookingTime(checkOutTime)}`,
         totalAmount: `$${calculateTotal().toFixed(2)}`,
         bookingRef: data?.id?.slice(0, 8).toUpperCase(),
         catteryEmail: cattery.email ?? undefined,
@@ -306,6 +360,8 @@ export function AdminBookings() {
     setCats([]);
     setCheckIn('');
     setCheckOut('');
+    setCheckInTime('');
+    setCheckOutTime('');
     setSelectedRoom(null);
     setSpecialRequirements('');
     setPaymentStatus('unpaid');
@@ -375,6 +431,7 @@ export function AdminBookings() {
                     />
                   </div>
 
+                  {hasCustomerSearch && (
                   <div className="space-y-2 max-h-96 overflow-y-auto">
                     {filteredCustomers.map((customer) => (
                       <button
@@ -410,7 +467,18 @@ export function AdminBookings() {
                         </div>
                       </button>
                     ))}
+                    {filteredCustomers.length === 0 && (
+                      <div className="rounded-xl border border-dashed border-sage/20 bg-white p-4 text-center">
+                        <p className="text-sm font-medium" style={{ color: '#2d3e2f' }}>
+                          No matching customers
+                        </p>
+                        <p className="mt-1 text-xs" style={{ color: '#6b7a6d' }}>
+                          Search by customer name, cat name, email, or mobile number — or add a new customer below.
+                        </p>
+                      </div>
+                    )}
                   </div>
+                  )}
 
                   <Button 
                     variant="outline" 
@@ -439,30 +507,97 @@ export function AdminBookings() {
                   <CardDescription>When will {selectedCustomer?.name}'s cats be staying?</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium mb-2 block" style={{ color: '#2d3e2f' }}>
-                      Check-in Date
-                    </label>
-                    <Input 
-                      type="date" 
-                      value={checkIn}
-                      onChange={(e) => setCheckIn(e.target.value)}
-                      className="rounded-xl border-sage/20"
-                    />
+                  <div className="rounded-2xl border border-sage/20 bg-white p-4">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold" style={{ color: '#2d3e2f' }}>
+                          Stay dates
+                        </p>
+                        <p className="text-xs" style={{ color: '#6b7a6d' }}>
+                          Select the first and last day in one calendar.
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={openDateRangePicker}
+                        className="shrink-0 rounded-xl border-sage/20"
+                      >
+                        <Calendar className="mr-2 h-4 w-4" />
+                        {checkIn && checkOut ? 'Edit dates' : 'Select dates'}
+                      </Button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={openDateRangePicker}
+                        className="rounded-xl border border-sage/15 bg-[#F6F4EF] p-3 text-left"
+                      >
+                        <span className="block text-xs" style={{ color: '#6b7a6d' }}>Check-in day</span>
+                        <span className="mt-1 block text-sm font-semibold" style={{ color: '#2d3e2f' }}>
+                          {checkIn ? format(parseISO(checkIn), 'EEE, d MMM yyyy') : 'Choose start'}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={openDateRangePicker}
+                        className="rounded-xl border border-sage/15 bg-[#F6F4EF] p-3 text-left"
+                      >
+                        <span className="block text-xs" style={{ color: '#6b7a6d' }}>Check-out day</span>
+                        <span className="mt-1 block text-sm font-semibold" style={{ color: '#2d3e2f' }}>
+                          {checkOut ? format(parseISO(checkOut), 'EEE, d MMM yyyy') : 'Choose finish'}
+                        </span>
+                      </button>
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="text-sm font-medium mb-2 block" style={{ color: '#2d3e2f' }}>
-                      Check-out Date
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="block text-sm font-medium" style={{ color: '#2d3e2f' }}>
+                      Check-in time
+                      <select
+                        aria-label="Check-in time"
+                        value={checkInTime}
+                        onChange={(event) => setCheckInTime(event.target.value)}
+                        disabled={!checkIn || checkInTimeSlots.length === 0}
+                        className="mt-2 h-11 w-full rounded-xl border border-sage/20 bg-white px-3 text-sm disabled:bg-slate-50 disabled:text-slate-400"
+                      >
+                        <option value="">Select a time</option>
+                        {checkInTimeSlots.map((time) => (
+                          <option key={time} value={time}>{formatBookingTime(time)}</option>
+                        ))}
+                      </select>
                     </label>
-                    <Input 
-                      type="date" 
-                      value={checkOut}
-                      min={checkIn || undefined}
-                      onChange={(e) => setCheckOut(e.target.value)}
-                      className="rounded-xl border-sage/20"
-                    />
+
+                    <label className="block text-sm font-medium" style={{ color: '#2d3e2f' }}>
+                      Check-out time
+                      <select
+                        aria-label="Check-out time"
+                        value={checkOutTime}
+                        onChange={(event) => setCheckOutTime(event.target.value)}
+                        disabled={!checkOut || checkOutTimeSlots.length === 0}
+                        className="mt-2 h-11 w-full rounded-xl border border-sage/20 bg-white px-3 text-sm disabled:bg-slate-50 disabled:text-slate-400"
+                      >
+                        <option value="">Select a time</option>
+                        {checkOutTimeSlots.map((time) => (
+                          <option key={time} value={time}>{formatBookingTime(time)}</option>
+                        ))}
+                      </select>
+                    </label>
                   </div>
+
+                  {checkIn && checkInTimeSlots.length === 0 && (
+                    <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                      No check-in times are configured for this day. Choose another date or update Booking Setup.
+                    </p>
+                  )}
+
+                  {checkOut && checkOutTimeSlots.length === 0 && (
+                    <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                      No check-out times are configured for this day. Choose another date or update Booking Setup.
+                    </p>
+                  )}
 
                   {checkIn && checkOut && (
                     <div className="p-4 rounded-xl bg-sage/5 border border-sage/20">
@@ -473,8 +608,13 @@ export function AdminBookings() {
                         </span>
                       </div>
                       <p className="text-sm mt-1" style={{ color: '#6b7a6d' }}>
-                        {format(new Date(checkIn), 'MMM dd, yyyy')} → {format(new Date(checkOut), 'MMM dd, yyyy')}
+                        {format(parseISO(checkIn), 'MMM dd, yyyy')} → {format(parseISO(checkOut), 'MMM dd, yyyy')}
                       </p>
+                      {checkInTime && checkOutTime && (
+                        <p className="text-sm mt-1" style={{ color: '#6b7a6d' }}>
+                          Check-in {formatBookingTime(checkInTime)} · Check-out {formatBookingTime(checkOutTime)}
+                        </p>
+                      )}
                       <p className="text-xs mt-1" style={{ color: '#6b7a6d' }}>
                         Includes the day of arrival and the day of departure.
                       </p>
@@ -491,7 +631,7 @@ export function AdminBookings() {
                     </Button>
                     <Button 
                       onClick={() => setStep(3)}
-                      disabled={calculateDays() === 0}
+                      disabled={calculateDays() === 0 || !checkInTime || !checkOutTime}
                       className="flex-1 rounded-xl text-white"
                       style={{ backgroundColor: '#7DAF7B' }}
                     >
@@ -646,10 +786,13 @@ export function AdminBookings() {
                       </span>
                     </div>
                     <p className="font-medium" style={{ color: '#2d3e2f' }}>
-                      {format(new Date(checkIn), 'MMM dd')} - {format(new Date(checkOut), 'MMM dd, yyyy')}
+                      {format(parseISO(checkIn), 'MMM dd')} - {format(parseISO(checkOut), 'MMM dd, yyyy')}
                     </p>
                     <p className="text-sm" style={{ color: '#6b7a6d' }}>
                       {calculateDays()} days
+                    </p>
+                    <p className="text-sm" style={{ color: '#6b7a6d' }}>
+                      Check-in {formatBookingTime(checkInTime)} · Check-out {formatBookingTime(checkOutTime)}
                     </p>
                   </div>
 
@@ -743,6 +886,48 @@ export function AdminBookings() {
             </div>
           )}
         </main>
+
+        <Dialog open={showDateRangePicker} onOpenChange={setShowDateRangePicker}>
+          <DialogContent className="w-[calc(100%-1.5rem)] max-w-sm overflow-hidden p-0">
+            <DialogHeader className="px-5 pt-5">
+              <DialogTitle>Select stay dates</DialogTitle>
+              <DialogDescription>
+                Tap the check-in day, then the check-out day. Every day between them is included.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="overflow-x-auto px-2">
+              <DateRangeCalendar
+                mode="range"
+                min={0}
+                selected={draftDateRange}
+                onSelect={setDraftDateRange}
+                defaultMonth={draftDateRange?.from}
+                disabled={{ before: startOfToday() }}
+                className="mx-auto w-fit"
+              />
+            </div>
+            {draftDateRange?.from && (
+              <div className="mx-5 rounded-xl bg-sage/5 px-3 py-2 text-sm" style={{ color: '#2d3e2f' }}>
+                {format(draftDateRange.from, 'EEE, d MMM yyyy')}
+                {' → '}
+                {draftDateRange.to ? format(draftDateRange.to, 'EEE, d MMM yyyy') : 'choose check-out day'}
+              </div>
+            )}
+            <DialogFooter className="border-t bg-white px-5 py-4 sm:flex-row">
+              <Button type="button" variant="outline" onClick={() => setShowDateRangePicker(false)}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                disabled={!draftDateRange?.from || !draftDateRange.to}
+                onClick={saveDateRange}
+                className="bg-[#C46A3A] text-white hover:bg-[#A85A30]"
+              >
+                Done
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <Dialog open={showAddCustomer} onOpenChange={(open) => {
           setShowAddCustomer(open);
@@ -971,12 +1156,18 @@ export function AdminBookings() {
                     <p className="font-medium" style={{ color: '#2d3e2f' }}>
                       {format(new Date(booking.checkIn), 'MMM dd, yyyy')}
                     </p>
+                    {booking.checkInTime && (
+                      <p className="text-xs" style={{ color: '#6b7a6d' }}>{formatBookingTime(booking.checkInTime)}</p>
+                    )}
                   </div>
                   <div>
                     <p className="text-xs" style={{ color: '#6b7a6d' }}>Check-out</p>
                     <p className="font-medium" style={{ color: '#2d3e2f' }}>
                       {format(new Date(booking.checkOut), 'MMM dd, yyyy')}
                     </p>
+                    {booking.checkOutTime && (
+                      <p className="text-xs" style={{ color: '#6b7a6d' }}>{formatBookingTime(booking.checkOutTime)}</p>
+                    )}
                   </div>
                 </div>
 
@@ -1100,12 +1291,22 @@ export function AdminBookings() {
                       <p className="font-medium" style={{ color: '#2d3e2f' }}>
                         {format(new Date(selectedBooking.checkIn), 'MMM dd, yyyy')}
                       </p>
+                      {selectedBooking.checkInTime && (
+                        <p className="text-xs" style={{ color: '#6b7a6d' }}>
+                          {formatBookingTime(selectedBooking.checkInTime)}
+                        </p>
+                      )}
                     </div>
                     <div>
                       <span className="text-xs" style={{ color: '#6b7a6d' }}>Check-out</span>
                       <p className="font-medium" style={{ color: '#2d3e2f' }}>
                         {format(new Date(selectedBooking.checkOut), 'MMM dd, yyyy')}
                       </p>
+                      {selectedBooking.checkOutTime && (
+                        <p className="text-xs" style={{ color: '#6b7a6d' }}>
+                          {formatBookingTime(selectedBooking.checkOutTime)}
+                        </p>
+                      )}
                     </div>
                     <div>
                       <span className="text-xs" style={{ color: '#6b7a6d' }}>Days</span>

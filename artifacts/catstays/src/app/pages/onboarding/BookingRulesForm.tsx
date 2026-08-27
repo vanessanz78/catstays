@@ -10,12 +10,34 @@ interface BookingRulesFormProps {
   setData: (data: any) => void;
 }
 
+const openingDays = [
+  { value: 1, label: 'Mon' },
+  { value: 2, label: 'Tue' },
+  { value: 3, label: 'Wed' },
+  { value: 4, label: 'Thu' },
+  { value: 5, label: 'Fri' },
+  { value: 6, label: 'Sat' },
+  { value: 0, label: 'Sun' },
+];
+
 export function BookingRulesForm({ data, setData }: BookingRulesFormProps) {
   const roomTypes = Array.isArray(data.roomTypes) ? data.roomTypes : [];
   const pricingRates = Array.isArray(data.pricingRates) ? data.pricingRates : [];
   const additionalServices = Array.isArray(data.additionalServices) ? data.additionalServices : [];
   const discounts = Array.isArray(data.discounts) ? data.discounts : [];
   const blockOutDates = Array.isArray(data.blockOutDates) ? data.blockOutDates : [];
+  const morningDays = Array.isArray(data.morningDays) ? data.morningDays.map(Number) : openingDays.map((day) => day.value);
+  const afternoonDays = Array.isArray(data.afternoonDays) ? data.afternoonDays.map(Number) : openingDays.map((day) => day.value);
+
+  const toggleOpeningDay = (field: 'morningDays' | 'afternoonDays', day: number) => {
+    const selectedDays = field === 'morningDays' ? morningDays : afternoonDays;
+    setData({
+      ...data,
+      [field]: selectedDays.includes(day)
+        ? selectedDays.filter((selectedDay: number) => selectedDay !== day)
+        : [...selectedDays, day],
+    });
+  };
 
   // Helper functions for dynamic lists
   const addRoomType = () => {
@@ -156,42 +178,85 @@ export function BookingRulesForm({ data, setData }: BookingRulesFormProps) {
         </div>
 
         {!data.openByAppointmentOnly && (
-          <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <Label className="text-forest/70 mb-2 block text-sm">Morning Start</Label>
-              <Input
-                type="time"
-                value={data.morningStart}
-                onChange={(e) => setData({ ...data, morningStart: e.target.value })}
-                className="rounded-xl"
-              />
+          <div className="space-y-4">
+            <div className="rounded-xl border border-sage/15 bg-white p-4">
+              <Label className="text-forest mb-3 block text-sm font-semibold">Morning booking window</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-forest/70 mb-2 block text-xs">Start</Label>
+                  <Input
+                    type="time"
+                    value={data.morningStart}
+                    onChange={(e) => setData({ ...data, morningStart: e.target.value })}
+                    className="rounded-xl"
+                  />
+                </div>
+                <div>
+                  <Label className="text-forest/70 mb-2 block text-xs">End</Label>
+                  <Input
+                    type="time"
+                    value={data.morningEnd}
+                    onChange={(e) => setData({ ...data, morningEnd: e.target.value })}
+                    className="rounded-xl"
+                  />
+                </div>
+              </div>
+              <Label className="text-forest/70 mb-2 mt-3 block text-xs">Available days</Label>
+              <div className="grid grid-cols-7 gap-1">
+                {openingDays.map((day) => (
+                  <button
+                    key={day.value}
+                    type="button"
+                    aria-pressed={morningDays.includes(day.value)}
+                    onClick={() => toggleOpeningDay('morningDays', day.value)}
+                    className={`rounded-lg px-1 py-2 text-xs font-medium ${
+                      morningDays.includes(day.value) ? 'bg-sage text-white' : 'bg-cream-dark text-forest/70'
+                    }`}
+                  >
+                    {day.label}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div>
-              <Label className="text-forest/70 mb-2 block text-sm">Morning End</Label>
-              <Input
-                type="time"
-                value={data.morningEnd}
-                onChange={(e) => setData({ ...data, morningEnd: e.target.value })}
-                className="rounded-xl"
-              />
-            </div>
-            <div>
-              <Label className="text-forest/70 mb-2 block text-sm">Afternoon Start</Label>
-              <Input
-                type="time"
-                value={data.afternoonStart}
-                onChange={(e) => setData({ ...data, afternoonStart: e.target.value })}
-                className="rounded-xl"
-              />
-            </div>
-            <div>
-              <Label className="text-forest/70 mb-2 block text-sm">Afternoon End</Label>
-              <Input
-                type="time"
-                value={data.afternoonEnd}
-                onChange={(e) => setData({ ...data, afternoonEnd: e.target.value })}
-                className="rounded-xl"
-              />
+
+            <div className="rounded-xl border border-sage/15 bg-white p-4">
+              <Label className="text-forest mb-3 block text-sm font-semibold">Afternoon booking window</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-forest/70 mb-2 block text-xs">Start</Label>
+                  <Input
+                    type="time"
+                    value={data.afternoonStart}
+                    onChange={(e) => setData({ ...data, afternoonStart: e.target.value })}
+                    className="rounded-xl"
+                  />
+                </div>
+                <div>
+                  <Label className="text-forest/70 mb-2 block text-xs">End</Label>
+                  <Input
+                    type="time"
+                    value={data.afternoonEnd}
+                    onChange={(e) => setData({ ...data, afternoonEnd: e.target.value })}
+                    className="rounded-xl"
+                  />
+                </div>
+              </div>
+              <Label className="text-forest/70 mb-2 mt-3 block text-xs">Available days</Label>
+              <div className="grid grid-cols-7 gap-1">
+                {openingDays.map((day) => (
+                  <button
+                    key={day.value}
+                    type="button"
+                    aria-pressed={afternoonDays.includes(day.value)}
+                    onClick={() => toggleOpeningDay('afternoonDays', day.value)}
+                    className={`rounded-lg px-1 py-2 text-xs font-medium ${
+                      afternoonDays.includes(day.value) ? 'bg-sage text-white' : 'bg-cream-dark text-forest/70'
+                    }`}
+                  >
+                    {day.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         )}
