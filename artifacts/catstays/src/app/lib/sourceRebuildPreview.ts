@@ -8,9 +8,15 @@ export function sourceRebuildHtmlFromData(data: Record<string, any> | null | und
   ];
 
   for (const candidate of candidates) {
-    if (typeof candidate === 'string' && candidate.trim()) return candidate;
+    if (typeof candidate === 'string' && candidate.trim()) return normalizePublishedSourceHtml(candidate);
   }
   return '';
+}
+
+export function normalizePublishedSourceHtml(html: string): string {
+  return html
+    .replace(/\bBook\s*\/\s*Enquire\b/gi, 'Book Now')
+    .replace(/\bBook or enquire about your cat(?:'|’)?s stay\.?/gi, "Book your cat's stay.");
 }
 
 export function sourcePreviewUrlFromData(data: Record<string, any> | null | undefined): string {
