@@ -108,7 +108,6 @@ const tenantStaffDashboardPaths = [
   "/staff-dashboard/insights",
   "/staff-dashboard/settings",
   "/staff-dashboard/booking-setup",
-  "/staff-dashboard/payment",
   "/staff-dashboard/subscription",
 ].map((path) => ({
   path,
@@ -208,6 +207,11 @@ export const router = createBrowserRouter([
 
   // Production tenant staff workspace. Demo screens remain under /demo and older admin screens remain under /admin.
   ...tenantStaffDashboardPaths,
+  {
+    path: "/staff-dashboard/payment",
+    Component: PaymentIntegration,
+    ErrorBoundary: RootErrorBoundary,
+  },
   {
     path: "/staff-dashboard/bookings",
     Component: AdminBookings,

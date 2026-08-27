@@ -11,6 +11,7 @@ import { DashboardWebsiteEditor } from './pages/admin/WebsiteEditor';
 import { MarketingKit } from './pages/admin/MarketingKit';
 import { ClientPortalEntry } from './pages/customer/ClientPortalEntry';
 import { NotificationSettings } from './pages/admin/NotificationSettings';
+import { PaymentIntegration } from './pages/admin/PaymentIntegration';
 import { PwaLaunch } from './pages/PwaLaunch';
 
 function TenantHomeSection({ section }: { section: string }) {
@@ -58,7 +59,6 @@ const staffDashboardRoutes = [
   '/staff-dashboard/insights',
   '/staff-dashboard/settings',
   '/staff-dashboard/booking-setup',
-  '/staff-dashboard/payment',
   '/staff-dashboard/subscription',
 ].map((path) => ({ path, Component: StaffDashboard }));
 
@@ -83,6 +83,7 @@ export const subdomainRouter = createBrowserRouter([
   { path: '/booking-flow', Component: BookingFlow },
   { path: '/booking', element: <TenantHomeSection section="booking" /> },
   ...staffDashboardRoutes,
+  { path: '/staff-dashboard/payment', Component: PaymentIntegration },
   { path: '/staff-dashboard/bookings', Component: AdminBookings },
   { path: '/staff-dashboard/website-editor', Component: DashboardWebsiteEditor },
   { path: '/staff-dashboard/marketing', Component: MarketingKit },
