@@ -82,14 +82,24 @@ export function useBookings() {
     total_amount: number;
     payment_status?: string;
     notes?: string;
+    cat_ids?: string[];
   }) => {
     if (!cattery?.id) return { error: 'No cattery found' };
 
+    const { cat_ids = [], ...bookingRow } = booking;
+
     const { data, error } = await supabase
       .from('bookings')
-      .insert({ ...booking, cattery_id: cattery.id })
+      .insert({ ...bookingRow, cattery_id: cattery.id })
       .select()
       .single();
+
+    if (!error && data && cat_ids.length > 0) {
+      const { error: catsError } = await supabase
+        .from('booking_cats')
+        .insert(cat_ids.map((cat_id) => ({ booking_id: data.id, cat_id })));
+      if (catsError) return { data, error: catsError };
+    }
 
     if (!error) await fetchBookings();
     return { data, error };

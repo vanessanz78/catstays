@@ -4,6 +4,14 @@ import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../../components/ui/dialog';
 import { useBookings } from '@/hooks/useBookings';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useRooms } from '@/hooks/useRooms';
@@ -28,7 +36,9 @@ import {
   ArrowDown
 } from 'lucide-react';
 import { RightMenu } from '../../components/RightMenu';
-import { format, addDays, differenceInDays } from 'date-fns';
+import { NotificationBell } from '../../components/NotificationBell';
+import { format } from 'date-fns';
+import { inclusiveStayDays } from '../../lib/bookingPricing';
 import {
   Sheet,
   SheetContent,
@@ -59,10 +69,15 @@ export function AdminBookings() {
   const [selectedRoom, setSelectedRoom] = useState<any>(null);
   const [specialRequirements, setSpecialRequirements] = useState('');
   const [paymentStatus, setPaymentStatus] = useState('unpaid');
+  const [showAddCustomer, setShowAddCustomer] = useState(false);
+  const [newCustomer, setNewCustomer] = useState({ name: '', email: '', phone: '', catName: '' });
+  const [newCustomerError, setNewCustomerError] = useState('');
+  const [savingCustomer, setSavingCustomer] = useState(false);
+  const [bookingError, setBookingError] = useState('');
 
   const { cattery } = useAuth();
   const { bookings: rawBookings, loading: bookingsLoading, createBooking } = useBookings();
-  const { customers: rawCustomers } = useCustomers();
+  const { customers: rawCustomers, createCustomer, addCat } = useCustomers();
   const { rooms: rawRooms } = useRooms();
   const [customerSearch, setCustomerSearch] = useState('');
 
@@ -76,7 +91,7 @@ export function AdminBookings() {
     name: c.name,
     email: c.email,
     phone: c.phone || '',
-    cats: (c as any).cats?.map((cat: any) => cat.name) || [],
+    cats: (c as any).cats?.map((cat: any) => ({ id: cat.id, name: cat.name })) || [],
   }));
 
   const filteredCustomers = customers.filter(c =>
@@ -100,7 +115,7 @@ export function AdminBookings() {
 
   // Map real Supabase bookings to UI shape
   const bookings = rawBookings.map(b => {
-    const nights = differenceInDays(new Date(b.check_out), new Date(b.check_in));
+    const days = inclusiveStayDays(b.check_in, b.check_out);
     const linkedCatNames = (b.booking_cats ?? []).map(bc => bc.cat.name);
     const guestCatNames = b.cat_names
       ? b.cat_names.split(',').map(name => name.trim()).filter(Boolean)
@@ -119,7 +134,7 @@ export function AdminBookings() {
       status: b.status,
       paymentStatus: b.payment_status,
       total: b.total_amount || 0,
-      nights,
+      days,
       receivedDate: b.created_at,
       specialRequirements: b.notes || '',
     };
@@ -198,17 +213,58 @@ export function AdminBookings() {
 
   const calculateTotal = () => {
     if (!checkIn || !checkOut || !selectedRoom) return 0;
-    const nights = differenceInDays(new Date(checkOut), new Date(checkIn));
-    return nights * selectedRoom.pricePerDay * cats.length;
+    return inclusiveStayDays(checkIn, checkOut) * selectedRoom.pricePerDay * cats.length;
   };
 
-  const calculateNights = () => {
+  const calculateDays = () => {
     if (!checkIn || !checkOut) return 0;
-    return differenceInDays(new Date(checkOut), new Date(checkIn));
+    return inclusiveStayDays(checkIn, checkOut);
+  };
+
+  const handleAddCustomer = async () => {
+    const name = newCustomer.name.trim();
+    const email = newCustomer.email.trim();
+    const phone = newCustomer.phone.trim();
+    const catName = newCustomer.catName.trim();
+
+    if (!name || !email || !catName) {
+      setNewCustomerError('Enter the customer name, email address, and cat name.');
+      return;
+    }
+
+    setSavingCustomer(true);
+    setNewCustomerError('');
+    const { data: customer, error } = await createCustomer({ name, email, phone: phone || undefined });
+    if (error || !customer) {
+      setNewCustomerError(typeof error === 'string' ? error : error?.message || 'Customer could not be added.');
+      setSavingCustomer(false);
+      return;
+    }
+
+    const customerCats: { id: string; name: string }[] = [];
+    if (catName) {
+      const { data: cat, error: catError } = await addCat(customer.id, { name: catName });
+      if (catError || !cat) {
+        setNewCustomerError(typeof catError === 'string' ? catError : catError?.message || 'The customer was added, but the cat could not be added.');
+        setSavingCustomer(false);
+        return;
+      }
+      customerCats.push({ id: cat.id, name: cat.name });
+    }
+
+    const createdCustomer = { ...customer, phone: customer.phone || '', cats: customerCats };
+    setSelectedCustomer(createdCustomer);
+    setCats(customerCats);
+    setNewCustomer({ name: '', email: '', phone: '', catName: '' });
+    setShowAddCustomer(false);
+    setSavingCustomer(false);
+    setStep(2);
   };
 
   const handleCreateBooking = async () => {
     if (!selectedCustomer || !checkIn || !checkOut || !selectedRoom) return;
+
+    setBookingError('');
 
     const { data, error } = await createBooking({
       customer_id: selectedCustomer.id,
@@ -218,10 +274,11 @@ export function AdminBookings() {
       total_amount: calculateTotal(),
       payment_status: paymentStatus,
       notes: specialRequirements || undefined,
+      cat_ids: cats.map((cat) => cat.id).filter(Boolean),
     });
 
     if (error) {
-      console.error('Failed to create booking:', error);
+      setBookingError(typeof error === 'string' ? error : error.message || 'Booking could not be created.');
       return;
     }
 
@@ -280,7 +337,10 @@ export function AdminBookings() {
                   <p className="text-sm" style={{ color: '#6b7a6d' }}>Step {step} of 4</p>
                 </div>
               </div>
-              <RightMenu />
+              <div className="flex items-center gap-2">
+                <NotificationBell />
+                <RightMenu />
+              </div>
             </div>
           </div>
           
@@ -321,7 +381,7 @@ export function AdminBookings() {
                         key={customer.id}
                         onClick={() => {
                           setSelectedCustomer(customer);
-                          setCats(customer.cats.map(name => ({ name, age: '', breed: '', dietary: '' })));
+                          setCats(customer.cats);
                           setStep(2);
                         }}
                         className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
@@ -339,9 +399,9 @@ export function AdminBookings() {
                               {customer.email} • {customer.phone}
                             </div>
                             <div className="flex gap-1 mt-1">
-                              {customer.cats.map((cat, i) => (
-                                <Badge key={i} variant="outline" className="text-xs">
-                                  🐱 {cat}
+                              {customer.cats.map((cat) => (
+                                <Badge key={cat.id} variant="outline" className="text-xs">
+                                  🐱 {cat.name}
                                 </Badge>
                               ))}
                             </div>
@@ -354,6 +414,10 @@ export function AdminBookings() {
 
                   <Button 
                     variant="outline" 
+                    onClick={() => {
+                      setNewCustomerError('');
+                      setShowAddCustomer(true);
+                    }}
                     className="w-full rounded-xl border-sage/20 text-sage hover:bg-sage/5"
                   >
                     <Plus className="w-4 h-4 mr-2" />
@@ -394,6 +458,7 @@ export function AdminBookings() {
                     <Input 
                       type="date" 
                       value={checkOut}
+                      min={checkIn || undefined}
                       onChange={(e) => setCheckOut(e.target.value)}
                       className="rounded-xl border-sage/20"
                     />
@@ -404,11 +469,14 @@ export function AdminBookings() {
                       <div className="flex items-center gap-2 text-sage">
                         <Clock className="w-5 h-5" />
                         <span className="font-semibold">
-                          {calculateNights()} nights
+                          {calculateDays()} days
                         </span>
                       </div>
                       <p className="text-sm mt-1" style={{ color: '#6b7a6d' }}>
                         {format(new Date(checkIn), 'MMM dd, yyyy')} → {format(new Date(checkOut), 'MMM dd, yyyy')}
+                      </p>
+                      <p className="text-xs mt-1" style={{ color: '#6b7a6d' }}>
+                        Includes the day of arrival and the day of departure.
                       </p>
                     </div>
                   )}
@@ -423,7 +491,7 @@ export function AdminBookings() {
                     </Button>
                     <Button 
                       onClick={() => setStep(3)}
-                      disabled={!checkIn || !checkOut}
+                      disabled={calculateDays() === 0}
                       className="flex-1 rounded-xl text-white"
                       style={{ backgroundColor: '#7DAF7B' }}
                     >
@@ -444,7 +512,7 @@ export function AdminBookings() {
                     Choose Room Type
                   </CardTitle>
                   <CardDescription>
-                    Booking for {cats.length} cat{cats.length !== 1 ? 's' : ''} • {calculateNights()} nights
+                    Booking for {cats.length} cat{cats.length !== 1 ? 's' : ''} • {calculateDays()} days
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -489,7 +557,7 @@ export function AdminBookings() {
                               {room.available} / {room.total} available
                             </Badge>
                             <span className="text-lg font-bold text-sage">
-                              ${room.pricePerDay}/night
+                              ${room.pricePerDay}/day
                             </span>
                           </div>
                         </div>
@@ -581,7 +649,7 @@ export function AdminBookings() {
                       {format(new Date(checkIn), 'MMM dd')} - {format(new Date(checkOut), 'MMM dd, yyyy')}
                     </p>
                     <p className="text-sm" style={{ color: '#6b7a6d' }}>
-                      {calculateNights()} nights
+                      {calculateDays()} days
                     </p>
                   </div>
 
@@ -597,7 +665,7 @@ export function AdminBookings() {
                       {selectedRoom?.name}
                     </p>
                     <p className="text-sm" style={{ color: '#6b7a6d' }}>
-                      ${selectedRoom?.pricePerDay} per cat per night
+                      ${selectedRoom?.pricePerDay} per cat per day
                     </p>
                   </div>
 
@@ -642,9 +710,15 @@ export function AdminBookings() {
                       ${calculateTotal().toFixed(2)}
                     </p>
                     <p className="text-sm mt-1" style={{ color: '#6b7a6d' }}>
-                      {cats.length} cat{cats.length !== 1 ? 's' : ''} × {calculateNights()} nights × ${selectedRoom?.pricePerDay}
+                      {cats.length} cat{cats.length !== 1 ? 's' : ''} × {calculateDays()} days × ${selectedRoom?.pricePerDay}
                     </p>
                   </div>
+
+                  {bookingError && (
+                    <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                      {bookingError}
+                    </p>
+                  )}
 
                   {/* Actions */}
                   <div className="flex gap-3 pt-2">
@@ -670,6 +744,79 @@ export function AdminBookings() {
           )}
         </main>
 
+        <Dialog open={showAddCustomer} onOpenChange={(open) => {
+          setShowAddCustomer(open);
+          if (!open) setNewCustomerError('');
+        }}>
+          <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Add new customer</DialogTitle>
+              <DialogDescription>
+                Add the owner now, then continue this booking without losing your place.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <label className="block text-sm font-medium text-[#2d3e2f]">
+                Customer name
+                <Input
+                  autoComplete="name"
+                  value={newCustomer.name}
+                  onChange={(event) => setNewCustomer((value) => ({ ...value, name: event.target.value }))}
+                  className="mt-1 rounded-xl"
+                />
+              </label>
+              <label className="block text-sm font-medium text-[#2d3e2f]">
+                Email address
+                <Input
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  value={newCustomer.email}
+                  onChange={(event) => setNewCustomer((value) => ({ ...value, email: event.target.value }))}
+                  className="mt-1 rounded-xl"
+                />
+              </label>
+              <label className="block text-sm font-medium text-[#2d3e2f]">
+                Phone number
+                <Input
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  value={newCustomer.phone}
+                  onChange={(event) => setNewCustomer((value) => ({ ...value, phone: event.target.value }))}
+                  className="mt-1 rounded-xl"
+                />
+              </label>
+              <label className="block text-sm font-medium text-[#2d3e2f]">
+                Cat name
+                <Input
+                  value={newCustomer.catName}
+                  onChange={(event) => setNewCustomer((value) => ({ ...value, catName: event.target.value }))}
+                  className="mt-1 rounded-xl"
+                />
+              </label>
+              {newCustomerError && (
+                <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                  {newCustomerError}
+                </p>
+              )}
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowAddCustomer(false)}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                disabled={savingCustomer}
+                onClick={() => void handleAddCustomer()}
+                className="bg-[#C46A3A] text-white hover:bg-[#A85A30]"
+              >
+                {savingCustomer ? 'Adding customer…' : 'Add customer and continue'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         {/* Removed BottomNav component */}
       </div>
     );
@@ -687,14 +834,17 @@ export function AdminBookings() {
               </h1>
               <p className="text-sm" style={{ color: '#6b7a6d' }}>All reservations</p>
             </div>
-            <RightMenu />
+            <div className="flex items-center gap-2">
+              <NotificationBell />
+              <RightMenu />
+            </div>
           </div>
         </div>
       </header>
 
       <main className="max-w-lg mx-auto px-4 py-6 space-y-4">
         {/* New Booking Button */}
-        <Link to="/site/booking-flow">
+        <Link to="/staff-dashboard/bookings?new=true">
           <Button 
             className="w-full rounded-3xl text-white py-6 text-lg font-semibold"
             style={{ backgroundColor: '#C46A3A' }}
@@ -958,9 +1108,12 @@ export function AdminBookings() {
                       </p>
                     </div>
                     <div>
-                      <span className="text-xs" style={{ color: '#6b7a6d' }}>Nights</span>
+                      <span className="text-xs" style={{ color: '#6b7a6d' }}>Days</span>
                       <p className="font-medium" style={{ color: '#2d3e2f' }}>
-                        {selectedBooking.nights} nights
+                        {selectedBooking.days} days
+                      </p>
+                      <p className="text-xs" style={{ color: '#6b7a6d' }}>
+                        Arrival and departure days included
                       </p>
                     </div>
                     <div>

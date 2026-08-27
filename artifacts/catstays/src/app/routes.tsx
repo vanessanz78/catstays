@@ -95,7 +95,6 @@ import BookingSystemDemo from "./pages/BookingSystemDemo";
 
 const tenantStaffDashboardPaths = [
   "/staff-dashboard",
-  "/staff-dashboard/bookings",
   "/staff-dashboard/customers",
   "/staff-dashboard/calendar",
   "/staff-dashboard/room-planner",
@@ -209,6 +208,11 @@ export const router = createBrowserRouter([
 
   // Production tenant staff workspace. Demo screens remain under /demo and older admin screens remain under /admin.
   ...tenantStaffDashboardPaths,
+  {
+    path: "/staff-dashboard/bookings",
+    Component: AdminBookings,
+    ErrorBoundary: RootErrorBoundary,
+  },
   {
     path: "/staff-dashboard/website-editor",
     Component: DashboardWebsiteEditor,
