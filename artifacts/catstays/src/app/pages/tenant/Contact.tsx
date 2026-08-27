@@ -27,6 +27,7 @@ export function TenantContact() {
     setError('');
     try {
       const result = await sendContactEnquiry({
+        catteryId: cattery.id,
         customerName: name,
         customerEmail: email,
         message,

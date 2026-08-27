@@ -83,7 +83,7 @@ export function NotificationSettings() {
     <div className="min-h-screen bg-[#F8F7F5] pb-24">
       <header className="sticky top-0 z-40 border-b border-[#0A1128]/10 bg-white">
         <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-4">
-          <Link to="/admin/settings" className="rounded-lg p-2 transition-colors hover:bg-[#F8F7F5]" aria-label="Back to settings">
+          <Link to="/staff-dashboard/settings" className="rounded-lg p-2 transition-colors hover:bg-[#F8F7F5]" aria-label="Back to settings">
             <ArrowLeft className="h-5 w-5 text-[#0A1128]" />
           </Link>
           <BellRing className="h-6 w-6 text-[#C46A3A]" />
@@ -104,7 +104,7 @@ export function NotificationSettings() {
           </CardHeader>
           <CardContent className="space-y-5 p-5">
             <p className="text-[#0A1128]/70">
-              CatStays uses your installed app and your phone's own notification system. Booking alerts can appear on the lock screen, with sound and vibration, whether the app is open or closed.
+              CatStays uses your installed app and your phone's own notification system. Booking and customer alerts can appear on the lock screen, with sound and vibration, whether the app is open or closed.
             </p>
 
             <div className="flex items-center justify-between rounded-xl bg-[#F8F7F5] px-4 py-3">

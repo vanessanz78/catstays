@@ -54,7 +54,7 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
     try {
       await webpush.sendNotification(
         { endpoint: row.endpoint, keys: { p256dh: row.p256dh, auth: row.auth_key } },
-        JSON.stringify({ ...payload, icon: '/icons/icon-192.png', badge: '/icons/icon-192.png' }),
+        JSON.stringify({ ...payload, icon: '/icons/icon-192.png', badge: '/icons/icon-maskable-192.png' }),
       );
       sent += 1;
       await admin.from('catstays_push_subscriptions').update({ last_seen_at: new Date().toISOString() }).eq('id', row.id);

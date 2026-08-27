@@ -9,6 +9,8 @@ import { StaffDashboard } from './pages/staff/StaffDashboard';
 import { DashboardWebsiteEditor } from './pages/admin/WebsiteEditor';
 import { MarketingKit } from './pages/admin/MarketingKit';
 import { ClientPortalEntry } from './pages/customer/ClientPortalEntry';
+import { NotificationSettings } from './pages/admin/NotificationSettings';
+import { PwaLaunch } from './pages/PwaLaunch';
 
 function TenantHomeSection({ section }: { section: string }) {
   useEffect(() => {
@@ -62,6 +64,7 @@ const staffDashboardRoutes = [
 
 export const subdomainRouter = createBrowserRouter([
   { path: '/', Component: TenantHome },
+  { path: '/app', Component: PwaLaunch },
   { path: '/login', Component: Login },
   { path: '/reset-password', Component: ResetPassword },
   { path: '/confirm-email', Component: ConfirmEmail },
@@ -82,6 +85,7 @@ export const subdomainRouter = createBrowserRouter([
   ...staffDashboardRoutes,
   { path: '/staff-dashboard/website-editor', Component: DashboardWebsiteEditor },
   { path: '/staff-dashboard/marketing', Component: MarketingKit },
+  { path: '/staff-dashboard/settings/notifications', Component: NotificationSettings },
   { path: '/client-portal', Component: ClientPortalEntry },
   { path: '/client-portal/bookings', Component: ClientPortalEntry },
   { path: '/client-portal/profile', Component: ClientPortalEntry },

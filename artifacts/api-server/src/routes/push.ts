@@ -17,15 +17,14 @@ async function authenticatedUser(req: Request) {
   return error ? null : data.user;
 }
 
-async function ownedCattery(userId: string, catteryId: string) {
+async function canUseCatteryNotifications(userId: string, catteryId: string) {
   if (!admin || !catteryId) return false;
-  const { data } = await admin
-    .from('catteries')
-    .select('id')
-    .eq('id', catteryId)
-    .eq('owner_id', userId)
-    .maybeSingle();
-  return Boolean(data?.id);
+  const [{ data: owner }, { data: staff }, { data: customer }] = await Promise.all([
+    admin.from('catteries').select('id').eq('id', catteryId).eq('owner_id', userId).maybeSingle(),
+    admin.from('staff_memberships').select('id').eq('cattery_id', catteryId).eq('user_id', userId).eq('status', 'active').maybeSingle(),
+    admin.from('customers').select('id').eq('cattery_id', catteryId).eq('user_id', userId).limit(1).maybeSingle(),
+  ]);
+  return Boolean(owner?.id || staff?.id || customer?.id);
 }
 
 router.get('/push/status', async (req, res) => {
@@ -64,7 +63,7 @@ router.post('/push/subscribe', async (req, res) => {
     || endpoint.length > 2048
     || !p256dh
     || !authKey
-    || !(await ownedCattery(user.id, catteryId))
+    || !(await canUseCatteryNotifications(user.id, catteryId))
   ) {
     res.status(400).json({ error: 'The phone subscription or cattery account is invalid.' });
     return;
@@ -99,7 +98,7 @@ router.post('/push/test', async (req, res) => {
   const result = await sendPushToUser(user.id, {
     title: 'CatStays test notification',
     body: 'Native phone notifications are connected to this cattery account.',
-    url: '/admin/settings/notifications',
+    url: '/app',
     tag: `catstays-test-${Date.now()}`,
   });
   if (result.sent === 0) {

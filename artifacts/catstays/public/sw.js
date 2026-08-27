@@ -1,9 +1,15 @@
-const CACHE_NAME = 'catstays-pwa-v1';
+const CACHE_NAME = 'catstays-pwa-v2';
 const APP_SHELL = [
   '/',
+  '/app',
+  '/staff-dashboard',
+  '/client-portal',
   '/manifest.webmanifest',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
+  '/icons/icon-maskable-192.png',
+  '/icons/icon-maskable-512.png',
+  '/apple-touch-icon-v2.png',
 ];
 
 self.addEventListener('install', (event) => {
@@ -42,18 +48,18 @@ self.addEventListener('push', (event) => {
   event.waitUntil(self.registration.showNotification(title, {
     body: data.body || 'You have a new CatStays update.',
     icon: data.icon || '/icons/icon-192.png',
-    badge: data.badge || '/icons/icon-192.png',
+    badge: data.badge || '/icons/icon-maskable-192.png',
     tag: data.tag || 'catstays-update',
     renotify: true,
     vibrate: [180, 80, 180],
-    data: { url: data.url || '/admin' },
+    data: { url: data.url || '/app' },
     actions: [{ action: 'open', title: 'Open CatStays' }],
   }));
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const target = new URL(event.notification.data?.url || '/admin', self.location.origin).href;
+  const target = new URL(event.notification.data?.url || '/app', self.location.origin).href;
   event.waitUntil(clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
     const current = windows.find((client) => client.url.startsWith(self.location.origin));
     if (current) return current.focus().then(() => current.navigate(target));
