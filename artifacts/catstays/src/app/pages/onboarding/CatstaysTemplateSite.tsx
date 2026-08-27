@@ -343,7 +343,7 @@ function FocusTemplate({
                 <option value="1">1 cat</option>
                 <option value="2">2 cats</option>
                 <option value="3">3 cats</option>
-                <option value="4">4+ cats</option>
+                <option value="4">4 cats</option>
               </select>
             </label>
             <button type="button" onClick={onPreviewBookingAction} className="flex h-[58px] items-center justify-center rounded-md bg-[#0A1128] px-5 text-center text-xs font-bold uppercase tracking-[0.1em] text-white">
@@ -892,7 +892,7 @@ function ConversionBanner({
             <option value="1">1 cat</option>
             <option value="2">2 cats</option>
             <option value="3">3 cats</option>
-            <option value="4">4+ cats</option>
+            <option value="4">4 cats</option>
           </select>
         </label>
         <button type="button" onClick={onPreviewBookingAction} className="flex h-[58px] items-center justify-center rounded-md border border-white/60 px-7 text-xs font-bold uppercase tracking-[0.1em] text-white">

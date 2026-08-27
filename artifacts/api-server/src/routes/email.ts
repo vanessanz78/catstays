@@ -83,7 +83,7 @@ router.post('/bookings/request', async (req, res) => {
   const {
     catteryId, catteryName, catteryEmail, catteryPhone,
     customerName, customerEmail, phone,
-    catNames, checkIn, checkOut, displayCheckIn, displayCheckOut, nights,
+    catNames, checkIn, checkOut, displayCheckIn, displayCheckOut, days, nights,
     roomName, roomId, estimatedTotal, specialRequirements,
   } = req.body;
 
@@ -149,6 +149,7 @@ router.post('/bookings/request', async (req, res) => {
 
     const emailCheckIn = displayCheckIn || checkIn;
     const emailCheckOut = displayCheckOut || checkOut;
+    const stayDays = Number(days ?? nights ?? 0);
     const [ownerResult, customerResult] = await Promise.all([
       catteryEmail ? resend.emails.send({
         from: FROM_ADDRESS,
@@ -157,7 +158,7 @@ router.post('/bookings/request', async (req, res) => {
         subject: `New booking request from ${customerName}`,
         html: bookingRequestOwnerHtml({
           catteryName, customerName, customerEmail, phone,
-          catNames, checkIn: emailCheckIn, checkOut: emailCheckOut, nights,
+          catNames, checkIn: emailCheckIn, checkOut: emailCheckOut, days: stayDays,
           roomName, estimatedTotal, specialRequirements,
         }),
       }) : Promise.resolve({ data: null, error: new Error('Cattery email is not configured') }),
@@ -167,7 +168,7 @@ router.post('/bookings/request', async (req, res) => {
         subject: `Your booking request at ${catteryName}`,
         html: bookingRequestCustomerHtml({
           customerName, catteryName, catteryEmail, catteryPhone,
-          catNames, checkIn: emailCheckIn, checkOut: emailCheckOut, nights,
+          catNames, checkIn: emailCheckIn, checkOut: emailCheckOut, days: stayDays,
           roomName, estimatedTotal,
         }),
       }),

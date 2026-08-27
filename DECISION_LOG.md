@@ -2,6 +2,20 @@
 
 Last updated: 2026-08-27
 
+## 2026-08-27 - Public Bookings Use Inclusive Per-Cat Days
+
+Working ref: `fix/booking-flow-days-pricing-20260827`.
+
+Decision: Price the public booking request by calendar days in care, including both arrival and departure, and multiply the configured daily rate by the number of cats.
+
+Reason: Deloraine Cattery charges by days rather than accommodation nights, and the prior estimate did not change with the selected cat count.
+
+Impact:
+
+- The public estimate is `daily rate × cats × inclusive days`, followed by the existing long-stay discount and GST.
+- Public form, review, success, and booking-request email copy use **day/days**, not **night/nights**.
+- Public requests remain pending until the cattery confirms availability; automatic confirmation and real payment options require separate server-side availability, payment, and customer-auth work.
+
 ## 2026-08-27 - Public Website Is The First Staff Dashboard Action
 
 Working ref: `fix/dashboard-view-website-20260827`.
