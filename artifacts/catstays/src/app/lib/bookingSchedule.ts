@@ -121,6 +121,33 @@ export function formatBookingTime(value: string) {
   }).format(new Date(2000, 0, 1, hours, minutes)).toLowerCase();
 }
 
+const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function formatBookingDays(days: number[]) {
+  const uniqueDays = [...new Set(days)].sort((a, b) => a - b);
+  const dayKey = uniqueDays.join(',');
+
+  if (dayKey === '0,1,2,3,4,5,6') return 'Monday to Sunday';
+  if (dayKey === '1,2,3,4,5,6') return 'Monday to Saturday';
+  if (dayKey === '1,2,3,4,5') return 'Monday to Friday';
+  if (dayKey === '0,6') return 'Saturday and Sunday';
+
+  return uniqueDays.map((day) => DAY_LABELS[day]).join(', ');
+}
+
+export function bookingHoursSummary(settings: BookingWindowSettings) {
+  const schedule = normalizeBookingSchedule(settings);
+  const openDays = [...new Set([...schedule.morningDays, ...schedule.afternoonDays])];
+
+  return {
+    heading: openDays.length === 7 ? 'Open seven days a week.' : 'Appointment opening hours:',
+    lines: [
+      `Mornings: ${formatBookingDays(schedule.morningDays)}, ${formatBookingTime(schedule.morningStart)} to ${formatBookingTime(schedule.morningEnd)}.`,
+      `Afternoons: ${formatBookingDays(schedule.afternoonDays)}, ${formatBookingTime(schedule.afternoonStart)} to ${formatBookingTime(schedule.afternoonEnd)}.`,
+    ],
+  };
+}
+
 export function customerMatchesSearch(customer: CustomerSearchRecord, rawQuery: string) {
   const query = rawQuery.trim().toLocaleLowerCase();
   if (!query) return false;

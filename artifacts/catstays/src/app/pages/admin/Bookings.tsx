@@ -39,8 +39,9 @@ import { RightMenu } from '../../components/RightMenu';
 import { NotificationBell } from '../../components/NotificationBell';
 import { format, parseISO, startOfToday } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
-import { inclusiveStayDays } from '../../lib/bookingPricing';
+import { bookingOverlapsStay, calculateAssignedRoomTotal, inclusiveStayDays } from '../../lib/bookingPricing';
 import {
+  bookingHoursSummary,
   bookingTimeSlotsForDate,
   customerMatchesSearch,
   formatBookingTime,
@@ -78,6 +79,8 @@ export function AdminBookings() {
   const [showDateRangePicker, setShowDateRangePicker] = useState(false);
   const [draftDateRange, setDraftDateRange] = useState<DateRange>();
   const [selectedRoom, setSelectedRoom] = useState<any>(null);
+  const [roomArrangement, setRoomArrangement] = useState<'shared' | 'separate'>('shared');
+  const [roomAssignments, setRoomAssignments] = useState<Record<string, any>>({});
   const [specialRequirements, setSpecialRequirements] = useState('');
   const [paymentStatus, setPaymentStatus] = useState('unpaid');
   const [showAddCustomer, setShowAddCustomer] = useState(false);
@@ -85,9 +88,11 @@ export function AdminBookings() {
   const [newCustomerError, setNewCustomerError] = useState('');
   const [savingCustomer, setSavingCustomer] = useState(false);
   const [bookingError, setBookingError] = useState('');
+  const [bookingActionError, setBookingActionError] = useState('');
+  const [confirmingBooking, setConfirmingBooking] = useState(false);
 
   const { cattery } = useAuth();
-  const { bookings: rawBookings, loading: bookingsLoading, createBooking } = useBookings();
+  const { bookings: rawBookings, loading: bookingsLoading, createBooking, updateBookingStatus } = useBookings();
   const { customers: rawCustomers, createCustomer, addCat } = useCustomers();
   const { rooms: rawRooms } = useRooms();
   const [customerSearch, setCustomerSearch] = useState('');
@@ -125,6 +130,7 @@ export function AdminBookings() {
 
   const checkInTimeSlots = bookingTimeSlotsForDate(bookingSettings, checkIn);
   const checkOutTimeSlots = bookingTimeSlotsForDate(bookingSettings, checkOut);
+  const hoursSummary = bookingHoursSummary(bookingSettings);
 
   // Real rooms from Supabase
   const roomTypes = rawRooms
@@ -134,8 +140,7 @@ export function AdminBookings() {
       name: r.name,
       type: r.type,
       pricePerDay: r.price_per_night,
-      available: r.capacity,
-      total: r.capacity,
+      capacity: r.capacity,
       description: r.description || r.amenities.slice(0, 2).join(' · '),
       color: 'sage',
     }));
@@ -166,8 +171,35 @@ export function AdminBookings() {
       days,
       receivedDate: b.created_at,
       specialRequirements: b.notes || '',
+      customerId: b.customer?.id || null,
+      roomArrangement: b.room_arrangement || 'shared',
+      roomAssignments: (b.booking_cat_rooms ?? []).map((assignment) => ({
+        catId: assignment.cat.id,
+        catName: assignment.cat.name,
+        roomId: assignment.room.id,
+        roomName: assignment.room.name,
+        roomType: assignment.room.type,
+      })),
     };
   });
+
+  const occupiedRoomIds = new Set(
+    checkIn && checkOut
+      ? rawBookings
+        .filter((booking) => (
+          booking.status !== 'cancelled'
+          && bookingOverlapsStay(booking.check_in, booking.check_out, checkIn, checkOut)
+        ))
+        .flatMap((booking) => [
+          booking.room?.id,
+          ...(booking.booking_cat_rooms ?? []).map((assignment) => assignment.room.id),
+        ].filter(Boolean) as string[])
+      : []
+  );
+  const availableRoomTypes = roomTypes.filter((room) => !occupiedRoomIds.has(room.id));
+  const roomSelectionComplete = roomArrangement === 'shared'
+    ? Boolean(selectedRoom)
+    : cats.length > 0 && cats.every((cat) => Boolean(roomAssignments[cat.id]));
 
   // Filter bookings based on view mode
   const getFilteredBookings = () => {
@@ -241,8 +273,12 @@ export function AdminBookings() {
   };
 
   const calculateTotal = () => {
-    if (!checkIn || !checkOut || !selectedRoom) return 0;
-    return inclusiveStayDays(checkIn, checkOut) * selectedRoom.pricePerDay * cats.length;
+    if (!checkIn || !checkOut || cats.length === 0) return 0;
+    const days = inclusiveStayDays(checkIn, checkOut);
+    if (roomArrangement === 'separate') {
+      return calculateAssignedRoomTotal(days, cats.map((cat) => roomAssignments[cat.id]?.pricePerDay ?? 0));
+    }
+    return selectedRoom ? calculateAssignedRoomTotal(days, cats.map(() => selectedRoom.pricePerDay)) : 0;
   };
 
   const calculateDays = () => {
@@ -264,6 +300,8 @@ export function AdminBookings() {
     const nextCheckOut = format(draftDateRange.to, 'yyyy-MM-dd');
     setCheckIn(nextCheckIn);
     setCheckOut(nextCheckOut);
+    setSelectedRoom(null);
+    setRoomAssignments({});
     if (!bookingTimeSlotsForDate(bookingSettings, nextCheckIn).includes(checkInTime)) {
       setCheckInTime('');
     }
@@ -306,7 +344,7 @@ export function AdminBookings() {
 
     const createdCustomer = { ...customer, phone: customer.phone || '', cats: customerCats };
     setSelectedCustomer(createdCustomer);
-    setCats(customerCats);
+    setCats([]);
     setNewCustomer({ name: '', email: '', phone: '', catName: '' });
     setShowAddCustomer(false);
     setSavingCustomer(false);
@@ -314,21 +352,35 @@ export function AdminBookings() {
   };
 
   const handleCreateBooking = async () => {
-    if (!selectedCustomer || !checkIn || !checkOut || !checkInTime || !checkOutTime || !selectedRoom) return;
+    const assignedRooms = roomArrangement === 'shared'
+      ? cats.map((cat) => ({ cat_id: cat.id, room_id: selectedRoom?.id }))
+      : cats.map((cat) => ({ cat_id: cat.id, room_id: roomAssignments[cat.id]?.id }));
+    const primaryRoom = roomArrangement === 'shared' ? selectedRoom : roomAssignments[cats[0]?.id];
+
+    if (
+      !selectedCustomer || !checkIn || !checkOut || !checkInTime || !checkOutTime
+      || cats.length === 0 || !primaryRoom || assignedRooms.some((assignment) => !assignment.room_id)
+    ) return;
 
     setBookingError('');
 
     const { data, error } = await createBooking({
       customer_id: selectedCustomer.id,
-      room_id: String(selectedRoom.id),
+      room_id: String(primaryRoom.id),
       check_in: checkIn,
       check_out: checkOut,
       check_in_time: checkInTime,
       check_out_time: checkOutTime,
       total_amount: calculateTotal(),
       payment_status: paymentStatus,
+      status: 'confirmed',
+      room_arrangement: roomArrangement,
       notes: specialRequirements || undefined,
       cat_ids: cats.map((cat) => cat.id).filter(Boolean),
+      room_assignments: assignedRooms.map((assignment) => ({
+        cat_id: assignment.cat_id,
+        room_id: String(assignment.room_id),
+      })),
     });
 
     if (error) {
@@ -344,7 +396,9 @@ export function AdminBookings() {
         customerEmail: selectedCustomer.email,
         catteryName: cattery.name,
         catName: cats[0]?.name,
-        roomName: selectedRoom.name,
+        roomName: roomArrangement === 'shared'
+          ? selectedRoom.name
+          : cats.map((cat) => `${cat.name}: ${roomAssignments[cat.id]?.name}`).join(', '),
         checkIn: `${format(parseISO(checkIn), 'd MMM yyyy')} at ${formatBookingTime(checkInTime)}`,
         checkOut: `${format(parseISO(checkOut), 'd MMM yyyy')} at ${formatBookingTime(checkOutTime)}`,
         totalAmount: `$${calculateTotal().toFixed(2)}`,
@@ -363,8 +417,45 @@ export function AdminBookings() {
     setCheckInTime('');
     setCheckOutTime('');
     setSelectedRoom(null);
+    setRoomArrangement('shared');
+    setRoomAssignments({});
     setSpecialRequirements('');
     setPaymentStatus('unpaid');
+  };
+
+  const handleConfirmSelectedBooking = async () => {
+    if (!selectedBooking || selectedBooking.status === 'confirmed') return;
+
+    setConfirmingBooking(true);
+    setBookingActionError('');
+    const { error } = await updateBookingStatus(selectedBooking.id, 'confirmed');
+    if (error) {
+      setBookingActionError(typeof error === 'string' ? error : error.message || 'Booking could not be confirmed.');
+      setConfirmingBooking(false);
+      return;
+    }
+
+    setSelectedBooking((current: any) => ({ ...current, status: 'confirmed' }));
+    if (selectedBooking.customerEmail && cattery?.name) {
+      const roomName = selectedBooking.roomAssignments.length > 0
+        ? selectedBooking.roomAssignments.map((assignment: any) => `${assignment.catName}: ${assignment.roomName}`).join(', ')
+        : selectedBooking.roomNumber;
+      sendBookingConfirmation({
+        catteryId: cattery.id,
+        customerId: selectedBooking.customerId,
+        customerName: selectedBooking.customerName,
+        customerEmail: selectedBooking.customerEmail,
+        catteryName: cattery.name,
+        catName: selectedBooking.catNames.join(', '),
+        roomName,
+        checkIn: `${format(parseISO(selectedBooking.checkIn), 'd MMM yyyy')} at ${formatBookingTime(selectedBooking.checkInTime || '')}`,
+        checkOut: `${format(parseISO(selectedBooking.checkOut), 'd MMM yyyy')} at ${formatBookingTime(selectedBooking.checkOutTime || '')}`,
+        totalAmount: `$${Number(selectedBooking.total).toFixed(2)}`,
+        bookingRef: selectedBooking.id.slice(0, 8).toUpperCase(),
+        catteryEmail: cattery.email ?? undefined,
+      }).catch((emailError) => console.warn('[email] Confirmation not sent:', emailError));
+    }
+    setConfirmingBooking(false);
   };
 
   if (showCreateBooking) {
@@ -390,7 +481,7 @@ export function AdminBookings() {
                   <h1 className="text-xl font-serif font-semibold" style={{ color: '#2d3e2f' }}>
                     New Booking
                   </h1>
-                  <p className="text-sm" style={{ color: '#6b7a6d' }}>Step {step} of 4</p>
+                  <p className="text-sm" style={{ color: '#6b7a6d' }}>Step {step} of 5</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -404,7 +495,7 @@ export function AdminBookings() {
           <div className="w-full h-1 bg-sage/10">
             <div 
               className="h-full bg-sage transition-all duration-300"
-              style={{ width: `${(step / 4) * 100}%` }}
+              style={{ width: `${(step / 5) * 100}%` }}
             />
           </div>
         </header>
@@ -413,8 +504,8 @@ export function AdminBookings() {
           {/* Step 1: Select Customer */}
           {step === 1 && (
             <div className="space-y-4">
-              <Card className="rounded-3xl border-sage/10">
-                <CardHeader>
+              <Card className="-mx-1 rounded-2xl border-sage/10 sm:mx-0 sm:rounded-3xl">
+                <CardHeader className="px-4 pb-3 sm:px-6">
                   <CardTitle className="text-2xl font-serif" style={{ color: '#2d3e2f' }}>
                     Select Customer
                   </CardTitle>
@@ -438,7 +529,9 @@ export function AdminBookings() {
                         key={customer.id}
                         onClick={() => {
                           setSelectedCustomer(customer);
-                          setCats(customer.cats);
+                          setCats([]);
+                          setSelectedRoom(null);
+                          setRoomAssignments({});
                           setStep(2);
                         }}
                         className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
@@ -506,50 +599,37 @@ export function AdminBookings() {
                   </CardTitle>
                   <CardDescription>When will {selectedCustomer?.name}'s cats be staying?</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="rounded-2xl border border-sage/20 bg-white p-4">
-                    <div className="mb-3 flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold" style={{ color: '#2d3e2f' }}>
-                          Stay dates
-                        </p>
-                        <p className="text-xs" style={{ color: '#6b7a6d' }}>
-                          Select the first and last day in one calendar.
-                        </p>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={openDateRangePicker}
-                        className="shrink-0 rounded-xl border-sage/20"
-                      >
-                        <Calendar className="mr-2 h-4 w-4" />
-                        {checkIn && checkOut ? 'Edit dates' : 'Select dates'}
-                      </Button>
+                <CardContent className="space-y-4 px-4 sm:px-6">
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-sm font-semibold" style={{ color: '#2d3e2f' }}>Stay dates</p>
+                      <p className="text-xs" style={{ color: '#6b7a6d' }}>
+                        Select the first and last day in one calendar.
+                      </p>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        type="button"
-                        onClick={openDateRangePicker}
-                        className="rounded-xl border border-sage/15 bg-[#F6F4EF] p-3 text-left"
-                      >
+                    <Button
+                      type="button"
+                      onClick={openDateRangePicker}
+                      className="h-11 w-full rounded-xl border border-[#C46A3A] bg-[#FFF4ED] font-semibold text-[#A8562E] shadow-sm hover:bg-[#FCE8DB]"
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {checkIn && checkOut ? 'Edit booking dates' : 'Select booking dates'}
+                    </Button>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="min-w-0 rounded-xl border border-sage/15 bg-[#F6F4EF] px-3 py-3">
                         <span className="block text-xs" style={{ color: '#6b7a6d' }}>Check-in day</span>
-                        <span className="mt-1 block text-sm font-semibold" style={{ color: '#2d3e2f' }}>
-                          {checkIn ? format(parseISO(checkIn), 'EEE, d MMM yyyy') : 'Choose start'}
+                        <span className="mt-1 block whitespace-nowrap text-xs font-semibold sm:text-sm" style={{ color: '#2d3e2f' }}>
+                          {checkIn ? format(parseISO(checkIn), 'EEE, d MMM yyyy') : 'Not selected'}
                         </span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={openDateRangePicker}
-                        className="rounded-xl border border-sage/15 bg-[#F6F4EF] p-3 text-left"
-                      >
+                      </div>
+                      <div className="min-w-0 rounded-xl border border-sage/15 bg-[#F6F4EF] px-3 py-3">
                         <span className="block text-xs" style={{ color: '#6b7a6d' }}>Check-out day</span>
-                        <span className="mt-1 block text-sm font-semibold" style={{ color: '#2d3e2f' }}>
-                          {checkOut ? format(parseISO(checkOut), 'EEE, d MMM yyyy') : 'Choose finish'}
+                        <span className="mt-1 block whitespace-nowrap text-xs font-semibold sm:text-sm" style={{ color: '#2d3e2f' }}>
+                          {checkOut ? format(parseISO(checkOut), 'EEE, d MMM yyyy') : 'Not selected'}
                         </span>
-                      </button>
+                      </div>
                     </div>
                   </div>
 
@@ -587,6 +667,12 @@ export function AdminBookings() {
                     </label>
                   </div>
 
+                  <div className="rounded-xl border border-sage/15 bg-[#F6F4EF] p-3 text-xs leading-5" style={{ color: '#536456' }}>
+                    <p className="font-semibold" style={{ color: '#2d3e2f' }}>{hoursSummary.heading}</p>
+                    {hoursSummary.lines.map((line) => <p key={line}>{line}</p>)}
+                    <p className="mt-1">Choose an available check-in and check-out time after selecting the dates.</p>
+                  </div>
+
                   {checkIn && checkInTimeSlots.length === 0 && (
                     <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
                       No check-in times are configured for this day. Choose another date or update Booking Setup.
@@ -607,14 +693,10 @@ export function AdminBookings() {
                           {calculateDays()} days
                         </span>
                       </div>
-                      <p className="text-sm mt-1" style={{ color: '#6b7a6d' }}>
-                        {format(parseISO(checkIn), 'MMM dd, yyyy')} → {format(parseISO(checkOut), 'MMM dd, yyyy')}
-                      </p>
-                      {checkInTime && checkOutTime && (
-                        <p className="text-sm mt-1" style={{ color: '#6b7a6d' }}>
-                          Check-in {formatBookingTime(checkInTime)} · Check-out {formatBookingTime(checkOutTime)}
-                        </p>
-                      )}
+                      <ul className="mt-2 space-y-1 text-sm" style={{ color: '#6b7a6d' }}>
+                        <li>• Check-in: {format(parseISO(checkIn), 'EEE, d MMM yyyy')}{checkInTime ? ` at ${formatBookingTime(checkInTime)}` : ''}</li>
+                        <li>• Check-out: {format(parseISO(checkOut), 'EEE, d MMM yyyy')}{checkOutTime ? ` at ${formatBookingTime(checkOutTime)}` : ''}</li>
+                      </ul>
                       <p className="text-xs mt-1" style={{ color: '#6b7a6d' }}>
                         Includes the day of arrival and the day of departure.
                       </p>
@@ -622,14 +704,14 @@ export function AdminBookings() {
                   )}
 
                   <div className="flex gap-3">
-                    <Button 
+                    <Button
                       variant="outline"
                       onClick={() => setStep(1)}
                       className="flex-1 rounded-xl border-sage/20"
                     >
                       Back
                     </Button>
-                    <Button 
+                    <Button
                       onClick={() => setStep(3)}
                       disabled={calculateDays() === 0 || !checkInTime || !checkOutTime}
                       className="flex-1 rounded-xl text-white"
@@ -643,19 +725,124 @@ export function AdminBookings() {
             </div>
           )}
 
-          {/* Step 3: Select Room Type */}
+          {/* Step 3: Select Cats */}
           {step === 3 && (
             <div className="space-y-4">
               <Card className="rounded-3xl border-sage/10">
                 <CardHeader>
                   <CardTitle className="text-2xl font-serif" style={{ color: '#2d3e2f' }}>
-                    Choose Room Type
+                    Select Cats
                   </CardTitle>
                   <CardDescription>
-                    Booking for {cats.length} cat{cats.length !== 1 ? 's' : ''} • {calculateDays()} days
+                    Choose which of {selectedCustomer?.name}'s cats are staying.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
+                  {selectedCustomer?.cats?.length ? selectedCustomer.cats.map((cat: any) => {
+                    const selected = cats.some((candidate) => candidate.id === cat.id);
+                    return (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        aria-pressed={selected}
+                        onClick={() => {
+                          const nextCats = selected
+                            ? cats.filter((candidate) => candidate.id !== cat.id)
+                            : [...cats, cat];
+                          setCats(nextCats);
+                          setSelectedRoom(null);
+                          setRoomAssignments({});
+                          if (nextCats.length <= 1) setRoomArrangement('shared');
+                        }}
+                        className={`flex w-full items-center justify-between rounded-xl border-2 p-4 text-left transition-all ${
+                          selected ? 'border-sage bg-sage/5' : 'border-sage/10 bg-white hover:border-sage/30'
+                        }`}
+                      >
+                        <span className="flex items-center gap-3 font-semibold" style={{ color: '#2d3e2f' }}>
+                          <Cat className="h-5 w-5 text-sage" />
+                          {cat.name}
+                        </span>
+                        <span className={`flex h-6 w-6 items-center justify-center rounded-full border ${selected ? 'border-sage bg-sage' : 'border-sage/30 bg-white'}`}>
+                          {selected && <Check className="h-4 w-4 text-white" />}
+                        </span>
+                      </button>
+                    );
+                  }) : (
+                    <div className="rounded-xl border border-dashed border-sage/20 bg-white p-5 text-center">
+                      <Cat className="mx-auto mb-2 h-10 w-10 text-sage/30" />
+                      <p className="font-medium" style={{ color: '#2d3e2f' }}>No cats saved for this customer</p>
+                      <p className="mt-1 text-sm" style={{ color: '#6b7a6d' }}>
+                        Add the cat in Customers, then return to create this booking.
+                      </p>
+                    </div>
+                  )}
+
+                  {cats.length > 0 && (
+                    <p className="rounded-xl bg-sage/5 p-3 text-sm font-medium text-sage">
+                      {cats.length} cat{cats.length === 1 ? '' : 's'} selected
+                    </p>
+                  )}
+
+                  <div className="flex gap-3 pt-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setStep(2)}
+                      className="flex-1 rounded-xl border-sage/20"
+                    >
+                      Back
+                    </Button>
+                    <Button
+                      onClick={() => setStep(4)}
+                      disabled={cats.length === 0}
+                      className="flex-1 rounded-xl text-white"
+                      style={{ backgroundColor: '#7DAF7B' }}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          {/* Step 4: Select Accommodation */}
+          {step === 4 && (
+            <div className="space-y-4">
+              <Card className="rounded-3xl border-sage/10">
+                <CardHeader>
+                  <CardTitle className="text-2xl font-serif" style={{ color: '#2d3e2f' }}>
+                    Choose Accommodation
+                  </CardTitle>
+                  <CardDescription>
+                    {cats.length} cat{cats.length !== 1 ? 's' : ''} • {calculateDays()} days
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {cats.length > 1 && (
+                    <div className="grid grid-cols-2 gap-2 rounded-2xl bg-[#F6F4EF] p-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRoomArrangement('shared');
+                          setRoomAssignments({});
+                        }}
+                        className={`rounded-xl px-3 py-3 text-sm font-semibold ${roomArrangement === 'shared' ? 'bg-white text-sage shadow-sm' : 'text-[#6b7a6d]'}`}
+                      >
+                        Cats share a room
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRoomArrangement('separate');
+                          setSelectedRoom(null);
+                        }}
+                        className={`rounded-xl px-3 py-3 text-sm font-semibold ${roomArrangement === 'separate' ? 'bg-white text-sage shadow-sm' : 'text-[#6b7a6d]'}`}
+                      >
+                        Own room each
+                      </button>
+                    </div>
+                  )}
+
                   {roomTypes.length === 0 && (
                     <div className="text-center py-6">
                       <Home className="w-12 h-12 text-sage/30 mx-auto mb-3" />
@@ -668,59 +855,108 @@ export function AdminBookings() {
                       </a>
                     </div>
                   )}
-                  {roomTypes.map((room) => (
-                    <button
-                      key={room.id}
-                      onClick={() => setSelectedRoom(room)}
-                      className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
-                        selectedRoom?.id === room.id
-                          ? 'border-sage bg-sage/5'
-                          : 'border-sage/10 hover:border-sage/30 bg-white'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <Home className="w-5 h-5 text-sage" />
-                            <span className="font-semibold" style={{ color: '#2d3e2f' }}>
-                              {room.name}
-                            </span>
+
+                  {roomArrangement === 'shared' && roomTypes.map((room) => {
+                    const roomIsOccupied = occupiedRoomIds.has(room.id);
+                    const roomFits = room.capacity >= cats.length;
+                    const isAvailable = !roomIsOccupied && roomFits;
+                    return (
+                      <button
+                        key={room.id}
+                        type="button"
+                        disabled={!isAvailable}
+                        onClick={() => setSelectedRoom(room)}
+                        className={`w-full rounded-xl border-2 p-4 text-left transition-all disabled:cursor-not-allowed disabled:opacity-55 ${
+                          selectedRoom?.id === room.id
+                            ? 'border-sage bg-sage/5'
+                            : 'border-sage/10 bg-white enabled:hover:border-sage/30'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="mb-1 flex items-center gap-2">
+                              <Home className="h-5 w-5 shrink-0 text-sage" />
+                              <span className="font-semibold" style={{ color: '#2d3e2f' }}>{room.name}</span>
+                            </div>
+                            <p className="mb-2 text-sm" style={{ color: '#6b7a6d' }}>{room.description}</p>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge variant={isAvailable ? 'outline' : 'destructive'} className="text-xs">
+                                {roomIsOccupied ? 'Unavailable for these dates' : roomFits ? 'Available' : `Fits up to ${room.capacity} cats`}
+                              </Badge>
+                              <span className="font-bold text-sage">${room.pricePerDay}/cat/day</span>
+                            </div>
                           </div>
-                          <p className="text-sm mb-2" style={{ color: '#6b7a6d' }}>
-                            {room.description}
-                          </p>
-                          <div className="flex items-center gap-3">
-                            <Badge 
-                              variant={room.available > 5 ? "outline" : "destructive"}
-                              className="text-xs"
-                            >
-                              {room.available} / {room.total} available
-                            </Badge>
-                            <span className="text-lg font-bold text-sage">
-                              ${room.pricePerDay}/day
-                            </span>
-                          </div>
+                          {selectedRoom?.id === room.id && (
+                            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sage">
+                              <Check className="h-4 w-4 text-white" />
+                            </div>
+                          )}
                         </div>
-                        {selectedRoom?.id === room.id && (
-                          <div className="w-6 h-6 rounded-full bg-sage flex items-center justify-center">
-                            <Check className="w-4 h-4 text-white" />
-                          </div>
-                        )}
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    );
+                  })}
+
+                  {roomArrangement === 'shared' && roomTypes.length > 0 && !roomTypes.some((room) => !occupiedRoomIds.has(room.id) && room.capacity >= cats.length) && (
+                    <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                      No single room can take all selected cats for these dates. Choose separate rooms or edit the dates.
+                    </p>
+                  )}
+
+                  {roomArrangement === 'separate' && (
+                    <div className="space-y-3">
+                      <p className="text-sm" style={{ color: '#6b7a6d' }}>
+                        Select one different available room for each cat.
+                      </p>
+                      {cats.map((cat) => {
+                        const usedByOtherCats = new Set(
+                          Object.entries(roomAssignments)
+                            .filter(([catId]) => catId !== cat.id)
+                            .map(([, room]) => room?.id)
+                            .filter(Boolean)
+                        );
+                        return (
+                          <label key={cat.id} className="block rounded-xl border border-sage/15 bg-white p-4">
+                            <span className="mb-2 flex items-center gap-2 font-semibold" style={{ color: '#2d3e2f' }}>
+                              <Cat className="h-4 w-4 text-sage" /> {cat.name}'s room
+                            </span>
+                            <select
+                              aria-label={`Room for ${cat.name}`}
+                              value={roomAssignments[cat.id]?.id ?? ''}
+                              onChange={(event) => {
+                                const room = roomTypes.find((candidate) => candidate.id === event.target.value);
+                                setRoomAssignments((current) => ({ ...current, [cat.id]: room }));
+                              }}
+                              className="h-11 w-full rounded-xl border border-sage/20 bg-white px-3 text-sm"
+                            >
+                              <option value="">Select an available room</option>
+                              {availableRoomTypes.map((room) => (
+                                <option key={room.id} value={room.id} disabled={usedByOtherCats.has(room.id)}>
+                                  {room.name} — ${room.pricePerDay}/day
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        );
+                      })}
+                      {availableRoomTypes.length < cats.length && (
+                        <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                          There are not enough separate rooms available for every selected cat on these dates.
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   <div className="flex gap-3 pt-2">
-                    <Button 
+                    <Button
                       variant="outline"
-                      onClick={() => setStep(2)}
+                      onClick={() => setStep(3)}
                       className="flex-1 rounded-xl border-sage/20"
                     >
                       Back
                     </Button>
-                    <Button 
-                      onClick={() => setStep(4)}
-                      disabled={!selectedRoom}
+                    <Button
+                      onClick={() => setStep(5)}
+                      disabled={!roomSelectionComplete}
                       className="flex-1 rounded-xl text-white"
                       style={{ backgroundColor: '#7DAF7B' }}
                     >
@@ -732,8 +968,8 @@ export function AdminBookings() {
             </div>
           )}
 
-          {/* Step 4: Review & Confirm */}
-          {step === 4 && (
+          {/* Step 5: Review & Confirm */}
+          {step === 5 && (
             <div className="space-y-4">
               {/* Summary Card */}
               <Card className="rounded-3xl border-sage/10">
@@ -785,14 +1021,12 @@ export function AdminBookings() {
                         Dates
                       </span>
                     </div>
-                    <p className="font-medium" style={{ color: '#2d3e2f' }}>
-                      {format(parseISO(checkIn), 'MMM dd')} - {format(parseISO(checkOut), 'MMM dd, yyyy')}
-                    </p>
-                    <p className="text-sm" style={{ color: '#6b7a6d' }}>
-                      {calculateDays()} days
-                    </p>
-                    <p className="text-sm" style={{ color: '#6b7a6d' }}>
-                      Check-in {formatBookingTime(checkInTime)} · Check-out {formatBookingTime(checkOutTime)}
+                    <ul className="space-y-1 text-sm" style={{ color: '#2d3e2f' }}>
+                      <li>• Check-in: {format(parseISO(checkIn), 'EEE, d MMM yyyy')} at {formatBookingTime(checkInTime)}</li>
+                      <li>• Check-out: {format(parseISO(checkOut), 'EEE, d MMM yyyy')} at {formatBookingTime(checkOutTime)}</li>
+                    </ul>
+                    <p className="mt-2 text-sm" style={{ color: '#6b7a6d' }}>
+                      {calculateDays()} days, including arrival and departure days
                     </p>
                   </div>
 
@@ -804,12 +1038,21 @@ export function AdminBookings() {
                         Accommodation
                       </span>
                     </div>
-                    <p className="font-medium" style={{ color: '#2d3e2f' }}>
-                      {selectedRoom?.name}
+                    <p className="mb-2 text-sm font-medium text-sage">
+                      {roomArrangement === 'shared' ? 'Cats sharing one room' : 'Each cat in their own room'}
                     </p>
-                    <p className="text-sm" style={{ color: '#6b7a6d' }}>
-                      ${selectedRoom?.pricePerDay} per cat per day
-                    </p>
+                    {roomArrangement === 'shared' ? (
+                      <>
+                        <p className="font-medium" style={{ color: '#2d3e2f' }}>{selectedRoom?.name}</p>
+                        <p className="text-sm" style={{ color: '#6b7a6d' }}>${selectedRoom?.pricePerDay} per cat per day</p>
+                      </>
+                    ) : (
+                      <ul className="space-y-1 text-sm" style={{ color: '#2d3e2f' }}>
+                        {cats.map((cat) => (
+                          <li key={cat.id}>• {cat.name}: {roomAssignments[cat.id]?.name} (${roomAssignments[cat.id]?.pricePerDay}/day)</li>
+                        ))}
+                      </ul>
+                    )}
                   </div>
 
                   {/* Special Requirements */}
@@ -825,20 +1068,12 @@ export function AdminBookings() {
                     />
                   </div>
 
-                  {/* Payment Status */}
-                  <div>
-                    <label className="text-sm font-medium mb-2 block" style={{ color: '#2d3e2f' }}>
-                      Payment Status
-                    </label>
-                    <select 
-                      value={paymentStatus}
-                      onChange={(e) => setPaymentStatus(e.target.value)}
-                      className="w-full rounded-xl border border-sage/20 p-3 bg-white"
-                    >
-                      <option value="unpaid">Unpaid</option>
-                      <option value="pending">Pending</option>
-                      <option value="paid">Paid</option>
-                    </select>
+                  <div className="rounded-xl border border-sage/15 bg-white p-4">
+                    <p className="text-sm font-semibold" style={{ color: '#2d3e2f' }}>Payment status</p>
+                    <Badge className="mt-2 border-rose/20 bg-rose/10 text-rose">Unpaid</Badge>
+                    <p className="mt-2 text-xs" style={{ color: '#6b7a6d' }}>
+                      A staff-created booking starts unpaid. You can request a deposit or full payment after confirming it.
+                    </p>
                   </div>
 
                   {/* Total */}
@@ -853,7 +1088,9 @@ export function AdminBookings() {
                       ${calculateTotal().toFixed(2)}
                     </p>
                     <p className="text-sm mt-1" style={{ color: '#6b7a6d' }}>
-                      {cats.length} cat{cats.length !== 1 ? 's' : ''} × {calculateDays()} days × ${selectedRoom?.pricePerDay}
+                      {roomArrangement === 'shared'
+                        ? `${cats.length} cat${cats.length !== 1 ? 's' : ''} × ${calculateDays()} days × $${selectedRoom?.pricePerDay}`
+                        : `${calculateDays()} days × ${cats.length} separately assigned rooms`}
                     </p>
                   </div>
 
@@ -867,7 +1104,7 @@ export function AdminBookings() {
                   <div className="flex gap-3 pt-2">
                     <Button 
                       variant="outline"
-                      onClick={() => setStep(3)}
+                      onClick={() => setStep(4)}
                       className="flex-1 rounded-xl border-sage/20"
                     >
                       Back
@@ -1213,8 +1450,8 @@ export function AdminBookings() {
 
       {/* Booking Details Sheet */}
       <Sheet open={showBookingDetails} onOpenChange={setShowBookingDetails}>
-        <SheetContent side="bottom" className="max-w-lg mx-auto rounded-t-3xl">
-          <SheetHeader className="pb-4">
+        <SheetContent side="right" className="h-dvh w-screen max-w-none gap-0 overflow-hidden border-0 p-0 sm:max-w-none">
+          <SheetHeader className="shrink-0 border-b border-sage/10 bg-white px-4 py-4 pr-12 text-left">
             <SheetTitle className="text-2xl font-serif" style={{ color: '#2d3e2f' }}>
               Booking Details
             </SheetTitle>
@@ -1224,7 +1461,7 @@ export function AdminBookings() {
           </SheetHeader>
 
           {selectedBooking && (
-            <div className="space-y-4 max-h-[70vh] overflow-y-auto pb-6">
+            <div className="flex-1 space-y-4 overflow-y-auto bg-[#F6F4EF] p-4 pb-8">
               {/* Customer Info */}
               <Card className="rounded-2xl border-sage/10">
                 <CardContent className="p-4">
@@ -1285,29 +1522,16 @@ export function AdminBookings() {
                       Booking Dates
                     </h3>
                   </div>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <span className="text-xs" style={{ color: '#6b7a6d' }}>Check-in</span>
-                      <p className="font-medium" style={{ color: '#2d3e2f' }}>
-                        {format(new Date(selectedBooking.checkIn), 'MMM dd, yyyy')}
-                      </p>
-                      {selectedBooking.checkInTime && (
-                        <p className="text-xs" style={{ color: '#6b7a6d' }}>
-                          {formatBookingTime(selectedBooking.checkInTime)}
-                        </p>
-                      )}
-                    </div>
-                    <div>
-                      <span className="text-xs" style={{ color: '#6b7a6d' }}>Check-out</span>
-                      <p className="font-medium" style={{ color: '#2d3e2f' }}>
-                        {format(new Date(selectedBooking.checkOut), 'MMM dd, yyyy')}
-                      </p>
-                      {selectedBooking.checkOutTime && (
-                        <p className="text-xs" style={{ color: '#6b7a6d' }}>
-                          {formatBookingTime(selectedBooking.checkOutTime)}
-                        </p>
-                      )}
-                    </div>
+                  <div className="space-y-2 text-sm">
+                    <p className="font-medium" style={{ color: '#2d3e2f' }}>
+                      • Check-in: {format(new Date(selectedBooking.checkIn), 'EEE, d MMM yyyy')}
+                      {selectedBooking.checkInTime ? ` at ${formatBookingTime(selectedBooking.checkInTime)}` : ''}
+                    </p>
+                    <p className="font-medium" style={{ color: '#2d3e2f' }}>
+                      • Check-out: {format(new Date(selectedBooking.checkOut), 'EEE, d MMM yyyy')}
+                      {selectedBooking.checkOutTime ? ` at ${formatBookingTime(selectedBooking.checkOutTime)}` : ''}
+                    </p>
+                    <div className="grid grid-cols-2 gap-3 pt-2">
                     <div>
                       <span className="text-xs" style={{ color: '#6b7a6d' }}>Days</span>
                       <p className="font-medium" style={{ color: '#2d3e2f' }}>
@@ -1323,6 +1547,7 @@ export function AdminBookings() {
                         {format(new Date(selectedBooking.receivedDate), 'MMM dd, yyyy')}
                       </p>
                     </div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -1336,20 +1561,24 @@ export function AdminBookings() {
                       Accommodation
                     </h3>
                   </div>
-                  <div className="space-y-2 text-sm">
-                    <div>
-                      <span className="text-xs" style={{ color: '#6b7a6d' }}>Room Type</span>
-                      <p className="font-medium" style={{ color: '#2d3e2f' }}>
-                        {selectedBooking.roomType}
-                      </p>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-sage">
+                    {selectedBooking.roomArrangement === 'separate' ? 'Own room each' : 'Shared room'}
+                  </p>
+                  {selectedBooking.roomAssignments.length > 0 ? (
+                    <ul className="space-y-2 text-sm">
+                      {selectedBooking.roomAssignments.map((assignment: any) => (
+                        <li key={assignment.catId} className="rounded-lg bg-[#F6F4EF] px-3 py-2">
+                          <span className="font-semibold" style={{ color: '#2d3e2f' }}>{assignment.catName}</span>
+                          <span style={{ color: '#6b7a6d' }}> — {assignment.roomName}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="space-y-2 text-sm">
+                      <p className="font-medium" style={{ color: '#2d3e2f' }}>{selectedBooking.roomType}</p>
+                      <p style={{ color: '#6b7a6d' }}>{selectedBooking.roomNumber}</p>
                     </div>
-                    <div>
-                      <span className="text-xs" style={{ color: '#6b7a6d' }}>Room Number</span>
-                      <p className="font-medium" style={{ color: '#2d3e2f' }}>
-                        Room {selectedBooking.roomNumber}
-                      </p>
-                    </div>
-                  </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -1404,20 +1633,30 @@ export function AdminBookings() {
                 </CardContent>
               </Card>
 
+              {bookingActionError && (
+                <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                  {bookingActionError}
+                </p>
+              )}
+
               {/* Action Buttons */}
-              <div className="flex gap-3 pt-2">
+              <div className="sticky bottom-0 -mx-4 -mb-8 mt-4 grid grid-cols-2 gap-3 border-t border-sage/10 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(10,17,40,0.08)]">
                 <Button 
                   variant="outline" 
-                  className="flex-1 rounded-xl border-sage/20"
+                  className="rounded-xl border-sage/20"
                   onClick={() => setShowBookingDetails(false)}
                 >
                   Close
                 </Button>
                 <Button 
-                  className="flex-1 rounded-xl text-white"
+                  type="button"
+                  disabled={confirmingBooking || selectedBooking.status === 'confirmed'}
+                  onClick={() => void handleConfirmSelectedBooking()}
+                  className="rounded-xl text-white disabled:bg-sage/50"
                   style={{ backgroundColor: '#7DAF7B' }}
                 >
-                  Edit Booking
+                  <Check className="mr-2 h-4 w-4" />
+                  {selectedBooking.status === 'confirmed' ? 'Confirmed' : confirmingBooking ? 'Confirming…' : 'Confirm Booking'}
                 </Button>
               </div>
             </div>
