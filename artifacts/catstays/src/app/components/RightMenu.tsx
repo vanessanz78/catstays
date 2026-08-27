@@ -12,6 +12,7 @@ import {
   BookOpen,
   Users,
   CreditCard,
+  ExternalLink,
   MessageSquare,
   Megaphone,
   Share2,
@@ -38,6 +39,7 @@ type MenuItem = {
 };
 
 const menuItems: MenuItem[] = [
+  { path: '/', icon: ExternalLink, label: 'View Website', description: 'Open public website' },
   { path: '/staff-dashboard', icon: Home, label: 'Today', description: 'Check-ins & departures' },
   { path: '/staff-dashboard/website-editor', icon: Globe, label: 'Edit Website', description: 'Edit public website' },
   { path: '/staff-dashboard/calendar', icon: Calendar, label: 'Calendar', description: 'Month view' },
