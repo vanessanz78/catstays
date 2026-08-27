@@ -1,110 +1,90 @@
-import { useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
+import { ArrowRight, Loader2, Lock, Shield } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
-import { Shield, ArrowRight, Lock } from 'lucide-react';
+import { supabase } from '@/utils/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+
+async function verifyPlatformAccess(accessToken: string) {
+  const response = await fetch('/api/platform/overview', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || 'Platform access could not be verified.');
+}
 
 export function AdminLogin() {
   const navigate = useNavigate();
+  const { session, loading } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // In production: verify admin credentials via API
-    // For demo: navigate to platform admin dashboard
-    navigate('/admin');
+  useEffect(() => {
+    if (loading || !session?.access_token) return;
+    setBusy(true);
+    verifyPlatformAccess(session.access_token)
+      .then(() => navigate('/platform/dashboard', { replace: true }))
+      .catch((error) => setMessage(error.message))
+      .finally(() => setBusy(false));
+  }, [loading, navigate, session?.access_token]);
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    setBusy(true);
+    setMessage('');
+    const { data, error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    if (error || !data.session) {
+      setMessage(error?.message || 'Sign-in could not be completed.');
+      setBusy(false);
+      return;
+    }
+    try {
+      await verifyPlatformAccess(data.session.access_token);
+      navigate('/platform/dashboard', { replace: true });
+    } catch (accessError) {
+      setMessage(accessError instanceof Error ? accessError.message : 'Platform access could not be verified.');
+      setBusy(false);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0A1128] via-[#0A1128] to-[#1A2138] flex items-center justify-center p-4">
-      {/* Subtle Grid Pattern */}
-      <div className="absolute inset-0 opacity-[0.03]" style={{
-        backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)',
-        backgroundSize: '40px 40px'
-      }} />
-
-      <Card className="w-full max-w-md border-white/10 shadow-2xl bg-white/95 backdrop-blur-sm relative z-10">
-        <CardHeader className="text-center pb-6">
-          {/* Admin Shield Icon */}
-          <div className="flex justify-center mb-6">
-            <div className="relative">
-              <div className="absolute inset-0 rounded-full bg-[#0A1128]/10 animate-pulse" />
-              <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-[#0A1128] to-[#0A1128]/80 flex items-center justify-center border-2 border-[#0A1128]/20 shadow-lg">
-                <Shield className="w-10 h-10 text-white" strokeWidth={1.5} />
-              </div>
-            </div>
+    <div className="relative grid min-h-screen place-items-center overflow-hidden bg-[#0A1128] p-4">
+      <div className="absolute inset-0 opacity-[0.04]" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, white 1px, transparent 0)', backgroundSize: '40px 40px' }} />
+      <Card className="relative z-10 w-full max-w-md border-white/10 bg-white shadow-2xl">
+        <CardHeader className="pb-5 text-center">
+          <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-2xl bg-[#0A1128] shadow-lg">
+            <Shield className="h-8 w-8 text-white" />
           </div>
-          
-          <CardTitle className="text-3xl font-serif text-[#0A1128] mb-2" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
-            CatStays Admin
-          </CardTitle>
-          <CardDescription className="text-base text-[#0A1128]/70">
-            Manage your platform, customers, and growth
-          </CardDescription>
-
-          {/* Security Badge */}
-          <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#0A1128]/5 border border-[#0A1128]/10">
-            <Lock className="w-3 h-3 text-[#0A1128]/60" />
-            <span className="text-xs text-[#0A1128]/60 font-medium">Secure Admin Access</span>
+          <CardTitle className="font-serif text-3xl text-[#0A1128]">CatStays Admin</CardTitle>
+          <CardDescription>Secure oversight for every CatStays cattery and subdomain.</CardDescription>
+          <div className="mx-auto mt-3 inline-flex items-center gap-2 rounded-full border border-[#0A1128]/10 bg-[#0A1128]/5 px-3 py-1.5 text-xs font-medium text-[#0A1128]/65">
+            <Lock className="h-3.5 w-3.5" /> Platform administrators only
           </div>
         </CardHeader>
-        
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="admin-email" className="text-[#0A1128]">Email</Label>
-              <Input
-                id="admin-email"
-                type="email"
-                placeholder="admin@catstays.app"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="border-[#0A1128]/20 focus:border-[#0A1128] h-11"
-                required
-              />
+              <Label htmlFor="admin-email">Email</Label>
+              <Input id="admin-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="email" required />
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="admin-password" className="text-[#0A1128]">Password</Label>
-              <Input
-                id="admin-password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="border-[#0A1128]/20 focus:border-[#0A1128] h-11"
-                required
-              />
+              <Label htmlFor="admin-password">Password</Label>
+              <Input id="admin-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required />
             </div>
-
-            <Button 
-              type="submit" 
-              className="w-full bg-[#0A1128] hover:bg-[#0A1128]/90 text-white h-11 text-base shadow-lg" 
-              size="lg"
-            >
-              Login to Admin
-              <ArrowRight className="w-4 h-4 ml-2" />
+            {message && <p role="alert" className="rounded-xl border border-[#C46A3A]/20 bg-[#FFF4ED] p-3 text-sm text-[#7A3D22]">{message}</p>}
+            <Button disabled={busy} className="h-11 w-full bg-[#0A1128] text-white hover:bg-[#19233D]">
+              {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowRight className="mr-2 h-4 w-4" />}
+              {session ? 'Checking access…' : 'Sign in to Admin'}
             </Button>
           </form>
-
-          <div className="mt-6 pt-6 border-t border-[#0A1128]/10">
-            <p className="text-xs text-center text-[#0A1128]/50">
-              Admin access only • Unauthorized access is prohibited
-            </p>
-            <p className="text-xs text-center text-[#0A1128]/50 mt-2">
-              Need help? <a href="mailto:support@catstays.app" className="text-[#C46A3A] hover:underline">Contact support</a>
-            </p>
-          </div>
-
-          {/* Back to Main Site */}
-          <div className="mt-4 text-center">
-            <Link to="/" className="text-sm text-[#0A1128]/60 hover:text-[#0A1128] hover:underline">
-              ← Back to CatStays
-            </Link>
+          <p className="mt-5 text-center text-xs leading-5 text-[#0A1128]/55">Cattery owners and clients cannot open this cross-tenant dashboard unless they are separately allow-listed as a platform administrator.</p>
+          <div className="mt-5 border-t border-[#0A1128]/10 pt-5 text-center">
+            <Link to="/" className="text-sm font-medium text-[#C46A3A] hover:underline">← Back to CatStays</Link>
           </div>
         </CardContent>
       </Card>

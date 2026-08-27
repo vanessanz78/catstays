@@ -18,7 +18,7 @@ export function PwaLaunch() {
   return (
     <div className="grid min-h-screen place-items-center bg-[#F8F7F5] text-[#0A1128]">
       <div className="text-center">
-        <img src="/icons/icon-192.png" alt="" className="mx-auto h-20 w-20" />
+        <img src="/icons/icon-maskable-192.png" alt="" className="mx-auto h-20 w-20 rounded-2xl" />
         <p className="mt-4 text-sm text-[#4E5871]">Opening CatStays…</p>
       </div>
     </div>

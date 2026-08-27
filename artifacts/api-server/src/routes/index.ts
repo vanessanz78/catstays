@@ -6,6 +6,7 @@ import billingRouter from "./billing";
 import websiteRouter from "./website";
 import pushRouter from "./push";
 import catteryPaymentsRouter from "./catteryPayments";
+import platformRouter from "./platform";
 
 const router: IRouter = Router();
 
@@ -16,5 +17,6 @@ router.use(billingRouter);
 router.use(websiteRouter);
 router.use(pushRouter);
 router.use(catteryPaymentsRouter);
+router.use(platformRouter);
 
 export default router;
