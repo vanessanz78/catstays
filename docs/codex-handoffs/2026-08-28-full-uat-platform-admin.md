@@ -76,6 +76,8 @@ The first recursive workspace build encountered an esbuild service stop in the u
 6. Restart the CatStays/API workflows, republish, and verify the exact SHA on production.
 7. Complete the platform, staff, public, PWA, and client UAT below.
 
+The post-migration Supabase advisor identified authenticated GraphQL discoverability on the new allow-list. A follow-up hardening migration removes all direct `anon` and `authenticated` table privileges; platform membership is now verified only by the authenticated server endpoint. The self-only RLS policy remains as defence in depth if a browser grant is ever added deliberately.
+
 ## Customer and founder UAT
 
 ### Platform admin
