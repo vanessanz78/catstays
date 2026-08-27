@@ -91,6 +91,8 @@ export type Database = {
           room_id: string | null;
           check_in: string;
           check_out: string;
+          check_in_time: string | null;
+          check_out_time: string | null;
           status: string;
           payment_status: string;
           total_amount: number | null;

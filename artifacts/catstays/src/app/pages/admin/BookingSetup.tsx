@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BookingRulesForm } from '../onboarding/BookingRulesForm';
 import { RightMenu } from '../../components/RightMenu';
 import { NotificationBell } from '../../components/NotificationBell';
@@ -6,46 +6,87 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/ca
 import { Button } from '../../components/ui/button';
 import { ArrowLeft, Save } from 'lucide-react';
 import { Link } from 'react-router';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/utils/supabase/client';
+
+const defaultBookingRules = {
+  morningStart: '08:00',
+  morningEnd: '12:00',
+  afternoonStart: '14:00',
+  afternoonEnd: '18:00',
+  bookingInterval: '30',
+  morningDays: [0, 1, 2, 3, 4, 5, 6],
+  afternoonDays: [0, 1, 2, 3, 4, 5, 6],
+  depositPercentage: '25',
+  pricePerNight: '45',
+  openByAppointmentOnly: false,
+  roomTypes: [
+    { name: 'Standard Suite', numberOfRooms: '10', maxCatsPerRoom: '1', sameFamilyOnly: false },
+    { name: 'Family Suite', numberOfRooms: '5', maxCatsPerRoom: '3', sameFamilyOnly: true }
+  ],
+  pricingRates: [
+    { numberOfCats: '2', price: '75', discountType: 'percentage', discountValue: '15' },
+    { numberOfCats: '3', price: '100', discountType: 'percentage', discountValue: '20' }
+  ],
+  discounts: [
+    { name: 'Extended Stay (7+ nights)', type: 'percentage', value: '10' },
+    { name: 'Return Customer', type: 'percentage', value: '5' }
+  ],
+  blockOutDates: [
+    { name: 'Christmas / New Years', startDate: '2024-12-20', endDate: '2025-01-10' }
+  ],
+  cancellationPolicy: 'Full refund if cancelled 7+ days before check-in. 50% refund if cancelled 3-6 days before. No refund if cancelled within 2 days of check-in.'
+};
 
 export function BookingSetup() {
+  const { cattery, refreshCattery } = useAuth();
+  const [saving, setSaving] = useState(false);
   // Load saved booking rules from localStorage or use defaults
   const getSavedData = () => {
     const saved = localStorage.getItem('bookingRules');
     if (saved) {
       return JSON.parse(saved);
     }
-    return {
-      morningStart: '08:00',
-      morningEnd: '12:00',
-      afternoonStart: '14:00',
-      afternoonEnd: '18:00',
-      bookingInterval: '30',
-      depositPercentage: '25',
-      pricePerNight: '45',
-      openByAppointmentOnly: false,
-      roomTypes: [
-        { name: 'Standard Suite', numberOfRooms: '10', maxCatsPerRoom: '1', sameFamilyOnly: false },
-        { name: 'Family Suite', numberOfRooms: '5', maxCatsPerRoom: '3', sameFamilyOnly: true }
-      ],
-      pricingRates: [
-        { numberOfCats: '2', price: '75', discountType: 'percentage', discountValue: '15' },
-        { numberOfCats: '3', price: '100', discountType: 'percentage', discountValue: '20' }
-      ],
-      discounts: [
-        { name: 'Extended Stay (7+ nights)', type: 'percentage', value: '10' },
-        { name: 'Return Customer', type: 'percentage', value: '5' }
-      ],
-      blockOutDates: [
-        { name: 'Christmas / New Years', startDate: '2024-12-20', endDate: '2025-01-10' }
-      ],
-      cancellationPolicy: 'Full refund if cancelled 7+ days before check-in. 50% refund if cancelled 3-6 days before. No refund if cancelled within 2 days of check-in.'
-    };
+    return defaultBookingRules;
   };
 
   const [data, setData] = useState(getSavedData());
 
-  const handleSave = () => {
+  useEffect(() => {
+    if (!cattery?.id) return;
+
+    setData((current: Record<string, unknown>) => ({
+      ...defaultBookingRules,
+      ...current,
+      ...(cattery.website_settings ?? {}),
+    }));
+  }, [cattery?.id]);
+
+  const handleSave = async () => {
+    if (!cattery?.id) {
+      alert('Your cattery could not be found. Please refresh and try again.');
+      return;
+    }
+
+    setSaving(true);
     localStorage.setItem('bookingRules', JSON.stringify(data));
+    const { error } = await supabase
+      .from('catteries')
+      .update({
+        website_settings: {
+          ...(cattery.website_settings ?? {}),
+          ...data,
+        },
+      })
+      .eq('id', cattery.id);
+    setSaving(false);
+
+    if (error) {
+      alert(`Booking setup could not be saved: ${error.message}`);
+      return;
+    }
+
+    await refreshCattery();
     alert('Booking setup saved successfully!');
   };
 
@@ -91,11 +132,12 @@ export function BookingSetup() {
 
             <div className="mt-8 flex gap-3">
               <Button 
-                onClick={handleSave}
+                onClick={() => void handleSave()}
+                disabled={saving}
                 className="flex-1 bg-[#7DAF7B] hover:bg-[#6a9e6a] text-white"
               >
                 <Save className="w-4 h-4 mr-2" />
-                Save Changes
+                {saving ? 'Saving…' : 'Save Changes'}
               </Button>
             </div>
           </CardContent>
