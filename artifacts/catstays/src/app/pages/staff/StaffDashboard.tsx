@@ -1,8 +1,8 @@
 import { useEffect, useMemo, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router';
 import {
-  Bell,
   BookOpen,
+  BellRing,
   CalendarDays,
   Cat,
   CheckCircle2,
@@ -25,6 +25,7 @@ import { useBookings } from '@/hooks/useBookings';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useRooms } from '@/hooks/useRooms';
 import { RightMenu } from '../../components/RightMenu';
+import { NotificationBell } from '../../components/NotificationBell';
 
 const ROOT_DOMAIN = 'catstays.app';
 
@@ -617,6 +618,28 @@ function CalendarSection({ data, isLoading }: { data: ReturnType<typeof buildDas
 
 function ToolsSection({ section }: { section: StaffSection }) {
   const meta = sectionMeta[section];
+  if (section === 'settings') {
+    return (
+      <div className="grid gap-4 md:grid-cols-2">
+        <PagePanel>
+          <div className="flex h-full flex-col">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#C46A3A]/10">
+              <BellRing className="h-6 w-6 text-[#C46A3A]" />
+            </div>
+            <h3 className="mt-4 text-xl font-semibold text-[#0A1128]">Notifications</h3>
+            <p className="mt-2 flex-1 text-sm leading-6 text-[#4E5871]">
+              Connect this installed app to native phone alerts and see customer activity in the dashboard bell.
+            </p>
+            <Link to="/staff-dashboard/settings/notifications">
+              <Button className="mt-5 w-full rounded-lg bg-[#C46A3A] text-white hover:bg-[#A85A30]">
+                Phone notification settings
+              </Button>
+            </Link>
+          </div>
+        </PagePanel>
+      </div>
+    );
+  }
   const icon =
     section === 'smart-import' || section === 'smart-data-import'
       ? Sparkles
@@ -780,14 +803,7 @@ export function StaffDashboard() {
                 New booking
               </Button>
             </Link>
-            <div className="relative hidden h-10 w-10 place-items-center rounded-full bg-white text-[#C46A3A] shadow-sm sm:grid">
-              <Bell className="h-5 w-5" />
-              {dashboardData.pending.length > 0 && (
-                <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-[#0A1128] px-1 text-xs font-semibold text-white">
-                  {dashboardData.pending.length}
-                </span>
-              )}
-            </div>
+            <NotificationBell />
           </div>
         </div>
       </header>

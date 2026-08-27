@@ -85,6 +85,7 @@ import { WebsiteBuilderStudio } from "./pages/WebsiteBuilderStudio";
 import { PlatformDashboard } from "./pages/platform/PlatformDashboard";
 import { AdminLogin } from "./pages/platform/AdminLogin";
 import { StaffDashboard } from "./pages/staff/StaffDashboard";
+import { PwaLaunch } from "./pages/PwaLaunch";
 
 // Demo pages
 import { AuthFlowDemo } from "./pages/demo/AuthFlowDemo";
@@ -117,6 +118,11 @@ const tenantStaffDashboardPaths = [
 }));
 
 export const router = createBrowserRouter([
+  {
+    path: "/app",
+    Component: PwaLaunch,
+    ErrorBoundary: RootErrorBoundary,
+  },
   // Marketing website (catstays.app)
   {
     path: "/",
@@ -267,6 +273,11 @@ export const router = createBrowserRouter([
   },
   {
     path: "/admin/settings/notifications",
+    Component: NotificationSettings,
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
+    path: "/staff-dashboard/settings/notifications",
     Component: NotificationSettings,
     ErrorBoundary: RootErrorBoundary,
   },

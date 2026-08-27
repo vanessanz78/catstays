@@ -227,6 +227,8 @@ export function AdminBookings() {
 
     if (selectedCustomer.email && cattery?.name) {
       sendBookingConfirmation({
+        catteryId: cattery.id,
+        customerId: selectedCustomer.id,
         customerName: selectedCustomer.name,
         customerEmail: selectedCustomer.email,
         catteryName: cattery.name,

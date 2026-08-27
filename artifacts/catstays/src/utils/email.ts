@@ -1,6 +1,10 @@
+import { supabase } from '@/utils/supabase/client';
+
 const API_BASE = '/api';
 
 export interface BookingConfirmationPayload {
+  catteryId: string;
+  customerId: string;
   customerName: string;
   customerEmail: string;
   catteryName: string;
@@ -14,6 +18,7 @@ export interface BookingConfirmationPayload {
 }
 
 export interface ContactEnquiryPayload {
+  catteryId?: string;
   customerName: string;
   customerEmail: string;
   message: string;
@@ -23,9 +28,13 @@ export interface ContactEnquiryPayload {
 
 async function post(path: string, body: object): Promise<{ success: boolean; id?: string; error?: string }> {
   try {
+    const { data } = await supabase.auth.getSession();
     const res = await fetch(`${API_BASE}${path}`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(data.session?.access_token ? { Authorization: `Bearer ${data.session.access_token}` } : {}),
+      },
       body: JSON.stringify(body),
     });
     return await res.json();

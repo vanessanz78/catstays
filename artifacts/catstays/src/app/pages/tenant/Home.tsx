@@ -89,6 +89,7 @@ export function TenantHome() {
     if (!cattery?.email) return;
     setSendingContact(true);
     await sendContactEnquiry({
+      catteryId: cattery.id,
       customerName: contactName,
       customerEmail: contactEmail,
       message: contactMsg,

@@ -16,13 +16,27 @@ interface Cattery {
   subscription_status: string;
 }
 
+export type AccountRole = 'owner' | 'staff' | 'customer' | null;
+
+export interface CustomerProfile {
+  id: string;
+  cattery_id: string;
+  user_id: string | null;
+  name: string;
+  email: string;
+  phone: string | null;
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   cattery: Cattery | null;
+  accountRole: AccountRole;
+  customer: CustomerProfile | null;
   loading: boolean;
   signUp: (email: string, password: string, businessName: string, ownerName: string) => Promise<{ error: Error | null; userId: string | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signUpCustomer: (email: string, password: string, fullName: string, catteryId: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshCattery: () => Promise<void>;
 }
@@ -33,30 +47,84 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [cattery, setCattery] = useState<Cattery | null>(null);
+  const [accountRole, setAccountRole] = useState<AccountRole>(null);
+  const [customer, setCustomer] = useState<CustomerProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const loadCattery = async (userId: string) => {
+  const loadAccount = async (userId: string) => {
     try {
-      const { data, error } = await supabase
+      const { data: ownedCattery, error: ownerError } = await supabase
         .from('catteries')
         .select('*')
         .eq('owner_id', userId)
-        .single();
-      if (!error && data) {
-        setCattery(data as Cattery);
+        .maybeSingle();
+      if (!ownerError && ownedCattery) {
+        setCattery(ownedCattery as Cattery);
+        setAccountRole('owner');
+        setCustomer(null);
         void import('@/lib/pwa').then(({ recoverCatStaysPhoneNotifications }) => {
-          recoverCatStaysPhoneNotifications(String(data.id));
+          recoverCatStaysPhoneNotifications(String(ownedCattery.id));
         });
-      } else {
-        setCattery(null);
+        return;
       }
+
+      const { data: membership } = await supabase
+        .from('staff_memberships')
+        .select('cattery_id')
+        .eq('user_id', userId)
+        .eq('status', 'active')
+        .limit(1)
+        .maybeSingle();
+      if (membership?.cattery_id) {
+        const { data: staffCattery } = await supabase
+          .from('catteries')
+          .select('*')
+          .eq('id', membership.cattery_id)
+          .maybeSingle();
+        if (staffCattery) {
+          setCattery(staffCattery as Cattery);
+          setAccountRole('staff');
+          setCustomer(null);
+          void import('@/lib/pwa').then(({ recoverCatStaysPhoneNotifications }) => {
+            recoverCatStaysPhoneNotifications(String(staffCattery.id));
+          });
+          return;
+        }
+      }
+
+      const { data: customerProfile } = await supabase
+        .from('customers')
+        .select('id,cattery_id,user_id,name,email,phone')
+        .eq('user_id', userId)
+        .limit(1)
+        .maybeSingle();
+      if (customerProfile?.cattery_id) {
+        const { data: customerCattery } = await supabase
+          .from('catteries')
+          .select('*')
+          .eq('id', customerProfile.cattery_id)
+          .maybeSingle();
+        setCattery((customerCattery || null) as Cattery | null);
+        setAccountRole('customer');
+        setCustomer(customerProfile as CustomerProfile);
+        void import('@/lib/pwa').then(({ recoverCatStaysPhoneNotifications }) => {
+          recoverCatStaysPhoneNotifications(String(customerProfile.cattery_id));
+        });
+        return;
+      }
+
+      setCattery(null);
+      setAccountRole(null);
+      setCustomer(null);
     } catch {
       setCattery(null);
+      setAccountRole(null);
+      setCustomer(null);
     }
   };
 
   const refreshCattery = async () => {
-    if (user) await loadCattery(user.id);
+    if (user) await loadAccount(user.id);
   };
 
   useEffect(() => {
@@ -64,7 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        loadCattery(session.user.id).finally(() => setLoading(false));
+        loadAccount(session.user.id).finally(() => setLoading(false));
       } else {
         setLoading(false);
       }
@@ -74,9 +142,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        loadCattery(session.user.id);
+        setLoading(true);
+        loadAccount(session.user.id).finally(() => setLoading(false));
       } else {
         setCattery(null);
+        setAccountRole(null);
+        setCustomer(null);
+        setLoading(false);
       }
     });
 
@@ -101,7 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       let attempts = 0;
       const tryLoad = async () => {
         attempts++;
-        await loadCattery(data.user!.id);
+        await loadAccount(data.user!.id);
         if (!cattery && attempts < 5) {
           await new Promise(r => setTimeout(r, 600));
           await tryLoad();
@@ -118,13 +190,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { error: error ?? null };
   };
 
+  const signUpCustomer = async (email: string, password: string, fullName: string, catteryId: string) => {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          account_type: 'customer',
+          full_name: fullName,
+          cattery_id: catteryId,
+        },
+        emailRedirectTo: `${window.location.origin}/client-portal`,
+      },
+    });
+    return { error: error ?? null };
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
     setCattery(null);
+    setAccountRole(null);
+    setCustomer(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, cattery, loading, signUp, signIn, signOut, refreshCattery }}>
+    <AuthContext.Provider value={{ user, session, cattery, accountRole, customer, loading, signUp, signIn, signUpCustomer, signOut, refreshCattery }}>
       {children}
     </AuthContext.Provider>
   );
