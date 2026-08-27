@@ -44,7 +44,7 @@ The previous browser-to-`catteries.payment_settings` secret-key write has been r
 - Stripe Checkout Sessions are created with the cattery's decrypted server-only credential.
 - A fixed or percentage deposit is calculated from that cattery's saved booking rules. Deloraine's current rule is `$50` fixed.
 - The payment email can contain deposit only, full payment only, or both choices.
-- A verified cattery-specific Stripe webhook records the payment, updates the booking, closes the unused alternative link, and sends staff/customer notifications.
+- A verified cattery-specific Stripe webhook records the request, payment, and booking status in one atomic database operation, closes the unused alternative link, and sends staff/customer notifications. Stripe retries are therefore idempotent and cannot leave a payment half-recorded.
 
 ## Branch verification
 

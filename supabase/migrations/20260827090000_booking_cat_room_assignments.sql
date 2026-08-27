@@ -166,9 +166,9 @@ alter table public.payments
   add column if not exists payment_request_id uuid references public.payment_requests(id) on delete set null,
   add column if not exists provider_payment_id text;
 
-create unique index if not exists payments_payment_request_id_unique_idx
-  on public.payments(payment_request_id)
-  where payment_request_id is not null;
+drop index if exists public.payments_payment_request_id_unique_idx;
+create unique index payments_payment_request_id_unique_idx
+  on public.payments(payment_request_id);
 
 create index if not exists payment_requests_cattery_id_idx on public.payment_requests(cattery_id);
 create index if not exists payment_requests_booking_id_idx on public.payment_requests(booking_id);
@@ -307,12 +307,75 @@ begin
 end;
 $$;
 
+create or replace function public.catstays_record_completed_payment(
+  target_request_id uuid,
+  target_provider_payment_id text
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  completed_request public.payment_requests%rowtype;
+begin
+  update public.payment_requests
+  set
+    status = 'paid',
+    paid_at = timezone('utc', now()),
+    updated_at = timezone('utc', now())
+  where id = target_request_id
+    and status = 'pending'
+  returning * into completed_request;
+
+  if not found then
+    return false;
+  end if;
+
+  insert into public.payments (
+    cattery_id,
+    booking_id,
+    customer_id,
+    payment_request_id,
+    provider_payment_id,
+    amount,
+    type,
+    status
+  ) values (
+    completed_request.cattery_id,
+    completed_request.booking_id,
+    completed_request.customer_id,
+    completed_request.id,
+    target_provider_payment_id,
+    completed_request.amount,
+    completed_request.request_type,
+    'completed'
+  )
+  on conflict (payment_request_id) do update set
+    provider_payment_id = excluded.provider_payment_id,
+    status = 'completed';
+
+  update public.bookings
+  set
+    payment_status = case
+      when completed_request.request_type = 'full' then 'paid'
+      else 'partial'
+    end,
+    updated_at = timezone('utc', now())
+  where id = completed_request.booking_id;
+
+  return true;
+end;
+$$;
+
 revoke all on function public.catstays_store_cattery_stripe_credentials(uuid, text, text, text, text, text, text) from public, anon, authenticated;
 revoke all on function public.catstays_get_cattery_stripe_credentials(uuid) from public, anon, authenticated;
 revoke all on function public.catstays_delete_cattery_stripe_credentials(uuid) from public, anon, authenticated;
+revoke all on function public.catstays_record_completed_payment(uuid, text) from public, anon, authenticated;
 grant execute on function public.catstays_store_cattery_stripe_credentials(uuid, text, text, text, text, text, text) to service_role;
 grant execute on function public.catstays_get_cattery_stripe_credentials(uuid) to service_role;
 grant execute on function public.catstays_delete_cattery_stripe_credentials(uuid) to service_role;
+grant execute on function public.catstays_record_completed_payment(uuid, text) to service_role;
 
 comment on table public.cattery_payment_accounts is
   'Server-only Stripe account metadata. Secret and webhook credentials are stored in Supabase Vault.';

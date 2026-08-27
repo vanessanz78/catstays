@@ -366,28 +366,15 @@ router.post('/cattery-payments/webhook', async (req, res) => {
 });
 
 async function recordCompletedPayment(request: any, paymentIntent: string | Stripe.PaymentIntent | null) {
-  if (!admin || request.status === 'paid') return;
+  if (!admin) return;
   const now = new Date().toISOString();
-  const { data: claimedRequest } = await admin.from('payment_requests')
-    .update({ status: 'paid', paid_at: now, updated_at: now })
-    .eq('id', request.id)
-    .eq('status', 'pending')
-    .select('id')
-    .maybeSingle();
-  if (!claimedRequest) return;
-  await admin.from('payments').upsert({
-    cattery_id: request.cattery_id,
-    booking_id: request.booking_id,
-    customer_id: request.customer_id,
-    payment_request_id: request.id,
-    provider_payment_id: typeof paymentIntent === 'string' ? paymentIntent : paymentIntent?.id,
-    amount: request.amount,
-    type: request.request_type,
-    status: 'completed',
-  }, { onConflict: 'payment_request_id' });
-  await admin.from('bookings').update({
-    payment_status: request.request_type === 'full' ? 'paid' : 'partial',
-  }).eq('id', request.booking_id);
+  const providerPaymentId = typeof paymentIntent === 'string' ? paymentIntent : paymentIntent?.id;
+  const { data: newlyRecorded, error: recordError } = await admin.rpc('catstays_record_completed_payment', {
+    target_request_id: request.id,
+    target_provider_payment_id: providerPaymentId || '',
+  });
+  if (recordError) throw recordError;
+  if (!newlyRecorded) return;
 
   const { data: alternatives } = await admin.from('payment_requests')
     .select('id,provider_session_id')
