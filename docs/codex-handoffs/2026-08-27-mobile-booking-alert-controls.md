@@ -11,10 +11,12 @@ On the installed mobile CatStays staff app, `/staff-dashboard/bookings` rendered
 - Latest booking rows exposed an inert `Open` button.
 - Opening the notification bell placed the panel above the visible mobile content.
 - Route inspection showed `/staff-dashboard/bookings` mapped to `StaffDashboard` even though `AdminBookings` already contains the real booking flow and booking-details sheet.
+- Live UAT after the first publish proved tenant subdomains use `subdomainRouter.tsx`, which still mapped the bookings path to `StaffDashboard`; the root-domain router fix alone could not reach Deloraine Cattery.
 
 ## Fix
 
 - Route the production staff bookings path to the interactive `AdminBookings` screen.
+- Apply that route on both the root-domain router and the tenant subdomain router used by `delorainecattery.catstays.app`.
 - Keep New Booking inside the staff route and restore a real searchable customer input.
 - Add an inline Add Customer dialog with the customer and first cat, then continue the booking at step 2.
 - Link selected cats when staff create a booking.
