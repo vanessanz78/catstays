@@ -31,21 +31,24 @@ Founder mobile UAT found four connected booking problems:
 - Made booking details a full mobile viewport panel with internal scrolling, a sticky action area, per-cat room assignments, and a working **Confirm Booking** action.
 - Removed the manual paid/pending selector from new staff bookings. Staff-created bookings start unpaid.
 
-## Stripe decision checkpoint
+## Stripe decision and implementation
 
-Customer payment links are intentionally not implemented or published until the cattery payment-account model is confirmed.
+The founder confirmed that each cattery connects its own Stripe API keys so customer booking payments use that cattery's Stripe account rather than the CatStays subscription account.
 
-Recommended model: each cattery connects its own Stripe account to CatStays using Stripe Connect. CatStays stores only the connected account identifier and status; it does not store a cattery secret key. Customer payments are created on the correct connected cattery account, and Stripe Checkout provides hosted card payment. A payment request may then offer:
+The previous browser-to-`catteries.payment_settings` secret-key write has been removed. The replacement flow validates the supplied key pair server-side, creates a cattery-specific Stripe webhook endpoint, and stores the Stripe secret key and webhook signing secret encrypted in Supabase Vault. Browser-facing status responses contain only masked, non-secret account information. A payment request may offer:
 
 - Deposit only, using the cattery's saved fixed or percentage deposit rule.
 - Full balance only.
 - Both deposit and full-balance links so the customer can choose.
 
-The alternative, retaining raw per-cattery Stripe secret keys in `catteries.payment_settings`, is not recommended because those settings are currently selected by browser-facing tenant contexts and the cattery table also has broad public-read legacy policy history.
+- Stripe Checkout Sessions are created with the cattery's decrypted server-only credential.
+- A fixed or percentage deposit is calculated from that cattery's saved booking rules. Deloraine's current rule is `$50` fixed.
+- The payment email can contain deposit only, full payment only, or both choices.
+- A verified cattery-specific Stripe webhook records the payment, updates the booking, closes the unused alternative link, and sends staff/customer notifications.
 
 ## Branch verification
 
-- Focused booking tests: 12 passed.
+- Focused booking, deposit-rule, and payment-email tests: 17 passed.
 - Full workspace type check: passed.
 - CatStays production build: passed.
 - `git diff --check`: passed.
@@ -54,15 +57,13 @@ Build output retains the repository's existing source-map and large-chunk warnin
 
 ## Release workflow
 
-1. Confirm the cattery Stripe account model.
-2. Complete the selected secure payment-request implementation and its test-mode verification.
-3. Review this branch and its migration.
-4. Push the branch and open a pull request.
-5. Merge the reviewed branch into GitHub `main`.
-6. Apply the reviewed migration to Supabase project `iwyoezwqorddkmqnjbif`.
-7. Pull the exact merged `main` SHA into the CatStays Replit.
-8. Restart the web and API processes, republish, and verify the deployed SHA.
-9. Complete the mobile customer UAT below.
+1. Review this branch and its migration.
+2. Push the completed branch and open a pull request.
+3. Merge the reviewed branch into GitHub `main`.
+4. Apply the reviewed migration to Supabase project `iwyoezwqorddkmqnjbif`.
+5. Pull the exact merged `main` SHA into the CatStays Replit.
+6. Restart the web and API processes, republish, and verify the deployed SHA.
+7. Connect Deloraine's Stripe test keys in Payment Setup and complete the payment UAT below before using live keys.
 
 ## Mobile UAT
 

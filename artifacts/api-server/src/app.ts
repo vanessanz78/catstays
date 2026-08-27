@@ -8,7 +8,7 @@ app.use(cors());
 
 // Preserve raw body for Stripe webhook signature verification
 app.use((req: Request, res: Response, next: NextFunction) => {
-  if (req.path === '/api/billing/webhook') {
+  if (req.path === '/api/billing/webhook' || req.path === '/api/cattery-payments/webhook') {
     express.raw({ type: 'application/json' })(req, res, next);
   } else {
     express.json({ limit: '1mb' })(req, res, next);

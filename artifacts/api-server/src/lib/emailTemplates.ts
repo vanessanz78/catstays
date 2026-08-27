@@ -253,6 +253,49 @@ export function bookingConfirmationHtml(opts: {
   });
 }
 
+export function paymentRequestHtml(opts: {
+  customerName: string;
+  catteryName: string;
+  bookingRef: string;
+  catNames?: string;
+  total: number;
+  links: Array<{ type: 'deposit' | 'full'; amount: number; url: string }>;
+}) {
+  const deposit = opts.links.find((link) => link.type === 'deposit');
+  const full = opts.links.find((link) => link.type === 'full');
+  const firstLink = deposit || full;
+  const secondLink = deposit && full ? full : undefined;
+
+  return catstaysEmailLayout({
+    title: `Payment options for booking ${opts.bookingRef}`,
+    preheader: `${opts.catteryName} sent secure Stripe payment options for your booking.`,
+    eyebrow: 'Booking payment',
+    badge: 'Secure Stripe checkout',
+    catteryName: opts.catteryName,
+    intro: `Hi ${firstName(opts.customerName)}, your booking is confirmed. Choose one of the secure payment options below.`,
+    action: firstLink ? {
+      label: firstLink.type === 'deposit'
+        ? `Pay deposit $${firstLink.amount.toFixed(2)}`
+        : `Pay full amount $${firstLink.amount.toFixed(2)}`,
+      href: firstLink.url,
+    } : undefined,
+    secondaryAction: secondLink ? {
+      label: `Pay full amount $${secondLink.amount.toFixed(2)}`,
+      href: secondLink.url,
+    } : undefined,
+    cards: [{
+      title: 'Booking summary',
+      rows: [
+        { label: 'Booking reference', value: opts.bookingRef },
+        { label: 'Cats', value: opts.catNames },
+        { label: 'Total booking amount', value: `$${opts.total.toFixed(2)}` },
+      ],
+    }],
+    bodyHtml: `<p style="margin:8px 0 0;font:14px/1.65 Arial,sans-serif;color:${colors.muted};">Card payments are processed securely by Stripe. If you prefer to pay on site, ${escapeHtml(opts.catteryName)} accepts cash only and all payments must be cleared funds before your cat's arrival.</p>`,
+    footerNote: `This payment request was sent by ${opts.catteryName} through CatStays.`,
+  });
+}
+
 export function contactEnquiryHtml(opts: {
   customerName: string;
   customerEmail: string;

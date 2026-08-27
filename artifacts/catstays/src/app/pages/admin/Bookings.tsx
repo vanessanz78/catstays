@@ -48,6 +48,11 @@ import {
 } from '../../lib/bookingSchedule';
 import { Calendar as DateRangeCalendar } from '../../components/ui/calendar';
 import {
+  getCatteryPaymentStatus,
+  requestBookingPayment,
+  type CatteryPaymentStatus,
+} from '@/utils/catteryPayments';
+import {
   Sheet,
   SheetContent,
   SheetDescription,
@@ -90,6 +95,10 @@ export function AdminBookings() {
   const [bookingError, setBookingError] = useState('');
   const [bookingActionError, setBookingActionError] = useState('');
   const [confirmingBooking, setConfirmingBooking] = useState(false);
+  const [detailRequestPayment, setDetailRequestPayment] = useState(false);
+  const [detailPaymentChoice, setDetailPaymentChoice] = useState<'deposit' | 'full' | 'both'>('both');
+  const [paymentActionMessage, setPaymentActionMessage] = useState('');
+  const [catteryPaymentStatus, setCatteryPaymentStatus] = useState<CatteryPaymentStatus>({ connected: false });
 
   const { cattery } = useAuth();
   const { bookings: rawBookings, loading: bookingsLoading, createBooking, updateBookingStatus } = useBookings();
@@ -113,6 +122,13 @@ export function AdminBookings() {
   useEffect(() => {
     setShowCreateBooking(isCreating);
   }, [isCreating]);
+
+  useEffect(() => {
+    if (!cattery?.id) return;
+    getCatteryPaymentStatus(cattery.id)
+      .then(setCatteryPaymentStatus)
+      .catch(() => setCatteryPaymentStatus({ connected: false }));
+  }, [cattery?.id]);
 
   // Map real customers to UI shape
   const customers = rawCustomers.map(c => ({
@@ -269,6 +285,10 @@ export function AdminBookings() {
 
   const handleViewBooking = (booking: any) => {
     setSelectedBooking(booking);
+    setDetailRequestPayment(false);
+    setDetailPaymentChoice('both');
+    setBookingActionError('');
+    setPaymentActionMessage('');
     setShowBookingDetails(true);
   };
 
@@ -424,36 +444,54 @@ export function AdminBookings() {
   };
 
   const handleConfirmSelectedBooking = async () => {
-    if (!selectedBooking || selectedBooking.status === 'confirmed') return;
+    if (!selectedBooking) return;
 
     setConfirmingBooking(true);
     setBookingActionError('');
-    const { error } = await updateBookingStatus(selectedBooking.id, 'confirmed');
-    if (error) {
-      setBookingActionError(typeof error === 'string' ? error : error.message || 'Booking could not be confirmed.');
-      setConfirmingBooking(false);
-      return;
+    setPaymentActionMessage('');
+    const wasAlreadyConfirmed = selectedBooking.status === 'confirmed';
+    if (!wasAlreadyConfirmed) {
+      const { error } = await updateBookingStatus(selectedBooking.id, 'confirmed');
+      if (error) {
+        setBookingActionError(typeof error === 'string' ? error : error.message || 'Booking could not be confirmed.');
+        setConfirmingBooking(false);
+        return;
+      }
+
+      setSelectedBooking((current: any) => ({ ...current, status: 'confirmed' }));
+      if (selectedBooking.customerEmail && cattery?.name) {
+        const roomName = selectedBooking.roomAssignments.length > 0
+          ? selectedBooking.roomAssignments.map((assignment: any) => `${assignment.catName}: ${assignment.roomName}`).join(', ')
+          : selectedBooking.roomNumber;
+        sendBookingConfirmation({
+          catteryId: cattery.id,
+          customerId: selectedBooking.customerId,
+          customerName: selectedBooking.customerName,
+          customerEmail: selectedBooking.customerEmail,
+          catteryName: cattery.name,
+          catName: selectedBooking.catNames.join(', '),
+          roomName,
+          checkIn: `${format(parseISO(selectedBooking.checkIn), 'd MMM yyyy')} at ${formatBookingTime(selectedBooking.checkInTime || '')}`,
+          checkOut: `${format(parseISO(selectedBooking.checkOut), 'd MMM yyyy')} at ${formatBookingTime(selectedBooking.checkOutTime || '')}`,
+          totalAmount: `$${Number(selectedBooking.total).toFixed(2)}`,
+          bookingRef: selectedBooking.id.slice(0, 8).toUpperCase(),
+          catteryEmail: cattery.email ?? undefined,
+        }).catch((emailError) => console.warn('[email] Confirmation not sent:', emailError));
+      }
     }
 
-    setSelectedBooking((current: any) => ({ ...current, status: 'confirmed' }));
-    if (selectedBooking.customerEmail && cattery?.name) {
-      const roomName = selectedBooking.roomAssignments.length > 0
-        ? selectedBooking.roomAssignments.map((assignment: any) => `${assignment.catName}: ${assignment.roomName}`).join(', ')
-        : selectedBooking.roomNumber;
-      sendBookingConfirmation({
-        catteryId: cattery.id,
-        customerId: selectedBooking.customerId,
-        customerName: selectedBooking.customerName,
-        customerEmail: selectedBooking.customerEmail,
-        catteryName: cattery.name,
-        catName: selectedBooking.catNames.join(', '),
-        roomName,
-        checkIn: `${format(parseISO(selectedBooking.checkIn), 'd MMM yyyy')} at ${formatBookingTime(selectedBooking.checkInTime || '')}`,
-        checkOut: `${format(parseISO(selectedBooking.checkOut), 'd MMM yyyy')} at ${formatBookingTime(selectedBooking.checkOutTime || '')}`,
-        totalAmount: `$${Number(selectedBooking.total).toFixed(2)}`,
-        bookingRef: selectedBooking.id.slice(0, 8).toUpperCase(),
-        catteryEmail: cattery.email ?? undefined,
-      }).catch((emailError) => console.warn('[email] Confirmation not sent:', emailError));
+    if (detailRequestPayment) {
+      try {
+        const result = await requestBookingPayment(selectedBooking.id, detailPaymentChoice);
+        setSelectedBooking((current: any) => ({ ...current, paymentStatus: 'pending' }));
+        setPaymentActionMessage(result.emailSent
+          ? 'Payment options sent to the customer.'
+          : 'Payment links were created, but the email could not be sent.');
+      } catch (error: any) {
+        setBookingActionError(error.message || 'The payment request could not be sent.');
+        setConfirmingBooking(false);
+        return;
+      }
     }
     setConfirmingBooking(false);
   };
@@ -1633,9 +1671,61 @@ export function AdminBookings() {
                 </CardContent>
               </Card>
 
+              <Card className="rounded-2xl border-sage/10">
+                <CardContent className="space-y-3 p-4">
+                  <label className="flex cursor-pointer items-start gap-3">
+                    <input
+                      type="checkbox"
+                      checked={detailRequestPayment}
+                      onChange={(event) => setDetailRequestPayment(event.target.checked)}
+                      className="mt-1 h-4 w-4 rounded border-sage/30 accent-[#C46A3A]"
+                    />
+                    <span>
+                      <span className="block font-semibold" style={{ color: '#2d3e2f' }}>Request payment from customer</span>
+                      <span className="block text-xs" style={{ color: '#6b7a6d' }}>
+                        Generate secure Stripe Checkout links and email them to the customer.
+                      </span>
+                    </span>
+                  </label>
+
+                  {detailRequestPayment && catteryPaymentStatus.connected && (
+                    <div className="space-y-2 rounded-xl bg-[#F6F4EF] p-3">
+                      {([
+                        ['deposit', 'Deposit only'],
+                        ['full', 'Full balance only'],
+                        ['both', 'Offer deposit or full payment'],
+                      ] as const).map(([value, label]) => (
+                        <label key={value} className="flex cursor-pointer items-center gap-2 text-sm" style={{ color: '#2d3e2f' }}>
+                          <input
+                            type="radio"
+                            name="detail-payment-choice"
+                            value={value}
+                            checked={detailPaymentChoice === value}
+                            onChange={() => setDetailPaymentChoice(value)}
+                            className="accent-[#C46A3A]"
+                          />
+                          {label}{value === 'deposit' || value === 'both' ? ' (uses the cattery deposit setting)' : ''}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+
+                  {detailRequestPayment && !catteryPaymentStatus.connected && (
+                    <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                      Connect this cattery's Stripe keys in <Link to="/staff-dashboard/payment" className="font-semibold underline">Payment Setup</Link> before requesting payment.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
               {bookingActionError && (
                 <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
                   {bookingActionError}
+                </p>
+              )}
+              {paymentActionMessage && (
+                <p role="status" className="rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+                  {paymentActionMessage}
                 </p>
               )}
 
@@ -1650,13 +1740,21 @@ export function AdminBookings() {
                 </Button>
                 <Button 
                   type="button"
-                  disabled={confirmingBooking || selectedBooking.status === 'confirmed'}
+                  disabled={
+                    confirmingBooking
+                    || (selectedBooking.status === 'confirmed' && !detailRequestPayment)
+                    || (detailRequestPayment && !catteryPaymentStatus.connected)
+                  }
                   onClick={() => void handleConfirmSelectedBooking()}
                   className="rounded-xl text-white disabled:bg-sage/50"
                   style={{ backgroundColor: '#7DAF7B' }}
                 >
                   <Check className="mr-2 h-4 w-4" />
-                  {selectedBooking.status === 'confirmed' ? 'Confirmed' : confirmingBooking ? 'Confirming…' : 'Confirm Booking'}
+                  {confirmingBooking
+                    ? 'Working…'
+                    : detailRequestPayment
+                      ? selectedBooking.status === 'confirmed' ? 'Send Payment Request' : 'Confirm & Request Payment'
+                      : selectedBooking.status === 'confirmed' ? 'Confirmed' : 'Confirm Booking'}
                 </Button>
               </div>
             </div>

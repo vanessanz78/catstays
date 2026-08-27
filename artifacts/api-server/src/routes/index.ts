@@ -5,6 +5,7 @@ import catteryRouter from "./cattery";
 import billingRouter from "./billing";
 import websiteRouter from "./website";
 import pushRouter from "./push";
+import catteryPaymentsRouter from "./catteryPayments";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use(catteryRouter);
 router.use(billingRouter);
 router.use(websiteRouter);
 router.use(pushRouter);
+router.use(catteryPaymentsRouter);
 
 export default router;
