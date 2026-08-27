@@ -18,6 +18,7 @@ export interface BookingWithDetails {
   guest_phone: string | null;
   cat_names: string | null;
   number_of_cats: number | null;
+  room_arrangement: 'shared' | 'separate';
   customer: {
     id: string;
     name: string;
@@ -35,6 +36,18 @@ export interface BookingWithDetails {
       id: string;
       name: string;
       breed: string | null;
+    };
+  }[];
+  booking_cat_rooms: {
+    cat: {
+      id: string;
+      name: string;
+    };
+    room: {
+      id: string;
+      name: string;
+      type: string;
+      price_per_night: number;
     };
   }[];
 }
@@ -59,7 +72,11 @@ export function useBookings() {
         *,
         customer:customers(id, name, email, phone),
         room:rooms(id, name, type, price_per_night),
-        booking_cats(cat:cats(id, name, breed))
+        booking_cats(cat:cats(id, name, breed)),
+        booking_cat_rooms(
+          cat:cats(id, name),
+          room:rooms(id, name, type, price_per_night)
+        )
       `)
       .eq('cattery_id', cattery.id)
       .order('created_at', { ascending: false });
@@ -85,12 +102,15 @@ export function useBookings() {
     check_out_time: string;
     total_amount: number;
     payment_status?: string;
+    status?: string;
+    room_arrangement?: 'shared' | 'separate';
     notes?: string;
     cat_ids?: string[];
+    room_assignments?: Array<{ cat_id: string; room_id: string }>;
   }) => {
     if (!cattery?.id) return { error: 'No cattery found' };
 
-    const { cat_ids = [], ...bookingRow } = booking;
+    const { cat_ids = [], room_assignments = [], ...bookingRow } = booking;
 
     const { data, error } = await supabase
       .from('bookings')
@@ -102,7 +122,24 @@ export function useBookings() {
       const { error: catsError } = await supabase
         .from('booking_cats')
         .insert(cat_ids.map((cat_id) => ({ booking_id: data.id, cat_id })));
-      if (catsError) return { data, error: catsError };
+      if (catsError) {
+        await supabase.from('bookings').delete().eq('id', data.id);
+        return { data: null, error: catsError };
+      }
+    }
+
+    if (!error && data && room_assignments.length > 0) {
+      const { error: roomsError } = await supabase
+        .from('booking_cat_rooms')
+        .insert(room_assignments.map((assignment) => ({
+          booking_id: data.id,
+          cat_id: assignment.cat_id,
+          room_id: assignment.room_id,
+        })));
+      if (roomsError) {
+        await supabase.from('bookings').delete().eq('id', data.id);
+        return { data: null, error: roomsError };
+      }
     }
 
     if (!error) await fetchBookings();

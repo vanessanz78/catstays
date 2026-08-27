@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  bookingHoursSummary,
   bookingTimeSlotsForDate,
   customerMatchesSearch,
   formatBookingTime,
@@ -56,4 +57,14 @@ test('schedule supports nested booking rules and safe defaults', () => {
 test('time labels are customer-readable', () => {
   assert.equal(formatBookingTime('09:00'), '9:00 am');
   assert.equal(formatBookingTime('16:45'), '4:45 pm');
+});
+
+test('opening-hours summary reflects the configured Deloraine schedule', () => {
+  assert.deepEqual(bookingHoursSummary(deloraineSchedule), {
+    heading: 'Open seven days a week.',
+    lines: [
+      'Mornings: Monday to Saturday, 9:00 am to 10:30 am.',
+      'Afternoons: Monday to Sunday, 4:30 pm to 6:00 pm.',
+    ],
+  });
 });

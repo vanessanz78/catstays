@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  bookingOverlapsStay,
+  calculateAssignedRoomTotal,
   calculateBookingEstimate,
   inclusiveStayDays,
   longStayDiscountPercent,
@@ -41,4 +43,14 @@ test('long-stay discounts use inclusive day thresholds', () => {
   assert.equal(longStayDiscountPercent(15), 5);
   assert.equal(longStayDiscountPercent(30), 10);
   assert.equal(longStayDiscountPercent(60), 15);
+});
+
+test('assigned-room totals support shared and separately priced rooms', () => {
+  assert.equal(calculateAssignedRoomTotal(7, [20, 20, 20]), 420);
+  assert.equal(calculateAssignedRoomTotal(7, [20, 25, 30]), 525);
+});
+
+test('room availability treats every inclusive care day as occupied', () => {
+  assert.equal(bookingOverlapsStay('2026-09-01', '2026-09-03', '2026-09-03', '2026-09-05'), true);
+  assert.equal(bookingOverlapsStay('2026-09-01', '2026-09-03', '2026-09-04', '2026-09-05'), false);
 });

@@ -18,6 +18,26 @@ export function longStayDiscountPercent(days: number) {
   return 0;
 }
 
+export function calculateAssignedRoomTotal(days: number, dailyRates: number[]) {
+  const safeDays = Number.isFinite(days) ? Math.max(0, Math.floor(days)) : 0;
+  const safeRates = dailyRates.map((rate) => Number.isFinite(rate) ? Math.max(0, rate) : 0);
+  return safeDays * safeRates.reduce((total, rate) => total + rate, 0);
+}
+
+export function bookingOverlapsStay(
+  existingCheckIn: string,
+  existingCheckOut: string,
+  requestedCheckIn: string,
+  requestedCheckOut: string,
+) {
+  if (
+    inclusiveStayDays(existingCheckIn, existingCheckOut) === 0
+    || inclusiveStayDays(requestedCheckIn, requestedCheckOut) === 0
+  ) return false;
+
+  return existingCheckIn <= requestedCheckOut && existingCheckOut >= requestedCheckIn;
+}
+
 export function calculateBookingEstimate({
   dailyRate,
   days,

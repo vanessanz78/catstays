@@ -22,10 +22,13 @@ import {
   Store,
 } from 'lucide-react';
 import { Link } from 'react-router';
-import { stripeConfigured, stripePublishableKey, stripeLiveMode } from '@/utils/stripe';
 import { sendTestEmail } from '@/utils/email';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/utils/supabase/client';
+import {
+  connectCatteryStripe,
+  getCatteryPaymentStatus,
+  type CatteryPaymentStatus,
+} from '@/utils/catteryPayments';
 
 export function PaymentIntegration() {
   const { cattery } = useAuth();
@@ -42,21 +45,13 @@ export function PaymentIntegration() {
   const [savingCatteryStripe, setSavingCatteryStripe] = useState(false);
   const [catteryStripeSaved, setCatteryStripeSaved] = useState(false);
   const [catteryStripeError, setCatteryStripeError] = useState<string | null>(null);
+  const [catteryPaymentStatus, setCatteryPaymentStatus] = useState<CatteryPaymentStatus>({ connected: false });
 
   useEffect(() => {
     if (!cattery?.id) return;
-    const fetchPaymentSettings = async () => {
-      const { data } = await supabase
-        .from('catteries')
-        .select('payment_settings')
-        .eq('id', cattery.id)
-        .single();
-      if (data?.payment_settings) {
-        setCatteryPubKey(data.payment_settings.stripe_publishable_key || '');
-        setCatterySecretKey(data.payment_settings.stripe_secret_key || '');
-      }
-    };
-    fetchPaymentSettings();
+    getCatteryPaymentStatus(cattery.id)
+      .then(setCatteryPaymentStatus)
+      .catch((error) => setCatteryStripeError(error.message));
   }, [cattery?.id]);
 
   const handleSaveCatteryStripe = async () => {
@@ -65,31 +60,27 @@ export function PaymentIntegration() {
       setCatteryStripeError('Publishable key must start with pk_live_ or pk_test_');
       return;
     }
-    if (catterySecretKey && !catterySecretKey.startsWith('sk_')) {
+    if (!catterySecretKey.startsWith('sk_')) {
       setCatteryStripeError('Secret key must start with sk_live_ or sk_test_');
       return;
     }
     setSavingCatteryStripe(true);
     setCatteryStripeError(null);
-    const { error } = await supabase
-      .from('catteries')
-      .update({
-        payment_settings: {
-          stripe_publishable_key: catteryPubKey.trim(),
-          stripe_secret_key: catterySecretKey.trim(),
-        },
-      })
-      .eq('id', cattery.id);
-    if (error) {
-      setCatteryStripeError(error.message);
-    } else {
+    try {
+      const status = await connectCatteryStripe(cattery.id, catteryPubKey.trim(), catterySecretKey.trim());
+      setCatteryPaymentStatus(status);
+      setCatterySecretKey('');
       setCatteryStripeSaved(true);
       setTimeout(() => setCatteryStripeSaved(false), 3000);
+    } catch (error: any) {
+      setCatteryStripeError(error.message || 'Stripe could not validate these keys.');
     }
     setSavingCatteryStripe(false);
   };
 
-  const catteryStripeConfigured = !!catteryPubKey && catteryPubKey.startsWith('pk_');
+  const catteryStripeConfigured = catteryPaymentStatus.connected;
+  const stripeConfigured = catteryStripeConfigured;
+  const stripeLiveMode = catteryPaymentStatus.mode === 'live';
 
   const handleTestEmail = async () => {
     const to = cattery?.email || 'support@catstays.app';
@@ -101,9 +92,7 @@ export function PaymentIntegration() {
     setTimeout(() => setEmailTestResult(null), 5000);
   };
 
-  const maskedKey = stripePublishableKey
-    ? stripePublishableKey.slice(0, 14) + '...' + stripePublishableKey.slice(-4)
-    : '';
+  const maskedKey = catteryPaymentStatus.maskedPublishableKey || '';
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#F6F4EF' }}>
@@ -165,7 +154,7 @@ export function PaymentIntegration() {
                   </p>
                 ) : (
                   <p className="text-sm" style={{ color: '#6b7a6d' }}>
-                    Add your Stripe keys as environment secrets to enable payments.
+                    Connect this cattery's own Stripe keys below to enable customer payments.
                   </p>
                 )}
               </div>
@@ -225,10 +214,10 @@ export function PaymentIntegration() {
                   <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="font-semibold text-green-900 mb-1">
-                      Keys configured via environment variables
+                      Cattery Stripe account validated
                     </p>
                     <p className="text-sm text-green-800">
-                      <strong>STRIPE_PUBLIC_KEY</strong> and <strong>STRIPE_API_KEY</strong> are securely stored as Replit secrets — they're never exposed in your source code.
+                      The secret key is encrypted in Supabase Vault and is only decrypted by the CatStays payment server when it creates or verifies a checkout.
                     </p>
                   </div>
                 </div>
@@ -271,11 +260,11 @@ export function PaymentIntegration() {
                   <div>
                     <p className="font-semibold text-amber-900 mb-1">Keys not found</p>
                     <p className="text-sm text-amber-800">
-                      Add two Replit secrets to enable payments:
+                      Connect this cattery's own Stripe keys below:
                     </p>
                     <ul className="text-sm text-amber-800 mt-2 space-y-1">
-                      <li>• <code className="font-mono bg-amber-100 px-1 rounded">STRIPE_PUBLIC_KEY</code> — your publishable key (pk_...)</li>
-                      <li>• <code className="font-mono bg-amber-100 px-1 rounded">STRIPE_API_KEY</code> — your secret key (sk_...)</li>
+                      <li>• Publishable key beginning with <code className="font-mono bg-amber-100 px-1 rounded">pk_</code></li>
+                      <li>• Secret key beginning with <code className="font-mono bg-amber-100 px-1 rounded">sk_</code></li>
                     </ul>
                   </div>
                 </div>
@@ -427,8 +416,8 @@ export function PaymentIntegration() {
           <CardContent className="p-6 pt-0 space-y-5">
             <div className="p-4 bg-[#F8F7F5] rounded-xl">
               <p className="text-sm" style={{ color: '#5c6b5e' }}>
-                This is <strong>separate</strong> from the CatStays platform Stripe account. Enter your <strong>own Stripe keys</strong> so your clients can pay booking deposits directly to you.
-                Your keys are protected — only you can access them.
+                This is <strong>separate</strong> from the CatStays subscription account. Enter this cattery's <strong>own Stripe keys</strong> so customer payments go through the correct Stripe account.
+                CatStays validates the account, creates its payment webhook, and stores the secret key encrypted in Supabase Vault.
               </p>
             </div>
 
@@ -472,7 +461,7 @@ export function PaymentIntegration() {
                   </button>
                 </div>
                 <p className="text-xs" style={{ color: '#9aaa9c' }}>
-                  Stored securely, protected by row-level security — only your account can access it.
+                  Sent once to the CatStays server, encrypted in Supabase Vault, and never returned to the browser.
                 </p>
               </div>
             </div>
@@ -487,7 +476,7 @@ export function PaymentIntegration() {
             <div className="flex items-center gap-3">
               <Button
                 onClick={handleSaveCatteryStripe}
-                disabled={savingCatteryStripe || !catteryPubKey.trim()}
+                disabled={savingCatteryStripe || !catteryPubKey.trim() || !catterySecretKey.trim()}
                 className="bg-[#635BFF] hover:bg-[#0A2540] text-white"
               >
                 {savingCatteryStripe ? (
@@ -520,7 +509,7 @@ export function PaymentIntegration() {
                   <p className="text-sm text-green-800">
                     Your clients can now pay booking deposits online. Your key:{' '}
                     <code className="font-mono bg-green-100 px-1 rounded text-xs">
-                      {catteryPubKey.slice(0, 14)}…{catteryPubKey.slice(-4)}
+                      {maskedKey}
                     </code>
                   </p>
                 </div>
