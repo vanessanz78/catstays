@@ -1,4 +1,4 @@
-import { useEffect, useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router';
 import {
   BookOpen,
@@ -160,7 +160,7 @@ function BookingRow({
   const roomName = booking.room?.name || 'Unassigned room';
 
   return (
-    <div className="grid gap-3 rounded-lg bg-[#F8F7F5] p-4 sm:grid-cols-[1fr_auto] sm:items-center">
+    <Link to={`/staff-dashboard/bookings?booking=${booking.id}`} className="grid gap-3 rounded-lg bg-[#F8F7F5] p-4 transition hover:bg-[#F1E8DE] sm:grid-cols-[1fr_auto] sm:items-center">
       <div>
         <h3 className="font-semibold text-[#0A1128]">{catNames}</h3>
         <p className="text-sm text-[#4E5871]">{customerName}</p>
@@ -172,11 +172,11 @@ function BookingRow({
         <Badge className="rounded-full bg-[#E9D7C8] text-[#8A4E2B] hover:bg-[#E9D7C8]">
           {booking.payment_status || booking.status}
         </Badge>
-        <Button size="sm" className="rounded-full bg-[#0A1128] text-white hover:bg-[#19233D]">
+        <span className="inline-flex h-9 items-center rounded-full bg-[#0A1128] px-4 text-sm font-medium text-white">
           {actionLabel}
-        </Button>
+        </span>
       </div>
-    </div>
+    </Link>
   );
 }
 
@@ -399,7 +399,7 @@ function TodaySection({
             <p className="mt-2 text-sm leading-6 text-white/70">
               Public bookings connect back to this tenant dashboard only.
             </p>
-            <Link to={catterySlug ? `/tenant/${catterySlug}` : '/site'}>
+            <Link to={catterySlug ? '/' : '/site'}>
               <Button className="mt-4 rounded-full bg-white text-[#0A1128] hover:bg-[#F6F2EA]">
                 View website
               </Button>
@@ -514,32 +514,54 @@ function BookingsSection({ bookings, isLoading, showNewBooking }: { bookings: Bo
 }
 
 function CustomersSection({ customers, isLoading }: { customers: Customer[]; isLoading: boolean }) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const query = searchQuery.trim().toLowerCase();
+  const filteredCustomers = query
+    ? customers.filter((customer) => [
+      customer.name,
+      customer.email,
+      customer.phone,
+      ...(customer.cats || []).map((cat) => cat.name),
+    ].some((value) => value?.toLowerCase().includes(query)))
+    : customers;
+
   return (
     <div className="space-y-5">
       <PagePanel>
-        <div className="flex items-center gap-3 rounded-lg border border-[#E8DED4] bg-[#F8F7F5] px-4 py-3 text-[#768098]">
+        <label className="flex items-center gap-3 rounded-lg border border-[#E8DED4] bg-[#F8F7F5] px-4 py-3 text-[#768098] focus-within:border-[#C46A3A]">
           <Search className="h-5 w-5 text-[#C46A3A]" />
-          Search customers...
-        </div>
+          <span className="sr-only">Search customers</span>
+          <input
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Search name, cat, email, or phone…"
+            className="min-w-0 flex-1 bg-transparent text-sm text-[#0A1128] outline-none placeholder:text-[#768098]"
+          />
+        </label>
       </PagePanel>
       <PagePanel>
         {isLoading ? (
           <p className="rounded-lg bg-[#F8F7F5] p-5 text-sm text-[#4E5871]">Loading customers...</p>
-        ) : customers.length > 0 ? (
+        ) : filteredCustomers.length > 0 ? (
           <div className="grid gap-3 md:grid-cols-2">
-            {customers.map((customer) => (
+            {filteredCustomers.map((customer) => (
               <div key={customer.id} className="rounded-lg bg-[#F8F7F5] p-4">
                 <h3 className="font-semibold text-[#0A1128]">{customer.name}</h3>
-                <p className="text-sm text-[#4E5871]">{customer.email || 'No email saved'}</p>
-                <p className="text-sm text-[#4E5871]">{customer.phone || 'No phone saved'}</p>
+                {customer.email ? <a href={`mailto:${customer.email}`} className="mt-1 block break-all text-sm text-[#4E5871] hover:text-[#C46A3A]">{customer.email}</a> : <p className="text-sm text-[#4E5871]">No email saved</p>}
+                {customer.phone ? <a href={`tel:${customer.phone}`} className="block text-sm text-[#4E5871] hover:text-[#C46A3A]">{customer.phone}</a> : <p className="text-sm text-[#4E5871]">No phone saved</p>}
+                {(customer.cats || []).length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-1">
+                    {customer.cats.map((cat) => <Badge key={cat.id} variant="outline" className="bg-white">🐱 {cat.name}</Badge>)}
+                  </div>
+                )}
               </div>
             ))}
           </div>
         ) : (
           <EmptyPanel
             icon={Users}
-            title="No customers yet"
-            description="Customer records will be created from bookings or added manually for this cattery."
+            title={query ? 'No matching customers' : 'No customers yet'}
+            description={query ? 'Try a customer name, cat name, email address, or phone number.' : 'Customer records will be created from bookings or added manually for this cattery.'}
           />
         )}
       </PagePanel>
@@ -576,7 +598,7 @@ function RoomPlannerSection({ rooms, data, isLoading }: { rooms: Room[]; data: R
                     </Badge>
                   </div>
                   <p className="text-sm text-[#4E5871]">Capacity: {room.capacity || 1} cats</p>
-                  <p className="text-sm text-[#4E5871]">${room.price_per_night || 0} per night</p>
+                  <p className="text-sm text-[#4E5871]">${room.price_per_night || 0} per cat, per day</p>
                 </div>
               );
             })}
@@ -652,8 +674,8 @@ function ToolsSection({ section }: { section: StaffSection }) {
     <PagePanel>
       <EmptyPanel
         icon={icon}
-        title={`${meta.title} is ready for live tenant data`}
-        description="This area is reserved for the signed-up cattery only. Demo examples stay in the public demo and will not appear here."
+        title={`${meta.title} is coming soon`}
+        description="This workspace is not live yet. CatStays will keep it out of operational workflows until it is connected to real cattery data."
       />
     </PagePanel>
   );

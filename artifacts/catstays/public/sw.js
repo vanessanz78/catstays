@@ -1,4 +1,4 @@
-const CACHE_NAME = 'catstays-pwa-v2';
+const CACHE_NAME = 'catstays-pwa-v3';
 const APP_SHELL = [
   '/',
   '/app',
@@ -47,7 +47,7 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'CatStays';
   event.waitUntil(self.registration.showNotification(title, {
     body: data.body || 'You have a new CatStays update.',
-    icon: data.icon || '/icons/icon-192.png',
+    icon: data.icon || '/icons/icon-maskable-192.png',
     badge: data.badge || '/icons/icon-maskable-192.png',
     tag: data.tag || 'catstays-update',
     renotify: true,

@@ -64,6 +64,7 @@ export function AdminBookings() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const isCreating = searchParams.get('new') === 'true';
+  const requestedBookingId = searchParams.get('booking');
   const [showCreateBooking, setShowCreateBooking] = useState(isCreating);
   
   // Filter and sort state
@@ -292,6 +293,18 @@ export function AdminBookings() {
     setShowBookingDetails(true);
   };
 
+  useEffect(() => {
+    if (!requestedBookingId || bookingsLoading) return;
+    if (selectedBooking?.id === requestedBookingId && showBookingDetails) return;
+    const requestedBooking = bookings.find((booking) => booking.id === requestedBookingId);
+    if (requestedBooking) handleViewBooking(requestedBooking);
+  }, [bookings, bookingsLoading, requestedBookingId, selectedBooking?.id, showBookingDetails]);
+
+  const handleBookingDetailsOpenChange = (open: boolean) => {
+    setShowBookingDetails(open);
+    if (!open && requestedBookingId) navigate('/staff-dashboard/bookings', { replace: true });
+  };
+
   const calculateTotal = () => {
     if (!checkIn || !checkOut || cats.length === 0) return 0;
     const days = inclusiveStayDays(checkIn, checkOut);
@@ -501,7 +514,7 @@ export function AdminBookings() {
       <div className="min-h-screen" style={{ backgroundColor: '#F6F4EF' }}>
         {/* Header */}
         <header className="bg-white shadow-sm sticky top-0 z-40">
-          <div className="max-w-lg mx-auto px-4 py-4">
+          <div className="mx-auto max-w-5xl px-4 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Button
@@ -538,7 +551,7 @@ export function AdminBookings() {
           </div>
         </header>
 
-        <main className="max-w-lg mx-auto px-4 py-6 space-y-4">
+        <main className="mx-auto max-w-5xl space-y-4 px-4 py-6">
           {/* Step 1: Select Customer */}
           {step === 1 && (
             <div className="space-y-4">
@@ -1286,7 +1299,7 @@ export function AdminBookings() {
     <div className="min-h-screen" style={{ backgroundColor: '#F6F4EF' }}>
       {/* Header */}
       <header className="bg-white shadow-sm sticky top-0 z-40">
-        <div className="max-w-lg mx-auto px-4 py-4">
+        <div className="mx-auto max-w-5xl px-4 py-4">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-serif font-semibold" style={{ color: '#2d3e2f' }}>
@@ -1302,7 +1315,7 @@ export function AdminBookings() {
         </div>
       </header>
 
-      <main className="max-w-lg mx-auto px-4 py-6 space-y-4">
+      <main className="mx-auto max-w-5xl space-y-4 px-4 py-6">
         {/* New Booking Button */}
         <Link to="/staff-dashboard/bookings?new=true">
           <Button 
@@ -1349,7 +1362,7 @@ export function AdminBookings() {
         {/* Sort Controls */}
         <Card className="rounded-3xl border-sage/10">
           <CardContent className="p-4">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm font-medium mr-2" style={{ color: '#6b7a6d' }}>
                 Sort by:
               </span>
@@ -1487,7 +1500,7 @@ export function AdminBookings() {
       </main>
 
       {/* Booking Details Sheet */}
-      <Sheet open={showBookingDetails} onOpenChange={setShowBookingDetails}>
+      <Sheet open={showBookingDetails} onOpenChange={handleBookingDetailsOpenChange}>
         <SheetContent side="right" className="h-dvh w-screen max-w-none gap-0 overflow-hidden border-0 p-0 sm:max-w-none">
           <SheetHeader className="shrink-0 border-b border-sage/10 bg-white px-4 py-4 pr-12 text-left">
             <SheetTitle className="text-2xl font-serif" style={{ color: '#2d3e2f' }}>

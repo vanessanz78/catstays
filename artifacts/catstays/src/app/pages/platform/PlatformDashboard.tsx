@@ -1,432 +1,227 @@
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Navigate, useNavigate } from 'react-router';
+import {
+  Building2,
+  CalendarDays,
+  CheckCircle2,
+  CreditCard,
+  ExternalLink,
+  Globe2,
+  Loader2,
+  LogOut,
+  RefreshCw,
+  Search,
+  ShieldCheck,
+  Users,
+} from 'lucide-react';
 import { Button } from '../../components/ui/button';
+import { Card, CardContent } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
-import { ScrollArea } from '../../components/ui/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
-import {
-  LayoutDashboard,
-  Users,
-  Globe,
-  Calendar,
-  Mail,
-  UserCircle,
-  CreditCard,
-  BarChart3,
-  MessageSquare,
-  Settings,
-  Search,
-  TrendingUp,
-  DollarSign,
-  Activity,
-  Eye,
-  Edit,
-  LogIn,
-  Ban,
-  MoreVertical,
-  ArrowUp,
-  ArrowDown,
-  Download,
-  Filter
-} from 'lucide-react';
-const logoWordmark = '/assets/6461fe246edac7430bd3dd41a3c26b459650665f.png';
-import {
-  LineChart,
-  Line,
-  AreaChart,
-  Area,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell
-} from 'recharts';
+import { useAuth } from '@/contexts/AuthContext';
+
+type PlatformCattery = {
+  id: string;
+  name: string;
+  slug: string | null;
+  email: string | null;
+  city: string | null;
+  custom_domain: string | null;
+  subscription_status: string;
+  created_at: string;
+  updated_at: string;
+  bookingsCount: number;
+  customersCount: number;
+  activeRoomsCount: number;
+  pendingBookingsCount: number;
+  upcomingBookingsCount: number;
+  published: boolean;
+  payment: {
+    connected: boolean;
+    mode: string | null;
+    lastValidatedAt: string | null;
+  };
+};
+
+type PlatformOverview = {
+  administrator: { email: string | null; role: string };
+  summary: {
+    catteries: number;
+    publishedWebsites: number;
+    bookings: number;
+    customers: number;
+    pendingBookings: number;
+    connectedPayments: number;
+  };
+  catteries: PlatformCattery[];
+  generatedAt: string;
+};
+
+function catteryWebsiteUrl(cattery: PlatformCattery) {
+  if (cattery.custom_domain) return `https://${cattery.custom_domain}`;
+  if (cattery.slug) return `https://${cattery.slug}.catstays.app`;
+  return null;
+}
+
+function readableStatus(value: string) {
+  return value.replaceAll('_', ' ').replace(/\b\w/g, (character) => character.toUpperCase());
+}
 
 export function PlatformDashboard() {
-  const [activeSection, setActiveSection] = useState('dashboard');
+  const navigate = useNavigate();
+  const { session, loading: authLoading, signOut } = useAuth();
+  const [overview, setOverview] = useState<PlatformOverview | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [search, setSearch] = useState('');
 
-  const revenueData = [
-    { month: 'Jan', revenue: 4500 },
-    { month: 'Feb', revenue: 5200 },
-    { month: 'Mar', revenue: 6100 },
-    { month: 'Apr', revenue: 7300 },
-    { month: 'May', revenue: 8900 },
-    { month: 'Jun', revenue: 10200 },
-  ];
+  const loadOverview = useCallback(async () => {
+    if (!session?.access_token) return;
+    setLoading(true);
+    setError('');
+    try {
+      const response = await fetch('/api/platform/overview', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'The platform overview could not be loaded.');
+      setOverview(data as PlatformOverview);
+    } catch (loadError) {
+      setOverview(null);
+      setError(loadError instanceof Error ? loadError.message : 'The platform overview could not be loaded.');
+    } finally {
+      setLoading(false);
+    }
+  }, [session?.access_token]);
 
-  const businessData = [
-    { name: 'Whisker Haven', owner: 'Sarah Johnson', email: 'sarah@whiskerhaven.com', website: 'whiskerhaven.catstays.app', plan: 'Professional', status: 'Active', joined: '2025-01-15' },
-    { name: 'The Garden Cattery', owner: 'Mike Chen', email: 'mike@gardencattery.com', website: 'gardencattery.catstays.app', plan: 'Starter', status: 'Active', joined: '2025-02-03' },
-    { name: 'Willow Creek Cattery', owner: 'Emma Wilson', email: 'emma@willowcreek.com', website: 'willowcreek.catstays.app', plan: 'Professional', status: 'Active', joined: '2025-02-20' },
-    { name: 'Purrfect Paradise', owner: 'James Brown', email: 'james@purrfect.com', website: 'purrfect.catstays.app', plan: 'Enterprise', status: 'Active', joined: '2025-03-01' },
-    { name: 'Cozy Cat Lodge', owner: 'Lisa Anderson', email: 'lisa@cozycatlodge.com', website: 'cozycatlodge.catstays.app', plan: 'Starter', status: 'Trial', joined: '2026-03-10' },
-  ];
+  useEffect(() => {
+    if (authLoading) return;
+    if (session?.access_token) void loadOverview();
+    else setLoading(false);
+  }, [authLoading, loadOverview, session?.access_token]);
 
-  const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'businesses', label: 'Businesses', icon: Users },
-    { id: 'websites', label: 'Websites', icon: Globe },
-    { id: 'bookings', label: 'Bookings', icon: Calendar },
-    { id: 'emails', label: 'Emails', icon: Mail },
-    { id: 'crm', label: 'CRM', icon: UserCircle },
-    { id: 'payments', label: 'Payments', icon: CreditCard },
-    { id: 'analytics', label: 'Analytics', icon: BarChart3 },
-    { id: 'support', label: 'Support', icon: MessageSquare },
-    { id: 'settings', label: 'Settings', icon: Settings },
-  ];
+  const filteredCatteries = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!query) return overview?.catteries || [];
+    return (overview?.catteries || []).filter((cattery) => [
+      cattery.name,
+      cattery.slug,
+      cattery.custom_domain,
+      cattery.email,
+      cattery.city,
+      cattery.subscription_status,
+    ].some((value) => value?.toLowerCase().includes(query)));
+  }, [overview?.catteries, search]);
+
+  if (!authLoading && !session) return <Navigate to="/platform/admin-login" replace />;
+
+  const logout = async () => {
+    await signOut();
+    navigate('/platform/admin-login', { replace: true });
+  };
 
   return (
-    <div className="h-screen flex bg-cream">
-      {/* Left Sidebar */}
-      <div className="w-64 bg-forest text-white flex flex-col">
-        <div className="p-6 border-b border-white/10">
-          <img src={logoWordmark} alt="CatStays" className="h-10 w-auto" />
-          <p className="text-xs text-white/60 mt-2">Platform Admin</p>
-        </div>
-
-        <ScrollArea className="flex-1">
-          <nav className="p-4 space-y-1">
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveSection(item.id)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-all ${
-                    activeSection === item.id
-                      ? 'bg-sage text-white shadow-lg'
-                      : 'text-white/70 hover:bg-white/5 hover:text-white'
-                  }`}
-                >
-                  <Icon className="w-5 h-5" />
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
-          </nav>
-        </ScrollArea>
-
-        <div className="p-4 border-t border-white/10">
-          <div className="flex items-center gap-3 px-4 py-3">
-            <div className="w-10 h-10 rounded-full bg-sage/20 flex items-center justify-center">
-              <UserCircle className="w-6 h-6 text-sage" />
+    <div className="min-h-screen bg-[#F6F2EA] text-[#0A1128]">
+      <header className="sticky top-0 z-30 border-b border-[#E8DED4] bg-white/95 shadow-sm backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-4 sm:px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#0A1128] text-white">
+              <ShieldCheck className="h-6 w-6" />
             </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium">Admin User</p>
-              <p className="text-xs text-white/60">admin@catstays.com</p>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#C46A3A]">CatStays platform</p>
+              <h1 className="truncate font-serif text-xl font-semibold sm:text-2xl">Admin Panel</h1>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="flex-1 overflow-auto">
-        {/* Header */}
-        <div className="bg-white border-b border-sage/10 px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-serif font-semibold text-forest">
-                {navItems.find(item => item.id === activeSection)?.label}
-              </h1>
-              <p className="text-sm text-forest/60 mt-1">
-                Manage your CatStays platform
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-forest/40" />
-                <Input
-                  placeholder="Search..."
-                  className="pl-9 w-64 bg-cream border-sage/10"
-                />
-              </div>
-              <Button variant="outline" className="border-sage/20 text-forest">
-                <Download className="w-4 h-4 mr-2" />
-                Export
-              </Button>
-            </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" disabled={loading} onClick={() => void loadOverview()} aria-label="Refresh platform data">
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              <span className="ml-2 hidden sm:inline">Refresh</span>
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => void logout()} aria-label="Sign out of platform admin">
+              <LogOut className="h-4 w-4" />
+              <span className="ml-2 hidden sm:inline">Sign out</span>
+            </Button>
           </div>
         </div>
+      </header>
 
-        <div className="p-8">
-          {/* Dashboard View */}
-          {activeSection === 'dashboard' && (
-            <div className="space-y-6">
-              {/* KPI Cards */}
-              <div className="grid md:grid-cols-4 gap-6">
-                <Card className="border-sage/10 shadow-md">
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium text-forest/70">
-                      Total Websites
-                    </CardTitle>
-                    <Globe className="w-4 h-4 text-sage" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold text-forest">127</div>
-                    <p className="text-xs text-forest/60 flex items-center gap-1 mt-1">
-                      <ArrowUp className="w-3 h-3 text-green-600" />
-                      <span className="text-green-600">12%</span> from last month
-                    </p>
-                  </CardContent>
-                </Card>
+      <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 sm:py-8">
+        <section className="rounded-2xl bg-[#0A1128] p-5 text-white shadow-sm sm:flex sm:items-center sm:justify-between sm:p-7">
+          <div>
+            <p className="text-sm text-white/65">Cross-tenant operations</p>
+            <h2 className="mt-1 font-serif text-3xl font-semibold">All catteries at a glance</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-white/70">Monitor every CatStays subdomain, publishing state, bookings, customers, rooms, and Stripe connection without opening tenant payment secrets.</p>
+          </div>
+          {overview && (
+            <div className="mt-5 rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-sm sm:mt-0 sm:text-right">
+              <p className="font-semibold">{overview.administrator.email || 'Platform administrator'}</p>
+              <p className="mt-1 capitalize text-white/65">{overview.administrator.role}</p>
+            </div>
+          )}
+        </section>
 
-                <Card className="border-sage/10 shadow-md">
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium text-forest/70">
-                      Active Businesses
-                    </CardTitle>
-                    <Users className="w-4 h-4 text-sage" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold text-forest">89</div>
-                    <p className="text-xs text-forest/60 flex items-center gap-1 mt-1">
-                      <ArrowUp className="w-3 h-3 text-green-600" />
-                      <span className="text-green-600">8%</span> from last month
-                    </p>
-                  </CardContent>
-                </Card>
+        {(authLoading || loading) && !overview ? (
+          <div className="grid min-h-[45vh] place-items-center rounded-2xl border border-[#E8DED4] bg-white">
+            <div className="text-center"><Loader2 className="mx-auto h-7 w-7 animate-spin text-[#C46A3A]" /><p className="mt-3 text-sm text-[#4E5871]">Loading platform data…</p></div>
+          </div>
+        ) : error ? (
+          <Card className="border-[#C46A3A]/25"><CardContent className="p-8 text-center"><ShieldCheck className="mx-auto h-10 w-10 text-[#C46A3A]" /><h2 className="mt-4 text-xl font-semibold">Admin access unavailable</h2><p role="alert" className="mx-auto mt-2 max-w-xl text-sm leading-6 text-[#4E5871]">{error}</p><div className="mt-5 flex flex-wrap justify-center gap-2"><Button onClick={() => void loadOverview()} className="bg-[#C46A3A] text-white hover:bg-[#A85A30]">Try again</Button><Button variant="outline" onClick={() => navigate('/platform/admin-login')}>Admin sign in</Button></div></CardContent></Card>
+        ) : overview ? (
+          <>
+            <section className="grid grid-cols-2 gap-3 lg:grid-cols-6">
+              {[
+                { label: 'Catteries', value: overview.summary.catteries, icon: Building2 },
+                { label: 'Published', value: overview.summary.publishedWebsites, icon: Globe2 },
+                { label: 'Bookings', value: overview.summary.bookings, icon: CalendarDays },
+                { label: 'Pending', value: overview.summary.pendingBookings, icon: CheckCircle2 },
+                { label: 'Customers', value: overview.summary.customers, icon: Users },
+                { label: 'Stripe ready', value: overview.summary.connectedPayments, icon: CreditCard },
+              ].map(({ label, value, icon: Icon }) => (
+                <Card key={label} className="border-[#E8DED4] shadow-sm"><CardContent className="p-4"><div className="flex items-center justify-between"><p className="text-sm text-[#4E5871]">{label}</p><Icon className="h-4 w-4 text-[#C46A3A]" /></div><p className="mt-3 text-3xl font-semibold">{value}</p></CardContent></Card>
+              ))}
+            </section>
 
-                <Card className="border-sage/10 shadow-md">
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium text-forest/70">
-                      Monthly Revenue
-                    </CardTitle>
-                    <DollarSign className="w-4 h-4 text-sage" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold text-forest">$10.2K</div>
-                    <p className="text-xs text-forest/60 flex items-center gap-1 mt-1">
-                      <ArrowUp className="w-3 h-3 text-green-600" />
-                      <span className="text-green-600">15%</span> from last month
-                    </p>
-                  </CardContent>
-                </Card>
-
-                <Card className="border-sage/10 shadow-md">
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium text-forest/70">
-                      Bookings Processed
-                    </CardTitle>
-                    <Calendar className="w-4 h-4 text-sage" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold text-forest">1,429</div>
-                    <p className="text-xs text-forest/60 flex items-center gap-1 mt-1">
-                      <ArrowUp className="w-3 h-3 text-green-600" />
-                      <span className="text-green-600">23%</span> from last month
-                    </p>
-                  </CardContent>
-                </Card>
+            <section className="rounded-2xl border border-[#E8DED4] bg-white p-4 shadow-sm sm:p-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                <div><p className="text-xs font-semibold uppercase tracking-wide text-[#C46A3A]">Tenants</p><h2 className="mt-1 font-serif text-2xl font-semibold">Catteries and subdomains</h2><p className="mt-1 text-sm text-[#4E5871]">{filteredCatteries.length} of {overview.catteries.length} shown</p></div>
+                <div className="relative w-full sm:max-w-sm"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#768098]" /><Input aria-label="Search catteries" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search name, subdomain, city…" className="pl-9" /></div>
               </div>
 
-              {/* Charts */}
-              <div className="grid md:grid-cols-2 gap-6">
-                <Card className="border-sage/10 shadow-md">
-                  <CardHeader>
-                    <CardTitle className="text-lg font-serif text-forest">Revenue Growth</CardTitle>
-                    <CardDescription>Monthly recurring revenue</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <ResponsiveContainer width="100%" height={300}>
-                      <AreaChart data={revenueData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#1F2A44" opacity={0.1} />
-                        <XAxis dataKey="month" stroke="#1F2A44" opacity={0.5} />
-                        <YAxis stroke="#1F2A44" opacity={0.5} />
-                        <Tooltip />
-                        <Area type="monotone" dataKey="revenue" stroke="#C86B3C" fill="#C86B3C" opacity={0.2} />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-
-                <Card className="border-sage/10 shadow-md">
-                  <CardHeader>
-                    <CardTitle className="text-lg font-serif text-forest">Business Growth</CardTitle>
-                    <CardDescription>New signups per month</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <ResponsiveContainer width="100%" height={300}>
-                      <BarChart data={revenueData}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#1F2A44" opacity={0.1} />
-                        <XAxis dataKey="month" stroke="#1F2A44" opacity={0.5} />
-                        <YAxis stroke="#1F2A44" opacity={0.5} />
-                        <Tooltip />
-                        <Bar dataKey="revenue" fill="#C86B3C" radius={[8, 8, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Recent Activity */}
-              <Card className="border-sage/10 shadow-md">
-                <CardHeader>
-                  <CardTitle className="text-lg font-serif text-forest">Recent Activity</CardTitle>
-                  <CardDescription>Latest platform events</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {[
-                      { action: 'New business signed up', business: 'Cozy Cat Lodge', time: '2 hours ago', type: 'signup' },
-                      { action: 'Website published', business: 'Whisker Haven', time: '5 hours ago', type: 'publish' },
-                      { action: 'Payment received', business: 'The Garden Cattery', time: '1 day ago', type: 'payment' },
-                      { action: 'Support ticket opened', business: 'Willow Creek Cattery', time: '2 days ago', type: 'support' },
-                    ].map((activity, i) => (
-                      <div key={i} className="flex items-center gap-4 p-3 rounded-lg hover:bg-sage/5 transition-colors">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                          activity.type === 'signup' ? 'bg-green-100' :
-                          activity.type === 'publish' ? 'bg-blue-100' :
-                          activity.type === 'payment' ? 'bg-sage/10' :
-                          'bg-rose/20'
-                        }`}>
-                          <Activity className="w-5 h-5 text-sage" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-forest">{activity.action}</p>
-                          <p className="text-xs text-forest/60">{activity.business}</p>
-                        </div>
-                        <span className="text-xs text-forest/40">{activity.time}</span>
+              <div className="mt-5 grid gap-4 xl:grid-cols-2">
+                {filteredCatteries.map((cattery) => {
+                  const websiteUrl = catteryWebsiteUrl(cattery);
+                  return (
+                    <article key={cattery.id} className="rounded-2xl border border-[#E8DED4] bg-[#F8F7F5] p-4 sm:p-5">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0"><h3 className="truncate text-xl font-semibold">{cattery.name}</h3><p className="mt-1 break-all text-sm text-[#4E5871]">{cattery.custom_domain || (cattery.slug ? `${cattery.slug}.catstays.app` : 'Subdomain not assigned')}</p>{cattery.email && <p className="mt-1 truncate text-xs text-[#768098]">{cattery.email}</p>}</div>
+                        <div className="flex flex-wrap gap-2"><Badge variant="outline" className={cattery.published ? 'border-green-200 bg-green-50 text-green-700' : 'border-amber-200 bg-amber-50 text-amber-800'}>{cattery.published ? 'Published' : 'Not published'}</Badge><Badge variant="outline">{readableStatus(cattery.subscription_status)}</Badge></div>
                       </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
 
-          {/* Businesses View */}
-          {activeSection === 'businesses' && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Button variant="outline" className="border-sage/20 text-forest">
-                    <Filter className="w-4 h-4 mr-2" />
-                    Filters
-                  </Button>
-                  <Badge variant="outline" className="border-sage/20 text-forest">
-                    {businessData.length} businesses
-                  </Badge>
-                </div>
-                <Button className="bg-sage hover:bg-sage-dark text-white">
-                  Add Business
-                </Button>
+                      <dl className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-5">
+                        {[
+                          ['Bookings', cattery.bookingsCount],
+                          ['Pending', cattery.pendingBookingsCount],
+                          ['Upcoming', cattery.upcomingBookingsCount],
+                          ['Customers', cattery.customersCount],
+                          ['Rooms', cattery.activeRoomsCount],
+                        ].map(([label, value]) => <div key={String(label)} className="rounded-xl bg-white p-3"><dt className="text-xs text-[#768098]">{label}</dt><dd className="mt-1 text-xl font-semibold">{value}</dd></div>)}
+                      </dl>
+
+                      <div className="mt-4 flex flex-col gap-3 border-t border-[#E8DED4] pt-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-center gap-2 text-sm"><CreditCard className="h-4 w-4 text-[#C46A3A]" /><span className={cattery.payment.connected ? 'text-green-700' : 'text-[#4E5871]'}>{cattery.payment.connected ? `Stripe connected (${cattery.payment.mode || 'mode unknown'})` : 'Stripe not connected'}</span></div>
+                        {websiteUrl && <a href={websiteUrl} target="_blank" rel="noreferrer"><Button size="sm" className="w-full bg-[#0A1128] text-white hover:bg-[#19233D] sm:w-auto">Open website <ExternalLink className="ml-2 h-4 w-4" /></Button></a>}
+                      </div>
+                    </article>
+                  );
+                })}
               </div>
 
-              <Card className="border-sage/10 shadow-md">
-                <CardContent className="p-0">
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead className="bg-sage/5 border-b border-sage/10">
-                        <tr>
-                          <th className="px-6 py-4 text-left text-xs font-medium text-forest/70 uppercase tracking-wider">
-                            Business Name
-                          </th>
-                          <th className="px-6 py-4 text-left text-xs font-medium text-forest/70 uppercase tracking-wider">
-                            Owner
-                          </th>
-                          <th className="px-6 py-4 text-left text-xs font-medium text-forest/70 uppercase tracking-wider">
-                            Website
-                          </th>
-                          <th className="px-6 py-4 text-left text-xs font-medium text-forest/70 uppercase tracking-wider">
-                            Plan
-                          </th>
-                          <th className="px-6 py-4 text-left text-xs font-medium text-forest/70 uppercase tracking-wider">
-                            Status
-                          </th>
-                          <th className="px-6 py-4 text-left text-xs font-medium text-forest/70 uppercase tracking-wider">
-                            Joined
-                          </th>
-                          <th className="px-6 py-4 text-left text-xs font-medium text-forest/70 uppercase tracking-wider">
-                            Actions
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-sage/10">
-                        {businessData.map((business, i) => (
-                          <tr key={i} className="hover:bg-sage/5 transition-colors">
-                            <td className="px-6 py-4">
-                              <div className="text-sm font-medium text-forest">{business.name}</div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="text-sm text-forest/70">{business.owner}</div>
-                              <div className="text-xs text-forest/50">{business.email}</div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <a href={`https://${business.website}`} className="text-sm text-sage hover:underline">
-                                {business.website}
-                              </a>
-                            </td>
-                            <td className="px-6 py-4">
-                              <Badge className={
-                                business.plan === 'Enterprise' ? 'bg-forest text-white' :
-                                business.plan === 'Professional' ? 'bg-sage text-white' :
-                                'bg-sage/10 text-sage'
-                              }>
-                                {business.plan}
-                              </Badge>
-                            </td>
-                            <td className="px-6 py-4">
-                              <Badge className={
-                                business.status === 'Active' ? 'bg-green-100 text-green-700 border-green-200' :
-                                'bg-rose/20 text-forest border-rose/30'
-                              }>
-                                {business.status}
-                              </Badge>
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="text-sm text-forest/70">{business.joined}</div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="flex items-center gap-2">
-                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                  <Eye className="w-4 h-4 text-forest/60" />
-                                </Button>
-                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                  <Edit className="w-4 h-4 text-forest/60" />
-                                </Button>
-                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                  <LogIn className="w-4 h-4 text-forest/60" />
-                                </Button>
-                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                                  <MoreVertical className="w-4 h-4 text-forest/60" />
-                                </Button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-
-          {/* Other sections placeholder */}
-          {!['dashboard', 'businesses'].includes(activeSection) && (
-            <Card className="border-sage/10 shadow-md">
-              <CardHeader>
-                <CardTitle className="text-lg font-serif text-forest">
-                  {navItems.find(item => item.id === activeSection)?.label}
-                </CardTitle>
-                <CardDescription>This section is under construction</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="py-12 text-center text-forest/60">
-                  <Activity className="w-12 h-12 mx-auto mb-4 opacity-30" />
-                  <p>Content coming soon...</p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      </div>
+              {filteredCatteries.length === 0 && <div className="mt-5 rounded-xl border border-dashed border-[#E8DED4] p-10 text-center text-sm text-[#4E5871]">No catteries match that search.</div>}
+            </section>
+          </>
+        ) : null}
+      </main>
     </div>
   );
 }
