@@ -34,6 +34,20 @@ export function connectCatteryStripe(catteryId: string, publishableKey: string, 
   });
 }
 
+export function testCatteryStripe(catteryId: string) {
+  return paymentApi<CatteryPaymentStatus>('/cattery-payments/test', {
+    method: 'POST',
+    body: JSON.stringify({ catteryId }),
+  });
+}
+
+export function disconnectCatteryStripe(catteryId: string) {
+  return paymentApi<CatteryPaymentStatus>('/cattery-payments/disconnect', {
+    method: 'POST',
+    body: JSON.stringify({ catteryId }),
+  });
+}
+
 export function requestBookingPayment(bookingId: string, choice: 'deposit' | 'full' | 'both') {
   return paymentApi<{
     success: boolean;

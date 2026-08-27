@@ -177,6 +177,42 @@ router.post('/cattery-payments/disconnect', async (req, res) => {
   res.json({ connected: false });
 });
 
+router.post('/cattery-payments/test', async (req, res) => {
+  if (!admin) { res.status(503).json({ error: 'Payment service is not configured' }); return; }
+  const user = await authenticatedUser(req);
+  const catteryId = String(req.body?.catteryId || '');
+  if (!user || !(await canManageCattery(user.id, catteryId))) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+
+  const credentials = await stripeCredentials(catteryId);
+  if (!credentials) {
+    res.status(409).json({ error: 'Connect this cattery\'s Stripe keys first.' });
+    return;
+  }
+
+  try {
+    const stripe = new Stripe(credentials.secretKey);
+    const account = await stripe.accounts.retrieve();
+    const validatedAt = new Date().toISOString();
+    const { error: updateError } = await admin.from('cattery_payment_accounts')
+      .update({ last_validated_at: validatedAt, provider_account_id: account.id })
+      .eq('cattery_id', catteryId);
+    if (updateError) throw updateError;
+    res.json({
+      connected: true,
+      mode: credentials.account.mode,
+      accountId: account.id,
+      maskedPublishableKey: maskKey(credentials.account.publishable_key),
+      lastValidatedAt: validatedAt,
+    });
+  } catch (error: any) {
+    console.error('[cattery-payments/test]', error);
+    res.status(400).json({ error: error?.message || 'Stripe connection test failed.' });
+  }
+});
+
 router.post('/cattery-payments/request', async (req, res) => {
   if (!admin) { res.status(503).json({ error: 'Payment service is not configured' }); return; }
   const user = await authenticatedUser(req);
