@@ -1,6 +1,20 @@
 # Decision Log
 
-Last updated: 2026-08-03
+Last updated: 2026-08-27
+
+## 2026-08-27 - Public Website Is The First Staff Dashboard Action
+
+Working ref: `fix/dashboard-view-website-20260827`.
+
+Decision: Put **View Website** first in the shared staff dashboard menu and route it to `/` on the current cattery subdomain.
+
+Reason: The cattery owner needs the quickest possible path from the dashboard to the customer-facing website. The existing menu exposed **Edit Website** but no direct public-site action.
+
+Impact:
+
+- Desktop and mobile dashboard navigation both present **View Website** first.
+- The public homepage opens on the current tenant domain without changing authentication, Supabase, or website-editor behavior.
+- **Today**, **Edit Website**, and the remaining staff actions keep their existing relative order.
 
 ## 2026-08-03 - Phase 2 Content Sources Started
 

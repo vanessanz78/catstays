@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-08-27
+
+- Added **View Website** as the first action in the staff dashboard menu so cattery owners can open their public website directly from both desktop and mobile dashboard navigation.
+
 ## 2026-08-17
 
 - Fixed the staff website editor so the right-hand editing panel scrolls inside the viewport and added Edit mode support for clicking directly on page text and images, while preserving the detailed side-panel controls.
