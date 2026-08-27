@@ -637,9 +637,9 @@ function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<s
       virtualTourUrl: stringFrom(data.virtualTourUrl, locationData.virtualTourUrl, data.contactData?.virtualTourUrl),
     },
     booking: {
-      text: stringFrom(data.bookingText, model.booking.url ? "Book or enquire about your cat's stay." : 'Contact the business to enquire about availability.'),
-      bannerText: stringFrom(data.bookingBannerText, "Book or enquire about your cat's stay."),
-      primaryCta: stringFrom(data.primaryCta, model.booking.label),
+      text: publicBookingPrompt(stringFrom(data.bookingText, model.booking.url ? "Choose your dates and number of cats to start your booking." : 'Contact the business about availability.')),
+      bannerText: publicBookingPrompt(stringFrom(data.bookingBannerText, "Choose your dates and number of cats to start your booking.")),
+      primaryCta: 'Book Now',
     },
     footer: {
       about: model.footer.about || excerpt(heroSection?.body, 300),
@@ -1581,6 +1581,12 @@ function stringFrom(...values: unknown[]): string {
     if (trimmed) return trimmed;
   }
   return '';
+}
+
+function publicBookingPrompt(value: string) {
+  return /\b(?:enquire|inquire)\b/i.test(value)
+    ? 'Choose your dates and number of cats to start your booking.'
+    : value;
 }
 
 function imageFrom(...values: unknown[]): string {

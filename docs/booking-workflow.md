@@ -1,6 +1,6 @@
 # Booking Workflow
 
-Last reviewed: 2026-06-12
+Last reviewed: 2026-08-27
 
 ## Public Booking Request
 
@@ -11,7 +11,9 @@ The current public booking flow captures:
 - Customer details.
 - Cat details.
 - Special requirements.
-- Estimated total, GST, discounts, and deposit.
+- An estimate based on the configured per-cat daily rate, inclusive care days, GST, and long-stay discounts.
+
+The public flow counts both the arrival date and departure date as chargeable days. Its base estimate is `daily rate × number of cats × inclusive days` before discounts and GST.
 
 Submitting the form posts to the API booking request endpoint. The intended result is a pending booking in Supabase plus owner and customer emails.
 
@@ -40,5 +42,7 @@ The current database has booking status and payment status fields, but the UI ne
 - Availability should be enforced server-side.
 - Public booking reads should not expose sensitive booking data.
 - Customer self-service edits, cancellations, and repeat bookings are not complete.
-- Stripe deposit/payment flow needs full test-mode verification.
+- Automatic confirmation requires authoritative server-side room availability and capacity enforcement.
+- Customer login requires authenticated customer ownership and tenant-isolated booking/cat access.
+- Stripe deposit/full-payment and bank-transfer flows need approved cattery payment rules and full test-mode verification before public release.
 - Owner notification and approval actions need a consistent dashboard experience.

@@ -2,6 +2,8 @@
 
 ## 2026-08-27
 
+- Corrected the public booking journey to use inclusive per-cat daily pricing, live date/cat recalculation, clickable retained steps, truthful customer-facing request copy, and accurate care inclusions.
+- Changed the generated public booking CTA to **Book Now** and removed generic enquiry wording from the booking prompts.
 - Added **View Website** as the first action in the staff dashboard menu so cattery owners can open their public website directly from both desktop and mobile dashboard navigation.
 
 ## 2026-08-17

@@ -38,10 +38,10 @@ const demoRooms: TenantRoom[] = [
     id: 'demo-standard-suite',
     name: 'Garden Suite',
     type: 'suite',
-    description: 'A quiet private room with soft bedding, daily playtime, and photo updates.',
+    description: 'A quiet private room with soft bedding, daily playtime, and individual care.',
     price_per_night: 35,
     capacity: 1,
-    amenities: ['Private room', 'Daily care notes', 'Photo updates'],
+    amenities: ['Private room', 'Daily care notes', 'Individual care'],
     is_active: true
   },
   {

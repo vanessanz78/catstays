@@ -295,18 +295,18 @@ export function bookingRequestOwnerHtml(opts: {
   catNames: string[];
   checkIn: string;
   checkOut: string;
-  nights: number;
+  days: number;
   roomName: string;
   estimatedTotal: string;
   specialRequirements?: string;
 }) {
   return catstaysEmailLayout({
     title: 'New booking request',
-    preheader: `${opts.customerName} requested ${plural(opts.nights, 'night')} at ${opts.catteryName}.`,
+    preheader: `${opts.customerName} requested ${plural(opts.days, 'day')} at ${opts.catteryName}.`,
     eyebrow: 'Booking request',
     badge: 'Review request',
     catteryName: opts.catteryName,
-    intro: `${opts.customerName} wants to book ${catNamesText(opts.catNames)} for ${plural(opts.nights, 'night')}.`,
+    intro: `${opts.customerName} wants to book ${catNamesText(opts.catNames)} for ${plural(opts.days, 'day')}.`,
     cards: [
       {
         title: 'Stay details',
@@ -314,7 +314,7 @@ export function bookingRequestOwnerHtml(opts: {
           { label: 'Cats', value: catNamesText(opts.catNames) },
           { label: 'Check-in', value: opts.checkIn },
           { label: 'Check-out', value: opts.checkOut },
-          { label: 'Duration', value: plural(opts.nights, 'night') },
+          { label: 'Duration', value: `${plural(opts.days, 'day')} (includes arrival and departure)` },
           { label: 'Room', value: opts.roomName },
           { label: 'Estimated total', value: opts.estimatedTotal },
         ],
@@ -346,7 +346,7 @@ export function bookingRequestCustomerHtml(opts: {
   catNames: string[];
   checkIn: string;
   checkOut: string;
-  nights: number;
+  days: number;
   roomName: string;
   estimatedTotal: string;
 }) {
@@ -354,7 +354,7 @@ export function bookingRequestCustomerHtml(opts: {
     title: `Thanks, ${firstName(opts.customerName)}`,
     preheader: `${opts.catteryName} received your booking request.`,
     eyebrow: 'Request received',
-    badge: 'Pending confirmation',
+    badge: 'Request received',
     catteryName: opts.catteryName,
     intro: `Your booking request has been received. ${opts.catteryName} will review availability and contact you to confirm your cat's stay.`,
     cards: [
@@ -364,7 +364,7 @@ export function bookingRequestCustomerHtml(opts: {
           { label: 'Cats', value: catNamesText(opts.catNames) },
           { label: 'Check-in', value: opts.checkIn },
           { label: 'Check-out', value: opts.checkOut },
-          { label: 'Duration', value: plural(opts.nights, 'night') },
+          { label: 'Duration', value: `${plural(opts.days, 'day')} (includes arrival and departure)` },
           { label: 'Room', value: opts.roomName },
           { label: 'Estimated total', value: opts.estimatedTotal },
         ],

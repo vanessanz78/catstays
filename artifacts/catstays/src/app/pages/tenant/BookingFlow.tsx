@@ -1,14 +1,18 @@
 import { useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { Calendar, Check, ArrowLeft, Cat, User, ClipboardList, SendHorizonal, Loader2, Home } from 'lucide-react';
-import { differenceInDays, parseISO, format } from 'date-fns';
+import { parseISO, format } from 'date-fns';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Textarea } from '../../components/ui/textarea';
-import { Badge } from '../../components/ui/badge';
 import { useTenantCattery, type TenantRoom } from '@/hooks/useTenantCattery';
+import {
+  calculateBookingEstimate,
+  inclusiveStayDays,
+  longStayDiscountPercent,
+} from '@/app/lib/bookingPricing';
 
 const STEPS = [
   { n: 1, label: 'Dates & Room', icon: Calendar },
@@ -26,7 +30,11 @@ export function BookingFlow() {
   const { tenantId } = useParams();
   const [searchParams] = useSearchParams();
   const { cattery, rooms, loading } = useTenantCattery(tenantId);
-  const base = tenantId ? `/tenant/${tenantId}` : '/site';
+  const publicSitePath = tenantId
+    ? `/tenant/${tenantId}`
+    : typeof window !== 'undefined' && window.location.pathname.startsWith('/site')
+      ? '/site'
+      : '/';
   const initialCatCount = parseCatsParam(searchParams.get('cats'));
 
   const [step, setStep] = useState(1);
@@ -71,32 +79,35 @@ export function BookingFlow() {
     }));
   };
 
-  // Pricing
-  const nights = (() => {
-    if (!formData.arrivalDate || !formData.departureDate) return 0;
-    try {
-      const n = differenceInDays(parseISO(formData.departureDate), parseISO(formData.arrivalDate));
-      return n > 0 ? n : 0;
-    } catch { return 0; }
-  })();
-
-  const baseRate = selectedRoom?.price_per_night ?? (rooms[0]?.price_per_night ?? 20);
-  const discountPct = nights >= 60 ? 15 : nights >= 30 ? 10 : nights >= 15 ? 5 : 0;
-  const subtotal = baseRate * nights * (1 - discountPct / 100);
-  const gst = subtotal * 0.15;
-  const total = subtotal + gst;
-  const deposit = Math.min(50, total);
+  // The cattery charges for every calendar day in care, including arrival and departure.
+  const days = inclusiveStayDays(formData.arrivalDate, formData.departureDate);
+  const dailyRate = selectedRoom?.price_per_night ?? (rooms[0]?.price_per_night ?? 20);
+  const discountPct = longStayDiscountPercent(days);
+  const { beforeDiscount, discount, subtotal, gst, total } = calculateBookingEstimate({
+    dailyRate,
+    days,
+    numberOfCats: formData.numberOfCats,
+    discountPercent: discountPct,
+  });
 
   const fmtDate = (d: string) => {
     try { return format(parseISO(d), 'd MMM yyyy'); } catch { return d; }
   };
 
   const canProceed = (() => {
-    if (step === 1) return formData.arrivalDate && formData.departureDate && nights > 0;
+    if (step === 1) return formData.arrivalDate && formData.departureDate && days > 0;
     if (step === 2) return formData.ownerName.trim() && formData.email.trim() && formData.phone.trim();
     if (step === 3) return formData.catNames.every(n => n.trim());
     return true;
   })();
+
+  const bookingIsComplete = Boolean(
+    days > 0 &&
+    formData.ownerName.trim() &&
+    formData.email.trim() &&
+    formData.phone.trim() &&
+    formData.catNames.every(name => name.trim()),
+  );
 
   const handleSubmit = async () => {
     if (!cattery) return;
@@ -123,7 +134,7 @@ export function BookingFlow() {
           checkOut: formData.departureDate,
           displayCheckIn: fmtDate(formData.arrivalDate),
           displayCheckOut: fmtDate(formData.departureDate),
-          nights,
+          days,
           roomName,
           roomId: selectedRoom?.id || null,
           estimatedTotal,
@@ -158,8 +169,8 @@ export function BookingFlow() {
               <div className="w-20 h-20 rounded-full bg-sage/20 flex items-center justify-center mx-auto mb-4">
                 <Check className="w-10 h-10 text-sage" />
               </div>
-              <h1 className="text-2xl font-serif font-semibold mb-2">Booking Request Sent!</h1>
-              <p className="text-cream/80">We'll confirm your cat's stay within 24 hours.</p>
+              <h1 className="text-2xl font-serif font-semibold mb-2">Booking Request Received</h1>
+              <p className="text-cream/80">We'll confirm availability within 24 hours.</p>
             </div>
             <CardContent className="p-8 space-y-4">
               <div className="bg-cream rounded-2xl p-5 space-y-2 text-sm">
@@ -181,7 +192,7 @@ export function BookingFlow() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-forest/60">Duration</span>
-                  <span className="font-medium text-forest">{nights} night{nights !== 1 ? 's' : ''}</span>
+                  <span className="font-medium text-forest">{days} day{days !== 1 ? 's' : ''}</span>
                 </div>
                 <div className="border-t border-sage/20 pt-2 flex justify-between font-semibold">
                   <span className="text-forest/60">Estimated total</span>
@@ -190,11 +201,11 @@ export function BookingFlow() {
               </div>
 
               <div className="bg-sage/10 rounded-2xl p-4 text-sm text-forest/70">
-                <p>Your request is now in the cattery dashboard under Bookings as a pending request. We'll reach out within 24 hours to confirm the booking and arrange a deposit.</p>
+                <p>Thanks — we've received your request. We'll contact you within 24 hours to confirm availability and explain the next steps. Your stay is confirmed once we send your confirmation.</p>
               </div>
 
               <div className="flex gap-3">
-                <Link to={base} className="flex-1">
+                <Link to={publicSitePath} className="flex-1">
                   <Button variant="outline" className="w-full border-sage text-sage rounded-xl">
                     <Home className="w-4 h-4 mr-2" />
                     Back to Site
@@ -218,11 +229,11 @@ export function BookingFlow() {
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          <Link to={base} className="inline-flex items-center gap-1 text-forest/50 hover:text-forest text-sm mb-4">
+          <Link to={publicSitePath} className="inline-flex items-center gap-1 text-forest/50 hover:text-forest text-sm mb-4">
             <ArrowLeft className="w-4 h-4" />
             {cattery?.name || 'Back'}
           </Link>
-          <h1 className="text-3xl font-serif font-semibold text-forest">Request a Booking</h1>
+          <h1 className="text-3xl font-serif font-semibold text-forest">Book Your Cat's Stay</h1>
           {cattery?.city && <p className="text-forest/60 mt-1">{cattery.name} · {cattery.city}</p>}
         </div>
 
@@ -234,11 +245,16 @@ export function BookingFlow() {
             const done = step > s.n;
             return (
               <div key={s.n} className="flex items-center gap-2">
-                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all ${active ? 'bg-sage text-white shadow-md' : done ? 'bg-sage/20 text-sage' : 'bg-white text-forest/40 border border-sage/10'}`}>
+                <button
+                  type="button"
+                  onClick={() => setStep(s.n)}
+                  aria-current={active ? 'step' : undefined}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium transition-all hover:border-sage/40 hover:text-sage ${active ? 'bg-sage text-white shadow-md hover:text-white' : done ? 'bg-sage/20 text-sage' : 'bg-white text-forest/40 border border-sage/10'}`}
+                >
                   {done ? <Check className="w-4 h-4" /> : <Icon className="w-4 h-4" />}
                   <span className="hidden sm:inline">{s.label}</span>
                   <span className="sm:hidden">{s.n}</span>
-                </div>
+                </button>
                 {idx < STEPS.length - 1 && <div className={`h-px w-4 ${done ? 'bg-sage' : 'bg-sage/20'}`} />}
               </div>
             );
@@ -268,10 +284,14 @@ export function BookingFlow() {
                       </div>
                     </div>
 
-                    {nights > 0 && (
-                      <div className="bg-sage/10 rounded-xl p-3 text-sm flex items-center gap-2 text-sage-dark">
+                    {days > 0 && (
+                      <div className="bg-sage/10 rounded-xl p-3 text-sm flex items-start gap-2 text-sage-dark">
                         <Calendar className="w-4 h-4" />
-                        <span><strong>{nights} night{nights !== 1 ? 's' : ''}</strong>{discountPct > 0 ? ` · ${discountPct}% long-stay discount applied` : ''}</span>
+                        <span>
+                          <strong>{days} day{days !== 1 ? 's' : ''}</strong>
+                          {' — includes day of arrival and day of departure'}
+                          {discountPct > 0 ? ` · ${discountPct}% long-stay discount applied` : ''}
+                        </span>
                       </div>
                     )}
 
@@ -280,7 +300,7 @@ export function BookingFlow() {
                       <div className="flex gap-2">
                         {[1, 2, 3, 4].map(n => (
                           <button key={n} type="button" onClick={() => handleCatCountChange(n)} className={`flex-1 py-2 rounded-xl border text-sm font-medium transition-all ${formData.numberOfCats === n ? 'bg-sage text-white border-sage' : 'border-sage/20 text-forest hover:border-sage/50'}`}>
-                            {n === 4 ? '4+ Cats' : `${n} ${n === 1 ? 'Cat' : 'Cats'}`}
+                            {n} {n === 1 ? 'Cat' : 'Cats'}
                           </button>
                         ))}
                       </div>
@@ -299,7 +319,7 @@ export function BookingFlow() {
                                   <div className="text-sm text-forest/50 mt-0.5">Up to {room.capacity} cat{room.capacity > 1 ? 's' : ''}</div>
                                 </div>
                                 <div className="text-right flex-shrink-0 ml-4">
-                                  <div className="font-semibold text-sage">${room.price_per_night}/night</div>
+                                  <div className="font-semibold text-sage">${room.price_per_night}/cat/day</div>
                                   {selectedRoom?.id === room.id && <Check className="w-4 h-4 text-sage ml-auto mt-1" />}
                                 </div>
                               </div>
@@ -322,16 +342,16 @@ export function BookingFlow() {
                   <CardContent className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="ownerName">Full Name *</Label>
-                      <Input id="ownerName" placeholder="Jane Smith" value={formData.ownerName} onChange={e => updateField('ownerName', e.target.value)} className="rounded-xl border-sage/20" required />
+                      <Input id="ownerName" value={formData.ownerName} onChange={e => updateField('ownerName', e.target.value)} className="rounded-xl border-sage/20" required />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="email">Email Address *</Label>
-                      <Input id="email" type="email" placeholder="jane@example.com" value={formData.email} onChange={e => updateField('email', e.target.value)} className="rounded-xl border-sage/20" required />
+                      <Input id="email" type="email" value={formData.email} onChange={e => updateField('email', e.target.value)} className="rounded-xl border-sage/20" required />
                       <p className="text-xs text-forest/50">Your booking confirmation will be sent here</p>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="phone">Phone Number *</Label>
-                      <Input id="phone" type="tel" placeholder="021 123 4567" value={formData.phone} onChange={e => updateField('phone', e.target.value)} className="rounded-xl border-sage/20" required />
+                      <Input id="phone" type="tel" value={formData.phone} onChange={e => updateField('phone', e.target.value)} className="rounded-xl border-sage/20" required />
                     </div>
                   </CardContent>
                 </>
@@ -388,32 +408,32 @@ export function BookingFlow() {
                         </div>
                         <div className="flex justify-between">
                           <span className="text-forest/60">Check-in</span>
-                          <span className="font-medium text-forest">{fmtDate(formData.arrivalDate)}</span>
+                          <span className="font-medium text-forest">{formData.arrivalDate ? fmtDate(formData.arrivalDate) : 'Not selected yet'}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-forest/60">Check-out</span>
-                          <span className="font-medium text-forest">{fmtDate(formData.departureDate)}</span>
+                          <span className="font-medium text-forest">{formData.departureDate ? fmtDate(formData.departureDate) : 'Not selected yet'}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-forest/60">Duration</span>
-                          <span className="font-medium text-forest">{nights} night{nights !== 1 ? 's' : ''}</span>
+                          <span className="font-medium text-forest">{days > 0 ? `${days} day${days !== 1 ? 's' : ''}` : 'Not selected yet'}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-forest/60">Cats</span>
-                          <span className="font-medium text-forest">{formData.catNames.join(', ')}</span>
+                          <span className="font-medium text-forest">{formData.catNames.filter(name => name.trim()).join(', ') || 'Not entered yet'}</span>
                         </div>
                       </div>
                     </div>
 
                     <div className="bg-cream rounded-2xl p-5 text-sm space-y-2">
                       <h4 className="font-semibold text-forest mb-2">Your Details</h4>
-                      <div className="flex justify-between"><span className="text-forest/60">Name</span><span className="text-forest">{formData.ownerName}</span></div>
-                      <div className="flex justify-between"><span className="text-forest/60">Email</span><span className="text-forest">{formData.email}</span></div>
-                      <div className="flex justify-between"><span className="text-forest/60">Phone</span><span className="text-forest">{formData.phone}</span></div>
+                      <div className="flex justify-between"><span className="text-forest/60">Name</span><span className="text-forest">{formData.ownerName || 'Not entered yet'}</span></div>
+                      <div className="flex justify-between"><span className="text-forest/60">Email</span><span className="text-forest">{formData.email || 'Not entered yet'}</span></div>
+                      <div className="flex justify-between"><span className="text-forest/60">Phone</span><span className="text-forest">{formData.phone || 'Not entered yet'}</span></div>
                     </div>
 
                     <div className="bg-sage/10 rounded-2xl p-4 text-sm text-forest/70">
-                      <p><strong className="text-forest">How this works:</strong> We'll receive your request and contact you within 24 hours to confirm availability and arrange a deposit to secure the booking.</p>
+                      <p><strong className="text-forest">How this works:</strong> Send your booking request and we'll contact you within 24 hours to confirm availability and explain the next steps. Your stay is confirmed once we send your confirmation.</p>
                     </div>
 
                     {submitError && (
@@ -446,7 +466,7 @@ export function BookingFlow() {
                     <Button
                       className="flex-1 bg-forest hover:bg-forest/90 text-cream rounded-xl"
                       onClick={handleSubmit}
-                      disabled={submitting}
+                      disabled={submitting || !bookingIsComplete}
                     >
                       {submitting ? (
                         <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Sending Request…</>
@@ -467,17 +487,20 @@ export function BookingFlow() {
                 <CardTitle className="text-lg font-serif text-forest">Price Estimate</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {nights > 0 ? (
+                {days > 0 ? (
                   <>
                     <div className="space-y-2 text-sm">
-                      <div className="flex justify-between text-forest/70">
-                        <span>${baseRate}/night × {nights} nights</span>
-                        <span>${(baseRate * nights).toFixed(2)}</span>
+                      <div className="text-forest/70">
+                        Rate: ${dailyRate} per cat, per day
+                      </div>
+                      <div className="flex justify-between gap-3 text-forest/70">
+                        <span>{formData.numberOfCats} cat{formData.numberOfCats !== 1 ? 's' : ''} × {days} day{days !== 1 ? 's' : ''}</span>
+                        <span className="whitespace-nowrap">${beforeDiscount.toFixed(2)}</span>
                       </div>
                       {discountPct > 0 && (
                         <div className="flex justify-between text-sage">
                           <span>Long-stay discount ({discountPct}%)</span>
-                          <span>-${(baseRate * nights * discountPct / 100).toFixed(2)}</span>
+                          <span>-${discount.toFixed(2)}</span>
                         </div>
                       )}
                       <div className="flex justify-between text-forest/70">
@@ -494,9 +517,6 @@ export function BookingFlow() {
                       </div>
                     </div>
 
-                    <Badge className="w-full justify-center bg-sage/10 text-sage border-sage/20 rounded-xl py-1.5 text-xs">
-                      Deposit ~${deposit.toFixed(0)} to confirm
-                    </Badge>
                   </>
                 ) : (
                   <p className="text-sm text-forest/50 text-center py-4">Select dates to see pricing</p>
@@ -505,9 +525,8 @@ export function BookingFlow() {
                 <div className="space-y-2 text-sm">
                   {[
                     'Free cancellation (48hrs notice)',
-                    'Daily photo updates',
                     'Individual care & attention',
-                    'All meals & fresh water included',
+                    'Twice daily feeding',
                   ].map(item => (
                     <div key={item} className="flex items-start gap-2 text-forest/70">
                       <Check className="w-4 h-4 text-sage flex-shrink-0 mt-0.5" />
