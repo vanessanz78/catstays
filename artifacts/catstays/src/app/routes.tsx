@@ -98,8 +98,6 @@ const tenantStaffDashboardPaths = [
   "/staff-dashboard/customers",
   "/staff-dashboard/calendar",
   "/staff-dashboard/room-planner",
-  "/staff-dashboard/promotions",
-  "/staff-dashboard/social",
   "/staff-dashboard/cat-update-generator",
   "/staff-dashboard/insights",
   "/staff-dashboard/settings",
@@ -321,7 +319,17 @@ export const router = createBrowserRouter([
     ErrorBoundary: RootErrorBoundary,
   },
   {
+    path: "/staff-dashboard/promotions",
+    Component: AdminPromotions,
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
     path: "/admin/social",
+    Component: AdminSocial,
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
+    path: "/staff-dashboard/social",
     Component: AdminSocial,
     ErrorBoundary: RootErrorBoundary,
   },
