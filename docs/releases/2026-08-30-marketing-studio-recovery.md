@@ -46,3 +46,11 @@ The Marketing Studio route rendered and could download a graphic, but its tenant
 6. Copy the caption and confirm it contains this cattery's name and public CatStays URL.
 7. Download a PNG and confirm its dimensions/template name match the selected format.
 8. At phone width, confirm the controls and preview stack vertically without sideways page scrolling.
+
+## Live PNG export follow-up
+
+Live UAT found that **Download PNG** could remain busy indefinitely when a remote website image did not finish loading. The export now gives remote images a bounded five-second load window, falls back to the branded background when an image is unavailable, gives the PNG encoder a bounded timeout, attaches the download link to the page before activating it, and shows clear preparing, success, or failure status to staff.
+
+1. Click **Download PNG** and confirm the button changes to **Preparing PNG...** only while the file is generated.
+2. Confirm a PNG downloads even if the selected remote image cannot be loaded.
+3. Confirm the page reports **PNG downloaded.** after success and allows another export.
