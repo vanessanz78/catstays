@@ -100,7 +100,6 @@ const tenantStaffDashboardPaths = [
   "/staff-dashboard/room-planner",
   "/staff-dashboard/smart-import",
   "/staff-dashboard/smart-data-import",
-  "/staff-dashboard/accounting",
   "/staff-dashboard/messages",
   "/staff-dashboard/promotions",
   "/staff-dashboard/social",
@@ -210,6 +209,11 @@ export const router = createBrowserRouter([
   {
     path: "/staff-dashboard/payment",
     Component: PaymentIntegration,
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
+    path: "/staff-dashboard/accounting",
+    Component: AdminAccounting,
     ErrorBoundary: RootErrorBoundary,
   },
   {
