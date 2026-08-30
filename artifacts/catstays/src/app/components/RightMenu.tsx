@@ -42,7 +42,7 @@ const menuItems: MenuItem[] = [
   { path: '/', icon: ExternalLink, label: 'View Website', description: 'Open public website' },
   { path: '/staff-dashboard', icon: Home, label: 'Today', description: 'Check-ins & departures' },
   { path: '/staff-dashboard/website-editor', icon: Globe, label: 'Edit Website', description: 'Edit public website' },
-  { path: '/staff-dashboard/calendar', icon: Calendar, label: 'Calendar', description: 'Month view' },
+  { path: '/staff-dashboard/calendar', icon: Calendar, label: 'Calendar', description: 'Room timeline' },
   { path: '/staff-dashboard/room-planner', icon: LayoutGrid, label: 'Room Planner', description: 'Visual room grid' },
   { path: '/staff-dashboard/bookings', icon: BookOpen, label: 'Bookings', description: 'All reservations' },
   { path: '/staff-dashboard/customers', icon: Users, label: 'Customers', description: 'Contact details' },
