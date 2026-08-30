@@ -186,7 +186,9 @@ export function PaymentIntegration() {
   const modeLabel = liveMode ? 'Live Mode' : 'Test Mode';
 
   return (
-    <div className="min-h-screen bg-[#F6F4EF]">
+    <div className="min-h-screen bg-[#F6F4EF] lg:flex">
+      <RightMenu mode="sidebar" />
+      <div className="min-w-0 flex-1">
       <div className="sticky top-0 z-40 border-b bg-white shadow-sm">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
@@ -200,7 +202,7 @@ export function PaymentIntegration() {
           </div>
           <div className="flex items-center gap-2">
             <NotificationBell />
-            <RightMenu />
+            <div className="lg:hidden"><RightMenu /></div>
           </div>
         </div>
       </div>
@@ -231,14 +233,21 @@ export function PaymentIntegration() {
                   </p>
                 </div>
               </div>
-              <Button
-                variant="outline"
-                onClick={() => window.open('https://dashboard.stripe.com', '_blank')}
-                className="border-[#635BFF] text-[#635BFF]"
-              >
-                <ExternalLink className="mr-2 h-4 w-4" />
-                Open Stripe
-              </Button>
+              <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
+                <Link to="/staff-dashboard/accounting">
+                  <Button className="w-full bg-[#0A1128] text-white hover:bg-[#19233D]">
+                    View customer payments
+                  </Button>
+                </Link>
+                <Button
+                  variant="outline"
+                  onClick={() => window.open('https://dashboard.stripe.com', '_blank')}
+                  className="border-[#635BFF] text-[#635BFF]"
+                >
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  Open Stripe
+                </Button>
+              </div>
             </div>
 
             <div className="grid gap-3 border-t bg-[#FBFAF8] p-5 sm:grid-cols-2 sm:p-6">
@@ -539,6 +548,7 @@ export function PaymentIntegration() {
           </CardContent>
         </Card>
       </main>
+      </div>
     </div>
   );
 }

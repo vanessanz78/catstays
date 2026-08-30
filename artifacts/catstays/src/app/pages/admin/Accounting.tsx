@@ -1,829 +1,614 @@
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
-import { Button } from '../../components/ui/button';
-import { Badge } from '../../components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../../components/ui/dialog';
-import { Input } from '../../components/ui/input';
-import { Label } from '../../components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select';
-import { Textarea } from '../../components/ui/textarea';
-import { 
-  Menu, 
-  Camera, 
-  Upload, 
-  DollarSign, 
-  TrendingUp, 
-  TrendingDown,
-  FileText,
-  Plus,
-  Download,
-  Trash2,
-  Loader2,
-  Receipt,
-  Calendar,
-  PieChart,
-  User,
-  Home,
-  Cat,
-  AlertCircle
-} from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '../../components/ui/sheet';
-import { format } from 'date-fns';
+  AlertCircle,
+  ArrowRight,
+  CheckCircle2,
+  CreditCard,
+  Download,
+  FileText,
+  Loader2,
+  Plus,
+  Receipt,
+  RefreshCw,
+  Settings,
+  Trash2,
+  WalletCards,
+} from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useBookings, type BookingWithDetails } from '@/hooks/useBookings';
+import { getCatteryPaymentStatus, type CatteryPaymentStatus } from '@/utils/catteryPayments';
+import { supabase } from '@/utils/supabase/client';
+import { NotificationBell } from '../../components/NotificationBell';
+import { RightMenu } from '../../components/RightMenu';
+import { Badge } from '../../components/ui/badge';
+import { Button } from '../../components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 
-interface Expense {
-  id: number;
-  merchant: string;
-  amount: number;
-  gst: number;
-  category: string;
-  date: string;
+type Expense = {
+  id: string;
+  cattery_id: string;
   description: string;
-  receiptUrl?: string;
-}
-
-interface Booking {
-  id: number;
-  customerName: string;
-  customerEmail: string;
-  customerPhone: string;
-  catNames: string[];
-  checkIn: string;
-  checkOut: string;
-  roomType: string;
-  roomNumber: string;
-  status: string;
-  paymentStatus: string;
-  total: number;
-  nights: number;
-  receivedDate: string;
-  specialRequirements: string;
-}
-
-const EXPENSE_CATEGORIES = [
-  { value: 'maintenance', label: 'Maintenance & Repairs', color: 'bg-blue-500' },
-  { value: 'consumables', label: 'Consumables & Amenities', color: 'bg-purple-500' },
-  { value: 'cleaning', label: 'Cleaning Services', color: 'bg-green-500' },
-  { value: 'utilities', label: 'Utilities', color: 'bg-yellow-500' },
-  { value: 'furnishings', label: 'Furnishings & Equipment', color: 'bg-orange-500' },
-  { value: 'marketing', label: 'Marketing & Advertising', color: 'bg-pink-500' },
-  { value: 'insurance', label: 'Insurance', color: 'bg-red-500' },
-  { value: 'other', label: 'Other', color: 'bg-gray-500' },
-];
-
-// Mock revenue data from bookings
-const MOCK_REVENUE = {
-  direct: 4850,
-  channel: 3200,
-  total: 8050
+  amount: number;
+  category: string | null;
+  date: string;
+  receipt_url: string | null;
+  created_at: string;
 };
 
-export function AdminAccounting() {
-  const [activeTab, setActiveTab] = useState('overview');
-  const [showAddExpense, setShowAddExpense] = useState(false);
-  const [isProcessingReceipt, setIsProcessingReceipt] = useState(false);
-  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
-  const [showBookingDetails, setShowBookingDetails] = useState(false);
-  
-  const [expenses, setExpenses] = useState<Expense[]>([
-    {
-      id: 1,
-      merchant: 'Mitre 10',
-      amount: 234.50,
-      gst: 30.59,
-      category: 'maintenance',
-      date: '2026-03-15',
-      description: 'Paint and brushes for room refresh'
-    },
-    {
-      id: 2,
-      merchant: 'Countdown',
-      amount: 156.80,
-      gst: 20.45,
-      category: 'consumables',
-      date: '2026-03-14',
-      description: 'Cat food, treats, and litter'
-    },
-    {
-      id: 3,
-      merchant: 'Clean & Tidy Ltd',
-      amount: 320.00,
-      gst: 41.74,
-      category: 'cleaning',
-      date: '2026-03-12',
-      description: 'Deep clean of all rooms'
-    },
-    {
-      id: 4,
-      merchant: 'Contact Energy',
-      amount: 187.25,
-      gst: 24.42,
-      category: 'utilities',
-      date: '2026-03-10',
-      description: 'Monthly electricity bill'
-    },
-  ]);
+type Payment = {
+  id: string;
+  booking_id: string | null;
+  amount: number;
+  type: string | null;
+  status: string | null;
+  created_at: string;
+};
 
-  const [newExpense, setNewExpense] = useState<Partial<Expense>>({
-    merchant: '',
-    amount: 0,
-    gst: 0,
-    category: '',
-    date: new Date().toISOString().split('T')[0],
-    description: ''
+type PaymentRequest = {
+  id: string;
+  booking_id: string;
+  request_type: 'deposit' | 'full';
+  amount: number;
+  status: 'pending' | 'paid' | 'expired' | 'cancelled' | 'failed';
+  expires_at: string | null;
+  created_at: string;
+};
+
+type DatePreset = 'this-month' | 'last-month' | 'this-quarter' | 'this-year' | 'all';
+type AccountingTab = 'payments' | 'expenses' | 'gst';
+
+const EXPENSE_CATEGORIES = [
+  'Cat food and supplies',
+  'Cleaning',
+  'Maintenance and repairs',
+  'Utilities',
+  'Insurance',
+  'Marketing',
+  'Professional services',
+  'Other',
+] as const;
+
+function localDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function dateRangeForPreset(preset: DatePreset) {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  if (preset === 'all') return { start: '', end: '' };
+  if (preset === 'this-month') {
+    return { start: localDateKey(new Date(year, month, 1)), end: localDateKey(new Date(year, month + 1, 0)) };
+  }
+  if (preset === 'last-month') {
+    return { start: localDateKey(new Date(year, month - 1, 1)), end: localDateKey(new Date(year, month, 0)) };
+  }
+  if (preset === 'this-quarter') {
+    const quarterStart = Math.floor(month / 3) * 3;
+    return { start: localDateKey(new Date(year, quarterStart, 1)), end: localDateKey(new Date(year, quarterStart + 3, 0)) };
+  }
+  return { start: `${year}-01-01`, end: `${year}-12-31` };
+}
+
+function money(value: number) {
+  return new Intl.NumberFormat('en-NZ', { style: 'currency', currency: 'NZD' }).format(value || 0);
+}
+
+function formatDate(value: string) {
+  const date = new Date(`${value.slice(0, 10)}T12:00:00`);
+  return Number.isNaN(date.getTime())
+    ? value
+    : date.toLocaleDateString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function inclusiveGst(value: number) {
+  return value * (3 / 23);
+}
+
+function csvCell(value: string | number) {
+  const text = String(value ?? '');
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function downloadCsv(filename: string, rows: Array<Array<string | number>>) {
+  const csv = rows.map((row) => row.map(csvCell).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+function catNames(booking: BookingWithDetails) {
+  const names = booking.booking_cats.map((entry) => entry.cat?.name).filter(Boolean);
+  return names.length > 0 ? names.join(', ') : booking.cat_names || 'Cat guest';
+}
+
+function customerName(booking: BookingWithDetails) {
+  return booking.customer?.name || booking.guest_name || 'Customer';
+}
+
+function MetricCard({ label, value, helper, tone = 'light' }: { label: string; value: string; helper: string; tone?: 'light' | 'navy' | 'orange' | 'green' }) {
+  const classes = tone === 'navy'
+    ? 'bg-[#0A1128] text-white'
+    : tone === 'orange'
+      ? 'bg-[#C46A3A] text-white'
+      : tone === 'green'
+        ? 'border-[#7DAF7B]/30 bg-[#EDF6EC] text-[#2D5830]'
+        : 'border-[#E8DED4] bg-white text-[#0A1128]';
+  return (
+    <div className={`rounded-xl border p-5 shadow-sm ${classes}`}>
+      <p className="text-sm font-semibold opacity-80">{label}</p>
+      <p className="mt-2 text-3xl font-semibold">{value}</p>
+      <p className="mt-2 text-xs opacity-70">{helper}</p>
+    </div>
+  );
+}
+
+export function AdminAccounting() {
+  const { cattery } = useAuth();
+  const { bookings, loading: bookingsLoading, error: bookingsError, refetch: refetchBookings } = useBookings();
+  const [paymentStatus, setPaymentStatus] = useState<CatteryPaymentStatus>({ connected: false });
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [paymentRequests, setPaymentRequests] = useState<PaymentRequest[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [loadingLedger, setLoadingLedger] = useState(true);
+  const [ledgerError, setLedgerError] = useState('');
+  const [activeTab, setActiveTab] = useState<AccountingTab>('payments');
+  const [preset, setPreset] = useState<DatePreset>('this-month');
+  const [range, setRange] = useState(() => dateRangeForPreset('this-month'));
+  const [showExpenseForm, setShowExpenseForm] = useState(false);
+  const [savingExpense, setSavingExpense] = useState(false);
+  const [deletingExpenseId, setDeletingExpenseId] = useState('');
+  const [newExpense, setNewExpense] = useState({
+    description: '',
+    amount: '',
+    category: EXPENSE_CATEGORIES[0] as string,
+    date: localDateKey(new Date()),
   });
 
-  // Sample bookings data
-  const [bookings] = useState<Booking[]>([
-    {
-      id: 1,
-      customerName: "Lisa Anderson",
-      customerEmail: "lisa@email.com",
-      customerPhone: "021 123 4567",
-      catNames: ["Bella"],
-      checkIn: "2026-03-26",
-      checkOut: "2026-04-02",
-      roomType: "Private Room",
-      roomNumber: "9",
-      status: "confirmed",
-      paymentStatus: "paid",
-      total: 210,
-      nights: 7,
-      receivedDate: "2026-03-15T10:30:00",
-      specialRequirements: "Bella loves salmon treats"
-    },
-    {
-      id: 2,
-      customerName: "James Brown",
-      customerEmail: "james@email.com",
-      customerPhone: "021 234 5678",
-      catNames: ["Oliver"],
-      checkIn: "2026-03-25",
-      checkOut: "2026-03-29",
-      roomType: "Indoor Room",
-      roomNumber: "5",
-      status: "confirmed",
-      paymentStatus: "paid",
-      total: 120,
-      nights: 4,
-      receivedDate: "2026-03-16T14:20:00",
-      specialRequirements: ""
-    },
-    {
-      id: 3,
-      customerName: "Sarah Johnson",
-      customerEmail: "sarah@email.com",
-      customerPhone: "021 345 6789",
-      catNames: ["Whiskers", "Luna"],
-      checkIn: "2026-03-18",
-      checkOut: "2026-03-25",
-      roomType: "Private Room",
-      roomNumber: "3",
-      status: "confirmed",
-      paymentStatus: "pending",
-      total: 280,
-      nights: 7,
-      receivedDate: "2026-03-10T09:15:00",
-      specialRequirements: "Both cats need medication at 8am daily"
-    },
-    {
-      id: 4,
-      customerName: "Mike Chen",
-      customerEmail: "mike@email.com",
-      customerPhone: "021 456 7890",
-      catNames: ["Shadow"],
-      checkIn: "2026-03-20",
-      checkOut: "2026-03-27",
-      roomType: "Indoor Room",
-      roomNumber: "7",
-      status: "confirmed",
-      paymentStatus: "unpaid",
-      total: 140,
-      nights: 7,
-      receivedDate: "2026-03-12T16:45:00",
-      specialRequirements: "Shadow is shy, needs quiet room"
-    },
-  ]);
-
-  const handleViewBooking = (booking: Booking) => {
-    setSelectedBooking(booking);
-    setShowBookingDetails(true);
-  };
-
-  // Calculate totals
-  const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
-  const totalGstPaid = expenses.reduce((sum, exp) => sum + exp.gst, 0);
-  const gstCollected = MOCK_REVENUE.total * 0.15; // 15% GST on revenue
-  const gstOwed = gstCollected - totalGstPaid;
-  const netProfit = MOCK_REVENUE.total - totalExpenses;
-  const profitMargin = (netProfit / MOCK_REVENUE.total) * 100;
-
-  // Calculate expenses by category
-  const expensesByCategory = EXPENSE_CATEGORIES.map(cat => ({
-    ...cat,
-    total: expenses
-      .filter(exp => exp.category === cat.value)
-      .reduce((sum, exp) => sum + exp.amount, 0)
-  })).filter(cat => cat.total > 0);
-
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setIsProcessingReceipt(true);
-    
-    // Simulate AI OCR processing
-    setTimeout(() => {
-      // Mock extracted data
-      const mockExtractedData = {
-        merchant: 'The Warehouse',
-        amount: 89.95,
-        gst: 11.74,
-        category: 'furnishings',
-        date: new Date().toISOString().split('T')[0],
-        description: 'Cat beds and scratching posts',
-        receiptUrl: URL.createObjectURL(file)
-      };
-
-      setNewExpense(mockExtractedData);
-      setIsProcessingReceipt(false);
-      setShowAddExpense(true);
-    }, 2000);
-  };
-
-  const handleCameraCapture = () => {
-    // Trigger file input to open camera on mobile
-    const fileInput = document.getElementById('receipt-camera') as HTMLInputElement;
-    fileInput?.click();
-  };
-
-  const handleAddExpense = () => {
-    if (!newExpense.merchant || !newExpense.amount || !newExpense.category) {
+  const loadLedger = async () => {
+    if (!cattery?.id) {
+      setPayments([]);
+      setPaymentRequests([]);
+      setExpenses([]);
+      setLoadingLedger(false);
       return;
     }
 
-    const expense: Expense = {
-      id: expenses.length + 1,
-      merchant: newExpense.merchant!,
-      amount: newExpense.amount!,
-      gst: newExpense.gst || newExpense.amount! * 0.13043, // Calculate GST (15/115)
-      category: newExpense.category!,
-      date: newExpense.date!,
-      description: newExpense.description || '',
-      receiptUrl: newExpense.receiptUrl
-    };
+    setLoadingLedger(true);
+    setLedgerError('');
+    const [statusResult, paymentsResult, requestsResult, expensesResult] = await Promise.allSettled([
+      getCatteryPaymentStatus(cattery.id),
+      supabase.from('payments').select('id,booking_id,amount,type,status,created_at').eq('cattery_id', cattery.id).order('created_at', { ascending: false }),
+      supabase.from('payment_requests').select('id,booking_id,request_type,amount,status,expires_at,created_at').eq('cattery_id', cattery.id).order('created_at', { ascending: false }),
+      supabase.from('expenses').select('id,cattery_id,description,amount,category,date,receipt_url,created_at').eq('cattery_id', cattery.id).order('date', { ascending: false }),
+    ]);
 
-    setExpenses([...expenses, expense]);
-    setShowAddExpense(false);
-    setNewExpense({
-      merchant: '',
-      amount: 0,
-      gst: 0,
-      category: '',
-      date: new Date().toISOString().split('T')[0],
-      description: ''
+    if (statusResult.status === 'fulfilled') setPaymentStatus(statusResult.value);
+    else setPaymentStatus({ connected: false });
+
+    const errors: string[] = [];
+    if (paymentsResult.status === 'fulfilled') {
+      if (paymentsResult.value.error) errors.push(`Payments: ${paymentsResult.value.error.message}`);
+      else setPayments((paymentsResult.value.data || []) as Payment[]);
+    } else errors.push('Payments could not be loaded.');
+
+    if (requestsResult.status === 'fulfilled') {
+      if (requestsResult.value.error) errors.push(`Payment requests: ${requestsResult.value.error.message}`);
+      else setPaymentRequests((requestsResult.value.data || []) as PaymentRequest[]);
+    } else errors.push('Payment requests could not be loaded.');
+
+    if (expensesResult.status === 'fulfilled') {
+      if (expensesResult.value.error) errors.push(`Expenses: ${expensesResult.value.error.message}`);
+      else setExpenses((expensesResult.value.data || []) as Expense[]);
+    } else errors.push('Expenses could not be loaded.');
+
+    setLedgerError(errors.join(' '));
+    setLoadingLedger(false);
+  };
+
+  useEffect(() => {
+    void loadLedger();
+  }, [cattery?.id]);
+
+  const choosePreset = (nextPreset: DatePreset) => {
+    setPreset(nextPreset);
+    setRange(dateRangeForPreset(nextPreset));
+  };
+
+  const withinRange = (value: string) => {
+    const key = value.slice(0, 10);
+    return (!range.start || key >= range.start) && (!range.end || key <= range.end);
+  };
+
+  const filteredPayments = useMemo(() => payments.filter((payment) => withinRange(payment.created_at)), [payments, range]);
+  const filteredRequests = useMemo(() => paymentRequests.filter((request) => withinRange(request.created_at)), [paymentRequests, range]);
+  const filteredExpenses = useMemo(() => expenses.filter((expense) => withinRange(expense.date)), [expenses, range]);
+  const filteredBookings = useMemo(() => bookings.filter((booking) => booking.status !== 'cancelled' && withinRange(booking.created_at)), [bookings, range]);
+
+  const paidByBooking = useMemo(() => {
+    const totals = new Map<string, number>();
+    filteredPayments
+      .filter((payment) => payment.status === 'completed')
+      .forEach((payment) => {
+        if (payment.booking_id) totals.set(payment.booking_id, (totals.get(payment.booking_id) || 0) + Number(payment.amount || 0));
+      });
+    return totals;
+  }, [filteredPayments]);
+
+  const latestRequestByBooking = useMemo(() => {
+    const requests = new Map<string, PaymentRequest>();
+    filteredRequests.forEach((request) => {
+      if (!requests.has(request.booking_id)) requests.set(request.booking_id, request);
     });
+    return requests;
+  }, [filteredRequests]);
+
+  const received = filteredPayments
+    .filter((payment) => payment.status === 'completed')
+    .reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+  const bookedRevenue = filteredBookings.reduce((sum, booking) => sum + Number(booking.total_amount || 0), 0);
+  const outstanding = filteredBookings.reduce((sum, booking) => {
+    return sum + Math.max(Number(booking.total_amount || 0) - (paidByBooking.get(booking.id) || 0), 0);
+  }, 0);
+  const expenseTotal = filteredExpenses.reduce((sum, expense) => sum + Number(expense.amount || 0), 0);
+  const pendingBookings = new Set(filteredRequests.filter((request) => request.status === 'pending').map((request) => request.booking_id)).size;
+  const outputGst = inclusiveGst(received);
+  const inputGst = inclusiveGst(expenseTotal);
+  const estimatedGst = outputGst - inputGst;
+  const isLoading = bookingsLoading || loadingLedger;
+
+  const addExpense = async () => {
+    if (!cattery?.id) return;
+    const amount = Number(newExpense.amount);
+    if (!newExpense.description.trim() || !Number.isFinite(amount) || amount <= 0 || !newExpense.date) {
+      setLedgerError('Add an expense description, date, and amount greater than zero.');
+      return;
+    }
+    setSavingExpense(true);
+    setLedgerError('');
+    const { error } = await supabase.from('expenses').insert({
+      cattery_id: cattery.id,
+      description: newExpense.description.trim(),
+      amount,
+      category: newExpense.category,
+      date: newExpense.date,
+    });
+    if (error) setLedgerError(`Expense could not be saved: ${error.message}`);
+    else {
+      setNewExpense({ description: '', amount: '', category: EXPENSE_CATEGORIES[0], date: localDateKey(new Date()) });
+      setShowExpenseForm(false);
+      await loadLedger();
+    }
+    setSavingExpense(false);
   };
 
-  const handleDeleteExpense = (id: number) => {
-    setExpenses(expenses.filter(exp => exp.id !== id));
+  const deleteExpense = async (expenseId: string) => {
+    if (!window.confirm('Delete this expense? This cannot be undone.')) return;
+    setDeletingExpenseId(expenseId);
+    const { error } = await supabase.from('expenses').delete().eq('id', expenseId);
+    if (error) setLedgerError(`Expense could not be deleted: ${error.message}`);
+    else setExpenses((current) => current.filter((expense) => expense.id !== expenseId));
+    setDeletingExpenseId('');
   };
 
-  const getCategoryLabel = (value: string) => {
-    return EXPENSE_CATEGORIES.find(cat => cat.value === value)?.label || value;
+  const exportPayments = () => {
+    downloadCsv(`catstays-payments-${range.start || 'all'}-${range.end || 'today'}.csv`, [
+      ['Booking', 'Customer', 'Cats', 'Booked total', 'Paid', 'Payment status', 'Created'],
+      ...filteredBookings.map((booking) => [
+        booking.id.slice(0, 8).toUpperCase(),
+        customerName(booking),
+        catNames(booking),
+        Number(booking.total_amount || 0).toFixed(2),
+        (paidByBooking.get(booking.id) || 0).toFixed(2),
+        booking.payment_status || 'unpaid',
+        booking.created_at.slice(0, 10),
+      ]),
+    ]);
   };
 
-  const getCategoryColor = (value: string) => {
-    return EXPENSE_CATEGORIES.find(cat => cat.value === value)?.color || 'bg-gray-500';
+  const exportExpenses = () => {
+    downloadCsv(`catstays-expenses-${range.start || 'all'}-${range.end || 'today'}.csv`, [
+      ['Date', 'Description', 'Category', 'Amount (GST inclusive)', 'Estimated GST'],
+      ...filteredExpenses.map((expense) => [
+        expense.date,
+        expense.description,
+        expense.category || '',
+        Number(expense.amount).toFixed(2),
+        inclusiveGst(Number(expense.amount)).toFixed(2),
+      ]),
+    ]);
   };
 
   return (
-    <div className="min-h-screen bg-[#F8F7F5]">
-      <header className="bg-white border-b sticky top-0 z-10">
-        <div className="px-4 py-3 flex items-center justify-between">
-          <h1 className="text-xl font-bold text-[#0A1128]">Accounting & GST</h1>
-          <Link to="/admin">
-            <Button variant="ghost" size="icon">
-              <Menu className="w-5 h-5" />
+    <div className="min-h-screen bg-[#F6F2EA] text-[#0A1128] lg:flex">
+      <RightMenu mode="sidebar" />
+      <div className="min-w-0 flex-1">
+        <header className="sticky top-0 z-30 border-b border-[#E8DED4] bg-white/95 shadow-sm backdrop-blur">
+          <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4">
+            <div className="flex items-center gap-3">
+              <div className="lg:hidden"><RightMenu /></div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#C46A3A]">Staff dashboard</p>
+                <h1 className="text-xl font-semibold">{cattery?.name || 'Your cattery'}</h1>
+              </div>
+            </div>
+            <NotificationBell />
+          </div>
+        </header>
+
+        <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 pb-24">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#C46A3A]">Payments and accounting</p>
+              <h2 className="text-3xl font-semibold">Accounting</h2>
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-[#4E5871]">
+                Track real booking payments, outstanding balances, expenses, and an estimated New Zealand GST position.
+              </p>
+            </div>
+            <Button variant="outline" onClick={() => { void loadLedger(); void refetchBookings(); }} disabled={isLoading}>
+              {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+              Refresh
             </Button>
-          </Link>
-        </div>
-      </header>
+          </div>
 
-      <main className="p-4 pb-8">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-6">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="revenue">Revenue</TabsTrigger>
-            <TabsTrigger value="expenses">Expenses</TabsTrigger>
-            <TabsTrigger value="reports">Reports</TabsTrigger>
-            <TabsTrigger value="gst">GST</TabsTrigger>
-          </TabsList>
-
-          {/* Overview Tab */}
-          <TabsContent value="overview" className="space-y-4">
-            {/* Financial Summary */}
-            <div className="grid grid-cols-2 gap-3">
-              <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 mb-1">
-                    <TrendingUp className="w-4 h-4 text-green-700" />
-                    <div className="text-xs text-green-700">Revenue</div>
+          <Card className={`border-2 ${paymentStatus.connected ? 'border-[#7DAF7B]' : 'border-[#C46A3A]'}`}>
+            <CardContent className="flex flex-col gap-5 p-5 md:flex-row md:items-center md:justify-between md:p-6">
+              <div className="flex items-start gap-4">
+                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-[#635BFF] text-white">
+                  <WalletCards className="h-6 w-6" />
+                </span>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-xl font-semibold">Accept customer payments with Stripe</h3>
+                    <Badge className={paymentStatus.connected ? 'bg-[#7DAF7B] hover:bg-[#7DAF7B]' : 'bg-[#C46A3A] hover:bg-[#C46A3A]'}>
+                      {paymentStatus.connected ? `${paymentStatus.mode === 'live' ? 'Live' : 'Test'} connected` : 'Setup required'}
+                    </Badge>
                   </div>
-                  <div className="text-2xl font-bold text-green-900">${MOCK_REVENUE.total.toLocaleString()}</div>
-                  <div className="text-xs text-green-700 mt-1">This month</div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-gradient-to-br from-red-50 to-red-100 border-red-200">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 mb-1">
-                    <TrendingDown className="w-4 h-4 text-red-700" />
-                    <div className="text-xs text-red-700">Expenses</div>
-                  </div>
-                  <div className="text-2xl font-bold text-red-900">${totalExpenses.toLocaleString()}</div>
-                  <div className="text-xs text-red-700 mt-1">This month</div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 mb-1">
-                    <DollarSign className="w-4 h-4 text-blue-700" />
-                    <div className="text-xs text-blue-700">Net Profit</div>
-                  </div>
-                  <div className="text-2xl font-bold text-blue-900">${netProfit.toLocaleString()}</div>
-                  <div className="text-xs text-blue-700 mt-1">{profitMargin.toFixed(1)}% margin</div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 mb-1">
-                    <FileText className="w-4 h-4 text-amber-700" />
-                    <div className="text-xs text-amber-700">GST Owed</div>
-                  </div>
-                  <div className="text-2xl font-bold text-amber-900">${gstOwed.toLocaleString()}</div>
-                  <div className="text-xs text-amber-700 mt-1">To IRD</div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Quick Actions */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Quick Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Button 
-                  className="w-full justify-start bg-[#C46A3A] hover:bg-[#C46A3A]/90 h-9"
-                  onClick={() => setShowAddExpense(true)}
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Expense
-                </Button>
-                <Button 
-                  className="w-full justify-start bg-[#0A1128] hover:bg-[#0A1128]/90 h-9"
-                  onClick={handleCameraCapture}
-                  disabled={isProcessingReceipt}
-                >
-                  {isProcessingReceipt ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <Camera className="w-4 h-4 mr-2" />
-                  )}
-                  {isProcessingReceipt ? 'Processing...' : 'Capture Receipt'}
-                </Button>
-                <input 
-                  id="receipt-camera"
-                  type="file" 
-                  accept="image/*" 
-                  capture="environment"
-                  className="hidden"
-                  onChange={handleFileUpload}
-                />
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-start h-9"
-                  onClick={() => setActiveTab('reports')}
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Generate Report
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-start h-9"
-                  onClick={() => setActiveTab('gst')}
-                >
-                  <FileText className="w-4 h-4 mr-2" />
-                  File GST Return
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Expenses Breakdown */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Expenses by Category</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {expensesByCategory.map((cat) => (
-                  <div key={cat.value} className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-3 h-3 rounded-full ${cat.color}`} />
-                      <span className="text-sm">{cat.label}</span>
-                    </div>
-                    <span className="font-semibold">${cat.total.toFixed(2)}</span>
-                  </div>
-                ))}
-                {expensesByCategory.length === 0 && (
-                  <p className="text-sm text-gray-500 text-center py-4">No expenses recorded yet</p>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Expenses Tab */}
-          <TabsContent value="expenses" className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-lg font-semibold text-[#0A1128]">All Expenses</h2>
-              <Button 
-                size="sm"
-                className="bg-[#C46A3A] hover:bg-[#C46A3A]/90 h-8"
-                onClick={() => setShowAddExpense(true)}
-              >
-                <Plus className="w-4 h-4 mr-1" />
-                Add
-              </Button>
-            </div>
-
-            <div className="space-y-3">
-              {expenses.map((expense) => (
-                <Card key={expense.id}>
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex-1">
-                        <div className="font-semibold text-[#0A1128]">{expense.merchant}</div>
-                        <div className="text-sm text-gray-600 mt-1">{expense.description}</div>
-                        <div className="flex items-center gap-2 mt-2">
-                          <Badge 
-                            variant="secondary" 
-                            className={`${getCategoryColor(expense.category)} text-white text-xs`}
-                          >
-                            {getCategoryLabel(expense.category)}
-                          </Badge>
-                          <span className="text-xs text-gray-500">{expense.date}</span>
-                        </div>
-                      </div>
-                      <div className="text-right ml-4">
-                        <div className="font-bold text-[#0A1128]">${expense.amount.toFixed(2)}</div>
-                        <div className="text-xs text-gray-500">GST: ${expense.gst.toFixed(2)}</div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="mt-1 text-red-600 hover:text-red-700 hover:bg-red-50"
-                          onClick={() => handleDeleteExpense(expense.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            {expenses.length === 0 && (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <Receipt className="w-12 h-12 mx-auto text-gray-400 mb-3" />
-                  <p className="text-gray-600 mb-4">No expenses recorded yet</p>
-                  <Button 
-                    className="bg-[#C46A3A] hover:bg-[#C46A3A]/90 h-9"
-                    onClick={() => setShowAddExpense(true)}
-                  >
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Your First Expense
+                  <p className="mt-2 max-w-3xl text-sm leading-6 text-[#4E5871]">
+                    Each cattery connects its own Stripe keys in Payment Setup. Then open a confirmed booking and choose <strong>Request payment from customer</strong> to email secure deposit and full-payment options.
+                  </p>
+                </div>
+              </div>
+              <div className="flex shrink-0 flex-col gap-2 sm:flex-row md:flex-col">
+                <Link to="/staff-dashboard/payment">
+                  <Button className="w-full bg-[#635BFF] text-white hover:bg-[#0A2540]">
+                    <Settings className="mr-2 h-4 w-4" /> Payment Setup
                   </Button>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-
-          {/* Reports Tab */}
-          <TabsContent value="reports" className="space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-lg font-semibold text-[#0A1128]">Profit & Loss Statement</h2>
-              <Button size="sm" variant="outline" className="h-8">
-                <Download className="w-4 h-4 mr-1" />
-                Export PDF
-              </Button>
-            </div>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Revenue</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Direct Bookings</span>
-                  <span className="font-semibold">${MOCK_REVENUE.direct.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Channel Bookings</span>
-                  <span className="font-semibold">${MOCK_REVENUE.channel.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between pt-2 border-t font-semibold">
-                  <span>Total Revenue</span>
-                  <span className="text-green-600">${MOCK_REVENUE.total.toFixed(2)}</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Expenses by Category</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {expensesByCategory.map((cat) => (
-                  <div key={cat.value} className="flex justify-between text-sm">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${cat.color}`} />
-                      <span className="text-gray-600">{cat.label}</span>
-                    </div>
-                    <span className="font-semibold">${cat.total.toFixed(2)}</span>
-                  </div>
-                ))}
-                <div className="flex justify-between pt-2 border-t font-semibold">
-                  <span>Total Expenses</span>
-                  <span className="text-red-600">${totalExpenses.toFixed(2)}</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
-              <CardContent className="p-6">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <div className="text-sm text-blue-700 mb-1">Net Profit</div>
-                    <div className="text-3xl font-bold text-blue-900">${netProfit.toFixed(2)}</div>
-                    <div className="text-sm text-blue-700 mt-1">
-                      {profitMargin.toFixed(1)}% profit margin
-                    </div>
-                  </div>
-                  <PieChart className="w-12 h-12 text-blue-600" />
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* GST & Tax Tab */}
-          <TabsContent value="gst" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">GST Summary</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">GST Collected (on sales)</span>
-                  <span className="font-semibold">${gstCollected.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">GST Paid (on expenses)</span>
-                  <span className="font-semibold">${totalGstPaid.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between pt-3 border-t">
-                  <span className="font-semibold">GST Owed to IRD</span>
-                  <span className="text-lg font-bold text-[#C46A3A]">${gstOwed.toFixed(2)}</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">File GST Return</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <Calendar className="w-5 h-5 text-blue-600 mt-0.5" />
-                    <div>
-                      <div className="font-semibold text-blue-900">Next Filing Due</div>
-                      <div className="text-sm text-blue-700">28 March 2026</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Filing Period</Label>
-                  <Select defaultValue="march-2026">
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="march-2026">March 2026</SelectItem>
-                      <SelectItem value="february-2026">February 2026</SelectItem>
-                      <SelectItem value="january-2026">January 2026</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <Button className="w-full bg-[#C46A3A] hover:bg-[#C46A3A]/90 h-9">
-                  <FileText className="w-4 h-4 mr-2" />
-                  File GST Return
-                </Button>
-
-                <p className="text-xs text-gray-500 text-center">
-                  This will prepare your GST return for submission to IRD
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Tax Deductions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-gray-600 mb-3">
-                  The following expense categories may be tax deductible:
-                </p>
-                <ul className="space-y-2 text-sm">
-                  <li className="flex items-start gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#C46A3A] mt-1.5" />
-                    <span>Business operating expenses (utilities, cleaning, maintenance)</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#C46A3A] mt-1.5" />
-                    <span>Consumables and supplies</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#C46A3A] mt-1.5" />
-                    <span>Marketing and advertising costs</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-[#C46A3A] mt-1.5" />
-                    <span>Insurance premiums</span>
-                  </li>
-                </ul>
-                <p className="text-xs text-gray-500 mt-3">
-                  Consult with your accountant for specific tax advice
-                </p>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </main>
-
-      {/* Add Expense Dialog */}
-      <Dialog open={showAddExpense} onOpenChange={setShowAddExpense}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Add Expense</DialogTitle>
-            <DialogDescription>
-              {isProcessingReceipt ? 'AI is reading your receipt...' : 'Enter expense details or upload a receipt'}
-            </DialogDescription>
-          </DialogHeader>
-
-          {isProcessingReceipt ? (
-            <div className="flex flex-col items-center justify-center py-8">
-              <Loader2 className="w-12 h-12 animate-spin text-[#C46A3A] mb-4" />
-              <p className="text-sm text-gray-600">Processing receipt...</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-2">
-                <Button 
-                  variant="outline" 
-                  className="w-full h-9"
-                  onClick={handleCameraCapture}
-                >
-                  <Camera className="w-4 h-4 mr-2" />
-                  Take Photo
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="w-full h-9"
-                  onClick={() => {
-                    const input = document.getElementById('receipt-upload') as HTMLInputElement;
-                    input?.click();
-                  }}
-                >
-                  <Upload className="w-4 h-4 mr-2" />
-                  Upload
-                </Button>
-                <input 
-                  id="receipt-upload"
-                  type="file" 
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleFileUpload}
-                />
+                </Link>
+                <Link to="/staff-dashboard/bookings">
+                  <Button variant="outline" className="w-full">
+                    Open Bookings <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
               </div>
+            </CardContent>
+          </Card>
 
-              <div className="space-y-3">
-                <div>
-                  <Label htmlFor="merchant">Merchant / Supplier</Label>
-                  <Input
-                    id="merchant"
-                    value={newExpense.merchant || ''}
-                    onChange={(e) => setNewExpense({ ...newExpense, merchant: e.target.value })}
-                    placeholder="e.g., Mitre 10"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label htmlFor="amount">Amount (incl GST)</Label>
-                    <Input
-                      id="amount"
-                      type="number"
-                      step="0.01"
-                      value={newExpense.amount || ''}
-                      onChange={(e) => {
-                        const amount = parseFloat(e.target.value);
-                        const gst = amount * 0.13043; // GST component (15/115)
-                        setNewExpense({ ...newExpense, amount, gst });
-                      }}
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="gst">GST</Label>
-                    <Input
-                      id="gst"
-                      type="number"
-                      step="0.01"
-                      value={newExpense.gst?.toFixed(2) || ''}
-                      readOnly
-                      className="bg-gray-50"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="category">Category</Label>
-                  <Select 
-                    value={newExpense.category || ''} 
-                    onValueChange={(value) => setNewExpense({ ...newExpense, category: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {EXPENSE_CATEGORIES.map((cat) => (
-                        <SelectItem key={cat.value} value={cat.value}>
-                          {cat.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="date">Date</Label>
-                  <Input
-                    id="date"
-                    type="date"
-                    value={newExpense.date || ''}
-                    onChange={(e) => setNewExpense({ ...newExpense, date: e.target.value })}
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="description">Description (optional)</Label>
-                  <Textarea
-                    id="description"
-                    value={newExpense.description || ''}
-                    onChange={(e) => setNewExpense({ ...newExpense, description: e.target.value })}
-                    placeholder="What was this expense for?"
-                    rows={2}
-                  />
-                </div>
-              </div>
+          {(ledgerError || bookingsError) && (
+            <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700" role="alert">
+              <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+              <p>{ledgerError || bookingsError}</p>
             </div>
           )}
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAddExpense(false)}>
-              Cancel
-            </Button>
-            <Button 
-              className="bg-[#C46A3A] hover:bg-[#C46A3A]/90 h-9"
-              onClick={handleAddExpense}
-              disabled={!newExpense.merchant || !newExpense.amount || !newExpense.category}
-            >
-              Add Expense
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          <section className="rounded-xl border border-[#E8DED4] bg-white p-4 shadow-sm">
+            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-end">
+              <label>
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#6b7a6d]">Period</span>
+                <select
+                  value={preset}
+                  onChange={(event) => choosePreset(event.target.value as DatePreset)}
+                  className="h-11 w-full rounded-lg border border-[#D8D1C8] bg-white px-3 text-sm"
+                >
+                  <option value="this-month">This month</option>
+                  <option value="last-month">Last month</option>
+                  <option value="this-quarter">This quarter</option>
+                  <option value="this-year">This year</option>
+                  <option value="all">All time</option>
+                </select>
+              </label>
+              <label>
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#6b7a6d]">From</span>
+                <input type="date" value={range.start} onChange={(event) => { setPreset('all'); setRange((current) => ({ ...current, start: event.target.value })); }} className="h-11 rounded-lg border border-[#D8D1C8] px-3 text-sm" />
+              </label>
+              <label>
+                <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#6b7a6d]">To</span>
+                <input type="date" value={range.end} onChange={(event) => { setPreset('all'); setRange((current) => ({ ...current, end: event.target.value })); }} className="h-11 rounded-lg border border-[#D8D1C8] px-3 text-sm" />
+              </label>
+            </div>
+          </section>
+
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <MetricCard label="Payments received" value={money(received)} helper="Completed customer payments" tone="green" />
+            <MetricCard label="Booked revenue" value={money(bookedRevenue)} helper="Active bookings created in this period" tone="navy" />
+            <MetricCard label="Outstanding" value={money(outstanding)} helper={`${pendingBookings} booking${pendingBookings === 1 ? '' : 's'} with active payment requests`} tone="orange" />
+            <MetricCard label="Expenses" value={money(expenseTotal)} helper="Recorded business expenses" />
+          </div>
+
+          <div className="flex gap-2 overflow-x-auto rounded-xl border border-[#E8DED4] bg-white p-2 shadow-sm">
+            {([
+              ['payments', 'Payments'],
+              ['expenses', 'Expenses'],
+              ['gst', 'GST summary'],
+            ] as Array<[AccountingTab, string]>).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setActiveTab(value)}
+                className={`shrink-0 rounded-lg px-4 py-2 text-sm font-semibold ${activeTab === value ? 'bg-[#0A1128] text-white' : 'text-[#4E5871] hover:bg-[#F6F2EA]'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {activeTab === 'payments' && (
+            <Card>
+              <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <CardTitle className="text-xl">Booking payment ledger</CardTitle>
+                  <p className="mt-1 text-sm text-[#6b7a6d]">Live booking totals, received amounts, and payment-request status.</p>
+                </div>
+                <Button variant="outline" onClick={exportPayments} disabled={filteredBookings.length === 0}>
+                  <Download className="mr-2 h-4 w-4" /> Export CSV
+                </Button>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? (
+                  <p className="rounded-xl bg-[#F8F7F5] p-6 text-sm text-[#4E5871]">Loading payments…</p>
+                ) : filteredBookings.length === 0 ? (
+                  <div className="rounded-xl bg-[#F8F7F5] p-8 text-center">
+                    <CreditCard className="mx-auto h-8 w-8 text-[#C46A3A]" />
+                    <h3 className="mt-3 font-semibold">No bookings in this period</h3>
+                    <p className="mt-1 text-sm text-[#4E5871]">Choose another period or create a booking to start the payment ledger.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {filteredBookings.map((booking) => {
+                      const paid = paidByBooking.get(booking.id) || 0;
+                      const total = Number(booking.total_amount || 0);
+                      const request = latestRequestByBooking.get(booking.id);
+                      return (
+                        <Link
+                          key={booking.id}
+                          to={`/staff-dashboard/bookings?booking=${booking.id}`}
+                          className="grid gap-3 rounded-xl border border-[#E8DED4] p-4 transition hover:bg-[#F8F7F5] lg:grid-cols-[minmax(0,1.2fr)_repeat(3,minmax(110px,0.5fr))_auto] lg:items-center"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate font-semibold">{catNames(booking)}</p>
+                            <p className="truncate text-sm text-[#4E5871]">{customerName(booking)} · {booking.id.slice(0, 8).toUpperCase()}</p>
+                            <p className="mt-1 text-xs text-[#768098]">{formatDate(booking.check_in)} – {formatDate(booking.check_out)}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-wide text-[#768098]">Booked</p>
+                            <p className="font-semibold">{money(total)}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-wide text-[#768098]">Received</p>
+                            <p className="font-semibold text-[#2D5830]">{money(paid)}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-wide text-[#768098]">Request</p>
+                            <p className="font-semibold capitalize">{request?.status || 'Not sent'}</p>
+                          </div>
+                          <Badge className={booking.payment_status === 'paid' ? 'bg-[#7DAF7B] hover:bg-[#7DAF7B]' : booking.payment_status === 'pending' || booking.payment_status === 'partial' ? 'bg-[#C46A3A] hover:bg-[#C46A3A]' : 'bg-[#6b7a6d] hover:bg-[#6b7a6d]'}>
+                            {booking.payment_status || 'unpaid'}
+                          </Badge>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {activeTab === 'expenses' && (
+            <Card>
+              <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <CardTitle className="text-xl">Expenses</CardTitle>
+                  <p className="mt-1 text-sm text-[#6b7a6d]">Tenant-owned expense records saved to this cattery.</p>
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Button variant="outline" onClick={exportExpenses} disabled={filteredExpenses.length === 0}>
+                    <Download className="mr-2 h-4 w-4" /> Export CSV
+                  </Button>
+                  <Button onClick={() => setShowExpenseForm((visible) => !visible)} className="bg-[#C46A3A] text-white hover:bg-[#A85A30]">
+                    <Plus className="mr-2 h-4 w-4" /> Add expense
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {showExpenseForm && (
+                  <div className="grid gap-3 rounded-xl border border-[#C46A3A]/30 bg-[#FBF5F0] p-4 md:grid-cols-2">
+                    <label className="md:col-span-2">
+                      <span className="mb-1 block text-sm font-semibold">Description</span>
+                      <input value={newExpense.description} onChange={(event) => setNewExpense((current) => ({ ...current, description: event.target.value }))} placeholder="e.g. Cat food and litter" className="h-11 w-full rounded-lg border border-[#D8D1C8] px-3" />
+                    </label>
+                    <label>
+                      <span className="mb-1 block text-sm font-semibold">Category</span>
+                      <select value={newExpense.category} onChange={(event) => setNewExpense((current) => ({ ...current, category: event.target.value }))} className="h-11 w-full rounded-lg border border-[#D8D1C8] bg-white px-3">
+                        {EXPENSE_CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}
+                      </select>
+                    </label>
+                    <label>
+                      <span className="mb-1 block text-sm font-semibold">Date</span>
+                      <input type="date" value={newExpense.date} onChange={(event) => setNewExpense((current) => ({ ...current, date: event.target.value }))} className="h-11 w-full rounded-lg border border-[#D8D1C8] px-3" />
+                    </label>
+                    <label>
+                      <span className="mb-1 block text-sm font-semibold">GST-inclusive amount (NZD)</span>
+                      <input type="number" min="0.01" step="0.01" value={newExpense.amount} onChange={(event) => setNewExpense((current) => ({ ...current, amount: event.target.value }))} placeholder="0.00" className="h-11 w-full rounded-lg border border-[#D8D1C8] px-3" />
+                    </label>
+                    <div className="flex items-end gap-2">
+                      <Button onClick={addExpense} disabled={savingExpense} className="bg-[#0A1128] text-white hover:bg-[#19233D]">
+                        {savingExpense ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                        Save expense
+                      </Button>
+                      <Button variant="ghost" onClick={() => setShowExpenseForm(false)}>Cancel</Button>
+                    </div>
+                  </div>
+                )}
+
+                {filteredExpenses.length === 0 ? (
+                  <div className="rounded-xl bg-[#F8F7F5] p-8 text-center">
+                    <Receipt className="mx-auto h-8 w-8 text-[#C46A3A]" />
+                    <h3 className="mt-3 font-semibold">No expenses in this period</h3>
+                    <p className="mt-1 text-sm text-[#4E5871]">Record operating costs here so the GST summary and net position stay useful.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {filteredExpenses.map((expense) => (
+                      <div key={expense.id} className="grid gap-3 rounded-xl border border-[#E8DED4] p-4 sm:grid-cols-[1fr_auto_auto] sm:items-center">
+                        <div>
+                          <p className="font-semibold">{expense.description}</p>
+                          <p className="mt-1 text-sm text-[#4E5871]">{expense.category || 'Other'} · {formatDate(expense.date)}</p>
+                        </div>
+                        <div className="sm:text-right">
+                          <p className="font-semibold">{money(Number(expense.amount))}</p>
+                          <p className="text-xs text-[#768098]">Est. GST {money(inclusiveGst(Number(expense.amount)))}</p>
+                        </div>
+                        <Button variant="ghost" size="icon" onClick={() => deleteExpense(expense.id)} disabled={deletingExpenseId === expense.id} aria-label={`Delete ${expense.description}`} className="text-red-700">
+                          {deletingExpenseId === expense.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {activeTab === 'gst' && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-xl"><FileText className="h-5 w-5 text-[#C46A3A]" /> GST summary</CardTitle>
+                <p className="mt-1 text-sm text-[#6b7a6d]">A cash-basis estimate using the GST-inclusive 3/23 fraction for New Zealand.</p>
+              </CardHeader>
+              <CardContent className="space-y-5">
+                <div className="grid gap-4 md:grid-cols-3">
+                  <MetricCard label="Output GST" value={money(outputGst)} helper={`Estimated GST in ${money(received)} received`} />
+                  <MetricCard label="Input GST" value={money(inputGst)} helper={`Estimated GST in ${money(expenseTotal)} expenses`} tone="green" />
+                  <MetricCard label="Estimated GST position" value={money(estimatedGst)} helper={estimatedGst >= 0 ? 'Estimated amount payable' : 'Estimated refund position'} tone={estimatedGst >= 0 ? 'orange' : 'green'} />
+                </div>
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+                  <strong>Check before filing:</strong> this summary assumes all listed payments and expenses include 15% GST. Only use it if the cattery is GST registered, and confirm classifications and filing figures with your accountant or Inland Revenue records.
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </main>
+      </div>
     </div>
   );
 }
