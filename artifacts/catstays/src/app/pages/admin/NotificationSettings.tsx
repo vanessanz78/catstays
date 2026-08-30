@@ -4,6 +4,7 @@ import { AlertCircle, ArrowLeft, BellRing, CheckCircle2, Loader2, Smartphone } f
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
+import { RightMenu } from '../../components/RightMenu';
 import {
   enablePhoneNotifications,
   getPhoneNotificationState,
@@ -80,9 +81,12 @@ export function NotificationSettings() {
           : 'Ready to connect';
 
   return (
-    <div className="min-h-screen bg-[#F8F7F5] pb-24">
+    <div className="min-h-screen bg-[#F8F7F5] lg:flex">
+      <RightMenu mode="sidebar" />
+      <div className="min-w-0 flex-1 pb-24">
       <header className="sticky top-0 z-40 border-b border-[#0A1128]/10 bg-white">
         <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-4">
+          <div className="lg:hidden"><RightMenu /></div>
           <Link to="/staff-dashboard/settings" className="rounded-lg p-2 transition-colors hover:bg-[#F8F7F5]" aria-label="Back to settings">
             <ArrowLeft className="h-5 w-5 text-[#0A1128]" />
           </Link>
@@ -147,6 +151,7 @@ export function NotificationSettings() {
           </CardContent>
         </Card>
       </main>
+      </div>
     </div>
   );
 }

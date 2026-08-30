@@ -161,22 +161,20 @@ export function RightMenu({ mode = 'button' }: { mode?: RightMenuMode }) {
         variant="ghost"
         size="icon"
         aria-label="Open dashboard menu"
-        className="rounded-full hover:bg-[#C46A3A]/10"
+        className="rounded-full hover:bg-[#C46A3A]/10 lg:hidden"
       >
         <Menu className="h-6 w-6 text-[#C46A3A]" />
       </Button>
 
       {isOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 transition-opacity"
+          className="fixed inset-0 z-40 bg-black/50 transition-opacity lg:hidden"
           onClick={() => setIsOpen(false)}
         />
       )}
 
-      <div
-        className={`fixed inset-y-0 left-0 z-50 flex h-screen max-h-screen w-80 transform flex-col bg-white shadow-2xl transition-transform duration-300 ${
-          isOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
+      {isOpen && <div
+        className="fixed inset-y-0 left-0 z-50 flex h-screen max-h-screen w-80 flex-col bg-white shadow-2xl lg:hidden"
         style={{ maxWidth: '85vw', height: '100vh' }}
       >
         <div className="flex shrink-0 items-center justify-between border-b p-4" style={{ backgroundColor: '#F6F4EF' }}>
@@ -202,7 +200,7 @@ export function RightMenu({ mode = 'button' }: { mode?: RightMenuMode }) {
             {menuItems.map((item) => renderMenuItem(item, false, () => setIsOpen(false)))}
           </div>
         </nav>
-      </div>
+      </div>}
     </>
   );
 }

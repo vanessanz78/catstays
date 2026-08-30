@@ -29,6 +29,7 @@ export function useRooms() {
     }
 
     setLoading(true);
+    setError(null);
     const { data, error } = await supabase
       .from('rooms')
       .select('*')
@@ -79,20 +80,26 @@ export function useRooms() {
   };
 
   const updateRoom = async (id: string, updates: Partial<RoomRecord>) => {
+    if (!cattery?.id) return { error: new Error('No cattery found') };
+
     const { error } = await supabase
       .from('rooms')
       .update(updates)
-      .eq('id', id);
+      .eq('id', id)
+      .eq('cattery_id', cattery.id);
 
     if (!error) await fetchRooms();
     return { error };
   };
 
   const deleteRoom = async (id: string) => {
+    if (!cattery?.id) return { error: new Error('No cattery found') };
+
     const { error } = await supabase
       .from('rooms')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('cattery_id', cattery.id);
 
     if (!error) await fetchRooms();
     return { error };

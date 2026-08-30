@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router';
 import {
   BookOpen,
@@ -23,6 +23,14 @@ import {
 import { Button } from '../../components/ui/button';
 import { Card, CardContent } from '../../components/ui/card';
 import { Badge } from '../../components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../../components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBookings } from '@/hooks/useBookings';
 import { useCustomers } from '@/hooks/useCustomers';
@@ -742,7 +750,127 @@ function CustomersSection({
   );
 }
 
-function RoomPlannerSection({ rooms, data, isLoading }: { rooms: Room[]; data: ReturnType<typeof buildDashboardData>; isLoading: boolean }) {
+type RoomPlannerProps = {
+  rooms: Room[];
+  data: ReturnType<typeof buildDashboardData>;
+  isLoading: boolean;
+  roomError: string | null;
+  createRoom: ReturnType<typeof useRooms>['createRoom'];
+  updateRoom: ReturnType<typeof useRooms>['updateRoom'];
+  toggleActive: ReturnType<typeof useRooms>['toggleActive'];
+};
+
+type RoomDraft = {
+  name: string;
+  type: string;
+  description: string;
+  capacity: string;
+  dailyRate: string;
+  isActive: boolean;
+};
+
+const emptyRoomDraft: RoomDraft = {
+  name: '',
+  type: '',
+  description: '',
+  capacity: '1',
+  dailyRate: '',
+  isActive: true,
+};
+
+function roomActionError(error: unknown) {
+  if (!error) return '';
+  if (typeof error === 'string') return error;
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'object' && 'message' in error && typeof error.message === 'string') return error.message;
+  return 'The room could not be saved.';
+}
+
+function RoomPlannerSection({
+  rooms,
+  data,
+  isLoading,
+  roomError,
+  createRoom,
+  updateRoom,
+  toggleActive,
+}: RoomPlannerProps) {
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editingRoom, setEditingRoom] = useState<Room | null>(null);
+  const [draft, setDraft] = useState<RoomDraft>(emptyRoomDraft);
+  const [saving, setSaving] = useState(false);
+  const [actionError, setActionError] = useState('');
+  const [actionMessage, setActionMessage] = useState('');
+
+  const openAddRoom = () => {
+    setEditingRoom(null);
+    setDraft(emptyRoomDraft);
+    setActionError('');
+    setEditorOpen(true);
+  };
+
+  const openEditRoom = (room: Room) => {
+    setEditingRoom(room);
+    setDraft({
+      name: room.name || '',
+      type: room.type || '',
+      description: room.description || '',
+      capacity: String(room.capacity || 1),
+      dailyRate: String(room.price_per_night ?? ''),
+      isActive: room.is_active,
+    });
+    setActionError('');
+    setEditorOpen(true);
+  };
+
+  const saveRoom = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setActionError('');
+    setActionMessage('');
+
+    const name = draft.name.trim();
+    const type = draft.type.trim();
+    const capacity = Number(draft.capacity);
+    const pricePerDay = Number(draft.dailyRate);
+    if (!name || !type || !Number.isInteger(capacity) || capacity < 1 || !Number.isFinite(pricePerDay) || pricePerDay < 0) {
+      setActionError('Enter a room name, room type, whole-number capacity, and valid daily rate.');
+      return;
+    }
+
+    setSaving(true);
+    const values = {
+      name,
+      type,
+      description: draft.description.trim(),
+      capacity,
+      price_per_night: pricePerDay,
+      is_active: draft.isActive,
+    };
+    const result = editingRoom
+      ? await updateRoom(editingRoom.id, values)
+      : await createRoom(values);
+    setSaving(false);
+
+    if (result.error) {
+      setActionError(roomActionError(result.error));
+      return;
+    }
+
+    setEditorOpen(false);
+    setActionMessage(editingRoom ? `${name} was updated.` : `${name} was added.`);
+  };
+
+  const changeActiveState = async (room: Room) => {
+    setActionError('');
+    setActionMessage('');
+    const result = await toggleActive(room.id, !room.is_active);
+    if (result.error) {
+      setActionError(roomActionError(result.error));
+      return;
+    }
+    setActionMessage(`${room.name} is now ${room.is_active ? 'inactive' : 'active'}.`);
+  };
+
   return (
     <div className="space-y-5">
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -761,11 +889,21 @@ function RoomPlannerSection({ rooms, data, isLoading }: { rooms: Room[]; data: R
             <Link to="/staff-dashboard/calendar">
               <Button variant="outline" className="w-full sm:w-auto">View calendar</Button>
             </Link>
-            <Link to="/staff-dashboard/booking-setup">
-              <Button className="w-full bg-[#C46A3A] text-white hover:bg-[#A85A30] sm:w-auto">Manage rooms & pricing</Button>
-            </Link>
+            <Button onClick={openAddRoom} className="w-full bg-[#C46A3A] text-white hover:bg-[#A85A30] sm:w-auto">
+              <Plus className="mr-2 h-4 w-4" /> Add room
+            </Button>
           </div>
         </div>
+        {(roomError || actionError) && (
+          <p role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            {actionError || roomError}
+          </p>
+        )}
+        {actionMessage && (
+          <p role="status" className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+            {actionMessage}
+          </p>
+        )}
         {isLoading ? (
           <p className="rounded-lg bg-[#F8F7F5] p-5 text-sm text-[#4E5871]">Loading rooms...</p>
         ) : rooms.length > 0 ? (
@@ -796,6 +934,21 @@ function RoomPlannerSection({ rooms, data, isLoading }: { rooms: Room[]; data: R
                       ))}
                     </div>
                   )}
+                  <div className="mt-4 flex flex-col gap-2 border-t border-[#E8DED4] pt-3 sm:flex-row">
+                    <Button type="button" variant="outline" onClick={() => openEditRoom(room)} className="flex-1 rounded-lg">
+                      Edit room
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => void changeActiveState(room)}
+                      disabled={occupied}
+                      title={occupied ? 'An occupied room cannot be deactivated.' : undefined}
+                      className="flex-1 rounded-lg"
+                    >
+                      {room.is_active ? 'Deactivate' : 'Activate'}
+                    </Button>
+                  </div>
                 </div>
               );
             })}
@@ -808,6 +961,90 @@ function RoomPlannerSection({ rooms, data, isLoading }: { rooms: Room[]; data: R
           />
         )}
       </PagePanel>
+
+      <Dialog open={editorOpen} onOpenChange={(open) => !saving && setEditorOpen(open)}>
+        <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>{editingRoom ? 'Edit room' : 'Add room'}</DialogTitle>
+            <DialogDescription>
+              Room capacity and daily pricing are used when staff create bookings and check availability.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={saveRoom} className="space-y-4">
+            <label className="block text-sm font-semibold text-[#0A1128]">
+              Room name
+              <input
+                required
+                value={draft.name}
+                onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))}
+                className="mt-1.5 w-full rounded-lg border border-[#E8DED4] bg-white px-3 py-3 font-normal outline-none focus:border-[#C46A3A]"
+              />
+            </label>
+            <label className="block text-sm font-semibold text-[#0A1128]">
+              Room type
+              <input
+                required
+                value={draft.type}
+                onChange={(event) => setDraft((current) => ({ ...current, type: event.target.value }))}
+                className="mt-1.5 w-full rounded-lg border border-[#E8DED4] bg-white px-3 py-3 font-normal outline-none focus:border-[#C46A3A]"
+              />
+            </label>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block text-sm font-semibold text-[#0A1128]">
+                Cat capacity
+                <input
+                  required
+                  type="number"
+                  min="1"
+                  step="1"
+                  inputMode="numeric"
+                  value={draft.capacity}
+                  onChange={(event) => setDraft((current) => ({ ...current, capacity: event.target.value }))}
+                  className="mt-1.5 w-full rounded-lg border border-[#E8DED4] bg-white px-3 py-3 font-normal outline-none focus:border-[#C46A3A]"
+                />
+              </label>
+              <label className="block text-sm font-semibold text-[#0A1128]">
+                Daily rate per cat ($)
+                <input
+                  required
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  inputMode="decimal"
+                  value={draft.dailyRate}
+                  onChange={(event) => setDraft((current) => ({ ...current, dailyRate: event.target.value }))}
+                  className="mt-1.5 w-full rounded-lg border border-[#E8DED4] bg-white px-3 py-3 font-normal outline-none focus:border-[#C46A3A]"
+                />
+              </label>
+            </div>
+            <label className="block text-sm font-semibold text-[#0A1128]">
+              Description <span className="font-normal text-[#4E5871]">(optional)</span>
+              <textarea
+                rows={3}
+                value={draft.description}
+                onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))}
+                className="mt-1.5 w-full resize-y rounded-lg border border-[#E8DED4] bg-white px-3 py-3 font-normal outline-none focus:border-[#C46A3A]"
+              />
+            </label>
+            <label className="flex items-start gap-3 rounded-lg border border-[#E8DED4] bg-[#F8F7F5] p-3 text-sm text-[#0A1128]">
+              <input
+                type="checkbox"
+                checked={draft.isActive}
+                onChange={(event) => setDraft((current) => ({ ...current, isActive: event.target.checked }))}
+                className="mt-0.5 h-4 w-4 accent-[#C46A3A]"
+              />
+              <span><span className="block font-semibold">Available for bookings</span><span className="block text-xs text-[#4E5871]">Inactive rooms stay in the planner but cannot be assigned to new stays.</span></span>
+            </label>
+            {actionError && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{actionError}</p>}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditorOpen(false)} disabled={saving}>Cancel</Button>
+              <Button type="submit" disabled={saving} className="bg-[#C46A3A] text-white hover:bg-[#A85A30]">
+                {saving ? 'Saving…' : editingRoom ? 'Save changes' : 'Add room'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -1107,7 +1344,14 @@ export function StaffDashboard() {
     createCustomer,
     addCat,
   } = useCustomers();
-  const { rooms, loading: roomsLoading } = useRooms();
+  const {
+    rooms,
+    loading: roomsLoading,
+    error: roomsError,
+    createRoom,
+    updateRoom,
+    toggleActive,
+  } = useRooms();
 
   const draftAccount = getDraftAccount();
   const isLoading = authLoading || bookingsLoading || customersLoading || roomsLoading;
@@ -1241,7 +1485,17 @@ export function StaffDashboard() {
           />
         )}
         {section === 'calendar' && <CalendarSection bookings={bookings} isLoading={isLoading} />}
-        {section === 'room-planner' && <RoomPlannerSection rooms={rooms} data={dashboardData} isLoading={isLoading} />}
+        {section === 'room-planner' && (
+          <RoomPlannerSection
+            rooms={rooms}
+            data={dashboardData}
+            isLoading={isLoading}
+            roomError={roomsError}
+            createRoom={createRoom}
+            updateRoom={updateRoom}
+            toggleActive={toggleActive}
+          />
+        )}
         {section === 'insights' && <StaffInsights />}
         {section === 'subscription' && <StaffSubscription />}
         {[
