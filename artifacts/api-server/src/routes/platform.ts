@@ -31,6 +31,14 @@ async function platformAdminRole(userId: string) {
 
 type CountMap = Record<string, number>;
 
+export function hasPublicWebsiteAddress(cattery: {
+  slug: string | null;
+  custom_domain: string | null;
+  current_published_version_id: string | null;
+}) {
+  return Boolean(cattery.slug || cattery.custom_domain || cattery.current_published_version_id);
+}
+
 function countByCattery(rows: Array<{ cattery_id: string | null }> | null | undefined): CountMap {
   return (rows || []).reduce<CountMap>((counts, row) => {
     if (row.cattery_id) counts[row.cattery_id] = (counts[row.cattery_id] || 0) + 1;
@@ -92,6 +100,7 @@ router.get('/platform/overview', async (req, res) => {
       activeRoomsCount: activeRooms[cattery.id] || 0,
       pendingBookingsCount: catteryBookings.filter((booking) => booking.status === 'pending').length,
       upcomingBookingsCount: catteryBookings.filter((booking) => booking.status !== 'cancelled' && booking.check_in >= today).length,
+      websiteAvailable: hasPublicWebsiteAddress(cattery),
       published: Boolean(cattery.current_published_version_id),
       payment: payment ? {
         connected: payment.status === 'active',
@@ -105,6 +114,7 @@ router.get('/platform/overview', async (req, res) => {
     administrator: { email: user.email || null, role },
     summary: {
       catteries: catteries.length,
+      websiteAddresses: catteries.filter((cattery) => cattery.websiteAvailable).length,
       publishedWebsites: catteries.filter((cattery) => cattery.published).length,
       bookings: bookingsResult.data?.length || 0,
       customers: customersResult.data?.length || 0,
