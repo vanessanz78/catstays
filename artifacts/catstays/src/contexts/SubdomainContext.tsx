@@ -90,11 +90,14 @@ export function SubdomainProvider({ children }: { children: ReactNode }) {
         setCattery(catteryData);
         const { data: roomData } = await supabase
           .from('rooms')
-          .select('id, name, type, description, price_per_night, capacity, amenities, is_active')
+          .select('id, name, type, description, price_per_night, capacity, room_count, amenities, is_active')
           .eq('cattery_id', catteryData.id)
           .eq('is_active', true)
           .order('price_per_night', { ascending: true });
-        setRooms((roomData as TenantRoom[]) || []);
+        setRooms((roomData || []).map((room) => ({
+          ...room,
+          room_count: Math.max(1, Number(room.room_count) || 1),
+        })) as TenantRoom[]);
       }
 
       setLoading(false);

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { bookingRoomUnitKeys } from '@/app/lib/roomInventory';
 
 export interface BookingWithDetails {
   id: string;
@@ -19,6 +20,7 @@ export interface BookingWithDetails {
   cat_names: string | null;
   number_of_cats: number | null;
   room_arrangement: 'shared' | 'separate';
+  room_unit_number: number | null;
   customer: {
     id: string;
     name: string;
@@ -39,6 +41,7 @@ export interface BookingWithDetails {
     };
   }[];
   booking_cat_rooms: {
+    room_unit_number: number | null;
     cat: {
       id: string;
       name: string;
@@ -75,6 +78,7 @@ export function useBookings() {
         room:rooms(id, name, type, price_per_night),
         booking_cats(cat:cats(id, name, breed)),
         booking_cat_rooms(
+          room_unit_number,
           cat:cats(id, name),
           room:rooms(id, name, type, price_per_night)
         )
@@ -97,6 +101,7 @@ export function useBookings() {
   const createBooking = async (booking: {
     customer_id: string;
     room_id: string;
+    room_unit_number: number;
     check_in: string;
     check_out: string;
     check_in_time: string;
@@ -107,7 +112,7 @@ export function useBookings() {
     room_arrangement?: 'shared' | 'separate';
     notes?: string;
     cat_ids?: string[];
-    room_assignments?: Array<{ cat_id: string; room_id: string }>;
+    room_assignments?: Array<{ cat_id: string; room_id: string; room_unit_number: number }>;
   }) => {
     if (!cattery?.id) return { error: 'No cattery found' };
 
@@ -136,6 +141,7 @@ export function useBookings() {
           booking_id: data.id,
           cat_id: assignment.cat_id,
           room_id: assignment.room_id,
+          room_unit_number: assignment.room_unit_number,
         })));
       if (roomsError) {
         await supabase.from('bookings').delete().eq('id', data.id);
@@ -173,7 +179,7 @@ export function useBookings() {
 
   const moveBooking = async (
     id: string,
-    move: { roomId: string; checkIn: string; checkOut: string },
+    move: { roomId: string; roomUnitNumber: number; checkIn: string; checkOut: string },
   ) => {
     if (!cattery?.id) return { error: 'No cattery found' };
     const booking = bookings.find((candidate) => candidate.id === id);
@@ -182,22 +188,26 @@ export function useBookings() {
       return { error: 'Choose a valid arrival and departure date.' };
     }
 
-    const assignedRoomIds = [...new Set([
-      booking.room?.id,
-      ...(booking.booking_cat_rooms || []).map((assignment) => assignment.room?.id),
-    ].filter((roomId): roomId is string => Boolean(roomId)))];
-    if (assignedRoomIds.length > 1) {
+    const assignedRoomUnits = bookingRoomUnitKeys(booking);
+    if (assignedRoomUnits.length > 1) {
       return { error: 'This booking uses more than one room. Open the full booking to change its assignments.' };
     }
 
     const { data: targetRoom, error: roomError } = await supabase
       .from('rooms')
-      .select('id, is_active, capacity')
+      .select('id, is_active, capacity, room_count')
       .eq('id', move.roomId)
       .eq('cattery_id', cattery.id)
       .maybeSingle();
     if (roomError || !targetRoom || !targetRoom.is_active) {
       return { error: roomError || 'That room is not available for bookings.' };
+    }
+    if (
+      !Number.isInteger(move.roomUnitNumber)
+      || move.roomUnitNumber < 1
+      || move.roomUnitNumber > Math.max(1, Number(targetRoom.room_count) || 1)
+    ) {
+      return { error: 'That physical room number is outside the configured inventory.' };
     }
     const catCount = Math.max(
       booking.booking_cats?.length || 0,
@@ -211,7 +221,7 @@ export function useBookings() {
 
     const { data: overlappingBookings, error: overlapError } = await supabase
       .from('bookings')
-      .select('id, room_id, check_in, check_out, status, booking_cat_rooms(room_id)')
+      .select('id, room_id, room_unit_number, check_in, check_out, status, booking_cat_rooms(room_id, room_unit_number)')
       .eq('cattery_id', cattery.id)
       .neq('id', id)
       .neq('status', 'cancelled')
@@ -220,19 +230,27 @@ export function useBookings() {
     if (overlapError) return { error: overlapError };
 
     const roomConflict = (overlappingBookings || []).some((candidate: any) => (
-      candidate.room_id === move.roomId
-      || (candidate.booking_cat_rooms || []).some((assignment: any) => assignment.room_id === move.roomId)
+      (candidate.room_id === move.roomId && candidate.room_unit_number === move.roomUnitNumber)
+      || (candidate.booking_cat_rooms || []).some((assignment: any) => (
+        assignment.room_id === move.roomId && assignment.room_unit_number === move.roomUnitNumber
+      ))
     ));
     if (roomConflict) return { error: 'That room is already booked for one or more of the selected days.' };
 
     const previousBooking = {
       room_id: booking.room?.id || null,
+      room_unit_number: booking.room_unit_number,
       check_in: booking.check_in,
       check_out: booking.check_out,
     };
     const { data: updatedRows, error: bookingError } = await supabase
       .from('bookings')
-      .update({ room_id: move.roomId, check_in: move.checkIn, check_out: move.checkOut })
+      .update({
+        room_id: move.roomId,
+        room_unit_number: move.roomUnitNumber,
+        check_in: move.checkIn,
+        check_out: move.checkOut,
+      })
       .eq('id', id)
       .eq('cattery_id', cattery.id)
       .select('id');
@@ -242,7 +260,7 @@ export function useBookings() {
 
     const { error: assignmentError } = await supabase
       .from('booking_cat_rooms')
-      .update({ room_id: move.roomId })
+      .update({ room_id: move.roomId, room_unit_number: move.roomUnitNumber })
       .eq('booking_id', id);
     if (assignmentError) {
       const { error: rollbackError } = await supabase

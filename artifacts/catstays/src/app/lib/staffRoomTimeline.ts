@@ -1,5 +1,10 @@
 import { addDays, differenceInCalendarDays, format, isValid, parseISO } from 'date-fns';
 import type { BookingWithDetails } from '@/hooks/useBookings';
+import {
+  bookingNeedsRoomUnit,
+  bookingUsesRoomUnit,
+  roomUnitHasConflict,
+} from './roomInventory';
 
 export type TimelineSegment = {
   booking: BookingWithDetails;
@@ -53,10 +58,13 @@ export function bookingOverlapsRange(
   return booking.check_in <= checkOut && booking.check_out >= checkIn;
 }
 
-export function catNamesForRoom(booking: BookingWithDetails, roomId?: string) {
-  if (roomId) {
+export function catNamesForRoom(booking: BookingWithDetails, roomId?: string, roomUnitNumber?: number) {
+  if (roomId && roomUnitNumber) {
     const assigned = (booking.booking_cat_rooms || [])
-      .filter((assignment) => assignment.room?.id === roomId)
+      .filter((assignment) => (
+        assignment.room?.id === roomId
+        && assignment.room_unit_number === roomUnitNumber
+      ))
       .map((assignment) => assignment.cat?.name)
       .filter((name): name is string => Boolean(name));
     if (assigned.length > 0) return assigned.join(', ');
@@ -72,14 +80,16 @@ export function catNamesForRoom(booking: BookingWithDetails, roomId?: string) {
 export function buildRoomSegments(
   bookings: BookingWithDetails[],
   roomId: string | null,
+  roomUnitNumber: number | null,
   firstDate: string,
   lastDate: string,
 ): TimelineSegment[] {
   const segments = bookings
     .filter((booking) => {
       if (booking.status === 'cancelled' || !bookingOverlapsRange(booking, firstDate, lastDate)) return false;
-      const roomIds = bookingRoomIds(booking);
-      return roomId ? roomIds.includes(roomId) : roomIds.length === 0;
+      return roomId && roomUnitNumber
+        ? bookingUsesRoomUnit(booking, roomId, roomUnitNumber)
+        : bookingNeedsRoomUnit(booking);
     })
     .map((booking) => ({
       booking,
@@ -104,14 +114,17 @@ export function buildRoomSegments(
 export function roomHasBookingConflict(
   bookings: BookingWithDetails[],
   roomId: string,
+  roomUnitNumber: number,
   checkIn: string,
   checkOut: string,
   ignoredBookingId?: string,
 ) {
-  return bookings.some((booking) => (
-    booking.id !== ignoredBookingId
-    && booking.status !== 'cancelled'
-    && bookingUsesRoom(booking, roomId)
-    && bookingOverlapsRange(booking, checkIn, checkOut)
-  ));
+  return roomUnitHasConflict(
+    bookings,
+    roomId,
+    roomUnitNumber,
+    checkIn,
+    checkOut,
+    ignoredBookingId,
+  );
 }

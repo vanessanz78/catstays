@@ -75,6 +75,7 @@ export function BookingFlow() {
   };
 
   const handleCatCountChange = (n: number) => {
+    if (selectedRoom && selectedRoom.capacity < n) setSelectedRoom(null);
     setFormData(prev => ({
       ...prev,
       numberOfCats: n,
@@ -106,7 +107,7 @@ export function BookingFlow() {
   };
 
   const canProceed = (() => {
-    if (step === 1) return formData.arrivalDate && formData.departureDate && days > 0 && visitTimesComplete && !blackoutConflict;
+    if (step === 1) return formData.arrivalDate && formData.departureDate && days > 0 && visitTimesComplete && !blackoutConflict && Boolean(selectedRoom);
     if (step === 2) return formData.ownerName.trim() && formData.email.trim() && formData.phone.trim();
     if (step === 3) return formData.catNames.every(n => n.trim());
     return true;
@@ -116,6 +117,7 @@ export function BookingFlow() {
     days > 0 &&
     visitTimesComplete &&
     !blackoutConflict &&
+    Boolean(selectedRoom) &&
     formData.ownerName.trim() &&
     formData.email.trim() &&
     formData.phone.trim() &&
@@ -127,7 +129,12 @@ export function BookingFlow() {
     setSubmitting(true);
     setSubmitError('');
 
-    const roomName = selectedRoom?.name || (rooms[0]?.name ?? 'Standard Room');
+    if (!selectedRoom) {
+      setSubmitting(false);
+      setSubmitError('Choose an accommodation option before submitting your request.');
+      return;
+    }
+    const roomName = selectedRoom.name;
     const estimatedTotal = `$${total.toFixed(2)} incl. GST`;
 
     try {
@@ -151,7 +158,7 @@ export function BookingFlow() {
           displayCheckOut: `${fmtDate(formData.departureDate)}${formData.departureTime ? ` at ${formatBookingTime(formData.departureTime)}` : ''}`,
           days,
           roomName,
-          roomId: selectedRoom?.id || null,
+          roomId: selectedRoom.id,
           estimatedTotal,
           specialRequirements: formData.specialRequirements,
         }),
@@ -357,13 +364,16 @@ export function BookingFlow() {
                       <div className="space-y-2">
                         <Label>Choose a Room</Label>
                         <div className="space-y-2">
-                          {rooms.map(room => (
-                            <button key={room.id} type="button" onClick={() => setSelectedRoom(room)} className={`w-full text-left p-4 rounded-xl border transition-all ${selectedRoom?.id === room.id ? 'border-sage bg-sage/5 shadow-sm' : 'border-sage/20 hover:border-sage/40'}`}>
+                          {rooms.map(room => {
+                            const fitsSelectedCats = room.capacity >= formData.numberOfCats;
+                            return (
+                            <button key={room.id} type="button" disabled={!fitsSelectedCats} onClick={() => setSelectedRoom(room)} className={`w-full text-left p-4 rounded-xl border transition-all disabled:cursor-not-allowed disabled:opacity-55 ${selectedRoom?.id === room.id ? 'border-sage bg-sage/5 shadow-sm' : 'border-sage/20 enabled:hover:border-sage/40'}`}>
                               <div className="flex items-center justify-between">
                                 <div>
                                   <div className="font-medium text-forest">{room.name}</div>
                                   {room.description && <div className="text-sm text-forest/60 mt-0.5">{room.description}</div>}
                                   <div className="text-sm text-forest/50 mt-0.5">Up to {room.capacity} cat{room.capacity > 1 ? 's' : ''}</div>
+                                  {!fitsSelectedCats && <div className="mt-1 text-sm font-medium text-amber-700">Not suitable for {formData.numberOfCats} cats sharing one room</div>}
                                 </div>
                                 <div className="text-right flex-shrink-0 ml-4">
                                   <div className="font-semibold text-sage">${room.price_per_night}/cat/day</div>
@@ -371,8 +381,13 @@ export function BookingFlow() {
                                 </div>
                               </div>
                             </button>
-                          ))}
+                          )})}
                         </div>
+                        {!rooms.some((room) => room.capacity >= formData.numberOfCats) && (
+                          <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                            No single room can take this many cats. Please contact the cattery to arrange separate rooms.
+                          </p>
+                        )}
                       </div>
                     )}
                   </CardContent>

@@ -19,6 +19,7 @@ export interface TenantRoom {
   description: string | null;
   price_per_night: number;
   capacity: number;
+  room_count: number;
   amenities: string[];
   is_active: boolean;
 }

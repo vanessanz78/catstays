@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-08-31
+
+- Expanded accommodation types into numbered physical-room inventory for staff operations while keeping the public room choice grouped and simple.
+- Configured Deloraine for 17 Private Rooms, 8 Indoor Rooms, and 25 Communal Rooms, with capacity interpreted per physical room.
+- Made staff New Booking, separate cat-room assignments, calendar click-through, booking details, drag/drop, conflict checks, Room Planner counts, and occupancy analytics physical-room aware.
+- Added server-side physical-room capacity and availability selection for public booking requests plus a Supabase migration and focused inventory tests.
+
 ## 2026-08-27
 
 - Corrected the public booking journey to use inclusive per-cat daily pricing, live date/cat recalculation, clickable retained steps, truthful customer-facing request copy, and accurate care inclusions.

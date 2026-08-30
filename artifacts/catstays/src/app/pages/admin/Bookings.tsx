@@ -41,6 +41,11 @@ import { format, parseISO, startOfToday } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 import { bookingOverlapsStay, calculateAssignedRoomTotal, inclusiveStayDays } from '../../lib/bookingPricing';
 import {
+  bookingRoomUnitKeys,
+  expandPhysicalRooms,
+  physicalRoomName,
+} from '../../lib/roomInventory';
+import {
   bookingHoursSummary,
   bookingTimeSlotsForDate,
   customerMatchesSearch,
@@ -68,6 +73,7 @@ export function AdminBookings() {
   const requestedCheckIn = searchParams.get('checkIn') || '';
   const requestedCheckOut = searchParams.get('checkOut') || requestedCheckIn;
   const requestedRoomId = searchParams.get('room');
+  const requestedRoomUnit = Number(searchParams.get('roomUnit')) || 0;
   const [showCreateBooking, setShowCreateBooking] = useState(isCreating);
   
   // Filter and sort state
@@ -150,9 +156,17 @@ export function AdminBookings() {
       type: r.type,
       pricePerDay: r.price_per_night,
       capacity: r.capacity,
+      room_count: r.room_count,
+      is_active: r.is_active,
       description: r.description || r.amenities.slice(0, 2).join(' · '),
       color: 'sage',
     }));
+  const roomOptions = expandPhysicalRooms(roomTypes).map((physicalRoom) => ({
+    ...physicalRoom.room,
+    key: physicalRoom.key,
+    unitNumber: physicalRoom.unitNumber,
+    physicalName: physicalRoom.name,
+  }));
 
   // Map real Supabase bookings to UI shape
   const bookings = rawBookings.map(b => {
@@ -173,7 +187,9 @@ export function AdminBookings() {
       checkInTime: b.check_in_time,
       checkOutTime: b.check_out_time,
       roomType: b.room?.type || 'Room',
-      roomNumber: b.room?.name || '',
+      roomNumber: b.room && b.room_unit_number
+        ? physicalRoomName(b.room, b.room_unit_number)
+        : b.room?.name || '',
       status: b.status,
       paymentStatus: b.payment_status,
       total: b.total_amount || 0,
@@ -186,37 +202,39 @@ export function AdminBookings() {
         catId: assignment.cat.id,
         catName: assignment.cat.name,
         roomId: assignment.room.id,
-        roomName: assignment.room.name,
+        roomUnitNumber: assignment.room_unit_number,
+        roomName: assignment.room_unit_number
+          ? physicalRoomName(assignment.room, assignment.room_unit_number)
+          : assignment.room.name,
         roomType: assignment.room.type,
       })),
     };
   });
 
-  const occupiedRoomIds = new Set(
+  const occupiedRoomKeys = new Set(
     checkIn && checkOut
       ? rawBookings
         .filter((booking) => (
           booking.status !== 'cancelled'
           && bookingOverlapsStay(booking.check_in, booking.check_out, checkIn, checkOut)
         ))
-        .flatMap((booking) => [
-          booking.room?.id,
-          ...(booking.booking_cat_rooms ?? []).map((assignment) => assignment.room.id),
-        ].filter(Boolean) as string[])
+        .flatMap((booking) => bookingRoomUnitKeys(booking))
       : []
   );
-  const availableRoomTypes = roomTypes.filter((room) => !occupiedRoomIds.has(room.id));
+  const availableRoomOptions = roomOptions.filter((room) => !occupiedRoomKeys.has(room.key));
   const roomSelectionComplete = roomArrangement === 'shared'
     ? Boolean(selectedRoom)
     : cats.length > 0 && cats.every((cat) => Boolean(roomAssignments[cat.id]));
 
   useEffect(() => {
     if (step !== 4 || !requestedRoomId || selectedRoom || roomArrangement !== 'shared') return;
-    const requestedRoom = availableRoomTypes.find((room) => (
-      room.id === requestedRoomId && room.capacity >= cats.length
+    const requestedRoom = availableRoomOptions.find((room) => (
+      room.id === requestedRoomId
+      && room.unitNumber === requestedRoomUnit
+      && room.capacity >= cats.length
     ));
     if (requestedRoom) setSelectedRoom(requestedRoom);
-  }, [availableRoomTypes, cats.length, requestedRoomId, roomArrangement, selectedRoom, step]);
+  }, [availableRoomOptions, cats.length, requestedRoomId, requestedRoomUnit, roomArrangement, selectedRoom, step]);
 
   // Filter bookings based on view mode
   const getFilteredBookings = () => {
@@ -386,13 +404,22 @@ export function AdminBookings() {
 
   const handleCreateBooking = async () => {
     const assignedRooms = roomArrangement === 'shared'
-      ? cats.map((cat) => ({ cat_id: cat.id, room_id: selectedRoom?.id }))
-      : cats.map((cat) => ({ cat_id: cat.id, room_id: roomAssignments[cat.id]?.id }));
+      ? cats.map((cat) => ({
+          cat_id: cat.id,
+          room_id: selectedRoom?.id,
+          room_unit_number: selectedRoom?.unitNumber,
+        }))
+      : cats.map((cat) => ({
+          cat_id: cat.id,
+          room_id: roomAssignments[cat.id]?.id,
+          room_unit_number: roomAssignments[cat.id]?.unitNumber,
+        }));
     const primaryRoom = roomArrangement === 'shared' ? selectedRoom : roomAssignments[cats[0]?.id];
 
     if (
       !selectedCustomer || !checkIn || !checkOut || !checkInTime || !checkOutTime
-      || cats.length === 0 || !primaryRoom || assignedRooms.some((assignment) => !assignment.room_id)
+      || cats.length === 0 || !primaryRoom
+      || assignedRooms.some((assignment) => !assignment.room_id || !assignment.room_unit_number)
     ) return;
 
     setBookingError('');
@@ -400,6 +427,7 @@ export function AdminBookings() {
     const { data, error } = await createBooking({
       customer_id: selectedCustomer.id,
       room_id: String(primaryRoom.id),
+      room_unit_number: Number(primaryRoom.unitNumber),
       check_in: checkIn,
       check_out: checkOut,
       check_in_time: checkInTime,
@@ -413,6 +441,7 @@ export function AdminBookings() {
       room_assignments: assignedRooms.map((assignment) => ({
         cat_id: assignment.cat_id,
         room_id: String(assignment.room_id),
+        room_unit_number: Number(assignment.room_unit_number),
       })),
     });
 
@@ -430,8 +459,8 @@ export function AdminBookings() {
         catteryName: cattery.name,
         catName: cats[0]?.name,
         roomName: roomArrangement === 'shared'
-          ? selectedRoom.name
-          : cats.map((cat) => `${cat.name}: ${roomAssignments[cat.id]?.name}`).join(', '),
+          ? selectedRoom.physicalName
+          : cats.map((cat) => `${cat.name}: ${roomAssignments[cat.id]?.physicalName}`).join(', '),
         checkIn: `${format(parseISO(checkIn), 'd MMM yyyy')} at ${formatBookingTime(checkInTime)}`,
         checkOut: `${format(parseISO(checkOut), 'd MMM yyyy')} at ${formatBookingTime(checkOutTime)}`,
         totalAmount: `$${calculateTotal().toFixed(2)}`,
@@ -903,24 +932,24 @@ export function AdminBookings() {
                       <p className="text-sm mb-4" style={{ color: '#6b7a6d' }}>
                         Add your boarding rooms in Room Management first.
                       </p>
-                      <a href="/rooms/room-management" className="text-sm underline" style={{ color: '#C46A3A' }}>
-                        Go to Room Management →
-                      </a>
+                      <Link to="/staff-dashboard/room-planner" className="text-sm underline" style={{ color: '#C46A3A' }}>
+                        Go to Room Planner →
+                      </Link>
                     </div>
                   )}
 
                   {roomArrangement === 'shared' && roomTypes.map((room) => {
-                    const roomIsOccupied = occupiedRoomIds.has(room.id);
+                    const availableRoom = availableRoomOptions.find((option) => option.id === room.id);
                     const roomFits = room.capacity >= cats.length;
-                    const isAvailable = !roomIsOccupied && roomFits;
+                    const isAvailable = Boolean(availableRoom) && roomFits;
                     return (
                       <button
                         key={room.id}
                         type="button"
                         disabled={!isAvailable}
-                        onClick={() => setSelectedRoom(room)}
+                        onClick={() => setSelectedRoom(availableRoom)}
                         className={`w-full rounded-xl border-2 p-4 text-left transition-all disabled:cursor-not-allowed disabled:opacity-55 ${
-                          selectedRoom?.id === room.id
+                          selectedRoom?.key === availableRoom?.key
                             ? 'border-sage bg-sage/5'
                             : 'border-sage/10 bg-white enabled:hover:border-sage/30'
                         }`}
@@ -934,12 +963,16 @@ export function AdminBookings() {
                             <p className="mb-2 text-sm" style={{ color: '#6b7a6d' }}>{room.description}</p>
                             <div className="flex flex-wrap items-center gap-2">
                               <Badge variant={isAvailable ? 'outline' : 'destructive'} className="text-xs">
-                                {roomIsOccupied ? 'Unavailable for these dates' : roomFits ? 'Available' : `Fits up to ${room.capacity} cats`}
+                                {!roomFits
+                                  ? `Fits up to ${room.capacity} cats per room`
+                                  : availableRoom
+                                    ? `${availableRoom.physicalName} available`
+                                    : 'Fully booked for these dates'}
                               </Badge>
                               <span className="font-bold text-sage">${room.pricePerDay}/cat/day</span>
                             </div>
                           </div>
-                          {selectedRoom?.id === room.id && (
+                          {selectedRoom?.key === availableRoom?.key && (
                             <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sage">
                               <Check className="h-4 w-4 text-white" />
                             </div>
@@ -949,7 +982,9 @@ export function AdminBookings() {
                     );
                   })}
 
-                  {roomArrangement === 'shared' && roomTypes.length > 0 && !roomTypes.some((room) => !occupiedRoomIds.has(room.id) && room.capacity >= cats.length) && (
+                  {roomArrangement === 'shared' && roomTypes.length > 0 && !roomTypes.some((room) => (
+                    room.capacity >= cats.length && availableRoomOptions.some((option) => option.id === room.id)
+                  )) && (
                     <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
                       No single room can take all selected cats for these dates. Choose separate rooms or edit the dates.
                     </p>
@@ -964,7 +999,7 @@ export function AdminBookings() {
                         const usedByOtherCats = new Set(
                           Object.entries(roomAssignments)
                             .filter(([catId]) => catId !== cat.id)
-                            .map(([, room]) => room?.id)
+                            .map(([, room]) => room?.key)
                             .filter(Boolean)
                         );
                         return (
@@ -974,24 +1009,24 @@ export function AdminBookings() {
                             </span>
                             <select
                               aria-label={`Room for ${cat.name}`}
-                              value={roomAssignments[cat.id]?.id ?? ''}
+                              value={roomAssignments[cat.id]?.key ?? ''}
                               onChange={(event) => {
-                                const room = roomTypes.find((candidate) => candidate.id === event.target.value);
+                                const room = availableRoomOptions.find((candidate) => candidate.key === event.target.value);
                                 setRoomAssignments((current) => ({ ...current, [cat.id]: room }));
                               }}
                               className="h-11 w-full rounded-xl border border-sage/20 bg-white px-3 text-sm"
                             >
                               <option value="">Select an available room</option>
-                              {availableRoomTypes.map((room) => (
-                                <option key={room.id} value={room.id} disabled={usedByOtherCats.has(room.id)}>
-                                  {room.name} — ${room.pricePerDay}/day
+                              {availableRoomOptions.map((room) => (
+                                <option key={room.key} value={room.key} disabled={usedByOtherCats.has(room.key)}>
+                                  {room.physicalName} — {room.name} — ${room.pricePerDay}/day
                                 </option>
                               ))}
                             </select>
                           </label>
                         );
                       })}
-                      {availableRoomTypes.length < cats.length && (
+                      {availableRoomOptions.length < cats.length && (
                         <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
                           There are not enough separate rooms available for every selected cat on these dates.
                         </p>
@@ -1096,13 +1131,14 @@ export function AdminBookings() {
                     </p>
                     {roomArrangement === 'shared' ? (
                       <>
-                        <p className="font-medium" style={{ color: '#2d3e2f' }}>{selectedRoom?.name}</p>
+                        <p className="font-medium" style={{ color: '#2d3e2f' }}>{selectedRoom?.physicalName}</p>
+                        <p className="text-sm" style={{ color: '#6b7a6d' }}>{selectedRoom?.name}</p>
                         <p className="text-sm" style={{ color: '#6b7a6d' }}>${selectedRoom?.pricePerDay} per cat per day</p>
                       </>
                     ) : (
                       <ul className="space-y-1 text-sm" style={{ color: '#2d3e2f' }}>
                         {cats.map((cat) => (
-                          <li key={cat.id}>• {cat.name}: {roomAssignments[cat.id]?.name} (${roomAssignments[cat.id]?.pricePerDay}/day)</li>
+                          <li key={cat.id}>• {cat.name}: {roomAssignments[cat.id]?.physicalName} (${roomAssignments[cat.id]?.pricePerDay}/day)</li>
                         ))}
                       </ul>
                     )}

@@ -7,6 +7,7 @@
     "build:supabase-email-templates": "node scripts/build-supabase-auth-email-templates.mjs",
     "apply:supabase-email-templates": "node scripts/apply-supabase-email-templates.mjs",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
+    "test:physical-room-inventory": "pnpm --filter @workspace/api-server exec tsx --test ../catstays/src/app/lib/roomInventory.test.ts ../catstays/src/app/lib/staffRoomTimeline.test.ts src/lib/physicalRoomInventory.test.ts",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
   },

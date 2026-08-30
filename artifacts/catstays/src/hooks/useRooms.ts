@@ -10,6 +10,7 @@ export interface RoomRecord {
   description: string | null;
   price_per_night: number;
   capacity: number;
+  room_count: number;
   amenities: string[];
   is_active: boolean;
   created_at: string;
@@ -42,6 +43,7 @@ export function useRooms() {
       setRooms(
         (data || []).map(r => ({
           ...r,
+          room_count: Math.max(1, Number(r.room_count) || 1),
           amenities: Array.isArray(r.amenities) ? r.amenities : [],
         }))
       );
@@ -59,6 +61,7 @@ export function useRooms() {
     description?: string;
     price_per_night: number;
     capacity: number;
+    room_count?: number;
     amenities?: string[];
     is_active?: boolean;
   }) => {
@@ -69,6 +72,7 @@ export function useRooms() {
       .insert({
         ...room,
         cattery_id: cattery.id,
+        room_count: Math.max(1, Number(room.room_count) || 1),
         amenities: room.amenities || [],
         is_active: room.is_active ?? true,
       })

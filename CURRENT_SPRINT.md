@@ -1,105 +1,48 @@
 # Current Sprint
 
-Last updated: 2026-08-03
+Last updated: 2026-08-31
 
 ## Goal
 
-Implement Phase 2 Content Sources for the Open Home Content Platform without starting Phase 3 or redesigning ADR-001.
+Release physical-room inventory for the Deloraine staff calendar and booking paths.
 
 ## Source Of Truth
 
 - Repository: `vanessanz78/catstays`
-- Branch: `phase2/content-sources-20260803`
-- Working ref: `phase2/content-sources-20260803`
-- Review environment: Replit
-- Deployment environment: Replit / CatStays app environment
-- Operating system entrypoint: `START_HERE.md` in `vanessanz78/codex-operating-system`
-- Local startup entrypoint: `START_HERE.md`
-- Canonical implementation tracker: `ROADMAP.md`
-- Platform implementation charter: `PLATFORM_PRINCIPLES.md`
-
-## Branch / Ref Handoff Rule
-
-- Current sprint note ref: `phase2/content-sources-20260803`.
-- Correction from 2026-07-05 review: the last known handoff before the FancyFelines work was from GitHub `main`, not a feature branch. Replit was instructed to pull `main`.
-- Every future GitHub note, sprint note, decision note, PR note, and Replit handoff must include the exact working ref.
-- Required wording for future notes: `Working ref: <main | branch name | commit SHA>`.
-- If work is on a branch, the branch name must be visible in the note and in the Replit command.
-- If work is being tested by commit SHA, the note must say it is a detached SHA test and not a durable branch.
+- Working ref: `fix/deloraine-physical-room-inventory`
+- Base `main`: `e075a3378a2bd8dae8af0e43817d1e0374c9fb59`
+- Review and deployment environment: CatStays Replit
+- Database project: Supabase `iwyoezwqorddkmqnjbif`
+- Operating-system entrypoint: `START_HERE.md` in `vanessanz78/codex-operating-system`
 
 ## Current State
 
-- CatStays uses GitHub as the durable source of truth.
-- Project startup docs live in root `START_HERE.md`, root `ROADMAP.md`, `docs/README.md`, and `docs/project-operating-system.md`.
-- ADR-001 Open Home Content Platform is approved and frozen.
-- Phase 1 Platform Schema is complete.
-- Phase 1.5 Security And Validation is complete.
-- The schema and security model were validated against the CatStays development Supabase project.
-- Phase 2 Content Sources implementation has started on `phase2/content-sources-20260803`.
-- Implemented server-side Content Source creation, retrieval, source hashing/import versioning, status transitions, and audit event writing.
-- Authenticated website scrapes with a known cattery can persist a Content Source immediately.
-- Onboarding publish/provision persists the imported website source after the cattery row exists.
-- Provisional onboarding draft progress now persists imported website content into `content_sources` before the Website Builder opens, so the builder hydrates from saved imported text, images, gallery, rooms, FAQs, and normalized website sections rather than a preview-only in-memory payload.
-- Existing browser storage remains lightweight for onboarding resume state; full preview import records are not written to Local Storage as the source of truth.
-- Replit onboarding resume now merges lightweight saved state over full defaults so the first post-signup screen does not crash on sparse browser state.
-- Full `/signup` now provisions the real Supabase Auth user and cattery record through the server before entering onboarding, then carries the known business/account details into step 2.
-- Onboarding draft progress can save back to the provisioned cattery before email confirmation by using a one-time draft token stored server-side as a hash.
-- Restored the live Auth-to-cattery trigger and backfilled Auth users that were missing cattery rows; the migration is recorded as `008_restore_auth_cattery_trigger.sql`.
-- Replit signup provisioning now reports the exact missing Supabase secret and accepts common Supabase URL/key aliases, while keeping `SUPABASE_SERVICE_ROLE_KEY` as the canonical secret.
-- Removed private-secret placeholder entries from checked-in `.replit`; direct Replit Secrets must supply service-role, Resend, Stripe API, and webhook values.
-- The permanent Open Home implementation tracker is `ROADMAP.md`.
-- The permanent Open Home engineering philosophy is `PLATFORM_PRINCIPLES.md`.
-- Future implementation must follow one branch -> one phase -> UAT -> merge -> tag -> delete branch.
-- Do not begin Phase 3 until Phase 2 passes UAT, merges to `main`, is tagged, and has its branch deleted.
+- Public accommodation types remain grouped choices for customers.
+- Staff operations now expand each type into numbered physical-room rows.
+- Deloraine's verified inventory is Private Rooms 1–17 at three cats per room, Indoor Rooms 1–8 at two cats per room, then Communal Rooms 1–25 at one cat per room.
+- Existing room assignments are deterministically backfilled to physical room 1, which keeps the Charlie, Cat, Dog private-suite booking visible in Private Room 1.
+- Staff-created shared and separate-room bookings persist both the accommodation type and the physical room number.
+- New public booking requests validate capacity and dates on the API server and choose the first available physical room.
+- Calendar clicks carry the exact room number into New Booking; drag/drop conflict checks and moves are room-number aware.
+- The Room Planner edits the number of physical rooms separately from cats-per-room capacity and reports occupancy across physical rooms.
+- This sprint does not change Stripe, payment rules, the frozen Open Home ADR, or the paused Open Home phase progression.
 
-## Next Actions
+## Verification Required Before Completion
 
-1. Pull and test `phase2/content-sources-20260803` in Replit.
-2. Complete Phase 2 UAT: website import/publish creates a durable `content_sources` row and `website_events` audit row.
-3. If UAT passes, merge to `main`, delete the branch, and tag `open-home-platform-phase-2-complete`.
-4. Do not begin Phase 3 or later until Phase 2 has passed UAT, merged, been tagged, and had its branch deleted.
+1. Apply `supabase/migrations/20260831081500_physical_room_inventory.sql` to the CatStays Supabase project.
+2. Pass focused inventory/timeline tests, CatStays and API type checks, and both production builds.
+3. Review and merge the branch into GitHub `main`.
+4. Pull the exact merged `main` SHA into CatStays Replit, restart, and republish.
+5. Complete signed-in Runtime UAT on the Deloraine staff calendar, Room Planner, staff New Booking, and public booking request.
 
-## Decisions This Sprint
+## Risks And Guardrails
 
-- ADR-001 is frozen and must not be silently evolved.
-- If implementation reveals a genuine structural deficiency, create ADR-003.
-- `ROADMAP.md` is the canonical Open Home implementation tracker.
-- `PLATFORM_PRINCIPLES.md` is the canonical Open Home implementation charter.
-- One implementation phase may be active at a time.
-- Phase 2 uses `content_sources` as the durable source identity for website imports; existing preview rendering remains unchanged.
-- Unauthenticated website scraping remains preview-only. Durable Content Source writes require authenticated owner access or backend provisioning/draft-progress validation with the service role.
-- Every completed Open Home phase must be tagged.
-
-## Risks Or Blockers
-
-- Replit Runtime UAT is still required before merge.
-- Supabase advisors still report broader baseline warnings from earlier schema/auth/GraphQL exposure and performance policies; this branch did not apply database DDL.
-- Future implementation work must not bypass the approved lifecycle or begin Phase 3 early.
-
-## Local Cleanup Notes
-
-- Local working copy created at `/Users/vanessa/Documents/Codex/2026-08-03/catstays-phase2-content-sources`.
-- `pnpm run typecheck`, the focused API-server test, and `pnpm run build` were run locally.
-- `node_modules` and generated build artifacts were removed after validation to keep the MacBook Air footprint small.
-- Replit first UAT attempt showed the API server needs a `PORT`; the API dev script now defaults to `8080` when Replit does not provide one.
-- Replit onboarding UAT then exposed a sparse saved-state crash after the first signup screen; the restore path now keeps defaults and the location autocomplete tolerates empty values.
-- Replit signup UAT showed the `/signup` page duplicated account/cattery questions and depended on a missing live Supabase trigger. The live trigger was restored and verified; the app now enters onboarding from a provisioned cattery draft.
-- Replit follow-up showed `Supabase is not configured for provisioning`; ensure Replit Secrets include `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and canonical `SUPABASE_SERVICE_ROLE_KEY`.
-- Replit import UAT showed imported website content rendered in the original preview but disappeared in the editable website builder. The root cause was a preview-only "Original" handoff plus a draft save list that did not preserve all normalized builder content/images. The import continue action now opens an editable generated template seeded from the scrape, and draft saves keep the normalized builder fields.
-- The visible Replit Secrets were present, but checked-in `.replit` still set `SUPABASE_SERVICE_ROLE_KEY = "$SUPABASE_SERVICE_ROLE_KEY"`, which shadowed the real secret with placeholder text. That placeholder entry was removed.
+- Do not publish code that reads the new columns before the migration is applied.
+- A type row is not one physical room; `rooms.room_count` is inventory quantity and `rooms.capacity` is cats per physical room.
+- Conflicts are evaluated per accommodation type plus physical room number and inclusive stay dates.
+- Multi-room bookings must preserve per-cat physical room assignments.
+- Runtime UAT, not a successful build or merge, is the release truth.
 
 ## Handoff
 
-Future chats should read:
-
-1. `START_HERE.md` from `vanessanz78/codex-operating-system`.
-2. Local `START_HERE.md`.
-3. `ROADMAP.md`.
-4. `PLATFORM_PRINCIPLES.md`.
-5. `docs/README.md`.
-6. `docs/project-operating-system.md`.
-7. `docs/adr/ADR-001-open-home-content-platform.md`.
-8. `CURRENT_SPRINT.md`.
-9. `DECISION_LOG.md`.
-
-Then preserve the exact working ref in any new GitHub note and follow Phase 2 only until it is merged, tagged, and closed.
+Read the standard project sequence from root `START_HERE.md`, then read this file, `DECISION_LOG.md`, and `docs/codex-handoffs/2026-08-31-physical-room-inventory.md` before continuing this sprint.

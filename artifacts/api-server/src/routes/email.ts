@@ -11,6 +11,7 @@ import {
 } from '../lib/emailTemplates';
 import { createClient } from '@supabase/supabase-js';
 import { notifyCatteryStaff, notifyCustomer } from '../push/notifications.js';
+import { firstAvailablePhysicalRoom } from '../lib/physicalRoomInventory.js';
 
 const supabaseUrl = process.env['VITE_SUPABASE_URL'];
 const supabaseServiceRoleKey = process.env['SUPABASE_SERVICE_ROLE_KEY'];
@@ -507,6 +508,52 @@ router.post('/bookings/request', async (req, res) => {
     const catNamesStr = Array.isArray(catNames) ? catNames.join(', ') : String(catNames || '');
     const numCats = Array.isArray(catNames) ? catNames.length : 1;
 
+    if (!resolvedRoomId) {
+      res.status(409).json({ error: 'That accommodation option is no longer available. Please choose a room again.' });
+      return;
+    }
+
+    const { data: resolvedRoom, error: roomError } = await supabase
+      .from('rooms')
+      .select('id,name,type,capacity,room_count,is_active')
+      .eq('id', resolvedRoomId)
+      .eq('cattery_id', catteryId)
+      .maybeSingle();
+    if (roomError || !resolvedRoom?.is_active) {
+      res.status(409).json({ error: 'That accommodation option is no longer available. Please choose a room again.' });
+      return;
+    }
+    if (Number(resolvedRoom.capacity) < numCats) {
+      res.status(409).json({
+        error: `${resolvedRoom.name} can hold ${resolvedRoom.capacity} cat${resolvedRoom.capacity === 1 ? '' : 's'} per room. Please choose another option.`,
+      });
+      return;
+    }
+
+    const { data: overlappingBookings, error: availabilityError } = await supabase
+      .from('bookings')
+      .select('id,room_id,room_unit_number,check_in,check_out,status,booking_cat_rooms(room_id,room_unit_number)')
+      .eq('cattery_id', catteryId)
+      .neq('status', 'cancelled')
+      .lte('check_in', checkOut)
+      .gte('check_out', checkIn);
+    if (availabilityError) {
+      console.error('[bookings/request] physical room availability failed:', availabilityError.message);
+      res.status(503).json({ error: 'Availability could not be checked. Please try again.' });
+      return;
+    }
+    const resolvedRoomUnitNumber = firstAvailablePhysicalRoom(
+      resolvedRoomId,
+      Number(resolvedRoom.room_count),
+      overlappingBookings || [],
+      checkIn,
+      checkOut,
+    );
+    if (!resolvedRoomUnitNumber) {
+      res.status(409).json({ error: `${resolvedRoom.name} is fully booked for those dates. Please choose another option or different dates.` });
+      return;
+    }
+
     const normalizedEmail = String(customerEmail).trim().toLowerCase();
     const { data: existingCustomer } = await supabase
       .from('customers')
@@ -543,6 +590,7 @@ router.post('/bookings/request', async (req, res) => {
       cattery_id: catteryId,
       customer_id: customerId,
       room_id: resolvedRoomId,
+      room_unit_number: resolvedRoomUnitNumber,
       check_in: checkIn,
       check_out: checkOut,
       check_in_time: checkInTime || null,

@@ -44,6 +44,7 @@ export type Database = {
           description: string | null;
           price_per_night: number;
           max_cats: number;
+          room_count: number;
           image_url: string | null;
           is_active: boolean;
           created_at: string;
@@ -89,6 +90,7 @@ export type Database = {
           cattery_id: string;
           customer_id: string | null;
           room_id: string | null;
+          room_unit_number: number | null;
           check_in: string;
           check_out: string;
           check_in_time: string | null;
