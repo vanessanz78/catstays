@@ -60,6 +60,10 @@ catalog:
 
 autoInstallPeers: false
 
+# Replit production installs run without a TTY. Dependency updates may require
+# pnpm to replace the generated node_modules tree, which is safe and expected.
+confirmModulesPurge: false
+
 onlyBuiltDependencies:
   - '@swc/core'
   - esbuild
