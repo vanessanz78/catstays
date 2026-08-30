@@ -500,7 +500,9 @@ export function AdminBookings() {
 
   if (showCreateBooking) {
     return (
-      <div className="min-h-screen" style={{ backgroundColor: '#F6F4EF' }}>
+      <div className="min-h-screen lg:flex" style={{ backgroundColor: '#F6F4EF' }}>
+        <RightMenu mode="sidebar" />
+        <div className="min-w-0 flex-1">
         {/* Header */}
         <header className="bg-white shadow-sm sticky top-0 z-40">
           <div className="mx-auto max-w-5xl px-4 py-4">
@@ -526,7 +528,7 @@ export function AdminBookings() {
               </div>
               <div className="flex items-center gap-2">
                 <NotificationBell />
-                <RightMenu />
+                <div className="lg:hidden"><RightMenu /></div>
               </div>
             </div>
           </div>
@@ -1280,12 +1282,15 @@ export function AdminBookings() {
         </Dialog>
 
         {/* Removed BottomNav component */}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#F6F4EF' }}>
+    <div className="min-h-screen lg:flex" style={{ backgroundColor: '#F6F4EF' }}>
+      <RightMenu mode="sidebar" />
+      <div className="min-w-0 flex-1">
       {/* Header */}
       <header className="bg-white shadow-sm sticky top-0 z-40">
         <div className="mx-auto max-w-5xl px-4 py-4">
@@ -1298,7 +1303,7 @@ export function AdminBookings() {
             </div>
             <div className="flex items-center gap-2">
               <NotificationBell />
-              <RightMenu />
+              <div className="lg:hidden"><RightMenu /></div>
             </div>
           </div>
         </div>
@@ -1765,6 +1770,7 @@ export function AdminBookings() {
       </Sheet>
 
       {/* Removed BottomNav component */}
+      </div>
     </div>
   );
 }
