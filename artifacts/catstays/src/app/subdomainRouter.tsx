@@ -17,6 +17,7 @@ import { SmartImport } from './pages/admin/SmartImport';
 import { AdminMessages } from './pages/admin/Messages';
 import { AdminPromotions } from './pages/admin/Promotions';
 import { AdminSocial } from './pages/admin/Social';
+import { CatUpdateGenerator } from './pages/admin/CatUpdateGenerator';
 import { PwaLaunch } from './pages/PwaLaunch';
 
 function TenantHomeSection({ section }: { section: string }) {
@@ -54,7 +55,6 @@ const staffDashboardRoutes = [
   '/staff-dashboard/customers',
   '/staff-dashboard/calendar',
   '/staff-dashboard/room-planner',
-  '/staff-dashboard/cat-update-generator',
   '/staff-dashboard/insights',
   '/staff-dashboard/settings',
   '/staff-dashboard/booking-setup',
@@ -87,6 +87,7 @@ export const subdomainRouter = createBrowserRouter([
   { path: '/staff-dashboard/messages', Component: AdminMessages },
   { path: '/staff-dashboard/promotions', Component: AdminPromotions },
   { path: '/staff-dashboard/social', Component: AdminSocial },
+  { path: '/staff-dashboard/cat-update-generator', Component: CatUpdateGenerator },
   { path: '/staff-dashboard/payment', Component: PaymentIntegration },
   { path: '/staff-dashboard/accounting', Component: AdminAccounting },
   { path: '/staff-dashboard/bookings', Component: AdminBookings },

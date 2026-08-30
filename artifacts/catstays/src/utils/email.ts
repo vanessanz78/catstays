@@ -35,6 +35,23 @@ export interface CustomerMessagePayload {
   body: string;
 }
 
+export interface CatUpdatePayload {
+  catteryId: string;
+  bookingId: string;
+  customerId: string;
+  catId: string;
+  storagePath: string;
+  caption: string;
+}
+
+export interface CatUpdateResult {
+  success: boolean;
+  saved?: boolean;
+  updateId?: string;
+  emailSent?: boolean;
+  error?: string;
+}
+
 async function post(path: string, body: object): Promise<{ success: boolean; id?: string; error?: string }> {
   try {
     const { data } = await supabase.auth.getSession();
@@ -63,6 +80,24 @@ export function sendContactEnquiry(payload: ContactEnquiryPayload) {
 
 export function sendCustomerMessage(payload: CustomerMessagePayload) {
   return post('/email/customer-message', payload);
+}
+
+export async function sendCatUpdate(payload: CatUpdatePayload): Promise<CatUpdateResult> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    const response = await fetch(`${API_BASE}/email/cat-update`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(data.session?.access_token ? { Authorization: `Bearer ${data.session.access_token}` } : {}),
+      },
+      body: JSON.stringify(payload),
+    });
+    return await response.json();
+  } catch (error) {
+    console.error('[cat-update]', error);
+    return { success: false, saved: false, error: 'Network error while sending the photo update.' };
+  }
 }
 
 export function sendTestEmail(to: string) {

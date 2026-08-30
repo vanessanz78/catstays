@@ -577,6 +577,8 @@ export function customerPhotoUpdateHtml(opts: {
   customerName: string;
   catteryName: string;
   catName?: string;
+  caption?: string;
+  imageUrl?: string;
   portalUrl?: string;
 }) {
   return catstaysEmailLayout({
@@ -586,6 +588,13 @@ export function customerPhotoUpdateHtml(opts: {
     badge: 'New photo',
     catteryName: opts.catteryName,
     intro: `Hi ${firstName(opts.customerName)}, ${opts.catteryName} has shared a new update from your cat's stay.`,
+    cards: opts.caption ? [{
+      title: opts.catName ? `Update for ${opts.catName}` : 'Cat update',
+      tone: 'cream',
+      html: `<p style="margin:0;font:16px/1.65 Arial,sans-serif;color:${colors.ink};">${textToHtml(opts.caption)}</p>`,
+    }] : undefined,
+    bodyHtml: opts.imageUrl ? `<div style="margin-top:18px;text-align:center;"><img src="${escapeHtml(opts.imageUrl)}" alt="Photo of ${escapeHtml(opts.catName || 'your cat')}" style="display:block;width:100%;max-width:560px;height:auto;margin:0 auto;border-radius:16px;border:1px solid ${colors.line};" /></div>` : undefined,
     action: opts.portalUrl ? { label: 'View update', href: opts.portalUrl } : undefined,
+    footerNote: `${opts.catteryName} shared this update with you. Photo updates are sent when the cattery chooses to share them.`,
   });
 }

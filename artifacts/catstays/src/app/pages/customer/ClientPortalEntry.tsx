@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { Link } from 'react-router';
-import { BellRing, CalendarDays, Cat, CheckCircle2, Loader2, Lock, LogOut } from 'lucide-react';
+import { BellRing, CalendarDays, Camera, Cat, CheckCircle2, Loader2, Lock, LogOut } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent } from '../../components/ui/card';
 import { useSubdomainCattery } from '@/contexts/SubdomainContext';
@@ -16,6 +16,15 @@ type ClientBooking = {
   cat_names: string | null;
   number_of_cats: number | null;
   total_amount: number | null;
+};
+
+type ClientCatUpdate = {
+  id: string;
+  caption: string;
+  storage_path: string;
+  created_at: string;
+  cat: { name: string } | null;
+  photoUrl?: string;
 };
 
 const fieldClass = 'mt-1 h-11 w-full rounded-lg border border-[#D9D1C8] bg-white px-3 text-[#0A1128] outline-none focus:border-[#C46A3A]';
@@ -34,18 +43,35 @@ export function ClientPortalEntry() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [bookings, setBookings] = useState<ClientBooking[]>([]);
+  const [catUpdates, setCatUpdates] = useState<ClientCatUpdate[]>([]);
 
   useEffect(() => {
     if (accountRole !== 'customer' || !customer?.id) {
       setBookings([]);
+      setCatUpdates([]);
       return;
     }
-    void supabase
-      .from('bookings')
-      .select('id,check_in,check_out,status,cat_names,number_of_cats,total_amount')
-      .eq('customer_id', customer.id)
-      .order('check_in', { ascending: false })
-      .then(({ data }) => setBookings((data || []) as ClientBooking[]));
+    void Promise.all([
+      supabase
+        .from('bookings')
+        .select('id,check_in,check_out,status,cat_names,number_of_cats,total_amount')
+        .eq('customer_id', customer.id)
+        .order('check_in', { ascending: false }),
+      supabase
+        .from('cat_updates')
+        .select('id,caption,storage_path,created_at,cat:cats(name)')
+        .eq('customer_id', customer.id)
+        .neq('status', 'archived')
+        .order('created_at', { ascending: false }),
+    ]).then(async ([bookingResult, updateResult]) => {
+      setBookings((bookingResult.data || []) as ClientBooking[]);
+      const updates = (updateResult.data || []) as unknown as ClientCatUpdate[];
+      const withPhotos = await Promise.all(updates.map(async (update) => {
+        const { data: signed } = await supabase.storage.from('cat-update-photos').createSignedUrl(update.storage_path, 60 * 60);
+        return { ...update, photoUrl: signed?.signedUrl || '' };
+      }));
+      setCatUpdates(withPhotos);
+    });
   }, [accountRole, customer?.id]);
 
   const submit = async (event: FormEvent) => {
@@ -153,6 +179,28 @@ export function ClientPortalEntry() {
               </div>
             </section>
             {message && <p className="rounded-xl border border-[#C46A3A]/20 bg-[#F8F1EC] p-4 text-sm text-[#7A3D22]">{message}</p>}
+
+            <Card className="rounded-2xl border-[#E8DED4] shadow-sm">
+              <CardContent className="p-6">
+                <div className="mb-5 flex items-center justify-between gap-3">
+                  <div><h2 className="text-xl font-semibold">Photo updates</h2><p className="text-sm text-[#4E5871]">Private updates shared with you by {businessName}.</p></div>
+                  <Camera className="h-6 w-6 shrink-0 text-[#C46A3A]" />
+                </div>
+                {catUpdates.length ? (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {catUpdates.map((update) => (
+                      <article key={update.id} className="min-w-0 overflow-hidden rounded-xl border border-[#E8DED4] bg-[#F8F7F5]">
+                        {update.photoUrl && <img src={update.photoUrl} alt={`Update for ${update.cat?.name || 'your cat'}`} className="aspect-[4/3] w-full object-cover" />}
+                        <div className="p-4">
+                          <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">{update.cat?.name || 'Cat update'}</h3><span className="text-xs text-[#768098]">{new Date(update.created_at).toLocaleString('en-NZ', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })}</span></div>
+                          <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-6 text-[#273149]">{update.caption}</p>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                ) : <p className="rounded-xl bg-[#F8F7F5] p-6 text-center text-sm text-[#4E5871]">No photo updates have been shared yet. The cattery will send them when there is something to share.</p>}
+              </CardContent>
+            </Card>
 
             <div className="grid gap-4 md:grid-cols-[1fr_260px]">
               <Card className="rounded-2xl border-[#E8DED4] shadow-sm">
