@@ -33,6 +33,7 @@ function buildPublishedWebsiteData(cattery: NonNullable<ReturnType<typeof useTen
 
   return {
     ...settings,
+    catteryId: cattery.id,
     businessName: settings.businessName || cattery.name,
     location: settings.location || cattery.city || '',
     subdomain: settings.subdomain || cattery.slug || '',

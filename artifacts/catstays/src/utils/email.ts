@@ -21,6 +21,7 @@ export interface ContactEnquiryPayload {
   catteryId?: string;
   customerName: string;
   customerEmail: string;
+  phone?: string;
   message: string;
   catteryName: string;
   catteryEmail: string;
