@@ -18,6 +18,7 @@ import { AdminMessages } from './pages/admin/Messages';
 import { AdminPromotions } from './pages/admin/Promotions';
 import { AdminSocial } from './pages/admin/Social';
 import { CatUpdateGenerator } from './pages/admin/CatUpdateGenerator';
+import { BookingSetup } from './pages/admin/BookingSetup';
 import { PwaLaunch } from './pages/PwaLaunch';
 
 function TenantHomeSection({ section }: { section: string }) {
@@ -57,7 +58,6 @@ const staffDashboardRoutes = [
   '/staff-dashboard/room-planner',
   '/staff-dashboard/insights',
   '/staff-dashboard/settings',
-  '/staff-dashboard/booking-setup',
   '/staff-dashboard/subscription',
 ].map((path) => ({ path, Component: StaffDashboard }));
 
@@ -82,6 +82,7 @@ export const subdomainRouter = createBrowserRouter([
   { path: '/booking-flow', Component: BookingFlow },
   { path: '/booking', element: <TenantHomeSection section="booking" /> },
   ...staffDashboardRoutes,
+  { path: '/staff-dashboard/booking-setup', Component: BookingSetup },
   { path: '/staff-dashboard/smart-import', Component: SmartImport },
   { path: '/staff-dashboard/smart-data-import', Component: SmartImport },
   { path: '/staff-dashboard/messages', Component: AdminMessages },

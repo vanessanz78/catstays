@@ -107,18 +107,7 @@ export function AdminBookings() {
   const { rooms: rawRooms } = useRooms();
   const [customerSearch, setCustomerSearch] = useState('');
 
-  const locallySavedBookingSettings = (() => {
-    try {
-      const saved = localStorage.getItem('bookingRules');
-      return saved ? JSON.parse(saved) as Record<string, unknown> : {};
-    } catch {
-      return {};
-    }
-  })();
-  const bookingSettings = {
-    ...locallySavedBookingSettings,
-    ...(cattery?.website_settings ?? {}),
-  };
+  const bookingSettings = cattery?.website_settings ?? {};
 
   useEffect(() => {
     setShowCreateBooking(isCreating);
