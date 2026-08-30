@@ -44,4 +44,8 @@ Safe automated UAT is read-only:
 - Confirm the browser console has no page errors and `GET /api/billing/plans` returns the same catalogue.
 - Confirm legacy `/admin/subscription` and `/dashboard/subscription` bookmarks redirect to the staff page.
 
+### Tenant subdomain legacy-route follow-up
+
+Live UAT found that the tenant router's wildcard sent legacy subscription bookmarks to the public cattery homepage before the shared legacy redirect component could run. The tenant router now owns both legacy paths directly, preserves any Stripe return query string, and redirects them to `/staff-dashboard/subscription`.
+
 Do not press a plan button or Manage billing during automated UAT: those actions intentionally create a real hosted Stripe session. Customer UAT may open Stripe Checkout, verify the chosen plan and amount, and cancel before entering or confirming payment details.

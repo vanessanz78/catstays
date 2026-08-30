@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { createBrowserRouter, Navigate } from 'react-router';
+import { createBrowserRouter, Navigate, useLocation } from 'react-router';
 import { Login } from './pages/marketing/Login';
 import { ResetPassword } from './pages/marketing/ResetPassword';
 import { ConfirmEmail } from './pages/onboarding/ConfirmEmail';
@@ -51,6 +51,11 @@ function TenantHomeSection({ section }: { section: string }) {
   return <TenantHome />;
 }
 
+function LegacySubscriptionRedirect() {
+  const location = useLocation();
+  return <Navigate to={`/staff-dashboard/subscription${location.search}`} replace />;
+}
+
 const staffDashboardRoutes = [
   '/staff-dashboard',
   '/staff-dashboard/customers',
@@ -70,6 +75,8 @@ export const subdomainRouter = createBrowserRouter([
   { path: '/host-login', element: <Navigate to="/login" replace /> },
   { path: '/dashboard', element: <Navigate to="/staff-dashboard" replace /> },
   { path: '/admin', element: <Navigate to="/staff-dashboard" replace /> },
+  { path: '/dashboard/subscription', Component: LegacySubscriptionRedirect },
+  { path: '/admin/subscription', Component: LegacySubscriptionRedirect },
   { path: '/about', element: <TenantHomeSection section="about" /> },
   { path: '/care', element: <TenantHomeSection section="care" /> },
   { path: '/facilities', element: <TenantHomeSection section="facilities" /> },
