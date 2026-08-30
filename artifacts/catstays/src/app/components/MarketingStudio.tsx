@@ -28,6 +28,7 @@ type LayoutStyle = 'premium' | 'minimal' | 'playful';
 
 interface MarketingStudioProps {
   businessData: {
+    catteryId: string;
     businessName: string;
     location: string;
     subdomain: string;
@@ -52,6 +53,7 @@ interface MarketingStudioProps {
     }>;
     servicesData?: any;
   };
+  promotions?: MarketingPromotion[];
 }
 
 type TemplateSpec = {
@@ -63,7 +65,7 @@ type TemplateSpec = {
   icon: React.ComponentType<{ className?: string }>;
 };
 
-type Promotion = {
+export type MarketingPromotion = {
   id: string;
   name: string;
   code: string;
@@ -99,39 +101,17 @@ const templates: TemplateSpec[] = [
   { id: 'email-banner', label: 'Email Banner', size: '1200 x 600', width: 1200, height: 600, icon: Mail },
 ];
 
-const promotions: Promotion[] = [
-  {
-    id: 'last-minute',
-    name: 'Last-minute rooms',
-    code: 'LASTMINUTE',
-    detail: 'Fill empty rooms this week with a simple short-stay offer.',
-    cta: 'Book a last-minute stay',
-  },
-  {
-    id: 'first-stay',
-    name: 'First stay welcome',
-    code: 'WELCOME',
-    detail: 'Encourage new customers to try the cattery with a friendly intro offer.',
-    cta: 'Book your first stay',
-  },
-  {
-    id: 'holiday-care',
-    name: 'Holiday care reminder',
-    code: 'HOLIDAY',
-    detail: 'Remind cat owners to book early before peak dates fill up.',
-    cta: 'Reserve holiday care',
-  },
-];
-
 const fallbackImages = [
   'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=1600&h=1600&fit=crop',
   'https://images.unsplash.com/photo-1573865526739-10c1de0e0ef2?w=1600&h=1600&fit=crop',
   'https://images.unsplash.com/photo-1574158622682-e40e69881006?w=1600&h=1600&fit=crop',
 ];
 
-const uploadedImagesKey = 'catstays_marketing_uploaded_images_v1';
+function uploadedImagesKey(catteryId: string) {
+  return `catstays_marketing_uploaded_images_v2_${catteryId}`;
+}
 
-export function MarketingStudio({ businessData }: MarketingStudioProps) {
+export function MarketingStudio({ businessData, promotions = [] }: MarketingStudioProps) {
   const uploadInputRef = useRef<HTMLInputElement>(null);
   const selectedTemplate = templates.find((item) => item.id === 'instagram-post') || templates[0];
   const sourceImages = useMemo(() => collectSourceImages(businessData), [businessData]);
@@ -199,9 +179,9 @@ export function MarketingStudio({ businessData }: MarketingStudioProps) {
     reader.onload = () => {
       const url = String(reader.result || '');
       if (!url) return;
-      const uploaded = loadUploadedImages();
+      const uploaded = loadUploadedImages(businessData.catteryId);
       const next = uniqueImages([url, ...uploaded]).slice(0, 24);
-      localStorage.setItem(uploadedImagesKey, JSON.stringify(next));
+      localStorage.setItem(uploadedImagesKey(businessData.catteryId), JSON.stringify(next));
       patchDraft({ imageUrl: url });
     };
     reader.readAsDataURL(file);
@@ -336,7 +316,7 @@ export function MarketingStudio({ businessData }: MarketingStudioProps) {
               onChange={(event) => applyPromotion(event.target.value)}
               className="w-full rounded-xl border border-[#0A1128]/15 bg-white px-4 py-3 text-sm text-[#0A1128] outline-none focus:border-[#C46A3A]"
             >
-              <option value="">No promotion</option>
+              <option value="">{promotions.length > 0 ? 'No promotion' : 'No active promotions saved'}</option>
               {promotions.map((promotion) => (
                 <option key={promotion.id} value={promotion.id}>
                   {promotion.name} - {promotion.code}
@@ -498,7 +478,7 @@ export function MarketingStudio({ businessData }: MarketingStudioProps) {
                 <ColourInput label="Copper" value={draft.accentColor} onChange={(value) => patchDraft({ accentColor: value })} />
               </div>
               <div className="mt-5 rounded-xl bg-[#F6F4EF] p-4 text-sm leading-6 text-[#0A1128]/65">
-                Uploaded photos stay in this browser for now, and imported cattery photos are picked up when they are present in saved site data.
+                Uploaded photos stay in this browser for this cattery only. Website photos and saved promotions come from the current cattery account.
               </div>
             </div>
           </section>
@@ -517,7 +497,7 @@ function PreviewContent({
   draft: MarketingDraft;
   template: TemplateSpec;
   businessData: MarketingStudioProps['businessData'];
-  promotion: Promotion | null;
+  promotion: MarketingPromotion | null;
 }) {
   const isWide = template.id === 'facebook-post' || template.id === 'email-banner';
   const isStory = template.id === 'instagram-story';
@@ -661,7 +641,7 @@ async function drawMarketingCanvas(
   draft: MarketingDraft,
   template: TemplateSpec,
   businessData: MarketingStudioProps['businessData'],
-  promotion: Promotion | null,
+  promotion: MarketingPromotion | null,
 ) {
   ctx.fillStyle = draft.primaryColor;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -728,20 +708,7 @@ function collectSourceImages(businessData: MarketingStudioProps['businessData'])
     else add(image?.url, image?.caption || 'Gallery photo', 'Website');
   }
 
-  for (const url of loadUploadedImages()) add(url, 'Uploaded photo', 'Uploads');
-
-  if (typeof localStorage !== 'undefined') {
-    for (const key of ['catteryData', 'catstays_onboarding', 'catstays_demo_preview_data', 'catstays_preview_data']) {
-      const raw = localStorage.getItem(key);
-      if (!raw) continue;
-      try {
-        const parsed = JSON.parse(raw);
-        for (const url of extractImages(parsed)) add(url, key.replace(/_/g, ' '), 'Saved site data');
-      } catch {
-        // Ignore stale local storage.
-      }
-    }
-  }
+  for (const url of loadUploadedImages(businessData.catteryId)) add(url, 'Uploaded photo', 'This cattery');
 
   fallbackImages.forEach((url, index) => add(url, `Fallback cat photo ${index + 1}`, 'Fallback'));
 
@@ -754,22 +721,10 @@ function collectSourceImages(businessData: MarketingStudioProps['businessData'])
   });
 }
 
-function extractImages(value: unknown, depth = 0): string[] {
-  if (depth > 6 || value == null) return [];
-  if (typeof value === 'string') return isImageUrl(value) ? [value] : [];
-  if (Array.isArray(value)) return value.flatMap((item) => extractImages(item, depth + 1));
-  if (typeof value !== 'object') return [];
-  const record = value as Record<string, unknown>;
-  return Object.entries(record).flatMap(([key, nested]) => {
-    if (/image|photo|media|gallery|url/i.test(key)) return extractImages(nested, depth + 1);
-    return Array.isArray(nested) || (nested && typeof nested === 'object') ? extractImages(nested, depth + 1) : [];
-  });
-}
-
-function loadUploadedImages(): string[] {
+function loadUploadedImages(catteryId: string): string[] {
   if (typeof localStorage === 'undefined') return [];
   try {
-    const raw = localStorage.getItem(uploadedImagesKey);
+    const raw = localStorage.getItem(uploadedImagesKey(catteryId));
     const parsed = raw ? JSON.parse(raw) : [];
     return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : [];
   } catch {
@@ -799,18 +754,18 @@ function defaultCaption(name: string, location: string) {
   return `${name} gives cats a calm, comfortable place to stay while their people are away.${location ? ` Based in ${location}.` : ''}\n\nBook your cat's stay today.`;
 }
 
-function promotionCaption(draft: MarketingDraft, businessData: MarketingStudioProps['businessData'], promotion: Promotion) {
-  return `${promotion.name} at ${businessData.businessName}\n\n${promotion.detail}\n\nUse code ${promotion.code} when you enquire.\n\n${draft.ctaText}: ${websiteUrl(businessData)}`;
+function promotionCaption(draft: MarketingDraft, businessData: MarketingStudioProps['businessData'], promotion: MarketingPromotion) {
+  return `${promotion.name} at ${businessData.businessName}\n\n${promotion.detail}\n\nUse code ${promotion.code} when you book.\n\n${draft.ctaText}: ${websiteUrl(businessData)}`;
 }
 
-function copyVariants(name: string, location: string, promotion: Promotion | null) {
+function copyVariants(name: string, location: string, promotion: MarketingPromotion | null) {
   if (promotion) {
     return [
       {
         headline: promotion.name,
         subheadline: promotion.detail,
         ctaText: promotion.cta,
-        caption: `${promotion.name} at ${name}. Use code ${promotion.code} when you enquire.`,
+        caption: `${promotion.name} at ${name}. Use code ${promotion.code} when you book.`,
       },
       {
         headline: 'Limited rooms available',
@@ -830,12 +785,12 @@ function copyVariants(name: string, location: string, promotion: Promotion | nul
     {
       headline: 'A calm stay for your cat',
       subheadline: 'Comfortable rooms, attentive care, and reassuring updates',
-      ctaText: 'Enquire Today',
-      caption: `${name} offers careful, calm cat boarding${location ? ` in ${location}` : ''}. Enquire today to reserve a room.`,
+      ctaText: 'Book Now',
+      caption: `${name} offers careful, calm cat boarding${location ? ` in ${location}` : ''}. Book now to reserve a room.`,
     },
     {
       headline: 'Your cat deserves a holiday too',
-      subheadline: 'Private rooms, gentle care, and daily reassurance',
+      subheadline: 'Private rooms, gentle care, and reassuring contact',
       ctaText: 'Plan Their Stay',
       caption: `Planning time away? ${name} helps your cat settle in with gentle care and a comfortable space of their own.`,
     },
