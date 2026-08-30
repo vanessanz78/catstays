@@ -52,7 +52,7 @@ const menuItems: MenuItem[] = [
   { path: '/staff-dashboard/messages', icon: MessageSquare, label: 'Messages', description: 'Email & customer history' },
   { path: '/staff-dashboard/promotions', icon: Megaphone, label: 'Promotions', description: 'Offers & promo codes' },
   { path: '/staff-dashboard/social', icon: Share2, label: 'Social Media', description: 'Drafts, schedule & sharing' },
-  { path: '/staff-dashboard/cat-update-generator', icon: Camera, label: 'Cat Updates', description: 'Photo updates', badge: 'Soon' },
+  { path: '/staff-dashboard/cat-update-generator', icon: Camera, label: 'Cat Updates', description: 'Private photo updates' },
   { path: '/staff-dashboard/booking-setup', icon: Settings, label: 'Booking Setup', description: 'Rules & pricing', badge: 'Soon' },
   { path: '/staff-dashboard/marketing', icon: WandSparkles, label: 'Marketing Studio', description: 'Editable marketing materials' },
   { path: '/staff-dashboard/insights', icon: BarChart3, label: 'Insights', description: 'Analytics & reports', badge: 'Soon' },

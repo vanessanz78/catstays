@@ -35,7 +35,6 @@ import { AdminPromotions } from "./pages/admin/Promotions";
 import { AdminSocial } from "./pages/admin/Social";
 import { CatUpdateGenerator } from "./pages/admin/CatUpdateGenerator";
 import { AdminInsights } from "./pages/admin/Insights";
-import { PhotoUpdates } from "./pages/admin/PhotoUpdates";
 import { BookingConfirmationDemo } from "./pages/admin/BookingConfirmationDemo";
 import { SmartImport } from "./pages/admin/SmartImport";
 import { SmartDataImport } from "./pages/admin/SmartDataImport";
@@ -55,9 +54,6 @@ import { DomainSettings } from "./pages/admin/DomainSettings";
 // Room Planner
 import { RoomPlannerDashboard } from "./pages/rooms/RoomPlannerDashboard";
 import { RoomManagement } from "./pages/rooms/RoomManagement";
-
-// Public pages
-import { UpdatePage } from "./pages/public/UpdatePage";
 
 // Tenant Website
 import { TenantHome } from "./pages/tenant/Home";
@@ -98,7 +94,6 @@ const tenantStaffDashboardPaths = [
   "/staff-dashboard/customers",
   "/staff-dashboard/calendar",
   "/staff-dashboard/room-planner",
-  "/staff-dashboard/cat-update-generator",
   "/staff-dashboard/insights",
   "/staff-dashboard/settings",
   "/staff-dashboard/booking-setup",
@@ -339,13 +334,18 @@ export const router = createBrowserRouter([
     ErrorBoundary: RootErrorBoundary,
   },
   {
+    path: "/staff-dashboard/cat-update-generator",
+    Component: CatUpdateGenerator,
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
     path: "/admin/insights",
     Component: AdminInsights,
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/admin/photo-updates",
-    Component: PhotoUpdates,
+    Component: CatUpdateGenerator,
     ErrorBoundary: RootErrorBoundary,
   },
   {
@@ -463,7 +463,7 @@ export const router = createBrowserRouter([
   // Public pages
   {
     path: "/update",
-    Component: UpdatePage,
+    Component: ClientPortalEntry,
     ErrorBoundary: RootErrorBoundary,
   },
 

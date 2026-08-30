@@ -6,6 +6,7 @@ import {
   bookingRequestOwnerHtml,
   bookingRequestCustomerHtml,
   customerMessageHtml,
+  customerPhotoUpdateHtml,
   testEmailHtml,
 } from '../lib/emailTemplates';
 import { createClient } from '@supabase/supabase-js';
@@ -37,6 +38,15 @@ async function canManageCattery(userId: string, catteryId: string) {
     supabase.from('staff_memberships').select('id').eq('cattery_id', catteryId).eq('user_id', userId).eq('status', 'active').maybeSingle(),
   ]);
   return Boolean(owner?.id || staff?.id);
+}
+
+function catUpdatePortalUrl(req: Request, slug: string | null, updateId: string) {
+  const requestOrigin = String(req.headers.origin || '').replace(/\/$/, '');
+  const origin = /^https:\/\/(?:[a-z0-9-]+\.)?catstays\.app$/i.test(requestOrigin)
+    || /^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?$/i.test(requestOrigin)
+    ? requestOrigin
+    : slug ? `https://${slug}.catstays.app` : 'https://catstays.app';
+  return `${origin}/client-portal?update=${encodeURIComponent(updateId)}`;
 }
 
 router.post('/email/booking-confirmation', async (req, res) => {
@@ -315,6 +325,135 @@ router.post('/email/customer-message', async (req, res) => {
     res.status(503).json({
       error: 'The email was not sent because its dashboard history could not be saved. Refresh and try again.',
     });
+  }
+});
+
+router.post('/email/cat-update', async (req, res) => {
+  const catteryId = String(req.body?.catteryId || '');
+  const bookingId = String(req.body?.bookingId || '');
+  const customerId = String(req.body?.customerId || '');
+  const catId = String(req.body?.catId || '');
+  const storagePath = String(req.body?.storagePath || '').trim();
+  const caption = String(req.body?.caption || '').replace(/\r\n/g, '\n').trim();
+  const user = await authenticatedUser(req);
+
+  if (!user || !catteryId || !bookingId || !customerId || !catId || !storagePath || !caption) {
+    res.status(400).json({ success: false, saved: false, error: 'Choose a booked cat, photo and message before sending.' });
+    return;
+  }
+  if (!supabase) {
+    res.status(503).json({ success: false, saved: false, error: 'Photo updates are not configured on this server.' });
+    return;
+  }
+  if (!(await canManageCattery(user.id, catteryId))) {
+    res.status(403).json({ success: false, saved: false, error: 'This staff account cannot send updates for that cattery.' });
+    return;
+  }
+  if (caption.length > 2000) {
+    res.status(400).json({ success: false, saved: false, error: 'Keep the update under 2,000 characters.' });
+    return;
+  }
+  if (!storagePath.startsWith(`${catteryId}/${bookingId}/`) || storagePath.length > 500) {
+    res.status(400).json({ success: false, saved: false, error: 'That photo is not in the selected cattery booking folder.' });
+    return;
+  }
+
+  try {
+    const [{ data: cattery }, { data: customer }, { data: booking }, { data: cat }, { data: bookingCat }] = await Promise.all([
+      supabase.from('catteries').select('id,name,email,slug').eq('id', catteryId).maybeSingle(),
+      supabase.from('customers').select('id,cattery_id,name,email,user_id').eq('id', customerId).eq('cattery_id', catteryId).maybeSingle(),
+      supabase.from('bookings').select('id,cattery_id,customer_id,status').eq('id', bookingId).eq('cattery_id', catteryId).maybeSingle(),
+      supabase.from('cats').select('id,cattery_id,customer_id,name').eq('id', catId).eq('cattery_id', catteryId).maybeSingle(),
+      supabase.from('booking_cats').select('id').eq('booking_id', bookingId).eq('cat_id', catId).maybeSingle(),
+    ]);
+    if (!cattery || !customer || !booking || !cat || !bookingCat
+      || booking.customer_id !== customer.id || cat.customer_id !== customer.id || booking.status === 'cancelled') {
+      res.status(409).json({ success: false, saved: false, error: 'That cat is not linked to the selected active booking and customer.' });
+      return;
+    }
+
+    const slash = storagePath.lastIndexOf('/');
+    const folder = storagePath.slice(0, slash);
+    const filename = storagePath.slice(slash + 1);
+    const { data: storedFiles, error: listError } = await supabase.storage
+      .from('cat-update-photos')
+      .list(folder, { limit: 5, search: filename });
+    if (listError || !storedFiles?.some((file) => file.name === filename)) {
+      res.status(409).json({ success: false, saved: false, error: 'The uploaded photo could not be verified. Choose it again and retry.' });
+      return;
+    }
+
+    const { data: update, error: updateError } = await supabase.from('cat_updates').insert({
+      cattery_id: catteryId,
+      booking_id: bookingId,
+      customer_id: customerId,
+      cat_id: catId,
+      caption,
+      storage_bucket: 'cat-update-photos',
+      storage_path: storagePath,
+      status: 'queued',
+      created_by: user.id,
+    }).select('id').single();
+    if (updateError || !update) throw updateError || new Error('The cat update was not returned after saving.');
+
+    const portalUrl = catUpdatePortalUrl(req, cattery.slug, update.id);
+    const { data: signedPhoto } = await supabase.storage.from('cat-update-photos').createSignedUrl(storagePath, 60 * 60 * 24 * 7);
+    const hasEmail = /^\S+@\S+\.\S+$/.test(String(customer.email || ''));
+    let emailSent = false;
+    let providerMessageId: string | null = null;
+    let deliveryError = '';
+
+    if (hasEmail) {
+      const { data, error } = await resend.emails.send({
+        from: FROM_ADDRESS,
+        to: customer.email,
+        replyTo: cattery.email || undefined,
+        subject: `New update for ${cat.name} from ${cattery.name}`,
+        html: customerPhotoUpdateHtml({
+          customerName: customer.name,
+          catteryName: cattery.name,
+          catName: cat.name,
+          caption,
+          imageUrl: signedPhoto?.signedUrl,
+          portalUrl,
+        }),
+      });
+      emailSent = !error;
+      providerMessageId = data?.id || null;
+      deliveryError = error?.message || '';
+    }
+
+    const finalStatus = emailSent ? 'sent' : hasEmail ? 'failed' : 'portal_only';
+    const sentAt = emailSent ? new Date().toISOString() : null;
+    await supabase.from('cat_updates').update({
+      status: finalStatus,
+      email_provider_message_id: providerMessageId,
+      email_sent_at: sentAt,
+    }).eq('id', update.id);
+
+    void notifyCustomer(customer.id, cattery.id, {
+      type: 'cat_update',
+      title: `New update for ${cat.name}`,
+      body: `${cattery.name} shared a photo from ${cat.name}'s stay.`,
+      url: `/client-portal?update=${encodeURIComponent(update.id)}`,
+      tag: `catstays-cat-update-${update.id}`,
+      metadata: { updateId: update.id, bookingId, catId },
+    });
+
+    if (hasEmail && !emailSent) {
+      res.status(502).json({
+        success: false,
+        saved: true,
+        updateId: update.id,
+        emailSent: false,
+        error: `The photo update is saved in the client portal, but the email was not sent. ${deliveryError}`.trim(),
+      });
+      return;
+    }
+    res.json({ success: true, saved: true, updateId: update.id, emailSent });
+  } catch (error) {
+    console.error('[email] cat-update exception:', error);
+    res.status(503).json({ success: false, saved: false, error: 'The photo update could not be saved. Refresh and try again.' });
   }
 });
 
