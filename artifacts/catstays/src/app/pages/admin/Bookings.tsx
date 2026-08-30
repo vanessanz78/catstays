@@ -65,6 +65,9 @@ export function AdminBookings() {
   const navigate = useNavigate();
   const isCreating = searchParams.get('new') === 'true';
   const requestedBookingId = searchParams.get('booking');
+  const requestedCheckIn = searchParams.get('checkIn') || '';
+  const requestedCheckOut = searchParams.get('checkOut') || requestedCheckIn;
+  const requestedRoomId = searchParams.get('room');
   const [showCreateBooking, setShowCreateBooking] = useState(isCreating);
   
   // Filter and sort state
@@ -78,8 +81,8 @@ export function AdminBookings() {
   const [step, setStep] = useState(1);
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [cats, setCats] = useState<any[]>([]);
-  const [checkIn, setCheckIn] = useState('');
-  const [checkOut, setCheckOut] = useState('');
+  const [checkIn, setCheckIn] = useState(requestedCheckIn);
+  const [checkOut, setCheckOut] = useState(requestedCheckOut);
   const [checkInTime, setCheckInTime] = useState('');
   const [checkOutTime, setCheckOutTime] = useState('');
   const [showDateRangePicker, setShowDateRangePicker] = useState(false);
@@ -206,6 +209,14 @@ export function AdminBookings() {
   const roomSelectionComplete = roomArrangement === 'shared'
     ? Boolean(selectedRoom)
     : cats.length > 0 && cats.every((cat) => Boolean(roomAssignments[cat.id]));
+
+  useEffect(() => {
+    if (step !== 4 || !requestedRoomId || selectedRoom || roomArrangement !== 'shared') return;
+    const requestedRoom = availableRoomTypes.find((room) => (
+      room.id === requestedRoomId && room.capacity >= cats.length
+    ));
+    if (requestedRoom) setSelectedRoom(requestedRoom);
+  }, [availableRoomTypes, cats.length, requestedRoomId, roomArrangement, selectedRoom, step]);
 
   // Filter bookings based on view mode
   const getFilteredBookings = () => {
