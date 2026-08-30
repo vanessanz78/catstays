@@ -6,6 +6,7 @@ import {
   CalendarDays,
   Cat,
   CheckCircle2,
+  ChevronLeft,
   ChevronRight,
   Clock,
   CreditCard,
@@ -618,26 +619,146 @@ function RoomPlannerSection({ rooms, data, isLoading }: { rooms: Room[]; data: R
   );
 }
 
-function CalendarSection({ data, isLoading }: { data: ReturnType<typeof buildDashboardData>; isLoading: boolean }) {
-  const upcoming = [...data.arrivalsToday, ...data.departuresToday];
+function calendarDateKey(year: number, month: number, day: number) {
+  return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function bookingCalendarLabel(booking: Booking, dateKey: string) {
+  if (booking.check_in === dateKey) return 'Arrival';
+  if (booking.check_out === dateKey) return 'Departure';
+  return 'Staying';
+}
+
+function CalendarBookingLink({ booking, dateKey }: { booking: Booking; dateKey: string }) {
+  const label = bookingCalendarLabel(booking, dateKey);
+  const tone = label === 'Arrival'
+    ? 'bg-emerald-50 text-emerald-800 ring-emerald-200'
+    : label === 'Departure'
+      ? 'bg-orange-50 text-orange-800 ring-orange-200'
+      : 'bg-blue-50 text-blue-800 ring-blue-200';
+
   return (
-    <PagePanel>
-      {isLoading ? (
-        <p className="rounded-lg bg-[#F8F7F5] p-5 text-sm text-[#4E5871]">Loading calendar...</p>
-      ) : upcoming.length > 0 ? (
-        <div className="space-y-3">
-          {upcoming.map((booking) => (
-            <BookingRow key={booking.id} booking={booking} actionLabel="Open" />
-          ))}
+    <Link
+      to={`/staff-dashboard/bookings?booking=${booking.id}`}
+      className={`block min-w-0 rounded-md px-2 py-1.5 text-left text-xs ring-1 transition hover:brightness-95 ${tone}`}
+      title={`${getCatNames(booking)} · ${label}`}
+    >
+      <span className="block truncate font-semibold">{getCatNames(booking)}</span>
+      <span className="block truncate opacity-75">{label}</span>
+    </Link>
+  );
+}
+
+function CalendarSection({ bookings, isLoading }: { bookings: Booking[]; isLoading: boolean }) {
+  const [visibleMonth, setVisibleMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
+  const year = visibleMonth.getFullYear();
+  const month = visibleMonth.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const leadingEmptyDays = (new Date(year, month, 1).getDay() + 6) % 7;
+  const firstKey = calendarDateKey(year, month, 1);
+  const lastKey = calendarDateKey(year, month, daysInMonth);
+  const monthLabel = visibleMonth.toLocaleDateString('en-NZ', { month: 'long', year: 'numeric' });
+  const todayKey = getLocalDateKey();
+  const activeBookings = bookings.filter((booking) => (
+    booking.status !== 'cancelled' && booking.check_in <= lastKey && booking.check_out >= firstKey
+  ));
+  const days = Array.from({ length: daysInMonth }, (_, index) => {
+    const day = index + 1;
+    const dateKey = calendarDateKey(year, month, day);
+    return {
+      day,
+      dateKey,
+      date: new Date(year, month, day),
+      bookings: activeBookings.filter((booking) => booking.check_in <= dateKey && booking.check_out >= dateKey),
+    };
+  });
+  const activeDays = days.filter((day) => day.bookings.length > 0);
+
+  const changeMonth = (offset: number) => {
+    setVisibleMonth((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1));
+  };
+
+  return (
+    <div className="space-y-4">
+      <section className="flex flex-col gap-3 rounded-2xl border border-[#E8DED4] bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center justify-between gap-3 sm:justify-start">
+          <Button variant="outline" size="icon" onClick={() => changeMonth(-1)} aria-label="Previous month">
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
+          <h3 className="min-w-40 text-center text-xl font-semibold text-[#0A1128]">{monthLabel}</h3>
+          <Button variant="outline" size="icon" onClick={() => changeMonth(1)} aria-label="Next month">
+            <ChevronRight className="h-5 w-5" />
+          </Button>
         </div>
+        <div className="flex items-center justify-between gap-3 sm:justify-end">
+          <p className="text-sm text-[#4E5871]">{activeBookings.length} active booking{activeBookings.length === 1 ? '' : 's'}</p>
+          <Button variant="outline" onClick={() => {
+            const now = new Date();
+            setVisibleMonth(new Date(now.getFullYear(), now.getMonth(), 1));
+          }}>Today</Button>
+        </div>
+      </section>
+
+      {isLoading ? (
+        <PagePanel><p className="rounded-lg bg-[#F8F7F5] p-5 text-sm text-[#4E5871]">Loading calendar...</p></PagePanel>
       ) : (
-        <EmptyPanel
-          icon={CalendarDays}
-          title="No bookings on today’s calendar"
-          description="Upcoming bookings will appear here once customers book through this cattery website."
-        />
+        <>
+          <section className="hidden overflow-hidden rounded-2xl border border-[#E8DED4] bg-white shadow-sm md:block">
+            <div className="grid grid-cols-7 border-b border-[#E8DED4] bg-[#F8F7F5]">
+              {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((label) => (
+                <div key={label} className="px-2 py-3 text-center text-xs font-semibold uppercase tracking-wide text-[#4E5871]">{label}</div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7">
+              {Array.from({ length: leadingEmptyDays }).map((_, index) => (
+                <div key={`empty-${index}`} className="min-h-32 border-b border-r border-[#E8DED4] bg-[#FAF9F7]" />
+              ))}
+              {days.map(({ day, dateKey, bookings: dayBookings }) => (
+                <div key={dateKey} className={`min-h-32 border-b border-r border-[#E8DED4] p-2 ${dateKey === todayKey ? 'bg-[#FFF7F1]' : 'bg-white'}`}>
+                  <div className="mb-2 flex items-center justify-between">
+                    <span className={`grid h-7 w-7 place-items-center rounded-full text-sm font-semibold ${dateKey === todayKey ? 'bg-[#C46A3A] text-white' : 'text-[#0A1128]'}`}>{day}</span>
+                    {dayBookings.length > 0 && <span className="text-xs text-[#768098]">{dayBookings.length}</span>}
+                  </div>
+                  <div className="space-y-1.5">
+                    {dayBookings.slice(0, 3).map((booking) => <CalendarBookingLink key={booking.id} booking={booking} dateKey={dateKey} />)}
+                    {dayBookings.length > 3 && <p className="px-1 text-xs font-medium text-[#4E5871]">+{dayBookings.length - 3} more</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="space-y-3 md:hidden" aria-label={`${monthLabel} booking agenda`}>
+            {activeDays.length > 0 ? activeDays.map(({ dateKey, date, bookings: dayBookings }) => (
+              <div key={dateKey} className={`rounded-2xl border bg-white p-4 shadow-sm ${dateKey === todayKey ? 'border-[#C46A3A]' : 'border-[#E8DED4]'}`}>
+                <div className="mb-3 flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-[#C46A3A]">{date.toLocaleDateString('en-NZ', { weekday: 'long' })}</p>
+                    <h3 className="text-lg font-semibold">{date.toLocaleDateString('en-NZ', { day: 'numeric', month: 'long' })}</h3>
+                  </div>
+                  <Badge className="bg-[#F1E8DE] text-[#8A4E2B] hover:bg-[#F1E8DE]">{dayBookings.length}</Badge>
+                </div>
+                <div className="space-y-2">
+                  {dayBookings.map((booking) => <CalendarBookingLink key={booking.id} booking={booking} dateKey={dateKey} />)}
+                </div>
+              </div>
+            )) : (
+              <EmptyPanel icon={CalendarDays} title={`No bookings in ${monthLabel}`} description="Use the arrows to check another month, or create a new booking from the dashboard." />
+            )}
+          </section>
+
+          <div className="flex flex-wrap gap-3 rounded-xl border border-[#E8DED4] bg-white px-4 py-3 text-xs text-[#4E5871]">
+            <span className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-800 ring-1 ring-emerald-200">Arrival</span>
+            <span className="rounded-full bg-blue-50 px-3 py-1 text-blue-800 ring-1 ring-blue-200">Staying</span>
+            <span className="rounded-full bg-orange-50 px-3 py-1 text-orange-800 ring-1 ring-orange-200">Departure</span>
+            <span className="self-center">Arrival and departure days are both included.</span>
+          </div>
+        </>
       )}
-    </PagePanel>
+    </div>
   );
 }
 
@@ -895,7 +1016,7 @@ export function StaffDashboard() {
         )}
         {section === 'bookings' && <BookingsSection bookings={bookings} isLoading={isLoading} showNewBooking={showNewBooking} />}
         {section === 'customers' && <CustomersSection customers={customers} isLoading={isLoading} />}
-        {section === 'calendar' && <CalendarSection data={dashboardData} isLoading={isLoading} />}
+        {section === 'calendar' && <CalendarSection bookings={bookings} isLoading={isLoading} />}
         {section === 'room-planner' && <RoomPlannerSection rooms={rooms} data={dashboardData} isLoading={isLoading} />}
         {section === 'insights' && <StaffInsights />}
         {section === 'subscription' && <StaffSubscription />}
