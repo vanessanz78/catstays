@@ -92,6 +92,11 @@ type SourceImage = {
   source: string;
 };
 
+type PreparedMarketingAsset = {
+  url: string;
+  fileName: string;
+};
+
 const templates: TemplateSpec[] = [
   { id: 'instagram-post', label: 'Instagram Post', size: '1080 x 1080', width: 1080, height: 1080, icon: Instagram },
   { id: 'instagram-story', label: 'Instagram Story', size: '1080 x 1920', width: 1080, height: 1920, icon: Smartphone },
@@ -128,8 +133,10 @@ export function MarketingStudio({ businessData, promotions = [] }: MarketingStud
     accentColor: businessData.accentColor || '#C46A3A',
     promotionId: '',
   }));
-  const [exporting, setExporting] = useState(false);
+  const [exporting, setExporting] = useState(true);
   const [exportMessage, setExportMessage] = useState('');
+  const [exportAsset, setExportAsset] = useState<PreparedMarketingAsset | null>(null);
+  const [exportRetry, setExportRetry] = useState(0);
 
   useEffect(() => {
     setDraft((current) => {
@@ -149,6 +156,57 @@ export function MarketingStudio({ businessData, promotions = [] }: MarketingStud
   const activeCaption = selectedPromotion
     ? promotionCaption(draft, businessData, selectedPromotion)
     : draft.caption;
+
+  useEffect(() => {
+    let cancelled = false;
+    setExporting(true);
+    setExportMessage('');
+    setExportAsset(null);
+
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = template.width;
+          canvas.height = template.height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) throw new Error('Canvas is unavailable');
+
+          await drawMarketingCanvas(ctx, canvas, draft, template, businessData, selectedPromotion);
+          const blob = await canvasToPngBlob(canvas);
+          if (!blob) throw new Error('PNG export returned no file');
+
+          const nextAsset = {
+            url: URL.createObjectURL(blob),
+            fileName: `${businessData.subdomain || 'catstays'}-${template.id}.png`,
+          };
+          if (cancelled) {
+            URL.revokeObjectURL(nextAsset.url);
+            return;
+          }
+          setExportAsset(nextAsset);
+          setExportMessage('PNG ready to download.');
+        } catch (error) {
+          if (cancelled) return;
+          console.warn('[CatStays] Marketing PNG preparation failed', error);
+          setExportMessage('PNG could not be prepared. Try another photo and retry.');
+        } finally {
+          if (!cancelled) setExporting(false);
+        }
+      })();
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [businessData, draft, exportRetry, selectedPromotion, template]);
+
+  useEffect(() => {
+    return () => {
+      if (exportAsset) URL.revokeObjectURL(exportAsset.url);
+    };
+  }, [exportAsset]);
 
   const patchDraft = (patch: Partial<MarketingDraft>) => {
     setDraft((current) => ({ ...current, ...patch }));
@@ -232,39 +290,6 @@ export function MarketingStudio({ businessData, promotions = [] }: MarketingStud
     }
   };
 
-  const downloadAsset = async () => {
-    if (exporting) return;
-    setExporting(true);
-    setExportMessage('');
-
-    try {
-      const canvas = document.createElement('canvas');
-      canvas.width = template.width;
-      canvas.height = template.height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Canvas is unavailable');
-
-      await drawMarketingCanvas(ctx, canvas, draft, template, businessData, selectedPromotion);
-      const blob = await canvasToPngBlob(canvas);
-      if (!blob) throw new Error('PNG export returned no file');
-
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${businessData.subdomain || 'catstays'}-${template.id}.png`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-      setExportMessage('PNG downloaded.');
-    } catch (error) {
-      console.warn('[CatStays] Marketing PNG export failed', error);
-      setExportMessage('PNG could not be downloaded. Try another photo and retry.');
-    } finally {
-      setExporting(false);
-    }
-  };
-
   return (
     <div className="space-y-6">
       <input ref={uploadInputRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
@@ -287,14 +312,27 @@ export function MarketingStudio({ businessData, promotions = [] }: MarketingStud
             <Send className="h-4 w-4" />
             Share Pack
           </Button>
-          <Button
-            onClick={downloadAsset}
-            disabled={exporting}
-            className="gap-2 rounded-xl bg-[#C46A3A] text-white hover:bg-[#A85A30] disabled:cursor-wait disabled:opacity-70"
-          >
-            <Download className="h-4 w-4" />
-            {exporting ? 'Preparing PNG...' : 'Download PNG'}
-          </Button>
+          {exportAsset ? (
+            <Button asChild className="gap-2 rounded-xl bg-[#C46A3A] text-white hover:bg-[#A85A30]">
+              <a
+                href={exportAsset.url}
+                download={exportAsset.fileName}
+                onClick={() => setExportMessage('PNG download started.')}
+              >
+                <Download className="h-4 w-4" />
+                Download PNG
+              </a>
+            </Button>
+          ) : (
+            <Button
+              onClick={() => setExportRetry((current) => current + 1)}
+              disabled={exporting}
+              className="gap-2 rounded-xl bg-[#C46A3A] text-white hover:bg-[#A85A30] disabled:cursor-wait disabled:opacity-70"
+            >
+              <Download className="h-4 w-4" />
+              {exporting ? 'Preparing PNG...' : 'Try PNG again'}
+            </Button>
+          )}
           {exportMessage && (
             <p role="status" aria-live="polite" className="w-full text-right text-sm font-medium text-[#0A1128]/65">
               {exportMessage}

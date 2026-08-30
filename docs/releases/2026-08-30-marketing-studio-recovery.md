@@ -51,6 +51,8 @@ The Marketing Studio route rendered and could download a graphic, but its tenant
 
 Live UAT found that **Download PNG** could remain busy indefinitely when a remote website image did not finish loading. The export now gives remote images a bounded five-second load window, falls back to the branded background when an image is unavailable, gives the PNG encoder a bounded timeout, attaches the download link to the page before activating it, and shows clear preparing, success, or failure status to staff.
 
-1. Click **Download PNG** and confirm the button changes to **Preparing PNG...** only while the file is generated.
-2. Confirm a PNG downloads even if the selected remote image cannot be loaded.
-3. Confirm the page reports **PNG downloaded.** after success and allows another export.
+1. Confirm the export action changes from **Preparing PNG...** to a real **Download PNG** link when the file is ready.
+2. Click **Download PNG** and confirm the browser starts a PNG download even if the selected remote image could not be loaded.
+3. Confirm the page reports **PNG download started.** and allows another export.
+
+The follow-up live test also showed that programmatically clicking a short-lived hidden link could report success without producing a browser download event. The Studio now prepares a persistent cattery-scoped blob URL in the background and exposes it as a real HTML download link. This keeps the staff action to one click and makes the browser download observable and reliable.
