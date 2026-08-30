@@ -13,6 +13,7 @@ This CatStays platform subscription is distinct from a cattery's own Stripe conn
 - Public Pricing and onboarding both define the same three-plan catalogue: Starter $49, Professional $79, Premium $99 NZD/month.
 - The API now exposes that catalogue at `GET /api/billing/plans` and accepts only those exact plan identifiers.
 - Stripe Checkout uses recurring Stripe Prices. Existing configured `STRIPE_PRICE_STARTER`, `STRIPE_PRICE_PROFESSIONAL`, and `STRIPE_PRICE_PREMIUM` values are validated against the advertised currency, interval, and amount. When they are absent, a stable amount-versioned lookup key is resolved or created on the first explicitly requested checkout.
+- The Stripe server library is upgraded to a release that supports the pinned `2026-08-26.dahlia` API and Checkout integration identifiers. Two existing connected-account validation calls were updated to the current SDK's explicit `null` form for retrieving the authenticated account.
 - Checkout and the Customer Portal return to `/staff-dashboard/subscription` on an allow-listed CatStays origin.
 - Tenant access is checked through the signed-in Supabase client before customer, checkout, verification, or portal operations.
 - The webhook remains the ongoing subscription-status authority and now returns an error when its database update fails so Stripe can retry.

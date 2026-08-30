@@ -112,7 +112,7 @@ router.post('/cattery-payments/connect', async (req, res) => {
   const previousCredentials = await stripeCredentials(catteryId);
   let webhookEndpoint: Stripe.WebhookEndpoint | null = null;
   try {
-    const account = await stripe.accounts.retrieve();
+    const account = await stripe.accounts.retrieve(null);
     webhookEndpoint = await stripe.webhookEndpoints.create({
       url: `${configuredAppUrl(req)}/api/cattery-payments/webhook`,
       enabled_events: ['checkout.session.completed', 'checkout.session.expired'],
@@ -194,7 +194,7 @@ router.post('/cattery-payments/test', async (req, res) => {
 
   try {
     const stripe = new Stripe(credentials.secretKey);
-    const account = await stripe.accounts.retrieve();
+    const account = await stripe.accounts.retrieve(null);
     const validatedAt = new Date().toISOString();
     const { error: updateError } = await admin.from('cattery_payment_accounts')
       .update({ last_validated_at: validatedAt, provider_account_id: account.id })

@@ -15,7 +15,7 @@ if (!stripeKey) {
   console.warn('[billing] Stripe secret key not set — add STRIPE_API_KEY, STRIPE_SECRET_KEY, or STRIPE_LIVE_SECRET_KEY');
 }
 
-const stripe = stripeKey ? new Stripe(stripeKey, { apiVersion: '2026-07-29.dahlia' }) : null;
+const stripe = stripeKey ? new Stripe(stripeKey, { apiVersion: '2026-08-26.dahlia' }) : null;
 
 const PLAN_CATALOG = {
   starter: {
@@ -181,8 +181,8 @@ router.post('/billing/create-checkout-session', async (req: Request, res: Respon
 
     const origin = getSafeOrigin(req);
     const returnPath = '/staff-dashboard/subscription';
-    const sessionParameters = {
-      mode: 'subscription' as const,
+    const sessionParameters: Stripe.Checkout.SessionCreateParams = {
+      mode: 'subscription',
       customer: customerId,
       line_items: [{ price: priceId, quantity: 1 }],
       success_url: `${origin}${returnPath}?success=true&session_id={CHECKOUT_SESSION_ID}`,
@@ -190,7 +190,7 @@ router.post('/billing/create-checkout-session', async (req: Request, res: Respon
       metadata: { catteryId: cattery.id, plan: rawPlan },
       subscription_data: { metadata: { catteryId: cattery.id, plan: rawPlan } },
       integration_identifier: createIntegrationIdentifier(),
-    } as Stripe.Checkout.SessionCreateParams & { integration_identifier: string };
+    };
     const session = await stripe.checkout.sessions.create(sessionParameters);
     res.json({ url: session.url });
   } catch (err: unknown) {
