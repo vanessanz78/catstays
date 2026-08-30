@@ -56,6 +56,11 @@ function LegacySubscriptionRedirect() {
   return <Navigate to={`/staff-dashboard/subscription${location.search}`} replace />;
 }
 
+function LegacyStaffRedirect({ to }: { to: string }) {
+  const location = useLocation();
+  return <Navigate to={`${to}${location.search}`} replace />;
+}
+
 const staffDashboardRoutes = [
   '/staff-dashboard',
   '/staff-dashboard/customers',
@@ -77,6 +82,15 @@ export const subdomainRouter = createBrowserRouter([
   { path: '/admin', element: <Navigate to="/staff-dashboard" replace /> },
   { path: '/dashboard/subscription', Component: LegacySubscriptionRedirect },
   { path: '/admin/subscription', Component: LegacySubscriptionRedirect },
+  { path: '/dashboard/settings', element: <LegacyStaffRedirect to="/staff-dashboard/settings" /> },
+  { path: '/admin/settings', element: <LegacyStaffRedirect to="/staff-dashboard/settings" /> },
+  { path: '/admin/settings/profile', element: <LegacyStaffRedirect to="/staff-dashboard/website-editor" /> },
+  { path: '/admin/settings/password', element: <LegacyStaffRedirect to="/staff-dashboard/settings" /> },
+  { path: '/admin/settings/notifications', element: <LegacyStaffRedirect to="/staff-dashboard/settings/notifications" /> },
+  { path: '/admin/settings/billing', element: <LegacyStaffRedirect to="/staff-dashboard/subscription" /> },
+  { path: '/admin/settings/subscription', element: <LegacyStaffRedirect to="/staff-dashboard/subscription" /> },
+  { path: '/admin/settings/data', element: <LegacyStaffRedirect to="/staff-dashboard/smart-import" /> },
+  { path: '/admin/settings/privacy', element: <LegacyStaffRedirect to="/staff-dashboard/settings" /> },
   { path: '/about', element: <TenantHomeSection section="about" /> },
   { path: '/care', element: <TenantHomeSection section="care" /> },
   { path: '/facilities', element: <TenantHomeSection section="facilities" /> },

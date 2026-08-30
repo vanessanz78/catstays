@@ -6,6 +6,7 @@ import {
   CalendarDays,
   Cat,
   CheckCircle2,
+  ChevronRight,
   Clock,
   CreditCard,
   Home,
@@ -643,24 +644,63 @@ function CalendarSection({ data, isLoading }: { data: ReturnType<typeof buildDas
 function ToolsSection({ section }: { section: StaffSection }) {
   const meta = sectionMeta[section];
   if (section === 'settings') {
+    const settingsTools = [
+      {
+        path: '/staff-dashboard/settings/notifications',
+        icon: BellRing,
+        title: 'Phone notifications',
+        description: 'Connect this installed app to native booking and customer alerts.',
+      },
+      {
+        path: '/staff-dashboard/booking-setup',
+        icon: CalendarDays,
+        title: 'Booking rules & hours',
+        description: 'Set open days, appointment times, deposits, pricing, and public booking rules.',
+      },
+      {
+        path: '/staff-dashboard/payment',
+        icon: CreditCard,
+        title: 'Customer payments',
+        description: 'Connect this cattery to Stripe and control customer payment requests.',
+      },
+      {
+        path: '/staff-dashboard/subscription',
+        icon: CheckCircle2,
+        title: 'CatStays subscription',
+        description: 'See the cattery plan and manage CatStays platform billing separately.',
+      },
+      {
+        path: '/staff-dashboard/smart-import',
+        icon: Sparkles,
+        title: 'Import & export data',
+        description: 'Bring in customers, cats, rooms, and bookings, or export a backup.',
+      },
+      {
+        path: '/staff-dashboard/website-editor',
+        icon: Home,
+        title: 'Business & website details',
+        description: 'Update the cattery contact details and the content shown on its public website.',
+      },
+    ];
+
     return (
-      <div className="grid gap-4 md:grid-cols-2">
-        <PagePanel>
-          <div className="flex h-full flex-col">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#C46A3A]/10">
-              <BellRing className="h-6 w-6 text-[#C46A3A]" />
-            </div>
-            <h3 className="mt-4 text-xl font-semibold text-[#0A1128]">Notifications</h3>
-            <p className="mt-2 flex-1 text-sm leading-6 text-[#4E5871]">
-              Connect this installed app to native phone alerts and see customer activity in the dashboard bell.
-            </p>
-            <Link to="/staff-dashboard/settings/notifications">
-              <Button className="mt-5 w-full rounded-lg bg-[#C46A3A] text-white hover:bg-[#A85A30]">
-                Phone notification settings
-              </Button>
-            </Link>
-          </div>
-        </PagePanel>
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {settingsTools.map(({ path, icon: Icon, title, description }) => (
+          <Link
+            key={path}
+            to={path}
+            className="group flex min-w-0 items-start gap-4 rounded-2xl border border-[#E8DED4] bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-[#C46A3A]/45 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C46A3A]"
+          >
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#C46A3A]/10">
+              <Icon className="h-6 w-6 text-[#C46A3A]" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-lg font-semibold text-[#0A1128]">{title}</span>
+              <span className="mt-1 block text-sm leading-6 text-[#4E5871]">{description}</span>
+            </span>
+            <ChevronRight className="mt-1 h-5 w-5 shrink-0 text-[#0A1128]/35 transition group-hover:translate-x-0.5 group-hover:text-[#C46A3A]" />
+          </Link>
+        ))}
       </div>
     );
   }
