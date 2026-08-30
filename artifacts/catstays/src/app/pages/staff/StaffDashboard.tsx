@@ -579,30 +579,54 @@ function RoomPlannerSection({ rooms, data, isLoading }: { rooms: Room[]; data: R
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <MetricTile label="Arriving" value={isLoading ? '-' : data.arrivalsToday.length} />
         <MetricTile label="Departing" value={isLoading ? '-' : data.departuresToday.length} />
-        <MetricTile label="Occupied" value={isLoading ? '-' : data.occupiedNow.length} tone="navy" />
+        <MetricTile label="Occupied" value={isLoading ? '-' : data.occupiedRoomIds.length} tone="navy" />
         <MetricTile label="Available" value={isLoading ? '-' : data.availableRooms} tone="green" />
       </div>
       <PagePanel>
-        <div className="mb-4 flex flex-col gap-1">
-          <h2 className="text-xl font-semibold">Room status board</h2>
-          <p className="text-sm text-[#4E5871]">Blank until this tenant adds real rooms and bookings.</p>
+        <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-xl font-semibold">Room status board</h2>
+            <p className="text-sm text-[#4E5871]">Live occupancy, assigned cats, capacity, and daily rates for this cattery.</p>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Link to="/staff-dashboard/calendar">
+              <Button variant="outline" className="w-full sm:w-auto">View calendar</Button>
+            </Link>
+            <Link to="/staff-dashboard/booking-setup">
+              <Button className="w-full bg-[#C46A3A] text-white hover:bg-[#A85A30] sm:w-auto">Manage rooms & pricing</Button>
+            </Link>
+          </div>
         </div>
         {isLoading ? (
           <p className="rounded-lg bg-[#F8F7F5] p-5 text-sm text-[#4E5871]">Loading rooms...</p>
         ) : rooms.length > 0 ? (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {rooms.map((room) => {
-              const occupied = data.occupiedNow.some((booking) => booking.room?.id === room.id);
+              const roomBookings = data.occupiedNow.filter((booking) => bookingRoomIds(booking).includes(room.id));
+              const occupied = room.is_active && roomBookings.length > 0;
               return (
-                <div key={room.id} className="rounded-lg border border-[#E8DED4] bg-[#F8F7F5] p-4">
+                <div key={room.id} className={`rounded-xl border p-4 ${room.is_active ? 'border-[#E8DED4] bg-[#F8F7F5]' : 'border-dashed border-[#D3CBC3] bg-[#F3F1EE] opacity-75'}`}>
                   <div className="mb-3 flex items-center justify-between">
                     <h3 className="font-semibold text-[#0A1128]">{room.name}</h3>
-                    <Badge className={`rounded-full ${occupied ? 'bg-[#C46A3A] text-white hover:bg-[#C46A3A]' : 'bg-[#7DAF7B]/20 text-[#2D5830] hover:bg-[#7DAF7B]/20'}`}>
-                      {occupied ? 'Occupied' : 'Available'}
+                    <Badge className={`rounded-full ${!room.is_active ? 'bg-[#E4E0DB] text-[#4E5871] hover:bg-[#E4E0DB]' : occupied ? 'bg-[#C46A3A] text-white hover:bg-[#C46A3A]' : 'bg-[#7DAF7B]/20 text-[#2D5830] hover:bg-[#7DAF7B]/20'}`}>
+                      {!room.is_active ? 'Inactive' : occupied ? 'Occupied' : 'Available'}
                     </Badge>
                   </div>
-                  <p className="text-sm text-[#4E5871]">Capacity: {room.capacity || 1} cats</p>
-                  <p className="text-sm text-[#4E5871]">${room.price_per_night || 0} per cat, per day</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#C46A3A]">{room.type || 'Room'}</p>
+                  <div className="mt-2 grid grid-cols-2 gap-2 text-sm text-[#4E5871]">
+                    <p>Capacity<br /><span className="font-semibold text-[#0A1128]">{room.capacity || 1} cats</span></p>
+                    <p>Daily rate<br /><span className="font-semibold text-[#0A1128]">${room.price_per_night || 0} per cat</span></p>
+                  </div>
+                  {roomBookings.length > 0 && (
+                    <div className="mt-4 space-y-2 border-t border-[#E8DED4] pt-3">
+                      {roomBookings.map((booking) => (
+                        <Link key={booking.id} to={`/staff-dashboard/bookings?booking=${booking.id}`} className="block rounded-lg bg-white p-3 ring-1 ring-[#E8DED4] transition hover:ring-[#C46A3A]/45">
+                          <span className="block truncate text-sm font-semibold text-[#0A1128]">{getRoomCatNames(booking, room.id)}</span>
+                          <span className="block truncate text-xs text-[#4E5871]">{booking.customer?.name || booking.guest_name || 'Customer'} · Open booking</span>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -871,16 +895,35 @@ function buildDashboardData(bookings: Booking[], rooms: Room[], today: string) {
   });
   const pending = bookings.filter((booking) => booking.status === 'pending');
   const activeRooms = rooms.filter((room) => room.is_active);
+  const occupiedRoomIds = [...new Set(occupiedNow.flatMap((booking) => bookingRoomIds(booking)))]
+    .filter((roomId) => activeRooms.some((room) => room.id === roomId));
 
   return {
     activeRooms,
     arrivalsToday,
     departuresToday,
     occupiedNow,
+    occupiedRoomIds,
     pending,
-    availableRooms: Math.max(activeRooms.length - occupiedNow.length, 0),
-    occupancyLabel: activeRooms.length > 0 ? `${occupiedNow.length}/${activeRooms.length}` : '0/0',
+    availableRooms: Math.max(activeRooms.length - occupiedRoomIds.length, 0),
+    occupancyLabel: activeRooms.length > 0 ? `${occupiedRoomIds.length}/${activeRooms.length}` : '0/0',
   };
+}
+
+function bookingRoomIds(booking: Booking) {
+  const assignedRoomIds = (booking.booking_cat_rooms || [])
+    .map((assignment) => assignment.room?.id)
+    .filter((roomId): roomId is string => Boolean(roomId));
+  if (booking.room?.id) assignedRoomIds.push(booking.room.id);
+  return [...new Set(assignedRoomIds)];
+}
+
+function getRoomCatNames(booking: Booking, roomId: string) {
+  const assignedNames = (booking.booking_cat_rooms || [])
+    .filter((assignment) => assignment.room?.id === roomId)
+    .map((assignment) => assignment.cat?.name)
+    .filter((name): name is string => Boolean(name));
+  return assignedNames.length > 0 ? assignedNames.join(', ') : getCatNames(booking);
 }
 
 // Production staff workspace. Demo data stays isolated in DashboardPreviewMock and /demo routes.
