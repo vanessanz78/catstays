@@ -13,6 +13,7 @@ import { ClientPortalEntry } from './pages/customer/ClientPortalEntry';
 import { NotificationSettings } from './pages/admin/NotificationSettings';
 import { PaymentIntegration } from './pages/admin/PaymentIntegration';
 import { AdminAccounting } from './pages/admin/Accounting';
+import { SmartImport } from './pages/admin/SmartImport';
 import { PwaLaunch } from './pages/PwaLaunch';
 
 function TenantHomeSection({ section }: { section: string }) {
@@ -50,8 +51,6 @@ const staffDashboardRoutes = [
   '/staff-dashboard/customers',
   '/staff-dashboard/calendar',
   '/staff-dashboard/room-planner',
-  '/staff-dashboard/smart-import',
-  '/staff-dashboard/smart-data-import',
   '/staff-dashboard/messages',
   '/staff-dashboard/promotions',
   '/staff-dashboard/social',
@@ -83,6 +82,8 @@ export const subdomainRouter = createBrowserRouter([
   { path: '/booking-flow', Component: BookingFlow },
   { path: '/booking', element: <TenantHomeSection section="booking" /> },
   ...staffDashboardRoutes,
+  { path: '/staff-dashboard/smart-import', Component: SmartImport },
+  { path: '/staff-dashboard/smart-data-import', Component: SmartImport },
   { path: '/staff-dashboard/payment', Component: PaymentIntegration },
   { path: '/staff-dashboard/accounting', Component: AdminAccounting },
   { path: '/staff-dashboard/bookings', Component: AdminBookings },

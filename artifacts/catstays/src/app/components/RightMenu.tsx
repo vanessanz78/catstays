@@ -46,7 +46,7 @@ const menuItems: MenuItem[] = [
   { path: '/staff-dashboard/room-planner', icon: LayoutGrid, label: 'Room Planner', description: 'Visual room grid' },
   { path: '/staff-dashboard/bookings', icon: BookOpen, label: 'Bookings', description: 'All reservations' },
   { path: '/staff-dashboard/customers', icon: Users, label: 'Customers', description: 'Contact details' },
-  { path: '/staff-dashboard/smart-import', icon: Upload, label: 'Smart Import', description: 'Import your data', badge: 'Soon' },
+  { path: '/staff-dashboard/smart-import', icon: Upload, label: 'Smart Import', description: 'Import & export CSV data' },
   { path: '/staff-dashboard/accounting', icon: CreditCard, label: 'Accounting', description: 'Payments, expenses & GST' },
   { path: '/staff-dashboard/payment', icon: CreditCard, label: 'Payment Setup', description: 'Stripe integration' },
   { path: '/staff-dashboard/messages', icon: MessageSquare, label: 'Messages', description: 'Automated messaging', badge: 'Soon' },

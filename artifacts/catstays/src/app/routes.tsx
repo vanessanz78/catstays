@@ -98,8 +98,6 @@ const tenantStaffDashboardPaths = [
   "/staff-dashboard/customers",
   "/staff-dashboard/calendar",
   "/staff-dashboard/room-planner",
-  "/staff-dashboard/smart-import",
-  "/staff-dashboard/smart-data-import",
   "/staff-dashboard/messages",
   "/staff-dashboard/promotions",
   "/staff-dashboard/social",
@@ -206,6 +204,16 @@ export const router = createBrowserRouter([
 
   // Production tenant staff workspace. Demo screens remain under /demo and older admin screens remain under /admin.
   ...tenantStaffDashboardPaths,
+  {
+    path: "/staff-dashboard/smart-import",
+    Component: SmartImport,
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
+    path: "/staff-dashboard/smart-data-import",
+    Component: SmartImport,
+    ErrorBoundary: RootErrorBoundary,
+  },
   {
     path: "/staff-dashboard/payment",
     Component: PaymentIntegration,
