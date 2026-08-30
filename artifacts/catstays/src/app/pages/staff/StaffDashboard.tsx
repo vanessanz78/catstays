@@ -26,6 +26,7 @@ import { useCustomers } from '@/hooks/useCustomers';
 import { useRooms } from '@/hooks/useRooms';
 import { RightMenu } from '../../components/RightMenu';
 import { NotificationBell } from '../../components/NotificationBell';
+import { StaffInsights } from './StaffInsights';
 
 const ROOT_DOMAIN = 'catstays.app';
 
@@ -855,6 +856,7 @@ export function StaffDashboard() {
         {section === 'customers' && <CustomersSection customers={customers} isLoading={isLoading} />}
         {section === 'calendar' && <CalendarSection data={dashboardData} isLoading={isLoading} />}
         {section === 'room-planner' && <RoomPlannerSection rooms={rooms} data={dashboardData} isLoading={isLoading} />}
+        {section === 'insights' && <StaffInsights />}
         {[
           'smart-import',
           'smart-data-import',
@@ -864,7 +866,6 @@ export function StaffDashboard() {
           'payment',
           'social',
           'cat-update-generator',
-          'insights',
           'settings',
           'booking-setup',
           'marketing',
