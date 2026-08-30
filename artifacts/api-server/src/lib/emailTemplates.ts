@@ -330,6 +330,27 @@ export function contactEnquiryHtml(opts: {
   });
 }
 
+export function customerMessageHtml(opts: {
+  customerName: string;
+  catteryName: string;
+  subject: string;
+  message: string;
+}) {
+  return catstaysEmailLayout({
+    title: opts.subject,
+    preheader: `${opts.catteryName} sent you a message.`,
+    eyebrow: 'Cattery message',
+    catteryName: opts.catteryName,
+    intro: `Hi ${firstName(opts.customerName)},`,
+    cards: [{
+      title: 'Message',
+      html: `<p style="margin:0;font:15px/1.75 Arial,sans-serif;color:${colors.ink};">${textToHtml(opts.message)}</p>`,
+      tone: 'cream',
+    }],
+    footerNote: `Reply to this email to contact ${opts.catteryName} directly.`,
+  });
+}
+
 export function bookingRequestOwnerHtml(opts: {
   catteryName: string;
   customerName: string;

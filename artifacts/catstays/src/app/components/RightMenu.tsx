@@ -49,7 +49,7 @@ const menuItems: MenuItem[] = [
   { path: '/staff-dashboard/smart-import', icon: Upload, label: 'Smart Import', description: 'Import & export CSV data' },
   { path: '/staff-dashboard/accounting', icon: CreditCard, label: 'Accounting', description: 'Payments, expenses & GST' },
   { path: '/staff-dashboard/payment', icon: CreditCard, label: 'Payment Setup', description: 'Stripe integration' },
-  { path: '/staff-dashboard/messages', icon: MessageSquare, label: 'Messages', description: 'Automated messaging', badge: 'Soon' },
+  { path: '/staff-dashboard/messages', icon: MessageSquare, label: 'Messages', description: 'Email & customer history' },
   { path: '/staff-dashboard/promotions', icon: Megaphone, label: 'Promotions', description: 'Special offers', badge: 'Soon' },
   { path: '/staff-dashboard/social', icon: Share2, label: 'Social Media', description: 'Post generator', badge: 'Soon' },
   { path: '/staff-dashboard/cat-update-generator', icon: Camera, label: 'Cat Updates', description: 'Photo updates', badge: 'Soon' },

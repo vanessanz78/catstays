@@ -26,6 +26,15 @@ export interface ContactEnquiryPayload {
   catteryEmail: string;
 }
 
+export interface CustomerMessagePayload {
+  catteryId: string;
+  customerId: string;
+  bookingId?: string;
+  draftId?: string;
+  subject: string;
+  body: string;
+}
+
 async function post(path: string, body: object): Promise<{ success: boolean; id?: string; error?: string }> {
   try {
     const { data } = await supabase.auth.getSession();
@@ -50,6 +59,10 @@ export function sendBookingConfirmation(payload: BookingConfirmationPayload) {
 
 export function sendContactEnquiry(payload: ContactEnquiryPayload) {
   return post('/email/contact-enquiry', payload);
+}
+
+export function sendCustomerMessage(payload: CustomerMessagePayload) {
+  return post('/email/customer-message', payload);
 }
 
 export function sendTestEmail(to: string) {
