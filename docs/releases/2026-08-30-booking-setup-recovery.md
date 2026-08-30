@@ -61,3 +61,7 @@
 7. Confirm the duration and price use calendar days including arrival and departure.
 8. At phone width, confirm cards, day buttons, time fields, rooms, and blackout rows fit without sideways scrolling.
 9. Set a deposit rule and confirm a staff payment request uses that configured fixed amount or percentage; do not complete a real Stripe charge during UAT.
+
+## Live schema follow-up
+
+The first live Deloraine read-only UAT discovered that production still had the older `availability_rules` shape (`starts_on`, `ends_on`, and `is_active`) while the repository's foundational migration and recovered page used `starts_at`, `ends_at`, and `status`. No Deloraine data had been changed. A follow-up compatibility migration adds the current columns without dropping the legacy fields, backfills any existing values, constrains status, and adds an active-range index. This makes the migration safe for both older production databases and fresh databases where the current columns already exist.
