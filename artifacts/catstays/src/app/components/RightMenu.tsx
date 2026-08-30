@@ -56,7 +56,7 @@ const menuItems: MenuItem[] = [
   { path: '/staff-dashboard/booking-setup', icon: Settings, label: 'Booking Setup', description: 'Rules, times & deposits' },
   { path: '/staff-dashboard/marketing', icon: WandSparkles, label: 'Marketing Studio', description: 'Editable marketing materials' },
   { path: '/staff-dashboard/insights', icon: BarChart3, label: 'Insights', description: 'Analytics & reports' },
-  { path: '/staff-dashboard/subscription', icon: Crown, label: 'Subscription', description: 'Manage your plan', badge: 'Soon' },
+  { path: '/staff-dashboard/subscription', icon: Crown, label: 'Subscription', description: 'Manage your plan' },
   { path: '/staff-dashboard/settings', icon: Settings, label: 'Settings', description: 'Configure platform' },
 ];
 

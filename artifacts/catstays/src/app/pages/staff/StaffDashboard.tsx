@@ -27,6 +27,7 @@ import { useRooms } from '@/hooks/useRooms';
 import { RightMenu } from '../../components/RightMenu';
 import { NotificationBell } from '../../components/NotificationBell';
 import { StaffInsights } from './StaffInsights';
+import { StaffSubscription } from './StaffSubscription';
 
 const ROOT_DOMAIN = 'catstays.app';
 
@@ -857,6 +858,7 @@ export function StaffDashboard() {
         {section === 'calendar' && <CalendarSection data={dashboardData} isLoading={isLoading} />}
         {section === 'room-planner' && <RoomPlannerSection rooms={rooms} data={dashboardData} isLoading={isLoading} />}
         {section === 'insights' && <StaffInsights />}
+        {section === 'subscription' && <StaffSubscription />}
         {[
           'smart-import',
           'smart-data-import',
@@ -869,7 +871,6 @@ export function StaffDashboard() {
           'settings',
           'booking-setup',
           'marketing',
-          'subscription',
         ].includes(section) && <ToolsSection section={section} />}
       </main>
       </div>
