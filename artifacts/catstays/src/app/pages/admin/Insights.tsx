@@ -134,7 +134,7 @@ export function AdminInsights() {
               {nextWeekOccupancy.total > 0 ? (
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm" style={{ color: '#2d3e2f' }}>
-                    <span>Rooms booked: {nextWeekOccupancy.booked} / {nextWeekOccupancy.total}</span>
+                    <span>Cats booked: {nextWeekOccupancy.booked} / {nextWeekOccupancy.total} active spaces</span>
                     <span className="font-semibold">{nextWeekOccupancy.percentage}%</span>
                   </div>
                   <div className="w-full rounded-full h-3" style={{ backgroundColor: '#F6F4EF' }}>
