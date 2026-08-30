@@ -62,19 +62,19 @@ function money(value: string) {
 
 function positiveInteger(value: string, fallback: number) {
   if (!value) return fallback;
-  const parsed = Number.parseInt(value, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : Number.NaN;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : Number.NaN;
 }
 
 export function normaliseImportDate(value: string) {
   const trimmed = value.trim();
   if (!trimmed) return '';
   const iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
-  if (iso) return trimmed;
   const local = /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/.exec(trimmed);
-  if (!local) return '';
-  const [, day, month, year] = local;
-  const candidate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  if (!iso && !local) return '';
+  const candidate = iso
+    ? trimmed
+    : `${local![3]}-${local![2].padStart(2, '0')}-${local![1].padStart(2, '0')}`;
   const parsed = new Date(`${candidate}T00:00:00Z`);
   return Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== candidate ? '' : candidate;
 }
@@ -221,12 +221,16 @@ function previewBooking(row: Record<string, string>, rowNumber: number, context:
   if (checkIn && checkOut && checkOut < checkIn) errors.push('Check-out date is before check-in date.');
   if (!Number.isFinite(total) || total < 0) errors.push('Total amount must be zero or more.');
   if (!cats.length) warnings.push('No cat names were supplied.');
+  const catCountRaw = cell(row, ['number_of_cats', 'cat_count', 'cats_count']);
+  const numberOfCats = cats.length || positiveInteger(catCountRaw, 1);
+  if (!cats.length && catCountRaw && !Number.isFinite(numberOfCats)) errors.push('Number of cats must be a whole number greater than zero.');
   const checkInTimeRaw = cell(row, ['check_in_time', 'checkin_time', 'arrival_time']);
   const checkOutTimeRaw = cell(row, ['check_out_time', 'checkout_time', 'departure_time']);
   const checkInTime = normaliseImportTime(checkInTimeRaw);
   const checkOutTime = normaliseImportTime(checkOutTimeRaw);
   if (checkInTimeRaw && !checkInTime) errors.push('Check-in time is invalid.');
   if (checkOutTimeRaw && !checkOutTime) errors.push('Check-out time is invalid.');
+  if (!checkInTimeRaw || !checkOutTimeRaw) warnings.push('No complete arrival/departure time was supplied; add the visit times after import.');
   const duplicateKey = customer && room && checkIn && checkOut ? `${customer.id}|${room.id}|${checkIn}|${checkOut}` : '';
   const duplicate = !!duplicateKey && (context.bookingKeys || []).includes(duplicateKey);
   if (duplicate) warnings.push('A matching booking already exists for this customer, room, and date range.');
@@ -254,7 +258,7 @@ function previewBooking(row: Record<string, string>, rowNumber: number, context:
       guest_email: customer?.email || null,
       guest_phone: customer?.phone || null,
       cat_names: cats.join(', ') || null,
-      number_of_cats: cats.length || positiveInteger(cell(row, ['number_of_cats', 'cat_count', 'cats_count']), 1),
+      number_of_cats: Number.isFinite(numberOfCats) ? numberOfCats : 1,
       room_arrangement: cell(row, ['room_arrangement']).toLowerCase() === 'separate' ? 'separate' : 'shared',
     },
     errors,

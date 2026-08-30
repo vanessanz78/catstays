@@ -11,6 +11,7 @@ const context = {
 test('normalises New Zealand style dates and common booking times', () => {
   assert.equal(normaliseImportDate('1/9/2026'), '2026-09-01');
   assert.equal(normaliseImportDate('2026-09-03'), '2026-09-03');
+  assert.equal(normaliseImportDate('2026-13-40'), '');
   assert.equal(normaliseImportDate('31/2/2026'), '');
   assert.equal(normaliseImportTime('9:15 am'), '09:15:00');
   assert.equal(normaliseImportTime('4:45pm'), '16:45:00');
