@@ -1,4 +1,4 @@
-import { type CSSProperties, type ImgHTMLAttributes, type MouseEvent, useRef, useState } from 'react';
+import { type CSSProperties, type FormEvent, type ImgHTMLAttributes, type MouseEvent, useRef, useState } from 'react';
 import {
   Award,
   CalendarCheck,
@@ -13,6 +13,7 @@ import {
   Home,
   Instagram,
   LogIn,
+  Loader2,
   Mail,
   MapPin,
   MessageSquare,
@@ -34,6 +35,7 @@ import {
 } from '../../lib/previewTemplates';
 import { sourceImageIdentityKey } from '../../lib/sourceUnderstanding';
 import { ChatWidget } from '../../components/ChatWidget';
+import { sendContactEnquiry } from '@/utils/email';
 
 interface CatstaysTemplateSiteProps {
   data: Record<string, any>;
@@ -73,6 +75,7 @@ export function CatstaysTemplateSite({
 }: CatstaysTemplateSiteProps) {
   const template = normalizePreviewTemplateId(templateId || data.selectedTemplate || 'conversion-focus');
   const content = buildCatstaysTemplateContent(data);
+  const catteryId = typeof data.catteryId === 'string' ? data.catteryId : '';
   const [previewNoticeKind, setPreviewNoticeKind] = useState<PreviewNoticeKind | null>(null);
 
   const handlePreviewBookingAction = (event: MouseEvent<HTMLElement>) => {
@@ -99,10 +102,8 @@ export function CatstaysTemplateSite({
     if (embedded) setPreviewNoticeKind('booking');
   };
 
-  const handlePreviewContactAction = (event: MouseEvent<HTMLElement>) => {
-    if (!embedded) return;
-    event.preventDefault();
-    setPreviewNoticeKind('contact');
+  const handlePreviewContactAction = () => {
+    if (embedded) setPreviewNoticeKind('contact');
   };
 
   const handlePreviewAnchorClick = (event: MouseEvent<HTMLAnchorElement>) => {
@@ -115,12 +116,12 @@ export function CatstaysTemplateSite({
   };
 
   if (template === 'editorial-guide') {
-    return <EditorialTemplate content={content} embedded={embedded} previewDevice={previewDevice} onPreviewAnchorClick={handlePreviewAnchorClick} onPreviewBookingAction={handlePreviewBookingAction} onPreviewBookingInteraction={handlePreviewBookingInteraction} onPreviewContactAction={handlePreviewContactAction} previewNoticeKind={previewNoticeKind} onDismissPreviewNotice={() => setPreviewNoticeKind(null)} />;
+    return <EditorialTemplate content={content} catteryId={catteryId} embedded={embedded} previewDevice={previewDevice} onPreviewAnchorClick={handlePreviewAnchorClick} onPreviewBookingAction={handlePreviewBookingAction} onPreviewBookingInteraction={handlePreviewBookingInteraction} onPreviewContactAction={handlePreviewContactAction} previewNoticeKind={previewNoticeKind} onDismissPreviewNotice={() => setPreviewNoticeKind(null)} />;
   }
   if (template === 'modern-showcase') {
-    return <ShowcaseTemplate content={content} embedded={embedded} previewDevice={previewDevice} onPreviewAnchorClick={handlePreviewAnchorClick} onPreviewBookingAction={handlePreviewBookingAction} onPreviewBookingInteraction={handlePreviewBookingInteraction} onPreviewContactAction={handlePreviewContactAction} previewNoticeKind={previewNoticeKind} onDismissPreviewNotice={() => setPreviewNoticeKind(null)} />;
+    return <ShowcaseTemplate content={content} catteryId={catteryId} embedded={embedded} previewDevice={previewDevice} onPreviewAnchorClick={handlePreviewAnchorClick} onPreviewBookingAction={handlePreviewBookingAction} onPreviewBookingInteraction={handlePreviewBookingInteraction} onPreviewContactAction={handlePreviewContactAction} previewNoticeKind={previewNoticeKind} onDismissPreviewNotice={() => setPreviewNoticeKind(null)} />;
   }
-  return <FocusTemplate content={content} embedded={embedded} previewDevice={previewDevice} onPreviewAnchorClick={handlePreviewAnchorClick} onPreviewBookingAction={handlePreviewBookingAction} onPreviewBookingInteraction={handlePreviewBookingInteraction} onPreviewContactAction={handlePreviewContactAction} previewNoticeKind={previewNoticeKind} onDismissPreviewNotice={() => setPreviewNoticeKind(null)} />;
+  return <FocusTemplate content={content} catteryId={catteryId} embedded={embedded} previewDevice={previewDevice} onPreviewAnchorClick={handlePreviewAnchorClick} onPreviewBookingAction={handlePreviewBookingAction} onPreviewBookingInteraction={handlePreviewBookingInteraction} onPreviewContactAction={handlePreviewContactAction} previewNoticeKind={previewNoticeKind} onDismissPreviewNotice={() => setPreviewNoticeKind(null)} />;
 }
 
 function templateRootStyle(content: ReturnType<typeof buildCatstaysTemplateContent>): CSSProperties {
@@ -279,6 +280,7 @@ function shortNavLabel(section: SourcePreviewSection) {
 
 function FocusTemplate({
   content,
+  catteryId,
   embedded,
   previewDevice,
   onPreviewAnchorClick,
@@ -289,12 +291,13 @@ function FocusTemplate({
   onDismissPreviewNotice,
 }: {
   content: TemplateContent;
+  catteryId: string;
   embedded: boolean;
   previewDevice: PreviewDevice;
   onPreviewAnchorClick: (event: MouseEvent<HTMLAnchorElement>) => void;
   onPreviewBookingAction: (event: MouseEvent<HTMLElement>) => void;
   onPreviewBookingInteraction: () => void;
-  onPreviewContactAction: (event: MouseEvent<HTMLElement>) => void;
+  onPreviewContactAction: () => void;
   previewNoticeKind: PreviewNoticeKind | null;
   onDismissPreviewNotice: () => void;
 }) {
@@ -368,9 +371,9 @@ function FocusTemplate({
         )}
         <LocationSection content={content} />
         <VirtualTourSection content={content} />
-        <ContactFormSection content={content} onPreviewContactAction={onPreviewContactAction} />
+        <ContactFormSection content={content} catteryId={catteryId} embedded={embedded} onPreviewContactAction={onPreviewContactAction} />
       </main>
-      <TemplateFooter content={content} dark onPreviewAnchorClick={onPreviewAnchorClick} />
+      <TemplateFooter content={content} dark embedded={embedded} onPreviewAnchorClick={onPreviewAnchorClick} />
       <ChatWidget accentColor={content.theme.accentColor} businessName={content.business.name} knowledge={content} />
     </div>
   );
@@ -378,6 +381,7 @@ function FocusTemplate({
 
 function EditorialTemplate({
   content,
+  catteryId,
   embedded,
   previewDevice,
   onPreviewAnchorClick,
@@ -388,12 +392,13 @@ function EditorialTemplate({
   onDismissPreviewNotice,
 }: {
   content: TemplateContent;
+  catteryId: string;
   embedded: boolean;
   previewDevice: PreviewDevice;
   onPreviewAnchorClick: (event: MouseEvent<HTMLAnchorElement>) => void;
   onPreviewBookingAction: (event: MouseEvent<HTMLElement>) => void;
   onPreviewBookingInteraction: () => void;
-  onPreviewContactAction: (event: MouseEvent<HTMLElement>) => void;
+  onPreviewContactAction: () => void;
   previewNoticeKind: PreviewNoticeKind | null;
   onDismissPreviewNotice: () => void;
 }) {
@@ -451,9 +456,9 @@ function EditorialTemplate({
         )}
         <LocationSection content={content} />
         <VirtualTourSection content={content} />
-        <ContactFormSection content={content} onPreviewContactAction={onPreviewContactAction} />
+        <ContactFormSection content={content} catteryId={catteryId} embedded={embedded} onPreviewContactAction={onPreviewContactAction} />
       </main>
-      <TemplateFooter content={content} dark onPreviewAnchorClick={onPreviewAnchorClick} />
+      <TemplateFooter content={content} dark embedded={embedded} onPreviewAnchorClick={onPreviewAnchorClick} />
       <ChatWidget accentColor={content.theme.accentColor} businessName={content.business.name} knowledge={content} />
     </div>
   );
@@ -461,6 +466,7 @@ function EditorialTemplate({
 
 function ShowcaseTemplate({
   content,
+  catteryId,
   embedded,
   previewDevice,
   onPreviewAnchorClick,
@@ -471,12 +477,13 @@ function ShowcaseTemplate({
   onDismissPreviewNotice,
 }: {
   content: TemplateContent;
+  catteryId: string;
   embedded: boolean;
   previewDevice: PreviewDevice;
   onPreviewAnchorClick: (event: MouseEvent<HTMLAnchorElement>) => void;
   onPreviewBookingAction: (event: MouseEvent<HTMLElement>) => void;
   onPreviewBookingInteraction: () => void;
-  onPreviewContactAction: (event: MouseEvent<HTMLElement>) => void;
+  onPreviewContactAction: () => void;
   previewNoticeKind: PreviewNoticeKind | null;
   onDismissPreviewNotice: () => void;
 }) {
@@ -516,9 +523,9 @@ function ShowcaseTemplate({
         )}
         <LocationSection content={content} />
         <VirtualTourSection content={content} />
-        <ContactFormSection content={content} onPreviewContactAction={onPreviewContactAction} />
+        <ContactFormSection content={content} catteryId={catteryId} embedded={embedded} onPreviewContactAction={onPreviewContactAction} />
       </main>
-      <TemplateFooter content={content} dark onPreviewAnchorClick={onPreviewAnchorClick} />
+      <TemplateFooter content={content} dark embedded={embedded} onPreviewAnchorClick={onPreviewAnchorClick} />
       <ChatWidget accentColor={content.theme.accentColor} businessName={content.business.name} knowledge={content} />
     </div>
   );
@@ -1165,11 +1172,59 @@ function VirtualTourSection({ content }: { content: ReturnType<typeof buildCatst
 
 function ContactFormSection({
   content,
+  catteryId,
+  embedded,
   onPreviewContactAction,
 }: {
   content: ReturnType<typeof buildCatstaysTemplateContent>;
-  onPreviewContactAction: (event: MouseEvent<HTMLElement>) => void;
+  catteryId: string;
+  embedded: boolean;
+  onPreviewContactAction: () => void;
 }) {
+  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', phone: '', checkIn: '', checkOut: '', message: '' });
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState('');
+
+  const update = (field: keyof typeof form, value: string) => {
+    setForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const submitEnquiry = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (embedded) {
+      onPreviewContactAction();
+      return;
+    }
+    if (!catteryId || !content.footer.email) {
+      setError('This cattery is still loading its contact details. Please try again or use the phone number shown here.');
+      return;
+    }
+
+    setSending(true);
+    setError('');
+    const customerName = [form.firstName.trim(), form.lastName.trim()].filter(Boolean).join(' ');
+    const stayDetails = [
+      form.checkIn ? `Preferred check-in: ${form.checkIn}` : '',
+      form.checkOut ? `Preferred check-out: ${form.checkOut}` : '',
+    ].filter(Boolean).join('\n');
+    const result = await sendContactEnquiry({
+      catteryId,
+      customerName,
+      customerEmail: form.email.trim(),
+      phone: form.phone.trim() || undefined,
+      message: [form.message.trim(), stayDetails].filter(Boolean).join('\n\n'),
+      catteryName: content.business.name,
+      catteryEmail: content.footer.email,
+    });
+    setSending(false);
+    if (!result.success) {
+      setError(result.error || 'Your enquiry could not be sent. Please try again or call the cattery.');
+      return;
+    }
+    setSent(true);
+  };
+
   return (
     <section id="contact" className="scroll-mt-28 bg-[#f8f5ef] px-6 py-16">
       <div className="catstays-stack mx-auto grid max-w-[1400px] gap-8 md:grid-cols-[0.85fr_1.15fr]">
@@ -1198,44 +1253,61 @@ function ContactFormSection({
             ) : null}
           </div>
         </div>
-        <form className="rounded-md border border-[#222]/10 bg-white p-8 shadow-sm">
+        <form onSubmit={submitEnquiry} className="rounded-md border border-[#222]/10 bg-white p-8 shadow-sm">
           <div className="mb-5 rounded-md border border-[#b58b4a]/30 bg-[#f8f5ef] p-4 text-sm leading-6 text-[#444]">
-            Preview enquiries are not sent yet. Once live, messages are captured in the CatStays dashboard inbox and can also notify the business email.
+            {embedded
+              ? 'This preview does not send messages. On the published site, enquiries are emailed to the cattery, saved in the dashboard inbox, and can alert staff.'
+              : `Send a question to ${content.business.name}. Your message will also be saved in their CatStays inbox so the team can reply.`}
           </div>
-          <div className="catstays-form-grid grid gap-4 sm:grid-cols-2">
-            <label className="block text-sm font-bold text-[#222]">
-              First name
-              <input className="mt-2 h-12 w-full rounded-md border border-[#222]/15 px-4 font-sans text-sm" placeholder="Your first name" />
-            </label>
-            <label className="block text-sm font-bold text-[#222]">
-              Last name
-              <input className="mt-2 h-12 w-full rounded-md border border-[#222]/15 px-4 font-sans text-sm" placeholder="Your last name" />
-            </label>
-            <label className="block text-sm font-bold text-[#222]">
-              Email
-              <input className="mt-2 h-12 w-full rounded-md border border-[#222]/15 px-4 font-sans text-sm" placeholder="you@example.com" type="email" />
-            </label>
-            <label className="block text-sm font-bold text-[#222]">
-              Phone
-              <input className="mt-2 h-12 w-full rounded-md border border-[#222]/15 px-4 font-sans text-sm" placeholder="Your phone number" />
-            </label>
-            <label className="block text-sm font-bold text-[#222]">
-              Check-in
-              <input className="mt-2 h-12 w-full rounded-md border border-[#222]/15 px-4 font-sans text-sm" type="date" />
-            </label>
-            <label className="block text-sm font-bold text-[#222]">
-              Check-out
-              <input className="mt-2 h-12 w-full rounded-md border border-[#222]/15 px-4 font-sans text-sm" type="date" />
-            </label>
-          </div>
-          <label className="mt-4 block text-sm font-bold text-[#222]">
-            Message
-            <textarea className="mt-2 min-h-32 w-full rounded-md border border-[#222]/15 px-4 py-3 font-sans text-sm" placeholder="Tell us about your cat and the care they need." />
-          </label>
-          <button type="button" onClick={onPreviewContactAction} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-[#0A1128] px-6 py-4 text-sm font-bold uppercase tracking-[0.1em] text-white">
-            <MessageSquare className="h-4 w-4" />
-            Send enquiry
-          </button>
+
+          {sent ? (
+            <div role="status" className="rounded-md border border-emerald-200 bg-emerald-50 p-6 text-center text-emerald-900">
+              <CheckCircle className="mx-auto h-10 w-10" />
+              <h3 className="mt-3 text-xl font-semibold">Enquiry sent</h3>
+              <p className="mt-2 text-sm leading-6">Thanks. {content.business.name} has received your message and will reply using the contact details you provided.</p>
+              <button type="button" onClick={() => { setSent(false); setForm({ firstName: '', lastName: '', email: '', phone: '', checkIn: '', checkOut: '', message: '' }); }} className="mt-4 text-sm font-semibold underline underline-offset-4">
+                Send another enquiry
+              </button>
+            </div>
+          ) : (
+            <>
+              {error ? <p role="alert" className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
+              <div className="catstays-form-grid grid gap-4 sm:grid-cols-2">
+                <label className="block text-sm font-bold text-[#222]">
+                  First name
+                  <input required autoComplete="given-name" value={form.firstName} onChange={(event) => update('firstName', event.target.value)} className="mt-2 h-12 w-full rounded-md border border-[#222]/15 px-4 font-sans text-sm" />
+                </label>
+                <label className="block text-sm font-bold text-[#222]">
+                  Last name
+                  <input required autoComplete="family-name" value={form.lastName} onChange={(event) => update('lastName', event.target.value)} className="mt-2 h-12 w-full rounded-md border border-[#222]/15 px-4 font-sans text-sm" />
+                </label>
+                <label className="block text-sm font-bold text-[#222]">
+                  Email
+                  <input required autoComplete="email" value={form.email} onChange={(event) => update('email', event.target.value)} className="mt-2 h-12 w-full rounded-md border border-[#222]/15 px-4 font-sans text-sm" type="email" />
+                </label>
+                <label className="block text-sm font-bold text-[#222]">
+                  Phone <span className="font-normal text-[#666]">(optional)</span>
+                  <input autoComplete="tel" value={form.phone} onChange={(event) => update('phone', event.target.value)} className="mt-2 h-12 w-full rounded-md border border-[#222]/15 px-4 font-sans text-sm" type="tel" />
+                </label>
+                <label className="block text-sm font-bold text-[#222]">
+                  Preferred check-in <span className="font-normal text-[#666]">(optional)</span>
+                  <input value={form.checkIn} onChange={(event) => update('checkIn', event.target.value)} className="mt-2 h-12 w-full rounded-md border border-[#222]/15 px-4 font-sans text-sm" type="date" />
+                </label>
+                <label className="block text-sm font-bold text-[#222]">
+                  Preferred check-out <span className="font-normal text-[#666]">(optional)</span>
+                  <input value={form.checkOut} onChange={(event) => update('checkOut', event.target.value)} className="mt-2 h-12 w-full rounded-md border border-[#222]/15 px-4 font-sans text-sm" type="date" />
+                </label>
+              </div>
+              <label className="mt-4 block text-sm font-bold text-[#222]">
+                Message
+                <textarea required value={form.message} onChange={(event) => update('message', event.target.value)} className="mt-2 min-h-32 w-full rounded-md border border-[#222]/15 px-4 py-3 font-sans text-sm" />
+              </label>
+              <button type={embedded ? 'button' : 'submit'} onClick={embedded ? onPreviewContactAction : undefined} disabled={sending} className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-[#0A1128] px-6 py-4 text-sm font-bold uppercase tracking-[0.1em] text-white disabled:cursor-wait disabled:opacity-65">
+                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
+                {sending ? 'Sending…' : 'Send enquiry'}
+              </button>
+            </>
+          )}
         </form>
       </div>
     </section>
@@ -1481,10 +1553,12 @@ function CatstaysPreviewDeviceStyles() {
 function TemplateFooter({
   content,
   dark = false,
+  embedded,
   onPreviewAnchorClick,
 }: {
   content: ReturnType<typeof buildCatstaysTemplateContent>;
   dark?: boolean;
+  embedded: boolean;
   onPreviewAnchorClick?: (event: MouseEvent<HTMLAnchorElement>) => void;
 }) {
   const linkClass = `block underline-offset-4 hover:underline ${dark ? 'text-white/75 hover:text-white' : 'text-[#444] hover:text-[#222]'}`;
@@ -1533,10 +1607,16 @@ function TemplateFooter({
         <div>
           <h4 className="mb-4 text-xs font-bold uppercase tracking-[0.16em]">Hours</h4>
           <p className="text-sm leading-7">{content.footer.hours}</p>
-          <a href="/login" className={`mt-6 inline-flex items-center gap-2 rounded-md border px-4 py-3 text-sm font-semibold ${dark ? 'border-white/20 text-white/80 hover:border-white/45 hover:text-white' : 'border-[#222]/10 text-[#222] hover:border-[#222]/30'}`}>
-            <LogIn className="h-4 w-4" />
-            Host Login
-          </a>
+          <div className="mt-6 flex flex-col gap-2">
+            <a href="/client-portal" onClick={embedded ? (event) => event.preventDefault() : undefined} className={`inline-flex items-center justify-center gap-2 rounded-md border px-4 py-3 text-sm font-semibold ${dark ? 'border-white/20 text-white/80 hover:border-white/45 hover:text-white' : 'border-[#222]/10 text-[#222] hover:border-[#222]/30'}`}>
+              <Users className="h-4 w-4" />
+              Client Login
+            </a>
+            <a href="/login" onClick={embedded ? (event) => event.preventDefault() : undefined} className={`inline-flex items-center justify-center gap-2 rounded-md border px-4 py-3 text-sm font-semibold ${dark ? 'border-white/20 text-white/80 hover:border-white/45 hover:text-white' : 'border-[#222]/10 text-[#222] hover:border-[#222]/30'}`}>
+              <LogIn className="h-4 w-4" />
+              Host Login
+            </a>
+          </div>
         </div>
       </div>
       <div className={`mt-10 border-t pt-6 text-center text-xs ${dark ? 'border-white/15 text-white/55' : 'border-[#222]/10 text-[#666]'}`}>
