@@ -27,6 +27,12 @@ This CatStays platform subscription is distinct from a cattery's own Stripe conn
 3. Open a GitHub pull request, record an approving review, and merge with the exact tested head SHA.
 4. Reset Replit to the exact GitHub main merge SHA, repeat app/API verification, republish, and prove the wrapper commit has that merge as its parent with no source diff.
 
+### Publication recovery
+
+The first publication of the merged Subscription change failed during Replit's automatic `pnpm install`, before the application build. Replit's non-interactive runner detected that the generated `node_modules` tree needed replacement after the Stripe SDK upgrade and stopped with `ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY` because it could not display a confirmation prompt.
+
+`confirmModulesPurge: false` is now declared in the pnpm workspace configuration. This permits pnpm to replace only the generated, gitignored dependency tree in non-interactive deployments. It does not weaken the existing minimum release age or build-script allowlist supply-chain controls. The follow-up release must prove a successful Replit publication before live UAT.
+
 ## UAT boundaries
 
 Safe automated UAT is read-only:
