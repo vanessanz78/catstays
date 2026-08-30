@@ -35,6 +35,7 @@ type PlatformCattery = {
   activeRoomsCount: number;
   pendingBookingsCount: number;
   upcomingBookingsCount: number;
+  websiteAvailable: boolean;
   published: boolean;
   payment: {
     connected: boolean;
@@ -47,6 +48,7 @@ type PlatformOverview = {
   administrator: { email: string | null; role: string };
   summary: {
     catteries: number;
+    websiteAddresses: number;
     publishedWebsites: number;
     bookings: number;
     customers: number;
@@ -151,7 +153,7 @@ export function PlatformDashboard() {
           <div>
             <p className="text-sm text-white/65">Cross-tenant operations</p>
             <h2 className="mt-1 font-serif text-3xl font-semibold">All catteries at a glance</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-white/70">Monitor every CatStays subdomain, publishing state, bookings, customers, rooms, and Stripe connection without opening tenant payment secrets.</p>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-white/70">Monitor every CatStays subdomain, website availability, bookings, customers, rooms, and Stripe connection without opening tenant payment secrets.</p>
           </div>
           {overview && (
             <div className="mt-5 rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-sm sm:mt-0 sm:text-right">
@@ -172,7 +174,7 @@ export function PlatformDashboard() {
             <section className="grid grid-cols-2 gap-3 lg:grid-cols-6">
               {[
                 { label: 'Catteries', value: overview.summary.catteries, icon: Building2 },
-                { label: 'Published', value: overview.summary.publishedWebsites, icon: Globe2 },
+                { label: 'Websites', value: overview.summary.websiteAddresses, icon: Globe2 },
                 { label: 'Bookings', value: overview.summary.bookings, icon: CalendarDays },
                 { label: 'Pending', value: overview.summary.pendingBookings, icon: CheckCircle2 },
                 { label: 'Customers', value: overview.summary.customers, icon: Users },
@@ -195,7 +197,7 @@ export function PlatformDashboard() {
                     <article key={cattery.id} className="rounded-2xl border border-[#E8DED4] bg-[#F8F7F5] p-4 sm:p-5">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div className="min-w-0"><h3 className="truncate text-xl font-semibold">{cattery.name}</h3><p className="mt-1 break-all text-sm text-[#4E5871]">{cattery.custom_domain || (cattery.slug ? `${cattery.slug}.catstays.app` : 'Subdomain not assigned')}</p>{cattery.email && <p className="mt-1 truncate text-xs text-[#768098]">{cattery.email}</p>}</div>
-                        <div className="flex flex-wrap gap-2"><Badge variant="outline" className={cattery.published ? 'border-green-200 bg-green-50 text-green-700' : 'border-amber-200 bg-amber-50 text-amber-800'}>{cattery.published ? 'Published' : 'Not published'}</Badge><Badge variant="outline">{readableStatus(cattery.subscription_status)}</Badge></div>
+                        <div className="flex flex-wrap gap-2"><Badge variant="outline" className={cattery.websiteAvailable ? 'border-green-200 bg-green-50 text-green-700' : 'border-amber-200 bg-amber-50 text-amber-800'}>{cattery.websiteAvailable ? 'Website available' : 'No website address'}</Badge><Badge variant="outline">{readableStatus(cattery.subscription_status)}</Badge></div>
                       </div>
 
                       <dl className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-5">
