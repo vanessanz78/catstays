@@ -128,6 +128,8 @@ export function MarketingStudio({ businessData, promotions = [] }: MarketingStud
     accentColor: businessData.accentColor || '#C46A3A',
     promotionId: '',
   }));
+  const [exporting, setExporting] = useState(false);
+  const [exportMessage, setExportMessage] = useState('');
 
   useEffect(() => {
     setDraft((current) => {
@@ -231,21 +233,36 @@ export function MarketingStudio({ businessData, promotions = [] }: MarketingStud
   };
 
   const downloadAsset = async () => {
-    const canvas = document.createElement('canvas');
-    canvas.width = template.width;
-    canvas.height = template.height;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-    await drawMarketingCanvas(ctx, canvas, draft, template, businessData, selectedPromotion);
-    canvas.toBlob((blob) => {
-      if (!blob) return;
+    if (exporting) return;
+    setExporting(true);
+    setExportMessage('');
+
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = template.width;
+      canvas.height = template.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Canvas is unavailable');
+
+      await drawMarketingCanvas(ctx, canvas, draft, template, businessData, selectedPromotion);
+      const blob = await canvasToPngBlob(canvas);
+      if (!blob) throw new Error('PNG export returned no file');
+
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.download = `${businessData.subdomain || 'catstays'}-${template.id}.png`;
+      document.body.appendChild(link);
       link.click();
-      URL.revokeObjectURL(url);
-    }, 'image/png');
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setExportMessage('PNG downloaded.');
+    } catch (error) {
+      console.warn('[CatStays] Marketing PNG export failed', error);
+      setExportMessage('PNG could not be downloaded. Try another photo and retry.');
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
@@ -270,10 +287,19 @@ export function MarketingStudio({ businessData, promotions = [] }: MarketingStud
             <Send className="h-4 w-4" />
             Share Pack
           </Button>
-          <Button onClick={downloadAsset} className="gap-2 rounded-xl bg-[#C46A3A] text-white hover:bg-[#A85A30]">
+          <Button
+            onClick={downloadAsset}
+            disabled={exporting}
+            className="gap-2 rounded-xl bg-[#C46A3A] text-white hover:bg-[#A85A30] disabled:cursor-wait disabled:opacity-70"
+          >
             <Download className="h-4 w-4" />
-            Download PNG
+            {exporting ? 'Preparing PNG...' : 'Download PNG'}
           </Button>
+          {exportMessage && (
+            <p role="status" aria-live="polite" className="w-full text-right text-sm font-medium text-[#0A1128]/65">
+              {exportMessage}
+            </p>
+          )}
         </div>
       </header>
 
@@ -818,10 +844,33 @@ function hexToRgba(hex: string, alpha: number) {
 function loadImage(url: string): Promise<HTMLImageElement | null> {
   return new Promise((resolve) => {
     const img = new Image();
+    let settled = false;
+    const finish = (value: HTMLImageElement | null) => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeout);
+      resolve(value);
+    };
+    const timeout = window.setTimeout(() => finish(null), 5000);
     img.crossOrigin = 'anonymous';
-    img.onload = () => resolve(img);
-    img.onerror = () => resolve(null);
+    img.onload = () => finish(img);
+    img.onerror = () => finish(null);
     img.src = url;
+  });
+}
+
+function canvasToPngBlob(canvas: HTMLCanvasElement): Promise<Blob | null> {
+  return new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(() => reject(new Error('PNG export timed out')), 10000);
+    try {
+      canvas.toBlob((blob) => {
+        window.clearTimeout(timeout);
+        resolve(blob);
+      }, 'image/png');
+    } catch (error) {
+      window.clearTimeout(timeout);
+      reject(error);
+    }
   });
 }
 
