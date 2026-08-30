@@ -18,6 +18,7 @@ import {
   Search,
   Sparkles,
   Users,
+  X,
 } from 'lucide-react';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent } from '../../components/ui/card';
@@ -517,8 +518,22 @@ function BookingsSection({ bookings, isLoading, showNewBooking }: { bookings: Bo
   );
 }
 
-function CustomersSection({ customers, isLoading }: { customers: Customer[]; isLoading: boolean }) {
+function CustomersSection({
+  customers,
+  isLoading,
+  createCustomer,
+  addCat,
+}: {
+  customers: Customer[];
+  isLoading: boolean;
+  createCustomer: ReturnType<typeof useCustomers>['createCustomer'];
+  addCat: ReturnType<typeof useCustomers>['addCat'];
+}) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [showAddCustomer, setShowAddCustomer] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [newCustomer, setNewCustomer] = useState({ name: '', email: '', phone: '', catName: '' });
   const query = searchQuery.trim().toLowerCase();
   const filteredCustomers = query
     ? customers.filter((customer) => [
@@ -529,19 +544,75 @@ function CustomersSection({ customers, isLoading }: { customers: Customer[]; isL
     ].some((value) => value?.toLowerCase().includes(query)))
     : customers;
 
+  const closeAddCustomer = () => {
+    if (saving) return;
+    setShowAddCustomer(false);
+    setSaveError('');
+  };
+
+  const handleAddCustomer = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const name = newCustomer.name.trim();
+    const email = newCustomer.email.trim();
+    const phone = newCustomer.phone.trim();
+    const catName = newCustomer.catName.trim();
+
+    setSaving(true);
+    setSaveError('');
+
+    const { data: customer, error } = await createCustomer({
+      name,
+      email,
+      phone: phone || undefined,
+    });
+
+    if (error || !customer) {
+      setSaveError(typeof error === 'string' ? error : error?.message || 'The customer could not be added.');
+      setSaving(false);
+      return;
+    }
+
+    if (catName) {
+      const { error: catError } = await addCat(customer.id, { name: catName });
+      if (catError) {
+        setSaveError(
+          typeof catError === 'string'
+            ? catError
+            : catError.message || 'The customer was added, but the cat could not be added.',
+        );
+        setSaving(false);
+        return;
+      }
+    }
+
+    setNewCustomer({ name: '', email: '', phone: '', catName: '' });
+    setSaving(false);
+    setShowAddCustomer(false);
+  };
+
   return (
     <div className="space-y-5">
       <PagePanel>
-        <label className="flex items-center gap-3 rounded-lg border border-[#E8DED4] bg-[#F8F7F5] px-4 py-3 text-[#768098] focus-within:border-[#C46A3A]">
-          <Search className="h-5 w-5 text-[#C46A3A]" />
-          <span className="sr-only">Search customers</span>
-          <input
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Search name, cat, email, or phone…"
-            className="min-w-0 flex-1 bg-transparent text-sm text-[#0A1128] outline-none placeholder:text-[#768098]"
-          />
-        </label>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <label className="flex min-w-0 flex-1 items-center gap-3 rounded-lg border border-[#E8DED4] bg-[#F8F7F5] px-4 py-3 text-[#768098] focus-within:border-[#C46A3A]">
+            <Search className="h-5 w-5 shrink-0 text-[#C46A3A]" />
+            <span className="sr-only">Search customers</span>
+            <input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search name, cat, email, or phone…"
+              className="min-w-0 flex-1 bg-transparent text-sm text-[#0A1128] outline-none placeholder:text-[#768098]"
+            />
+          </label>
+          <Button
+            type="button"
+            onClick={() => setShowAddCustomer(true)}
+            className="rounded-lg bg-[#C46A3A] px-5 text-white hover:bg-[#A85A30]"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Add customer
+          </Button>
+        </div>
       </PagePanel>
       <PagePanel>
         {isLoading ? (
@@ -566,9 +637,107 @@ function CustomersSection({ customers, isLoading }: { customers: Customer[]; isL
             icon={Users}
             title={query ? 'No matching customers' : 'No customers yet'}
             description={query ? 'Try a customer name, cat name, email address, or phone number.' : 'Customer records will be created from bookings or added manually for this cattery.'}
+            action={!query ? (
+              <Button
+                type="button"
+                onClick={() => setShowAddCustomer(true)}
+                className="rounded-lg bg-[#C46A3A] text-white hover:bg-[#A85A30]"
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add customer
+              </Button>
+            ) : undefined}
           />
         )}
       </PagePanel>
+
+      {showAddCustomer && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-[#0A1128]/45 p-0 sm:items-center sm:p-4"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeAddCustomer();
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="add-customer-title"
+            className="max-h-[100dvh] w-full overflow-y-auto rounded-t-2xl bg-white p-5 shadow-xl sm:max-w-lg sm:rounded-2xl sm:p-6"
+          >
+            <div className="mb-5 flex items-center justify-between gap-4">
+              <div>
+                <h3 id="add-customer-title" className="text-2xl font-semibold text-[#0A1128]">Add customer</h3>
+                <p className="mt-1 text-sm text-[#4E5871]">Add their first cat now, or leave it blank and add the cat when you make a booking.</p>
+              </div>
+              <button
+                type="button"
+                onClick={closeAddCustomer}
+                aria-label="Close add customer"
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#E8DED4] text-[#4E5871] hover:bg-[#F8F7F5]"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddCustomer} className="space-y-4">
+              {saveError && (
+                <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {saveError}
+                </p>
+              )}
+              <label className="block text-sm font-semibold text-[#0A1128]">
+                Name
+                <input
+                  required
+                  autoFocus
+                  autoComplete="name"
+                  value={newCustomer.name}
+                  onChange={(event) => setNewCustomer((current) => ({ ...current, name: event.target.value }))}
+                  className="mt-1.5 w-full rounded-lg border border-[#E8DED4] bg-white px-3 py-3 font-normal outline-none focus:border-[#C46A3A]"
+                />
+              </label>
+              <label className="block text-sm font-semibold text-[#0A1128]">
+                Email
+                <input
+                  required
+                  type="email"
+                  autoComplete="email"
+                  value={newCustomer.email}
+                  onChange={(event) => setNewCustomer((current) => ({ ...current, email: event.target.value }))}
+                  className="mt-1.5 w-full rounded-lg border border-[#E8DED4] bg-white px-3 py-3 font-normal outline-none focus:border-[#C46A3A]"
+                />
+              </label>
+              <label className="block text-sm font-semibold text-[#0A1128]">
+                Mobile number <span className="font-normal text-[#768098]">(optional)</span>
+                <input
+                  type="tel"
+                  autoComplete="tel"
+                  value={newCustomer.phone}
+                  onChange={(event) => setNewCustomer((current) => ({ ...current, phone: event.target.value }))}
+                  className="mt-1.5 w-full rounded-lg border border-[#E8DED4] bg-white px-3 py-3 font-normal outline-none focus:border-[#C46A3A]"
+                />
+              </label>
+              <label className="block text-sm font-semibold text-[#0A1128]">
+                First cat's name <span className="font-normal text-[#768098]">(optional)</span>
+                <input
+                  value={newCustomer.catName}
+                  onChange={(event) => setNewCustomer((current) => ({ ...current, catName: event.target.value }))}
+                  className="mt-1.5 w-full rounded-lg border border-[#E8DED4] bg-white px-3 py-3 font-normal outline-none focus:border-[#C46A3A]"
+                />
+              </label>
+              <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
+                <Button type="button" variant="outline" onClick={closeAddCustomer} disabled={saving} className="rounded-lg">
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={saving} className="rounded-lg bg-[#C46A3A] text-white hover:bg-[#A85A30]">
+                  {saving ? 'Adding customer…' : 'Add customer'}
+                </Button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
     </div>
   );
 }
@@ -932,7 +1101,12 @@ export function StaffDashboard() {
   const location = useLocation();
   const { cattery, loading: authLoading } = useAuth();
   const { bookings, loading: bookingsLoading } = useBookings();
-  const { customers, loading: customersLoading } = useCustomers();
+  const {
+    customers,
+    loading: customersLoading,
+    createCustomer,
+    addCat,
+  } = useCustomers();
   const { rooms, loading: roomsLoading } = useRooms();
 
   const draftAccount = getDraftAccount();
@@ -1058,7 +1232,14 @@ export function StaffDashboard() {
           />
         )}
         {section === 'bookings' && <BookingsSection bookings={bookings} isLoading={isLoading} showNewBooking={showNewBooking} />}
-        {section === 'customers' && <CustomersSection customers={customers} isLoading={isLoading} />}
+        {section === 'customers' && (
+          <CustomersSection
+            customers={customers}
+            isLoading={isLoading}
+            createCustomer={createCustomer}
+            addCat={addCat}
+          />
+        )}
         {section === 'calendar' && <CalendarSection bookings={bookings} isLoading={isLoading} />}
         {section === 'room-planner' && <RoomPlannerSection rooms={rooms} data={dashboardData} isLoading={isLoading} />}
         {section === 'insights' && <StaffInsights />}
