@@ -461,7 +461,7 @@ router.post('/bookings/request', async (req, res) => {
   const {
     catteryId,
     customerName, customerEmail, phone,
-    catNames, checkIn, checkOut, displayCheckIn, displayCheckOut, days, nights,
+    catNames, checkIn, checkOut, checkInTime, checkOutTime, displayCheckIn, displayCheckOut, days, nights,
     roomName, roomId, estimatedTotal, specialRequirements,
   } = req.body;
 
@@ -545,6 +545,8 @@ router.post('/bookings/request', async (req, res) => {
       room_id: resolvedRoomId,
       check_in: checkIn,
       check_out: checkOut,
+      check_in_time: checkInTime || null,
+      check_out_time: checkOutTime || null,
       status: 'pending',
       payment_status: 'unpaid',
       total_amount: totalAmount,

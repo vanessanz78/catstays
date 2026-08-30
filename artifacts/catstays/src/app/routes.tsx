@@ -96,7 +96,6 @@ const tenantStaffDashboardPaths = [
   "/staff-dashboard/room-planner",
   "/staff-dashboard/insights",
   "/staff-dashboard/settings",
-  "/staff-dashboard/booking-setup",
   "/staff-dashboard/subscription",
 ].map((path) => ({
   path,
@@ -196,6 +195,11 @@ export const router = createBrowserRouter([
 
   // Production tenant staff workspace. Demo screens remain under /demo and older admin screens remain under /admin.
   ...tenantStaffDashboardPaths,
+  {
+    path: "/staff-dashboard/booking-setup",
+    Component: BookingSetup,
+    ErrorBoundary: RootErrorBoundary,
+  },
   {
     path: "/staff-dashboard/smart-import",
     Component: SmartImport,

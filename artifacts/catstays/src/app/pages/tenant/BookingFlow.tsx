@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
-import { Calendar, Check, ArrowLeft, Cat, User, ClipboardList, SendHorizonal, Loader2, Home } from 'lucide-react';
+import { Calendar, Check, ArrowLeft, Cat, User, ClipboardList, SendHorizonal, Loader2, Home, Clock3 } from 'lucide-react';
 import { parseISO, format } from 'date-fns';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
@@ -13,6 +13,8 @@ import {
   inclusiveStayDays,
   longStayDiscountPercent,
 } from '@/app/lib/bookingPricing';
+import { bookingHoursSummary, bookingTimeSlotsForDate, formatBookingTime } from '@/app/lib/bookingSchedule';
+import { normalizeBookingSetup, normalizePublicBlackouts, stayOverlapsBlackout } from '@/app/lib/bookingSetup';
 
 const STEPS = [
   { n: 1, label: 'Dates & Room', icon: Calendar },
@@ -46,6 +48,8 @@ export function BookingFlow() {
   const [formData, setFormData] = useState({
     arrivalDate: searchParams.get('checkIn') || '',
     departureDate: searchParams.get('checkOut') || '',
+    arrivalTime: '',
+    departureTime: '',
     numberOfCats: initialCatCount,
     catNames: Array(initialCatCount).fill(''),
     catBreeds: Array(initialCatCount).fill(''),
@@ -83,6 +87,13 @@ export function BookingFlow() {
   const days = inclusiveStayDays(formData.arrivalDate, formData.departureDate);
   const dailyRate = selectedRoom?.price_per_night ?? (rooms[0]?.price_per_night ?? 20);
   const discountPct = longStayDiscountPercent(days);
+  const bookingSettings = normalizeBookingSetup(cattery?.website_settings);
+  const publicBlackouts = normalizePublicBlackouts(cattery?.website_settings);
+  const arrivalTimeSlots = bookingTimeSlotsForDate(cattery?.website_settings, formData.arrivalDate);
+  const departureTimeSlots = bookingTimeSlotsForDate(cattery?.website_settings, formData.departureDate);
+  const hoursSummary = bookingHoursSummary(cattery?.website_settings);
+  const blackoutConflict = stayOverlapsBlackout(publicBlackouts, formData.arrivalDate, formData.departureDate);
+  const visitTimesComplete = bookingSettings.openByAppointmentOnly || Boolean(formData.arrivalTime && formData.departureTime);
   const { beforeDiscount, discount, subtotal, gst, total } = calculateBookingEstimate({
     dailyRate,
     days,
@@ -95,7 +106,7 @@ export function BookingFlow() {
   };
 
   const canProceed = (() => {
-    if (step === 1) return formData.arrivalDate && formData.departureDate && days > 0;
+    if (step === 1) return formData.arrivalDate && formData.departureDate && days > 0 && visitTimesComplete && !blackoutConflict;
     if (step === 2) return formData.ownerName.trim() && formData.email.trim() && formData.phone.trim();
     if (step === 3) return formData.catNames.every(n => n.trim());
     return true;
@@ -103,6 +114,8 @@ export function BookingFlow() {
 
   const bookingIsComplete = Boolean(
     days > 0 &&
+    visitTimesComplete &&
+    !blackoutConflict &&
     formData.ownerName.trim() &&
     formData.email.trim() &&
     formData.phone.trim() &&
@@ -132,8 +145,10 @@ export function BookingFlow() {
           catNames: formData.catNames,
           checkIn: formData.arrivalDate,
           checkOut: formData.departureDate,
-          displayCheckIn: fmtDate(formData.arrivalDate),
-          displayCheckOut: fmtDate(formData.departureDate),
+          checkInTime: formData.arrivalTime || null,
+          checkOutTime: formData.departureTime || null,
+          displayCheckIn: `${fmtDate(formData.arrivalDate)}${formData.arrivalTime ? ` at ${formatBookingTime(formData.arrivalTime)}` : ''}`,
+          displayCheckOut: `${fmtDate(formData.departureDate)}${formData.departureTime ? ` at ${formatBookingTime(formData.departureTime)}` : ''}`,
           days,
           roomName,
           roomId: selectedRoom?.id || null,
@@ -184,11 +199,11 @@ export function BookingFlow() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-forest/60">Check-in</span>
-                  <span className="font-medium text-forest">{fmtDate(formData.arrivalDate)}</span>
+                  <span className="font-medium text-forest">{fmtDate(formData.arrivalDate)}{formData.arrivalTime ? ` at ${formatBookingTime(formData.arrivalTime)}` : ''}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-forest/60">Check-out</span>
-                  <span className="font-medium text-forest">{fmtDate(formData.departureDate)}</span>
+                  <span className="font-medium text-forest">{fmtDate(formData.departureDate)}{formData.departureTime ? ` at ${formatBookingTime(formData.departureTime)}` : ''}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-forest/60">Duration</span>
@@ -276,13 +291,45 @@ export function BookingFlow() {
                     <div className="grid md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Check-in Date</Label>
-                        <Input type="date" value={formData.arrivalDate} onChange={e => updateField('arrivalDate', e.target.value)} min={new Date().toISOString().split('T')[0]} className="rounded-xl border-sage/20" />
+                        <Input type="date" value={formData.arrivalDate} onChange={e => setFormData((current) => ({ ...current, arrivalDate: e.target.value, arrivalTime: '' }))} min={new Date().toISOString().split('T')[0]} className="rounded-xl border-sage/20" />
                       </div>
                       <div className="space-y-2">
                         <Label>Check-out Date</Label>
-                        <Input type="date" value={formData.departureDate} onChange={e => updateField('departureDate', e.target.value)} min={formData.arrivalDate || new Date().toISOString().split('T')[0]} className="rounded-xl border-sage/20" />
+                        <Input type="date" value={formData.departureDate} onChange={e => setFormData((current) => ({ ...current, departureDate: e.target.value, departureTime: '' }))} min={formData.arrivalDate || new Date().toISOString().split('T')[0]} className="rounded-xl border-sage/20" />
                       </div>
                     </div>
+
+                    {bookingSettings.openByAppointmentOnly ? (
+                      <div className="rounded-xl border border-sage/20 bg-sage/10 p-4 text-sm text-forest/70">
+                        This cattery arranges arrival and departure times directly after receiving the booking.
+                      </div>
+                    ) : (
+                      <>
+                        <div className="grid grid-cols-2 gap-3">
+                          <label className="text-sm font-medium text-forest">
+                            Check-in time
+                            <select aria-label="Check-in time" className="mt-2 h-11 w-full rounded-xl border border-sage/20 bg-white px-3" value={formData.arrivalTime} disabled={!formData.arrivalDate || arrivalTimeSlots.length === 0} onChange={(event) => updateField('arrivalTime', event.target.value)}>
+                              <option value="">Select time</option>
+                              {arrivalTimeSlots.map((time) => <option key={time} value={time}>{formatBookingTime(time)}</option>)}
+                            </select>
+                          </label>
+                          <label className="text-sm font-medium text-forest">
+                            Check-out time
+                            <select aria-label="Check-out time" className="mt-2 h-11 w-full rounded-xl border border-sage/20 bg-white px-3" value={formData.departureTime} disabled={!formData.departureDate || departureTimeSlots.length === 0} onChange={(event) => updateField('departureTime', event.target.value)}>
+                              <option value="">Select time</option>
+                              {departureTimeSlots.map((time) => <option key={time} value={time}>{formatBookingTime(time)}</option>)}
+                            </select>
+                          </label>
+                        </div>
+                        <div className="rounded-xl border border-sage/20 bg-white p-4 text-sm text-forest/60">
+                          <div className="flex items-start gap-2"><Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-sage" /><div><strong className="block text-forest">{hoursSummary.heading}</strong>{hoursSummary.lines.map((line) => <span key={line} className="mt-1 block">{line}</span>)}</div></div>
+                        </div>
+                        {formData.arrivalDate && arrivalTimeSlots.length === 0 && <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">There are no check-in appointments on this day. Please choose another date.</p>}
+                        {formData.departureDate && departureTimeSlots.length === 0 && <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">There are no check-out appointments on this day. Please choose another date.</p>}
+                      </>
+                    )}
+
+                    {blackoutConflict && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">The cattery is closed during part of this stay. Please choose different dates.</p>}
 
                     {days > 0 && (
                       <div className="bg-sage/10 rounded-xl p-3 text-sm flex items-start gap-2 text-sage-dark">
@@ -408,11 +455,11 @@ export function BookingFlow() {
                         </div>
                         <div className="flex justify-between">
                           <span className="text-forest/60">Check-in</span>
-                          <span className="font-medium text-forest">{formData.arrivalDate ? fmtDate(formData.arrivalDate) : 'Not selected yet'}</span>
+                          <span className="font-medium text-forest">{formData.arrivalDate ? `${fmtDate(formData.arrivalDate)}${formData.arrivalTime ? ` at ${formatBookingTime(formData.arrivalTime)}` : ''}` : 'Not selected yet'}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-forest/60">Check-out</span>
-                          <span className="font-medium text-forest">{formData.departureDate ? fmtDate(formData.departureDate) : 'Not selected yet'}</span>
+                          <span className="font-medium text-forest">{formData.departureDate ? `${fmtDate(formData.departureDate)}${formData.departureTime ? ` at ${formatBookingTime(formData.departureTime)}` : ''}` : 'Not selected yet'}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-forest/60">Duration</span>
