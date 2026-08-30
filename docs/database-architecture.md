@@ -1,6 +1,6 @@
 # Database Architecture
 
-Last reviewed: 2026-07-11
+Last reviewed: 2026-08-31
 
 ## Canonical Architecture
 
@@ -27,6 +27,8 @@ Checked-in migrations define:
 - Cats belong to customers and catteries.
 - Bookings belong to a cattery and can link to a customer and room.
 - `booking_cats` links bookings to cats.
+- A `rooms` row is an accommodation type. `room_count` is the number of individually bookable physical rooms represented by that type, while `capacity` is cats per physical room.
+- `bookings.room_unit_number` identifies the physical room for a shared-room booking. `booking_cat_rooms.room_unit_number` preserves the exact room for each cat when a booking uses separate rooms.
 - Payments and expenses belong to a cattery.
 
 ## Existing Enhancements
@@ -38,6 +40,7 @@ Later migrations add:
 - Stripe customer and subscription fields.
 - Public booking request fields.
 - Room capacity and amenities.
+- Physical-room inventory and numbered booking assignments.
 - Open Home Content Platform schema foundation for content sources, media library, content library, drafts, assignments, previews, published versions, and website events.
 
 ## RLS Status
@@ -51,6 +54,13 @@ Areas to review before production:
 - Anonymous booking inserts.
 - Customer portal access by customer auth user.
 - Staff access and future role permissions.
+
+## Physical Room Invariants
+
+- Physical room numbers are one-based and must be between 1 and the accommodation type's `room_count`.
+- Operational availability is keyed by `(room_id, room_unit_number)` and inclusive date overlap.
+- Public pages may group inventory by accommodation type; staff calendars and booking allocation must use physical rooms.
+- Deloraine's configured inventory is 17 Private Rooms × 3 cats, 8 Indoor Rooms × 2 cats, and 25 Communal Rooms × 1 cat.
 
 ## Data Model Gaps
 

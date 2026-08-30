@@ -1,6 +1,22 @@
 # Decision Log
 
-Last updated: 2026-08-27
+Last updated: 2026-08-31
+
+## 2026-08-31 - Accommodation Types Expand Into Physical Rooms
+
+Working ref: `fix/deloraine-physical-room-inventory`.
+
+Decision: Keep one `rooms` record as the public accommodation type, add `room_count` as its physical inventory quantity, and store the one-based `room_unit_number` on bookings and per-cat room assignments.
+
+Reason: Deloraine's existing rows describe types and per-room capacity, not single rooms. Staff need a Revelation Pets-style calendar with one draggable row per real room, while customers should still choose a simple accommodation type.
+
+Impact:
+
+- Deloraine has 17 Private Rooms at three cats each, 8 Indoor Rooms at two cats each, and 25 Communal Rooms at one cat each.
+- The staff calendar sorts those 50 rows Private, Indoor, then Communal and identifies every booking by exact room number.
+- New staff and public bookings persist an exact physical room number; availability and drag/drop conflicts are evaluated against that physical room.
+- Existing assignments backfill to room 1 so they remain visible and the known Charlie, Cat, Dog booking appears in Private Room 1.
+- `rooms.capacity` means cats per physical room. It must not be used as the number of rooms.
 
 ## 2026-08-27 - Public Bookings Use Inclusive Per-Cat Days
 

@@ -16,8 +16,14 @@ import {
 } from '../../components/ui/dialog';
 import { formatBookingTime } from '../../lib/bookingSchedule';
 import {
+  bookingNeedsRoomUnit,
+  bookingRoomUnitKeys,
+  expandPhysicalRooms,
+  physicalRoomName,
+  roomUnitKey,
+} from '../../lib/roomInventory';
+import {
   addDateKey,
-  bookingRoomIds,
   buildRoomSegments,
   buildTimelineDays,
   catNamesForRoom,
@@ -31,7 +37,7 @@ const VISIBLE_DAY_COUNT = 21;
 
 type MoveBooking = (
   bookingId: string,
-  move: { roomId: string; checkIn: string; checkOut: string },
+  move: { roomId: string; roomUnitNumber: number; checkIn: string; checkOut: string },
 ) => Promise<{ error: unknown }>;
 
 type StaffRoomCalendarProps = {
@@ -88,7 +94,12 @@ export function StaffRoomCalendar({ bookings, rooms, isLoading, moveBooking }: S
   const navigate = useNavigate();
   const today = localDateKey();
   const [anchorDate, setAnchorDate] = useState(() => addDateKey(today, -1));
-  const [selected, setSelected] = useState<{ booking: BookingWithDetails; roomId?: string } | null>(null);
+  const [selected, setSelected] = useState<{
+    booking: BookingWithDetails;
+    roomId?: string;
+    roomUnitNumber?: number;
+    roomName?: string;
+  } | null>(null);
   const [draggedBookingId, setDraggedBookingId] = useState<string | null>(null);
   const [movingBookingId, setMovingBookingId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
@@ -102,18 +113,20 @@ export function StaffRoomCalendar({ bookings, rooms, isLoading, moveBooking }: S
     () => bookings.filter((booking) => booking.status !== 'cancelled'),
     [bookings],
   );
-  const hasUnassigned = activeBookings.some((booking) => bookingRoomIds(booking).length === 0);
-  const sortedRooms = useMemo(
-    () => [...rooms].sort((a, b) => Number(b.is_active) - Number(a.is_active) || a.name.localeCompare(b.name)),
+  const hasUnassigned = activeBookings.some(bookingNeedsRoomUnit);
+  const physicalRooms = useMemo(
+    () => expandPhysicalRooms(rooms),
     [rooms],
   );
   const rows = [
-    ...(hasUnassigned ? [{ id: null, room: null, name: 'Unassigned', subtitle: 'Needs a room' }] : []),
-    ...sortedRooms.map((room) => ({
-      id: room.id,
-      room,
-      name: room.name,
-      subtitle: `${room.type || 'Room'} · ${room.capacity || 1} cat${room.capacity === 1 ? '' : 's'}`,
+    ...(hasUnassigned ? [{ key: 'unassigned', roomId: null, roomUnitNumber: null, room: null, name: 'Unassigned', subtitle: 'Needs a physical room' }] : []),
+    ...physicalRooms.map((physicalRoom) => ({
+      key: physicalRoom.key,
+      roomId: physicalRoom.roomId,
+      roomUnitNumber: physicalRoom.unitNumber,
+      room: physicalRoom.room,
+      name: physicalRoom.name,
+      subtitle: `${physicalRoom.room.name} · up to ${physicalRoom.room.capacity || 1} cat${physicalRoom.room.capacity === 1 ? '' : 's'}`,
     })),
   ];
   const timelineWidth = ROOM_COLUMN_WIDTH + (days.length * DAY_COLUMN_WIDTH);
@@ -126,23 +139,34 @@ export function StaffRoomCalendar({ bookings, rooms, isLoading, moveBooking }: S
 
   const goToday = () => changeDate(addDateKey(today, -1));
 
-  const startBooking = (room: RoomRecord, dateKey: string) => {
+  const startBooking = (room: RoomRecord, roomUnitNumber: number, dateKey: string) => {
     if (!room.is_active) return;
     const query = new URLSearchParams({
       new: 'true',
       checkIn: dateKey,
       checkOut: dateKey,
       room: room.id,
+      roomUnit: String(roomUnitNumber),
     });
     navigate(`/staff-dashboard/bookings?${query.toString()}`);
   };
 
-  const showBooking = (booking: BookingWithDetails, roomId?: string) => {
+  const showBooking = (
+    booking: BookingWithDetails,
+    roomId?: string,
+    roomUnitNumber?: number,
+    roomName?: string,
+  ) => {
     if (Date.now() - dragEndedAt.current < 300) return;
-    setSelected({ booking, roomId });
+    setSelected({ booking, roomId, roomUnitNumber, roomName });
   };
 
-  const handleDrop = async (event: DragEvent<HTMLButtonElement>, room: RoomRecord, dateKey: string) => {
+  const handleDrop = async (
+    event: DragEvent<HTMLButtonElement>,
+    room: RoomRecord,
+    roomUnitNumber: number,
+    dateKey: string,
+  ) => {
     event.preventDefault();
     const bookingId = event.dataTransfer.getData('text/catstays-booking') || draggedBookingId;
     setDraggedBookingId(null);
@@ -151,8 +175,8 @@ export function StaffRoomCalendar({ bookings, rooms, isLoading, moveBooking }: S
 
     const booking = activeBookings.find((candidate) => candidate.id === bookingId);
     if (!booking) return;
-    const assignedRoomIds = bookingRoomIds(booking);
-    if (assignedRoomIds.length > 1) {
+    const assignedRoomUnits = bookingRoomUnitKeys(booking);
+    if (assignedRoomUnits.length > 1) {
       setMessage({
         tone: 'error',
         text: `${catNamesForRoom(booking)} uses more than one room. Open the full booking to change its room assignments safely.`,
@@ -168,16 +192,17 @@ export function StaffRoomCalendar({ bookings, rooms, isLoading, moveBooking }: S
     }
 
     const nextDates = shiftBookingDates(booking.check_in, booking.check_out, dateKey);
-    if (roomHasBookingConflict(activeBookings, room.id, nextDates.checkIn, nextDates.checkOut, booking.id)) {
+    const targetName = physicalRoomName(room, roomUnitNumber);
+    if (roomHasBookingConflict(activeBookings, room.id, roomUnitNumber, nextDates.checkIn, nextDates.checkOut, booking.id)) {
       setMessage({
         tone: 'error',
-        text: `${room.name} is already booked during ${formatBookingDate(nextDates.checkIn)} – ${formatBookingDate(nextDates.checkOut)}.`,
+        text: `${targetName} is already booked during ${formatBookingDate(nextDates.checkIn)} – ${formatBookingDate(nextDates.checkOut)}.`,
       });
       return;
     }
 
     if (
-      assignedRoomIds[0] === room.id
+      assignedRoomUnits[0] === roomUnitKey(room.id, roomUnitNumber)
       && booking.check_in === nextDates.checkIn
       && booking.check_out === nextDates.checkOut
     ) return;
@@ -186,6 +211,7 @@ export function StaffRoomCalendar({ bookings, rooms, isLoading, moveBooking }: S
     setMessage(null);
     const result = await moveBooking(booking.id, {
       roomId: room.id,
+      roomUnitNumber,
       checkIn: nextDates.checkIn,
       checkOut: nextDates.checkOut,
     });
@@ -196,7 +222,7 @@ export function StaffRoomCalendar({ bookings, rooms, isLoading, moveBooking }: S
     }
     setMessage({
       tone: 'success',
-      text: `${catNamesForRoom(booking)} moved to ${room.name}, ${formatBookingDate(nextDates.checkIn)} – ${formatBookingDate(nextDates.checkOut)}.`,
+      text: `${catNamesForRoom(booking)} moved to ${targetName}, ${formatBookingDate(nextDates.checkIn)} – ${formatBookingDate(nextDates.checkOut)}.`,
     });
   };
 
@@ -294,11 +320,17 @@ export function StaffRoomCalendar({ bookings, rooms, isLoading, moveBooking }: S
               </div>
 
               {rows.map((row) => {
-                const segments = buildRoomSegments(activeBookings, row.id, firstDate, lastDate);
+                const segments = buildRoomSegments(
+                  activeBookings,
+                  row.roomId,
+                  row.roomUnitNumber,
+                  firstDate,
+                  lastDate,
+                );
                 const laneCount = segments.reduce((highest, segment) => Math.max(highest, segment.lane + 1), 0);
                 const rowHeight = Math.max(66, (laneCount * 42) + 18);
                 return (
-                  <div key={row.id || 'unassigned'} className="relative border-b border-[#D8D2CB]" style={{ width: timelineWidth, height: rowHeight }}>
+                  <div key={row.key} className="relative border-b border-[#D8D2CB]" style={{ width: timelineWidth, height: rowHeight }}>
                     <div className="absolute inset-y-0 flex" style={{ left: ROOM_COLUMN_WIDTH }}>
                       {days.map((dateKey) => {
                         const isToday = dateKey === today;
@@ -310,14 +342,14 @@ export function StaffRoomCalendar({ bookings, rooms, isLoading, moveBooking }: S
                             disabled={!canBook}
                             aria-label={canBook ? `Book ${row.name} on ${formatBookingDate(dateKey)}` : `${row.name} is not available for bookings`}
                             title={canBook ? `Book ${row.name} on ${formatBookingDate(dateKey)}` : undefined}
-                            onClick={() => row.room && startBooking(row.room, dateKey)}
+                            onClick={() => row.room && row.roomUnitNumber && startBooking(row.room, row.roomUnitNumber, dateKey)}
                             onDragOver={(event) => {
                               if (canBook) {
                                 event.preventDefault();
                                 event.dataTransfer.dropEffect = 'move';
                               }
                             }}
-                            onDrop={(event) => row.room && void handleDrop(event, row.room, dateKey)}
+                            onDrop={(event) => row.room && row.roomUnitNumber && void handleDrop(event, row.room, row.roomUnitNumber, dateKey)}
                             className={`group grid shrink-0 place-items-center border-r border-[#E8DED4] text-xs transition ${
                               isToday ? 'bg-[#FFF2EA]' : canBook ? 'bg-white hover:bg-[#F1F7F1]' : 'cursor-not-allowed bg-[#F3F1EE]'
                             }`}
@@ -330,7 +362,7 @@ export function StaffRoomCalendar({ bookings, rooms, isLoading, moveBooking }: S
                     </div>
 
                     <div
-                      className={`sticky left-0 z-30 flex h-full shrink-0 flex-col justify-center border-r border-[#D8D2CB] px-3 shadow-[4px_0_8px_rgba(10,17,40,0.06)] ${row.room?.is_active === false ? 'bg-[#F3F1EE]' : row.id ? 'bg-white' : 'bg-amber-50'}`}
+                      className={`sticky left-0 z-30 flex h-full shrink-0 flex-col justify-center border-r border-[#D8D2CB] px-3 shadow-[4px_0_8px_rgba(10,17,40,0.06)] ${row.room?.is_active === false ? 'bg-[#F3F1EE]' : row.roomId ? 'bg-white' : 'bg-amber-50'}`}
                       style={{ width: ROOM_COLUMN_WIDTH }}
                     >
                       <span className="truncate text-sm font-semibold text-[#0A1128]">{row.name}</span>
@@ -341,11 +373,12 @@ export function StaffRoomCalendar({ bookings, rooms, isLoading, moveBooking }: S
                     {segments.map((segment) => {
                       const { booking } = segment;
                       const width = ((segment.endIndex - segment.startIndex + 1) * DAY_COLUMN_WIDTH) - 8;
-                      const draggable = bookingRoomIds(booking).length <= 1 && booking.status !== 'completed';
-                      const roomId = row.id || undefined;
+                      const draggable = bookingRoomUnitKeys(booking).length <= 1 && booking.status !== 'completed';
+                      const roomId = row.roomId || undefined;
+                      const roomUnitNumber = row.roomUnitNumber || undefined;
                       return (
                         <button
-                          key={`${booking.id}-${row.id || 'unassigned'}`}
+                          key={`${booking.id}-${row.key}`}
                           type="button"
                           draggable={draggable}
                           onDragStart={(event) => {
@@ -361,8 +394,8 @@ export function StaffRoomCalendar({ bookings, rooms, isLoading, moveBooking }: S
                             dragEndedAt.current = Date.now();
                             setDraggedBookingId(null);
                           }}
-                          onClick={() => showBooking(booking, roomId)}
-                          aria-label={`${catNamesForRoom(booking, roomId)}, ${customerName(booking)}, ${formatBookingDate(booking.check_in)} to ${formatBookingDate(booking.check_out)}. Open booking details.`}
+                          onClick={() => showBooking(booking, roomId, roomUnitNumber, row.name)}
+                          aria-label={`${catNamesForRoom(booking, roomId, roomUnitNumber)}, ${customerName(booking)}, ${formatBookingDate(booking.check_in)} to ${formatBookingDate(booking.check_out)}. Open booking details.`}
                           title={draggable ? 'Drag to move this stay, or click for details' : 'Click for details'}
                           className={`absolute z-20 flex h-9 items-center gap-2 overflow-hidden rounded-lg px-2.5 text-left text-xs font-medium text-white shadow-sm ring-1 ring-white/30 transition focus:z-30 focus:outline-none focus:ring-2 focus:ring-[#C46A3A] focus:ring-offset-2 ${bookingTone(booking)} ${movingBookingId === booking.id ? 'animate-pulse opacity-70' : ''}`}
                           style={{
@@ -372,7 +405,7 @@ export function StaffRoomCalendar({ bookings, rooms, isLoading, moveBooking }: S
                           }}
                         >
                           {draggable ? <GripHorizontal className="h-4 w-4 shrink-0 text-white/75" /> : <Info className="h-4 w-4 shrink-0 text-white/75" />}
-                          <span className="shrink-0 rounded bg-white px-1.5 py-0.5 font-bold text-[#0A4C8B]">{catNamesForRoom(booking, roomId)}</span>
+                          <span className="shrink-0 rounded bg-white px-1.5 py-0.5 font-bold text-[#0A4C8B]">{catNamesForRoom(booking, roomId, roomUnitNumber)}</span>
                           <span className="truncate">{formatCompactRange(booking)} · {customerName(booking)}</span>
                         </button>
                       );
@@ -390,7 +423,7 @@ export function StaffRoomCalendar({ bookings, rooms, isLoading, moveBooking }: S
           {selected && (
             <>
               <DialogHeader>
-                <DialogTitle>{catNamesForRoom(selected.booking, selected.roomId)}</DialogTitle>
+                <DialogTitle>{catNamesForRoom(selected.booking, selected.roomId, selected.roomUnitNumber)}</DialogTitle>
                 <DialogDescription>{customerName(selected.booking)}</DialogDescription>
               </DialogHeader>
               <div className="space-y-3 text-sm text-[#0A1128]">
@@ -400,7 +433,7 @@ export function StaffRoomCalendar({ bookings, rooms, isLoading, moveBooking }: S
                   <p className="text-[#4E5871]">Check out: {formatBookingTime(selected.booking.check_out_time || '')}</p>
                 </div>
                 <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
-                  <dt className="text-[#4E5871]">Room</dt><dd className="font-medium">{selected.booking.booking_cat_rooms.find((assignment) => assignment.room.id === selected.roomId)?.room.name || selected.booking.room?.name || 'Unassigned'}</dd>
+                  <dt className="text-[#4E5871]">Room</dt><dd className="font-medium">{selected.roomName || 'Unassigned'}</dd>
                   <dt className="text-[#4E5871]">Booking</dt><dd className="font-medium capitalize">{selected.booking.status.replaceAll('_', ' ')}</dd>
                   <dt className="text-[#4E5871]">Payment</dt><dd className="font-medium capitalize">{selected.booking.payment_status.replaceAll('_', ' ')}</dd>
                   <dt className="text-[#4E5871]">Total</dt><dd className="font-medium">${Number(selected.booking.total_amount || 0).toFixed(2)}</dd>

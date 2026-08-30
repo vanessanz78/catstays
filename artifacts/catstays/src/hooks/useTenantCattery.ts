@@ -41,6 +41,7 @@ const demoRooms: TenantRoom[] = [
     description: 'A quiet private room with soft bedding, daily playtime, and individual care.',
     price_per_night: 35,
     capacity: 1,
+    room_count: 1,
     amenities: ['Private room', 'Daily care notes', 'Individual care'],
     is_active: true
   },
@@ -51,6 +52,7 @@ const demoRooms: TenantRoom[] = [
     description: 'Extra space, a sunny resting shelf, and more room for confident cats to stretch out.',
     price_per_night: 55,
     capacity: 2,
+    room_count: 1,
     amenities: ['Sunny shelf', 'Extra space', 'Two cats from same family'],
     is_active: true
   },
@@ -61,6 +63,7 @@ const demoRooms: TenantRoom[] = [
     description: 'A premium suite with garden outlook, enriched play sessions, and extra comfort.',
     price_per_night: 85,
     capacity: 2,
+    room_count: 1,
     amenities: ['Garden outlook', 'Premium bedding', 'Enrichment time'],
     is_active: true
   }
@@ -158,12 +161,15 @@ export function useTenantCattery(catteryId?: string) {
 
       const { data: roomData } = await supabase
         .from('rooms')
-        .select('id, name, type, description, price_per_night, capacity, amenities, is_active')
+        .select('id, name, type, description, price_per_night, capacity, room_count, amenities, is_active')
         .eq('cattery_id', resolvedCatteryId)
         .eq('is_active', true)
         .order('price_per_night', { ascending: true });
 
-      setRooms((roomData as TenantRoom[]) || []);
+      setRooms((roomData || []).map((room) => ({
+        ...room,
+        room_count: Math.max(1, Number(room.room_count) || 1),
+      })) as TenantRoom[]);
       setLoading(false);
     };
 

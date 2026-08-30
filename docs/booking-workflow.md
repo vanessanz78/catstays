@@ -1,6 +1,6 @@
 # Booking Workflow
 
-Last reviewed: 2026-08-27
+Last reviewed: 2026-08-31
 
 ## Public Booking Request
 
@@ -15,11 +15,11 @@ The current public booking flow captures:
 
 The public flow counts both the arrival date and departure date as chargeable days. Its base estimate is `daily rate × number of cats × inclusive days` before discounts and GST.
 
-Submitting the form posts to the API booking request endpoint. The intended result is a pending booking in Supabase plus owner and customer emails.
+Submitting the form posts to the API booking request endpoint. The API validates the selected accommodation type, per-room cat capacity, and overlapping physical-room assignments before choosing the first available numbered room. The result is a pending booking in Supabase plus owner and customer emails.
 
 ## Dashboard Booking Management
 
-The staff dashboard can show bookings, customers, rooms, and booking details. Hooks exist for creating bookings and updating booking or payment status.
+The staff dashboard can show bookings, customers, physical-room rows, and booking details. Staff-created shared bookings persist one room number; separate-room bookings persist the exact room number for each cat. Calendar clicks preselect an exact physical room, and drag/drop validates capacity and conflicts before moving a stay.
 
 ## Booking States
 
@@ -39,7 +39,7 @@ The current database has booking status and payment status fields, but the UI ne
 
 ## Gaps
 
-- Availability should be enforced server-side.
+- A database-level exclusion strategy for simultaneous overlapping requests remains a future hardening item; current public requests perform the authoritative availability check on the API server before insert.
 - Public booking reads should not expose sensitive booking data.
 - Customer self-service edits, cancellations, and repeat bookings are not complete.
 - Automatic confirmation requires authoritative server-side room availability and capacity enforcement.

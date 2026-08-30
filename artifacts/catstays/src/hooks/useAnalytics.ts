@@ -110,7 +110,7 @@ export function useAnalytics() {
           .order('check_in', { ascending: false }),
         supabase
           .from('rooms')
-          .select('id, capacity, is_active')
+          .select('id, capacity, room_count, is_active')
           .eq('cattery_id', cattery.id)
           .eq('is_active', true),
       ]);
@@ -120,7 +120,9 @@ export function useAnalytics() {
 
       const bookings = bookingsResult.data || [];
       const rooms = roomsResult.data || [];
-      const totalCapacity = rooms.reduce((sum, room) => sum + (Number(room.capacity) || 0), 0);
+      const totalCapacity = rooms.reduce((sum, room) => (
+        sum + (Number(room.capacity) || 0) * Math.max(1, Number(room.room_count) || 1)
+      ), 0);
       const activeBookings = bookings.filter((booking) => booking.status !== 'cancelled');
 
       const weeklyBookings = activeBookings.filter((booking) => stayOverlaps(booking, weekStart, weekEnd));

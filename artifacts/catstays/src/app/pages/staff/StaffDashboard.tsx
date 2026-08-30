@@ -39,6 +39,11 @@ import { NotificationBell } from '../../components/NotificationBell';
 import { StaffInsights } from './StaffInsights';
 import { StaffRoomCalendar } from './StaffRoomCalendar';
 import { StaffSubscription } from './StaffSubscription';
+import {
+  bookingRoomUnitKeys,
+  expandPhysicalRooms,
+  physicalRoomName,
+} from '../../lib/roomInventory';
 
 const ROOT_DOMAIN = 'catstays.app';
 
@@ -764,6 +769,7 @@ type RoomDraft = {
   name: string;
   type: string;
   description: string;
+  roomCount: string;
   capacity: string;
   dailyRate: string;
   isActive: boolean;
@@ -773,6 +779,7 @@ const emptyRoomDraft: RoomDraft = {
   name: '',
   type: '',
   description: '',
+  roomCount: '1',
   capacity: '1',
   dailyRate: '',
   isActive: true,
@@ -815,6 +822,7 @@ function RoomPlannerSection({
       name: room.name || '',
       type: room.type || '',
       description: room.description || '',
+      roomCount: String(room.room_count || 1),
       capacity: String(room.capacity || 1),
       dailyRate: String(room.price_per_night ?? ''),
       isActive: room.is_active,
@@ -830,10 +838,11 @@ function RoomPlannerSection({
 
     const name = draft.name.trim();
     const type = draft.type.trim();
+    const roomCount = Number(draft.roomCount);
     const capacity = Number(draft.capacity);
     const pricePerDay = Number(draft.dailyRate);
-    if (!name || !type || !Number.isInteger(capacity) || capacity < 1 || !Number.isFinite(pricePerDay) || pricePerDay < 0) {
-      setActionError('Enter a room name, room type, whole-number capacity, and valid daily rate.');
+    if (!name || !type || !Number.isInteger(roomCount) || roomCount < 1 || !Number.isInteger(capacity) || capacity < 1 || !Number.isFinite(pricePerDay) || pricePerDay < 0) {
+      setActionError('Enter a room name, room type, number of physical rooms, whole-number capacity, and valid daily rate.');
       return;
     }
 
@@ -842,6 +851,7 @@ function RoomPlannerSection({
       name,
       type,
       description: draft.description.trim(),
+      room_count: roomCount,
       capacity,
       price_per_night: pricePerDay,
       is_active: draft.isActive,
@@ -876,7 +886,7 @@ function RoomPlannerSection({
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <MetricTile label="Arriving" value={isLoading ? '-' : data.arrivalsToday.length} />
         <MetricTile label="Departing" value={isLoading ? '-' : data.departuresToday.length} />
-        <MetricTile label="Occupied" value={isLoading ? '-' : data.occupiedRoomIds.length} tone="navy" />
+        <MetricTile label="Occupied" value={isLoading ? '-' : data.occupiedRoomKeys.length} tone="navy" />
         <MetricTile label="Available" value={isLoading ? '-' : data.availableRooms} tone="green" />
       </div>
       <PagePanel>
@@ -910,18 +920,20 @@ function RoomPlannerSection({
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {rooms.map((room) => {
               const roomBookings = data.occupiedNow.filter((booking) => bookingRoomIds(booking).includes(room.id));
-              const occupied = room.is_active && roomBookings.length > 0;
+              const occupiedUnits = data.occupiedRoomKeys.filter((key) => key.startsWith(`${room.id}:`)).length;
+              const occupied = room.is_active && occupiedUnits > 0;
               return (
                 <div key={room.id} className={`rounded-xl border p-4 ${room.is_active ? 'border-[#E8DED4] bg-[#F8F7F5]' : 'border-dashed border-[#D3CBC3] bg-[#F3F1EE] opacity-75'}`}>
                   <div className="mb-3 flex items-center justify-between">
                     <h3 className="font-semibold text-[#0A1128]">{room.name}</h3>
                     <Badge className={`rounded-full ${!room.is_active ? 'bg-[#E4E0DB] text-[#4E5871] hover:bg-[#E4E0DB]' : occupied ? 'bg-[#C46A3A] text-white hover:bg-[#C46A3A]' : 'bg-[#7DAF7B]/20 text-[#2D5830] hover:bg-[#7DAF7B]/20'}`}>
-                      {!room.is_active ? 'Inactive' : occupied ? 'Occupied' : 'Available'}
+                      {!room.is_active ? 'Inactive' : occupied ? `${occupiedUnits}/${room.room_count || 1} occupied` : 'All available'}
                     </Badge>
                   </div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-[#C46A3A]">{room.type || 'Room'}</p>
-                  <div className="mt-2 grid grid-cols-2 gap-2 text-sm text-[#4E5871]">
-                    <p>Capacity<br /><span className="font-semibold text-[#0A1128]">{room.capacity || 1} cats</span></p>
+                  <div className="mt-2 grid grid-cols-3 gap-2 text-sm text-[#4E5871]">
+                    <p>Rooms<br /><span className="font-semibold text-[#0A1128]">{room.room_count || 1}</span></p>
+                    <p>Per room<br /><span className="font-semibold text-[#0A1128]">{room.capacity || 1} cats</span></p>
                     <p>Daily rate<br /><span className="font-semibold text-[#0A1128]">${room.price_per_night || 0} per cat</span></p>
                   </div>
                   {roomBookings.length > 0 && (
@@ -929,7 +941,9 @@ function RoomPlannerSection({
                       {roomBookings.map((booking) => (
                         <Link key={booking.id} to={`/staff-dashboard/bookings?booking=${booking.id}`} className="block rounded-lg bg-white p-3 ring-1 ring-[#E8DED4] transition hover:ring-[#C46A3A]/45">
                           <span className="block truncate text-sm font-semibold text-[#0A1128]">{getRoomCatNames(booking, room.id)}</span>
-                          <span className="block truncate text-xs text-[#4E5871]">{booking.customer?.name || booking.guest_name || 'Customer'} · Open booking</span>
+                          <span className="block truncate text-xs text-[#4E5871]">
+                            {getBookingPhysicalRoomNames(booking, room)} · {booking.customer?.name || booking.guest_name || 'Customer'}
+                          </span>
                         </Link>
                       ))}
                     </div>
@@ -967,7 +981,7 @@ function RoomPlannerSection({
           <DialogHeader>
             <DialogTitle>{editingRoom ? 'Edit room' : 'Add room'}</DialogTitle>
             <DialogDescription>
-              Room capacity and daily pricing are used when staff create bookings and check availability.
+              The room count creates the individually bookable rows. Capacity is how many cats can share each physical room.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={saveRoom} className="space-y-4">
@@ -989,9 +1003,22 @@ function RoomPlannerSection({
                 className="mt-1.5 w-full rounded-lg border border-[#E8DED4] bg-white px-3 py-3 font-normal outline-none focus:border-[#C46A3A]"
               />
             </label>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-3">
               <label className="block text-sm font-semibold text-[#0A1128]">
-                Cat capacity
+                Number of physical rooms
+                <input
+                  required
+                  type="number"
+                  min="1"
+                  step="1"
+                  inputMode="numeric"
+                  value={draft.roomCount}
+                  onChange={(event) => setDraft((current) => ({ ...current, roomCount: event.target.value }))}
+                  className="mt-1.5 w-full rounded-lg border border-[#E8DED4] bg-white px-3 py-3 font-normal outline-none focus:border-[#C46A3A]"
+                />
+              </label>
+              <label className="block text-sm font-semibold text-[#0A1128]">
+                Cats per room
                 <input
                   required
                   type="number"
@@ -1158,18 +1185,19 @@ function buildDashboardData(bookings: Booking[], rooms: Room[], today: string) {
   });
   const pending = bookings.filter((booking) => booking.status === 'pending');
   const activeRooms = rooms.filter((room) => room.is_active);
-  const occupiedRoomIds = [...new Set(occupiedNow.flatMap((booking) => bookingRoomIds(booking)))]
-    .filter((roomId) => activeRooms.some((room) => room.id === roomId));
+  const physicalRooms = expandPhysicalRooms(activeRooms);
+  const occupiedRoomKeys = [...new Set(occupiedNow.flatMap((booking) => bookingRoomUnitKeys(booking)))]
+    .filter((key) => physicalRooms.some((room) => room.key === key));
 
   return {
     activeRooms,
     arrivalsToday,
     departuresToday,
     occupiedNow,
-    occupiedRoomIds,
+    occupiedRoomKeys,
     pending,
-    availableRooms: Math.max(activeRooms.length - occupiedRoomIds.length, 0),
-    occupancyLabel: activeRooms.length > 0 ? `${occupiedRoomIds.length}/${activeRooms.length}` : '0/0',
+    availableRooms: Math.max(physicalRooms.length - occupiedRoomKeys.length, 0),
+    occupancyLabel: physicalRooms.length > 0 ? `${occupiedRoomKeys.length}/${physicalRooms.length}` : '0/0',
   };
 }
 
@@ -1187,6 +1215,16 @@ function getRoomCatNames(booking: Booking, roomId: string) {
     .map((assignment) => assignment.cat?.name)
     .filter((name): name is string => Boolean(name));
   return assignedNames.length > 0 ? assignedNames.join(', ') : getCatNames(booking);
+}
+
+function getBookingPhysicalRoomNames(booking: Booking, room: Room) {
+  const units = bookingRoomUnitKeys(booking)
+    .filter((key) => key.startsWith(`${room.id}:`))
+    .map((key) => Number(key.slice(key.lastIndexOf(':') + 1)))
+    .filter((unitNumber) => Number.isInteger(unitNumber) && unitNumber > 0);
+  return units.length > 0
+    ? units.map((unitNumber) => physicalRoomName(room, unitNumber)).join(', ')
+    : room.name;
 }
 
 // Production staff workspace. Demo data stays isolated in DashboardPreviewMock and /demo routes.
