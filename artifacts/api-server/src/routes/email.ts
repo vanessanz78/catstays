@@ -5,6 +5,7 @@ import {
   contactEnquiryHtml,
   bookingRequestOwnerHtml,
   bookingRequestCustomerHtml,
+  customerMessageHtml,
   testEmailHtml,
 } from '../lib/emailTemplates';
 import { createClient } from '@supabase/supabase-js';
@@ -107,6 +108,34 @@ router.post('/email/contact-enquiry', async (req, res) => {
     });
     if (error) { res.status(500).json({ error: error.message }); return; }
     if (catteryId) {
+      if (supabase) {
+        const normalizedEmail = String(customerEmail).trim().toLowerCase();
+        const { data: matchedCustomer } = await supabase
+          .from('customers')
+          .select('id')
+          .eq('cattery_id', catteryId)
+          .ilike('email', normalizedEmail)
+          .limit(1)
+          .maybeSingle();
+        const { error: historyError } = await supabase.from('customer_messages').insert({
+          cattery_id: catteryId,
+          customer_id: matchedCustomer?.id || null,
+          channel: 'email',
+          direction: 'inbound',
+          subject: `Website enquiry from ${customerName}`,
+          body: message,
+          status: 'delivered',
+          provider: 'resend',
+          provider_message_id: data?.id || null,
+          metadata: {
+            source: 'website_enquiry',
+            customer_name: customerName,
+            customer_email: normalizedEmail,
+            phone: phone || null,
+          },
+        });
+        if (historyError) console.warn('[email] website enquiry history failed:', historyError.message);
+      }
       void notifyCatteryStaff(catteryId, {
         type: 'customer_enquiry',
         title: 'New customer enquiry',
@@ -119,6 +148,173 @@ router.post('/email/contact-enquiry', async (req, res) => {
   } catch (err) {
     console.error('[email] contact-enquiry exception:', err);
     res.status(500).json({ error: 'Failed to send email' });
+  }
+});
+
+router.post('/email/customer-message', async (req, res) => {
+  const {
+    catteryId,
+    customerId,
+    bookingId,
+    draftId,
+    subject: rawSubject,
+    body: rawBody,
+  } = req.body || {};
+  const subject = String(rawSubject || '').trim();
+  const body = String(rawBody || '').trim();
+  const user = await authenticatedUser(req);
+
+  if (!user || !catteryId || !customerId || !subject || !body) {
+    res.status(400).json({ error: 'Choose a customer and add a subject and message.' });
+    return;
+  }
+  if (!(await canManageCattery(user.id, String(catteryId)))) {
+    res.status(403).json({ error: 'This staff account cannot send messages for that cattery.' });
+    return;
+  }
+  if (subject.length > 180 || body.length > 12000) {
+    res.status(400).json({ error: 'Keep the subject under 180 characters and the message under 12,000 characters.' });
+    return;
+  }
+  if (!supabase) {
+    res.status(503).json({ error: 'Customer messaging is not configured on this server.' });
+    return;
+  }
+
+  let messageId = '';
+  try {
+    const [{ data: cattery }, { data: customer }] = await Promise.all([
+      supabase.from('catteries').select('id,name,email').eq('id', catteryId).maybeSingle(),
+      supabase.from('customers').select('id,cattery_id,name,email,user_id').eq('id', customerId).eq('cattery_id', catteryId).maybeSingle(),
+    ]);
+    if (!cattery || !customer) {
+      res.status(404).json({ error: 'The cattery or customer could not be found.' });
+      return;
+    }
+    if (!customer.email || !/^\S+@\S+\.\S+$/.test(customer.email)) {
+      res.status(409).json({ error: 'Add a valid email address to this customer before sending.' });
+      return;
+    }
+
+    let resolvedBookingId: string | null = null;
+    if (bookingId) {
+      const { data: booking } = await supabase
+        .from('bookings')
+        .select('id')
+        .eq('id', bookingId)
+        .eq('cattery_id', catteryId)
+        .eq('customer_id', customerId)
+        .maybeSingle();
+      if (!booking) {
+        res.status(400).json({ error: 'That booking does not belong to the selected customer.' });
+        return;
+      }
+      resolvedBookingId = booking.id;
+    }
+
+    const preparedAt = new Date().toISOString();
+    if (draftId) {
+      const { data: draft } = await supabase
+        .from('customer_messages')
+        .select('id,status')
+        .eq('id', draftId)
+        .eq('cattery_id', catteryId)
+        .eq('customer_id', customerId)
+        .maybeSingle();
+      if (!draft || !['draft', 'failed'].includes(draft.status)) {
+        res.status(409).json({ error: 'This draft is no longer available. Refresh Messages and try again.' });
+        return;
+      }
+      const { data: queued, error: queueError } = await supabase
+        .from('customer_messages')
+        .update({
+          booking_id: resolvedBookingId,
+          channel: 'email',
+          direction: 'outbound',
+          subject,
+          body,
+          status: 'queued',
+          provider: 'resend',
+          metadata: { prepared_at: preparedAt },
+          created_by: user.id,
+        })
+        .eq('id', draft.id)
+        .select('id')
+        .single();
+      if (queueError || !queued) throw queueError || new Error('The message history row was not returned.');
+      messageId = queued.id;
+    } else {
+      const { data: queued, error: queueError } = await supabase
+        .from('customer_messages')
+        .insert({
+          cattery_id: catteryId,
+          customer_id: customerId,
+          booking_id: resolvedBookingId,
+          channel: 'email',
+          direction: 'outbound',
+          subject,
+          body,
+          status: 'queued',
+          provider: 'resend',
+          metadata: { prepared_at: preparedAt },
+          created_by: user.id,
+        })
+        .select('id')
+        .single();
+      if (queueError || !queued) throw queueError || new Error('The message history row was not returned.');
+      messageId = queued.id;
+    }
+
+    const { data, error } = await resend.emails.send({
+      from: FROM_ADDRESS,
+      to: customer.email,
+      replyTo: cattery.email || undefined,
+      subject,
+      html: customerMessageHtml({
+        customerName: customer.name,
+        catteryName: cattery.name,
+        subject,
+        message: body,
+      }),
+    });
+    if (error) {
+      await supabase.from('customer_messages').update({
+        status: 'failed',
+        metadata: { prepared_at: preparedAt, failure_reason: error.message },
+      }).eq('id', messageId);
+      res.status(502).json({ error: `The email was not sent. ${error.message}`, messageId });
+      return;
+    }
+
+    const sentAt = new Date().toISOString();
+    const { error: finaliseError } = await supabase.from('customer_messages').update({
+      status: 'sent',
+      provider_message_id: data?.id || null,
+      sent_at: sentAt,
+      metadata: { prepared_at: preparedAt, sent_at: sentAt },
+    }).eq('id', messageId);
+    if (finaliseError) console.warn('[email] customer message history finalise failed:', finaliseError.message);
+
+    void notifyCustomer(customer.id, cattery.id, {
+      type: 'customer_message',
+      title: `Message from ${cattery.name}`,
+      body: subject,
+      url: '/client-portal',
+      tag: `catstays-message-${messageId}`,
+      metadata: { messageId, bookingId: resolvedBookingId },
+    });
+    res.json({ success: true, id: data?.id, messageId, historyFinalised: !finaliseError });
+  } catch (error) {
+    console.error('[email] customer-message exception:', error);
+    if (messageId) {
+      await supabase.from('customer_messages').update({
+        status: 'failed',
+        metadata: { failure_reason: error instanceof Error ? error.message : 'Unexpected delivery error' },
+      }).eq('id', messageId);
+    }
+    res.status(503).json({
+      error: 'The email was not sent because its dashboard history could not be saved. Refresh and try again.',
+    });
   }
 });
 
