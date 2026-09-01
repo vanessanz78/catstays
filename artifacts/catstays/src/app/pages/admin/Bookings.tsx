@@ -758,7 +758,8 @@ export function AdminBookings() {
         <header className="bg-white shadow-sm sticky top-0 z-40">
           <div className="mx-auto max-w-5xl px-4 py-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="lg:hidden"><RightMenu /></div>
                 <Button
                   onClick={() => {
                     setShowCreateBooking(false);
@@ -777,10 +778,7 @@ export function AdminBookings() {
                   <p className="text-sm" style={{ color: '#6b7a6d' }}>Step {step} of 5</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <NotificationBell />
-                <div className="lg:hidden"><RightMenu /></div>
-              </div>
+              <NotificationBell />
             </div>
           </div>
           
@@ -1578,16 +1576,16 @@ export function AdminBookings() {
       <header className="bg-white shadow-sm sticky top-0 z-40">
         <div className="mx-auto max-w-5xl px-4 py-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-serif font-semibold" style={{ color: '#2d3e2f' }}>
-                Bookings
-              </h1>
-              <p className="text-sm" style={{ color: '#6b7a6d' }}>All reservations</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <NotificationBell />
+            <div className="flex min-w-0 items-center gap-3">
               <div className="lg:hidden"><RightMenu /></div>
+              <div className="min-w-0">
+                <h1 className="truncate text-2xl font-serif font-semibold" style={{ color: '#2d3e2f' }}>
+                  Bookings
+                </h1>
+                <p className="truncate text-sm" style={{ color: '#6b7a6d' }}>All reservations</p>
+              </div>
             </div>
+            <NotificationBell />
           </div>
         </div>
       </header>
