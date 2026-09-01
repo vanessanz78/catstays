@@ -29,7 +29,9 @@ import {
   Check,
   Cat,
   AlertCircle,
+  ChevronDown,
   ChevronRight,
+  ChevronUp,
   Clock,
   Filter,
   ArrowUpDown,
@@ -38,6 +40,7 @@ import {
   History,
   Mail,
   NotebookPen,
+  Phone,
   Receipt,
   Trash2,
   WalletCards,
@@ -76,6 +79,7 @@ import {
   type PaymentMethod,
   type PaymentPurpose,
 } from '../../lib/bookingOperations';
+import { bookingReviewCatStays } from '../../lib/bookingReview';
 
 export function AdminBookings() {
   const [searchParams] = useSearchParams();
@@ -94,6 +98,7 @@ export function AdminBookings() {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
   const [showBookingDetails, setShowBookingDetails] = useState(false);
+  const [customerDetailsOpen, setCustomerDetailsOpen] = useState(false);
 
   // Form state
   const [step, setStep] = useState(1);
@@ -244,7 +249,7 @@ export function AdminBookings() {
       cancelledAt: b.cancelled_at,
       cancellationCreditAmount: Number(b.cancellation_credit_amount || 0),
       customerId: b.customer?.id || null,
-      roomArrangement: b.room_arrangement || 'shared',
+      roomArrangement: b.room_arrangement || undefined,
       roomAssignments: (b.booking_cat_rooms ?? []).map((assignment) => ({
         catId: assignment.cat.id,
         catName: assignment.cat.name,
@@ -352,6 +357,7 @@ export function AdminBookings() {
     setNoteVisible(Boolean(booking.customerNoteVisible));
     setShowNoteEditor(false);
     setShowHistory(false);
+    setCustomerDetailsOpen(false);
     setConfirmationMessage(bookingSetup.confirmationMessage);
     setConfirmationPayment(bookingSetup.defaultConfirmationPayment);
     setCancellationReason('');
@@ -679,6 +685,9 @@ export function AdminBookings() {
     choice: cancellationCreditChoice,
     customCreditAmount: Number(customCancellationCredit),
   });
+  const selectedBookingCatStays = selectedBooking
+    ? bookingReviewCatStays(selectedBooking)
+    : [];
 
   const handleCancelBooking = async () => {
     if (!selectedBooking || !cancellationReason) {
@@ -1772,10 +1781,12 @@ export function AdminBookings() {
         <SheetContent side="right" className="h-dvh w-screen max-w-none gap-0 overflow-hidden border-0 p-0 sm:max-w-none">
           <SheetHeader className="shrink-0 border-b border-sage/10 bg-white px-4 py-4 pr-12 text-left">
             <SheetTitle className="text-2xl font-serif" style={{ color: '#2d3e2f' }}>
-              Booking Details
+              {selectedBooking?.customerName || 'Booking details'}
             </SheetTitle>
             <SheetDescription>
-              Complete booking information
+              {selectedBooking
+                ? `Booking ${selectedBooking.id.slice(0, 8).toUpperCase()} · Added ${format(new Date(selectedBooking.receivedDate), 'd MMM yyyy')}`
+                : 'Booking information'}
             </SheetDescription>
           </SheetHeader>
 
@@ -1783,11 +1794,47 @@ export function AdminBookings() {
             <div className="flex-1 space-y-4 overflow-y-auto bg-[#F6F4EF] p-4 pb-8">
               <Card className="rounded-2xl border-sage/10">
                 <CardContent className="space-y-3 p-4">
-                  <div className="flex flex-wrap items-center gap-2">
-                    {selectedBooking.catNames.map((cat: string) => <Badge key={cat} className="bg-[#0A4C8B] text-white">{cat}</Badge>)}
-                    <Badge variant="outline">Ref {selectedBooking.id.slice(0, 8).toUpperCase()}</Badge>
-                  </div>
-                  <p className="text-xs" style={{ color: '#6b7a6d' }}>Added {format(new Date(selectedBooking.receivedDate), 'd MMM yyyy, h:mm a')}</p>
+                  <button
+                    type="button"
+                    aria-expanded={customerDetailsOpen}
+                    onClick={() => setCustomerDetailsOpen((open) => !open)}
+                    className="flex w-full items-center justify-between gap-3 rounded-xl text-left"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-sage">Customer</p>
+                      <p className="truncate text-lg font-semibold text-[#2d3e2f]">{selectedBooking.customerName}</p>
+                      <p className="text-xs text-[#6b7a6d]">Tap for email and phone</p>
+                    </div>
+                    {customerDetailsOpen
+                      ? <ChevronUp className="h-5 w-5 shrink-0 text-sage" />
+                      : <ChevronDown className="h-5 w-5 shrink-0 text-sage" />}
+                  </button>
+
+                  {customerDetailsOpen && (
+                    <div className="grid gap-2 border-t border-sage/10 pt-3 sm:grid-cols-2">
+                      {selectedBooking.customerEmail ? (
+                        <a
+                          href={`mailto:${selectedBooking.customerEmail}`}
+                          aria-label={`Email ${selectedBooking.customerName}`}
+                          className="flex min-h-12 items-center gap-3 rounded-xl border border-sage/15 bg-[#F6F4EF] px-3 text-sm font-medium text-[#2d3e2f]"
+                        >
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-sage"><Mail className="h-4 w-4" /></span>
+                          <span className="min-w-0 break-all">{selectedBooking.customerEmail}</span>
+                        </a>
+                      ) : <p className="rounded-xl bg-[#F6F4EF] p-3 text-sm text-[#6b7a6d]">No email saved</p>}
+                      {selectedBooking.customerPhone ? (
+                        <a
+                          href={`tel:${selectedBooking.customerPhone.replace(/\s+/g, '')}`}
+                          aria-label={`Call ${selectedBooking.customerName}`}
+                          className="flex min-h-12 items-center gap-3 rounded-xl border border-sage/15 bg-[#F6F4EF] px-3 text-sm font-medium text-[#2d3e2f]"
+                        >
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-sage"><Phone className="h-4 w-4" /></span>
+                          <span>{selectedBooking.customerPhone}</span>
+                        </a>
+                      ) : <p className="rounded-xl bg-[#F6F4EF] p-3 text-sm text-[#6b7a6d]">No phone saved</p>}
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-3 gap-2">
                     <Link to={`/staff-dashboard/calendar?date=${selectedBooking.checkIn}&booking=${selectedBooking.id}`} className="flex min-h-11 items-center justify-center gap-1 rounded-xl border border-sage/20 bg-white px-2 text-center text-xs font-semibold text-sage"><Calendar className="h-4 w-4" />Calendar</Link>
                     <button type="button" onClick={() => setShowNoteEditor((value) => !value)} className="flex min-h-11 items-center justify-center gap-1 rounded-xl border border-sage/20 bg-white px-2 text-xs font-semibold text-sage"><NotebookPen className="h-4 w-4" />Notes</button>
@@ -1810,125 +1857,74 @@ export function AdminBookings() {
                 </CardContent>
               </Card>
 
-              {/* Customer Info */}
+              {/* Cat stays */}
               <Card className="rounded-2xl border-sage/10">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <User className="w-5 h-5 text-sage" />
-                    <h3 className="font-semibold" style={{ color: '#2d3e2f' }}>
-                      Customer Information
-                    </h3>
-                  </div>
-                  <div className="space-y-2 text-sm">
-                    <div>
-                      <span className="text-xs" style={{ color: '#6b7a6d' }}>Name</span>
-                      <p className="font-medium" style={{ color: '#2d3e2f' }}>
-                        {selectedBooking.customerName}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-xs" style={{ color: '#6b7a6d' }}>Email</span>
-                      <p className="font-medium" style={{ color: '#2d3e2f' }}>
-                        {selectedBooking.customerEmail}
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-xs" style={{ color: '#6b7a6d' }}>Phone</span>
-                      <p className="font-medium" style={{ color: '#2d3e2f' }}>
-                        {selectedBooking.customerPhone}
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Cats */}
-              <Card className="rounded-2xl border-sage/10">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 mb-3">
+                <CardContent className="space-y-3 p-4">
+                  <div className="flex items-center gap-2">
                     <Cat className="w-5 h-5 text-sage" />
-                    <h3 className="font-semibold" style={{ color: '#2d3e2f' }}>
-                      Cats ({selectedBooking.catNames.length})
-                    </h3>
+                    <h3 className="font-semibold text-[#2d3e2f]">Cats, dates and rooms</h3>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedBooking.catNames.map((cat: string, i: number) => (
-                      <Badge key={i} variant="outline" className="text-sm px-3 py-1">
-                        🐱 {cat}
-                      </Badge>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Booking Dates */}
-              <Card className="rounded-2xl border-sage/10">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Calendar className="w-5 h-5 text-sage" />
-                    <h3 className="font-semibold" style={{ color: '#2d3e2f' }}>
-                      Booking Dates
-                    </h3>
-                  </div>
-                  <div className="space-y-2 text-sm">
-                    <p className="font-medium" style={{ color: '#2d3e2f' }}>
-                      • Check-in: {format(new Date(selectedBooking.checkIn), 'EEE, d MMM yyyy')}
-                      {selectedBooking.checkInTime ? ` at ${formatBookingTime(selectedBooking.checkInTime)}` : ''}
-                    </p>
-                    <p className="font-medium" style={{ color: '#2d3e2f' }}>
-                      • Check-out: {format(new Date(selectedBooking.checkOut), 'EEE, d MMM yyyy')}
-                      {selectedBooking.checkOutTime ? ` at ${formatBookingTime(selectedBooking.checkOutTime)}` : ''}
-                    </p>
-                    <div className="grid grid-cols-2 gap-3 pt-2">
-                    <div>
-                      <span className="text-xs" style={{ color: '#6b7a6d' }}>Days</span>
-                      <p className="font-medium" style={{ color: '#2d3e2f' }}>
-                        {selectedBooking.days} days
-                      </p>
-                      <p className="text-xs" style={{ color: '#6b7a6d' }}>
-                        Arrival and departure days included
-                      </p>
-                    </div>
-                    <div>
-                      <span className="text-xs" style={{ color: '#6b7a6d' }}>Received</span>
-                      <p className="font-medium" style={{ color: '#2d3e2f' }}>
-                        {format(new Date(selectedBooking.receivedDate), 'MMM dd, yyyy')}
-                      </p>
-                    </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Room Info */}
-              <Card className="rounded-2xl border-sage/10">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Home className="w-5 h-5 text-sage" />
-                    <h3 className="font-semibold" style={{ color: '#2d3e2f' }}>
-                      Accommodation
-                    </h3>
-                  </div>
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-sage">
-                    {selectedBooking.roomArrangement === 'separate' ? 'Own room each' : 'Shared room'}
-                  </p>
-                  {selectedBooking.roomAssignments.length > 0 ? (
-                    <ul className="space-y-2 text-sm">
-                      {selectedBooking.roomAssignments.map((assignment: any) => (
-                        <li key={assignment.catId} className="rounded-lg bg-[#F6F4EF] px-3 py-2">
-                          <span className="font-semibold" style={{ color: '#2d3e2f' }}>{assignment.catName}</span>
-                          <span style={{ color: '#6b7a6d' }}> — {assignment.roomName}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <div className="space-y-2 text-sm">
-                      <p className="font-medium" style={{ color: '#2d3e2f' }}>{selectedBooking.roomType}</p>
-                      <p style={{ color: '#6b7a6d' }}>{selectedBooking.roomNumber}</p>
-                    </div>
+                  {selectedBookingCatStays.length > 0 ? selectedBookingCatStays.map((stay, index) => (
+                    <article key={`${stay.catName}-${index}`} aria-label={`${stay.catName} stay details`} className="space-y-3 rounded-2xl border border-sage/10 bg-[#F6F4EF] p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <h4 className="flex min-w-0 items-center gap-2 text-base font-semibold text-[#2d3e2f]"><span aria-hidden="true">🐱</span><span className="truncate">{stay.catName}</span></h4>
+                        <Badge variant="outline" className={stay.sharingRoom ? 'border-[#BCD8F4] bg-[#EDF6FF] text-[#0A4C8B]' : 'border-sage/20 bg-white text-sage'}>
+                          Sharing: {stay.sharingRoom ? 'Yes' : 'No'}
+                        </Badge>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div className="rounded-xl bg-white p-3">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-[#6b7a6d]">From</p>
+                          <p className="mt-1 font-semibold text-[#2d3e2f]">{format(parseISO(selectedBooking.checkIn), 'd MMM yyyy')}</p>
+                          <p className={`mt-1 flex items-center gap-1 text-xs ${selectedBooking.checkInTime ? 'text-[#6b7a6d]' : 'font-semibold text-amber-700'}`}><Clock className="h-3.5 w-3.5" />{selectedBooking.checkInTime ? formatBookingTime(selectedBooking.checkInTime) : 'Time not recorded'}</p>
+                        </div>
+                        <div className="rounded-xl bg-white p-3">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-[#6b7a6d]">To</p>
+                          <p className="mt-1 font-semibold text-[#2d3e2f]">{format(parseISO(selectedBooking.checkOut), 'd MMM yyyy')}</p>
+                          <p className={`mt-1 flex items-center gap-1 text-xs ${selectedBooking.checkOutTime ? 'text-[#6b7a6d]' : 'font-semibold text-amber-700'}`}><Clock className="h-3.5 w-3.5" />{selectedBooking.checkOutTime ? formatBookingTime(selectedBooking.checkOutTime) : 'Time not recorded'}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-2 rounded-xl bg-white p-3 text-sm">
+                        <Home className="mt-0.5 h-4 w-4 shrink-0 text-sage" />
+                        <div><p className="text-xs font-semibold uppercase tracking-wide text-[#6b7a6d]">Accommodation</p><p className="mt-1 font-semibold text-[#2d3e2f]">{stay.roomName}</p></div>
+                      </div>
+                    </article>
+                  )) : (
+                    <p className="rounded-xl bg-[#F6F4EF] p-3 text-sm text-amber-800">No cat is linked to this booking yet.</p>
                   )}
+
+                  <div className="grid grid-cols-3 gap-2 border-t border-sage/10 pt-3 text-center">
+                    <div><p className="text-xs text-[#6b7a6d]">Total</p><p className="font-semibold text-[#2d3e2f]">${bookingOperations.financials.total.toFixed(2)}</p></div>
+                    <div><p className="text-xs text-[#6b7a6d]">Paid</p><p className="font-semibold text-emerald-700">${bookingOperations.financials.paid.toFixed(2)}</p></div>
+                    <div>
+                      <p className="text-xs text-[#6b7a6d]">{bookingOperations.financials.owing < 0 ? 'Credit' : 'Owing'}</p>
+                      <p className="font-semibold text-[#2d3e2f]">${Math.abs(bookingOperations.financials.owing).toFixed(2)}</p>
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
+
+              <Card className="rounded-2xl border-sage/10">
+                <CardContent className="space-y-3 p-4">
+                  <p className="text-sm font-semibold text-[#2d3e2f]">Review this booking</p>
+                  <div className={selectedBooking.status === 'confirmed' || selectedBooking.status === 'cancelled' ? 'grid' : 'grid grid-cols-2 gap-3'}>
+                    <Button variant="outline" className="min-h-12 rounded-xl border-sage/20" onClick={() => handleBookingDetailsOpenChange(false)}>Close</Button>
+                    {selectedBooking.status !== 'confirmed' && selectedBooking.status !== 'cancelled' && (
+                      <Button type="button" disabled={confirmingBooking} onClick={() => void handleConfirmSelectedBooking()} className="min-h-12 rounded-xl bg-[#7DAF7B] text-white hover:bg-[#699967] disabled:bg-sage/50">
+                        <Check className="mr-2 h-4 w-4" />
+                        {confirmingBooking ? 'Working…' : 'Confirm booking'}
+                      </Button>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <details className="group rounded-2xl border border-sage/10 bg-white">
+                <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 font-semibold text-[#2d3e2f]">
+                  <span>More booking tools and payments</span>
+                  <ChevronDown className="h-5 w-5 shrink-0 text-sage transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="space-y-4 border-t border-sage/10 bg-[#F6F4EF] p-3">
 
               {/* Booking note */}
               {selectedBooking.specialRequirements && !showNoteEditor && (
@@ -2035,6 +2031,8 @@ export function AdminBookings() {
                   )}
                 </CardContent>
               </Card>
+                </div>
+              </details>
 
               {bookingActionError && (
                 <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
@@ -2052,27 +2050,6 @@ export function AdminBookings() {
               {operationMessage && (
                 <p role="status" className="rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-800">{operationMessage}</p>
               )}
-
-              {/* Action Buttons */}
-              <div className={`sticky bottom-0 -mx-4 -mb-8 mt-4 grid gap-3 border-t border-sage/10 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(10,17,40,0.08)] ${selectedBooking.status === 'confirmed' || selectedBooking.status === 'cancelled' ? 'grid-cols-1' : 'grid-cols-2'}`}>
-                <Button 
-                  variant="outline" 
-                  className="rounded-xl border-sage/20"
-                  onClick={() => handleBookingDetailsOpenChange(false)}
-                >
-                  Close
-                </Button>
-                {selectedBooking.status !== 'confirmed' && selectedBooking.status !== 'cancelled' && <Button
-                  type="button"
-                  disabled={confirmingBooking}
-                  onClick={() => void handleConfirmSelectedBooking()}
-                  className="rounded-xl text-white disabled:bg-sage/50"
-                  style={{ backgroundColor: '#7DAF7B' }}
-                >
-                  <Check className="mr-2 h-4 w-4" />
-                  {confirmingBooking ? 'Working…' : 'Confirm Booking'}
-                </Button>}
-              </div>
             </div>
           )}
         </SheetContent>
