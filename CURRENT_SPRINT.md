@@ -1,48 +1,46 @@
 # Current Sprint
 
-Last updated: 2026-08-31
+Last updated: 2026-09-01
 
 ## Goal
 
-Release physical-room inventory for the Deloraine staff calendar and booking paths.
+Make the CatStays staff dashboard faster to scan by prioritising daily operational navigation and compressing the phone Today overview.
 
 ## Source Of Truth
 
 - Repository: `vanessanz78/catstays`
-- Working ref: `fix/deloraine-physical-room-inventory`
-- Base `main`: `e075a3378a2bd8dae8af0e43817d1e0374c9fb59`
+- Working ref: `refine/dashboard-priority-today-overview-20260901`
+- Base `main`: `6a0f3bba7b2040770a03dc55f6f9283d7d856fe6`
 - Review and deployment environment: CatStays Replit
-- Database project: Supabase `iwyoezwqorddkmqnjbif`
 - Operating-system entrypoint: `START_HERE.md` in `vanessanz78/codex-operating-system`
 
 ## Current State
 
-- Public accommodation types remain grouped choices for customers.
-- Staff operations now expand each type into numbered physical-room rows.
-- Deloraine's verified inventory is Private Rooms 1–17 at three cats per room, Indoor Rooms 1–8 at two cats per room, then Communal Rooms 1–25 at one cat per room.
-- Existing room assignments are deterministically backfilled to physical room 1, which keeps the Charlie, Cat, Dog private-suite booking visible in Private Room 1.
-- Staff-created shared and separate-room bookings persist both the accommodation type and the physical room number.
-- New public booking requests validate capacity and dates on the API server and choose the first available physical room.
-- Calendar clicks carry the exact room number into New Booking; drag/drop conflict checks and moves are room-number aware.
-- The Room Planner edits the number of physical rooms separately from cats-per-room capacity and reports occupancy across physical rooms.
-- This sprint does not change Stripe, payment rules, the frozen Open Home ADR, or the paused Open Home phase progression.
+- The physical-room inventory work from PR #48 is merged into the base `main` commit and remains unchanged by this sprint.
+- The primary dashboard navigation order is Today, Bookings, Calendar, Customers, Messages, then Cat Updates.
+- View Website is no longer a sidebar row. It is a compact, accessible external-link action beside the Dashboard/cattery identity.
+- Room Planner and Edit Website are separated into the lowest-priority bottom navigation group, with Edit Website last.
+- The phone Today overview keeps New Booking prominent but combines the date, arrivals, departures, and occupancy into one compact panel.
+- Arrivals, Departures, and Occupied remain visible side by side at phone width so the operational lists begin higher on the first page.
+- This sprint does not change tenant data, authentication, booking logic, calendar logic, room inventory, Supabase, payments, or the frozen Open Home architecture.
 
 ## Verification Required Before Completion
 
-1. Apply `supabase/migrations/20260831081500_physical_room_inventory.sql` to the CatStays Supabase project.
-2. Pass focused inventory/timeline tests, CatStays and API type checks, and both production builds.
-3. Review and merge the branch into GitHub `main`.
-4. Pull the exact merged `main` SHA into CatStays Replit, restart, and republish.
-5. Complete signed-in Runtime UAT on the Deloraine staff calendar, Room Planner, staff New Booking, and public booking request.
+1. Pass the focused navigation-order tests.
+2. Pass the CatStays type check and production build.
+3. Pass relevant existing staff-dashboard and room-inventory tests.
+4. Verify the dashboard at phone and laptop widths, including no horizontal overflow.
+5. Review and merge the branch into GitHub `main`.
+6. Pull the exact merged `main` SHA into CatStays Replit, restart, republish, and confirm runtime health before signed-in UAT.
+7. Complete founder UAT on the Deloraine staff dashboard navigation, View Website action, and Today overview.
 
 ## Risks And Guardrails
 
-- Do not publish code that reads the new columns before the migration is applied.
-- A type row is not one physical room; `rooms.room_count` is inventory quantity and `rooms.capacity` is cats per physical room.
-- Conflicts are evaluated per accommodation type plus physical room number and inclusive stay dates.
-- Multi-room bookings must preserve per-cat physical room assignments.
+- Keep all existing dashboard destinations available; this sprint changes priority and presentation only.
+- The View Website icon must still open `/` on the current tenant domain.
+- The compact Today metrics must preserve their existing live calculations and Room Planner destination.
 - Runtime UAT, not a successful build or merge, is the release truth.
 
 ## Handoff
 
-Read the standard project sequence from root `START_HERE.md`, then read this file, `DECISION_LOG.md`, and `docs/codex-handoffs/2026-08-31-physical-room-inventory.md` before continuing this sprint.
+Read the standard project sequence from root `START_HERE.md`, then read this file, `DECISION_LOG.md`, and `docs/codex-handoffs/2026-09-01-dashboard-priority-today-overview.md` before continuing this sprint.

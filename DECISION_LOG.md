@@ -1,6 +1,21 @@
 # Decision Log
 
-Last updated: 2026-08-31
+Last updated: 2026-09-01
+
+## 2026-09-01 - Daily Operations Lead The Dashboard Navigation
+
+Working ref: `refine/dashboard-priority-today-overview-20260901`.
+
+Decision: Make Today, Bookings, Calendar, Customers, Messages, and Cat Updates the first six staff dashboard actions; move Room Planner and Edit Website into a separated bottom group with Edit Website last; replace the View Website menu row with a small accessible website action beside the Dashboard/cattery identity.
+
+Reason: Founder phone UAT showed that the most frequently used daily work was buried among setup and administration actions, while the large stacked Today cards delayed the actual arrivals and departures lists. The dashboard should provide a quick operational snapshot before secondary configuration tools.
+
+Impact:
+
+- The 2026-08-27 decision to make View Website the first sidebar row is superseded for navigation placement only; the public-site shortcut remains available in the dashboard header.
+- Desktop and mobile navigation share the same primary and lower-priority grouping.
+- The Today date and three live figures are combined into one compact panel, with Arrivals, Departures, and Occupied side by side at phone width.
+- Existing destinations, live calculations, tenant isolation, authentication, bookings, calendar, room inventory, and public website behaviour remain unchanged.
 
 ## 2026-08-31 - Accommodation Types Expand Into Physical Rooms
 

@@ -38,27 +38,30 @@ type MenuItem = {
   badge?: string;
 };
 
-const menuItems: MenuItem[] = [
-  { path: '/', icon: ExternalLink, label: 'View Website', description: 'Open public website' },
+export const menuItems: MenuItem[] = [
   { path: '/staff-dashboard', icon: Home, label: 'Today', description: 'Check-ins & departures' },
-  { path: '/staff-dashboard/website-editor', icon: Globe, label: 'Edit Website', description: 'Edit public website' },
-  { path: '/staff-dashboard/calendar', icon: Calendar, label: 'Calendar', description: 'Room timeline' },
-  { path: '/staff-dashboard/room-planner', icon: LayoutGrid, label: 'Room Planner', description: 'Visual room grid' },
   { path: '/staff-dashboard/bookings', icon: BookOpen, label: 'Bookings', description: 'All reservations' },
+  { path: '/staff-dashboard/calendar', icon: Calendar, label: 'Calendar', description: 'Room timeline' },
   { path: '/staff-dashboard/customers', icon: Users, label: 'Customers', description: 'Contact details' },
+  { path: '/staff-dashboard/messages', icon: MessageSquare, label: 'Messages', description: 'Email & customer history' },
+  { path: '/staff-dashboard/cat-update-generator', icon: Camera, label: 'Cat Updates', description: 'Private photo updates' },
   { path: '/staff-dashboard/smart-import', icon: Upload, label: 'Smart Import', description: 'Import & export CSV data' },
   { path: '/staff-dashboard/accounting', icon: CreditCard, label: 'Accounting', description: 'Payments, expenses & GST' },
   { path: '/staff-dashboard/payment', icon: CreditCard, label: 'Payment Setup', description: 'Stripe integration' },
-  { path: '/staff-dashboard/messages', icon: MessageSquare, label: 'Messages', description: 'Email & customer history' },
   { path: '/staff-dashboard/promotions', icon: Megaphone, label: 'Promotions', description: 'Offers & promo codes' },
   { path: '/staff-dashboard/social', icon: Share2, label: 'Social Media', description: 'Drafts, schedule & sharing' },
-  { path: '/staff-dashboard/cat-update-generator', icon: Camera, label: 'Cat Updates', description: 'Private photo updates' },
   { path: '/staff-dashboard/booking-setup', icon: Settings, label: 'Booking Setup', description: 'Rules, times & deposits' },
   { path: '/staff-dashboard/marketing', icon: WandSparkles, label: 'Marketing Studio', description: 'Editable marketing materials' },
   { path: '/staff-dashboard/insights', icon: BarChart3, label: 'Insights', description: 'Analytics & reports' },
   { path: '/staff-dashboard/subscription', icon: Crown, label: 'Subscription', description: 'Manage your plan' },
   { path: '/staff-dashboard/settings', icon: Settings, label: 'Settings', description: 'Configure platform' },
+  { path: '/staff-dashboard/room-planner', icon: LayoutGrid, label: 'Room Planner', description: 'Visual room grid' },
+  { path: '/staff-dashboard/website-editor', icon: Globe, label: 'Edit Website', description: 'Edit public website' },
 ];
+
+const primaryMenuItems = menuItems.slice(0, 6);
+const secondaryMenuItems = menuItems.slice(6, -2);
+const bottomMenuItems = menuItems.slice(-2);
 
 export function RightMenu({ mode = 'button' }: { mode?: RightMenuMode }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -119,6 +122,30 @@ export function RightMenu({ mode = 'button' }: { mode?: RightMenuMode }) {
     );
   };
 
+  const renderMenuGroups = (compact = false, onSelect?: () => void) => (
+    <>
+      <div>{primaryMenuItems.map((item) => renderMenuItem(item, compact, onSelect))}</div>
+      <div className="mt-3 border-t border-[#E8DED4] pt-3">
+        {secondaryMenuItems.map((item) => renderMenuItem(item, compact, onSelect))}
+      </div>
+      <div className="mt-3 border-t border-[#E8DED4] pt-3">
+        {bottomMenuItems.map((item) => renderMenuItem(item, compact, onSelect))}
+      </div>
+    </>
+  );
+
+  const renderWebsiteLink = (onSelect?: () => void) => (
+    <Link
+      to="/"
+      onClick={onSelect}
+      aria-label="View public website"
+      title="View public website"
+      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#C46A3A] transition hover:bg-[#C46A3A]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C46A3A] focus-visible:ring-offset-2"
+    >
+      <ExternalLink className="h-5 w-5" />
+    </Link>
+  );
+
   if (mode === 'sidebar') {
     return (
       <aside
@@ -128,10 +155,13 @@ export function RightMenu({ mode = 'button' }: { mode?: RightMenuMode }) {
       >
         <div className="flex shrink-0 items-center justify-between border-b border-[#E8DED4] bg-[#F6F4EF] p-4">
           {!isCollapsed && (
-            <div className="min-w-0">
-              <h2 className="truncate font-serif text-xl font-semibold text-[#2d3e2f]">Dashboard</h2>
-              <p className="truncate text-sm text-[#6b7a6d]">{businessName}</p>
-            </div>
+            <>
+              <div className="min-w-0 flex-1">
+                <h2 className="truncate font-serif text-xl font-semibold text-[#2d3e2f]">Dashboard</h2>
+                <p className="truncate text-sm text-[#6b7a6d]">{businessName}</p>
+              </div>
+              {renderWebsiteLink()}
+            </>
           )}
           <Button
             onClick={() => setIsCollapsed((value) => !value)}
@@ -148,7 +178,7 @@ export function RightMenu({ mode = 'button' }: { mode?: RightMenuMode }) {
           </Button>
         </div>
         <nav className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2 pb-8">
-          {menuItems.map((item) => renderMenuItem(item, isCollapsed))}
+          {renderMenuGroups(isCollapsed)}
         </nav>
       </aside>
     );
@@ -178,12 +208,13 @@ export function RightMenu({ mode = 'button' }: { mode?: RightMenuMode }) {
         style={{ maxWidth: '85vw', height: '100vh' }}
       >
         <div className="flex shrink-0 items-center justify-between border-b p-4" style={{ backgroundColor: '#F6F4EF' }}>
-          <div>
+          <div className="min-w-0 flex-1">
             <h2 className="font-serif text-xl font-semibold" style={{ color: '#2d3e2f' }}>
               Dashboard
             </h2>
-            <p className="text-sm" style={{ color: '#6b7a6d' }}>{businessName}</p>
+            <p className="truncate text-sm" style={{ color: '#6b7a6d' }}>{businessName}</p>
           </div>
+          {renderWebsiteLink(() => setIsOpen(false))}
           <Button
             onClick={() => setIsOpen(false)}
             variant="ghost"
@@ -197,7 +228,7 @@ export function RightMenu({ mode = 'button' }: { mode?: RightMenuMode }) {
 
         <nav className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-8">
           <div className="p-2">
-            {menuItems.map((item) => renderMenuItem(item, false, () => setIsOpen(false)))}
+            {renderMenuGroups(false, () => setIsOpen(false))}
           </div>
         </nav>
       </div>}

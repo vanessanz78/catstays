@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Clock,
   CreditCard,
+  ExternalLink,
   Home,
   LayoutGrid,
   Mail,
@@ -127,8 +128,8 @@ function formatDate(value: string) {
 
 function formatTodayLabel() {
   return new Date().toLocaleDateString(undefined, {
-    weekday: 'long',
-    month: 'long',
+    weekday: 'short',
+    month: 'short',
     day: 'numeric',
     year: 'numeric',
   });
@@ -311,40 +312,42 @@ function TodaySection({
 }) {
   return (
     <>
-      <section className="mb-6 rounded-lg border border-[#E8DED4] bg-white p-5 shadow-sm">
+      <section className="mb-5 rounded-lg border border-[#E8DED4] bg-white p-4 shadow-sm sm:p-5">
         <Link to="/staff-dashboard/bookings?new=true">
-          <Button className="mb-4 h-14 w-full rounded-lg bg-[#C46A3A] text-base font-semibold text-white hover:bg-[#A85A30]">
+          <Button className="mb-3 h-12 w-full rounded-lg bg-[#C46A3A] text-base font-semibold text-white hover:bg-[#A85A30] sm:h-14">
             <Plus className="mr-2 h-5 w-5" />
             New booking
           </Button>
         </Link>
 
-        <div className="mb-4 grid gap-3 rounded-lg border border-[#E8DED4] bg-[#F8F7F5] p-4 text-center sm:grid-cols-[auto_1fr_auto] sm:items-center">
-          <Link to="/staff-dashboard/calendar" className="text-[#0A1128] hover:text-[#C46A3A]">
-            <CalendarDays className="mx-auto h-5 w-5 sm:mx-0" />
-          </Link>
-          <div>
-            <h2 className="text-2xl font-semibold">Today</h2>
-            <p className="text-sm text-[#4E5871]">{formatTodayLabel()}</p>
+        <div className="rounded-lg border border-[#E8DED4] bg-[#F8F7F5] p-3 sm:p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3 text-left">
+              <CalendarDays className="h-5 w-5 shrink-0 text-[#0A1128]" />
+              <div className="min-w-0">
+                <h2 className="text-lg font-semibold leading-tight sm:text-xl">Today</h2>
+                <p className="truncate text-xs text-[#4E5871] sm:text-sm">{formatTodayLabel()}</p>
+              </div>
+            </div>
+            <Link to="/staff-dashboard/calendar" className="shrink-0 text-sm font-semibold text-[#C46A3A]">
+              Calendar
+            </Link>
           </div>
-          <Link to="/staff-dashboard/calendar" className="text-sm font-semibold text-[#C46A3A]">
-            Calendar
-          </Link>
-        </div>
 
-        <div className="grid gap-3 lg:grid-cols-3">
-          <div className="rounded-lg bg-[#0A1128] p-6 text-center text-white shadow-sm">
-            <p className="text-3xl font-semibold">{isLoading ? '-' : data.arrivalsToday.length}</p>
-            <p className="text-sm text-white/80">Arrivals</p>
+          <div className="mt-3 grid grid-cols-3 gap-2 sm:gap-3">
+            <div className="min-w-0 rounded-lg bg-[#0A1128] p-3 text-center text-white shadow-sm sm:p-5">
+              <p className="text-2xl font-semibold sm:text-3xl">{isLoading ? '-' : data.arrivalsToday.length}</p>
+              <p className="truncate text-xs text-white/80 sm:text-sm">Arrivals</p>
+            </div>
+            <div className="min-w-0 rounded-lg bg-[#C46A3A] p-3 text-center text-white shadow-sm sm:p-5">
+              <p className="text-2xl font-semibold sm:text-3xl">{isLoading ? '-' : data.departuresToday.length}</p>
+              <p className="truncate text-xs text-white/85 sm:text-sm">Departures</p>
+            </div>
+            <Link to="/staff-dashboard/room-planner" className="min-w-0 rounded-lg bg-white p-3 text-center shadow-sm ring-1 ring-[#E8DED4] hover:bg-white sm:p-5">
+              <p className="truncate text-2xl font-semibold sm:text-3xl">{isLoading ? '-' : data.occupancyLabel}</p>
+              <p className="truncate text-xs text-[#4E5871] sm:text-sm">Occupied</p>
+            </Link>
           </div>
-          <div className="rounded-lg bg-[#C46A3A] p-6 text-center text-white shadow-sm">
-            <p className="text-3xl font-semibold">{isLoading ? '-' : data.departuresToday.length}</p>
-            <p className="text-sm text-white/85">Departures</p>
-          </div>
-          <Link to="/staff-dashboard/room-planner" className="rounded-lg bg-white p-6 text-center shadow-sm ring-1 ring-[#E8DED4] hover:bg-[#F8F7F5]">
-            <p className="text-3xl font-semibold">{isLoading ? '-' : data.occupancyLabel}</p>
-            <p className="text-sm text-[#4E5871]">Occupied</p>
-          </Link>
         </div>
       </section>
 
@@ -1332,9 +1335,19 @@ export function StaffDashboard() {
             <div className="lg:hidden">
               <RightMenu />
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-wide text-[#C46A3A]">Staff dashboard</p>
-              <h1 className="text-xl font-semibold">{businessName}</h1>
+              <div className="flex min-w-0 items-center gap-1">
+                <h1 className="truncate text-xl font-semibold">{businessName}</h1>
+                <Link
+                  to="/"
+                  aria-label="View public website"
+                  title="View public website"
+                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#C46A3A] transition hover:bg-[#C46A3A]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C46A3A] focus-visible:ring-offset-2 lg:hidden"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                </Link>
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-3">
