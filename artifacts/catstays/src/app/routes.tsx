@@ -30,6 +30,7 @@ import { AdminSettings } from "./pages/admin/Settings";
 import { NotificationSettings } from "./pages/admin/NotificationSettings";
 import { SettingsDataImport } from "./pages/tenant/SettingsDataImport";
 import { AdminAccounting } from "./pages/admin/Accounting";
+import { AdminReports } from "./pages/admin/Reports";
 import { AdminMessages } from "./pages/admin/Messages";
 import { AdminPromotions } from "./pages/admin/Promotions";
 import { AdminSocial } from "./pages/admin/Social";
@@ -221,6 +222,11 @@ export const router = createBrowserRouter([
     ErrorBoundary: RootErrorBoundary,
   },
   {
+    path: "/staff-dashboard/reports",
+    Component: AdminReports,
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
     path: "/staff-dashboard/bookings",
     Component: AdminBookings,
     ErrorBoundary: RootErrorBoundary,
@@ -300,6 +306,11 @@ export const router = createBrowserRouter([
   {
     path: "/admin/accounting",
     Component: AdminAccounting,
+    ErrorBoundary: RootErrorBoundary,
+  },
+  {
+    path: "/admin/reports",
+    Component: AdminReports,
     ErrorBoundary: RootErrorBoundary,
   },
   {

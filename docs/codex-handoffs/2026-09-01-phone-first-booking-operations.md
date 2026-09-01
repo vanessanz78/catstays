@@ -34,18 +34,24 @@ The supplied Revelation Pets walkthrough established the daily operating path:
 - Existing Add Customer plus a direct Import / export route to Smart Import.
 - Guided customer merging with live dual-customer search, Customer 1 defaults, field-by-field side-by-side choices, portal-login selection, final confirmation, and an all-done state.
 - Atomic customer merging for cats, bookings, payments, customer credit, payment requests, messages, documents, and cat updates, with earliest join date and immutable audit snapshots retained.
+- Dedicated modern Reports area with 15 operational, financial, customer, and care report choices.
+- Live arrival, departure, booking, occupancy, appointment, deposit, outstanding-payment, sales, payment, feeding/medical, waiting-list, and tips views built from tenant-owned records.
+- Click-again ascending/descending column sorting, live report search, date-range filtering, report-specific status filtering, phone cards, and desktop tables.
+- Print, browser Save as PDF, and Excel-compatible export for the complete visible filtered report.
+- Honest empty states for training, birthdays, and vaccine-expiry reports until structured source fields are added; no report fabricates records.
 
-Appointments, Xero, print controls, and unrelated payment methods are not placed in the default daily path.
+Appointments, Xero, and unrelated payment methods are not placed in the default daily path.
 
 ## Verification Completed
 
-- `pnpm run test:staff-booking-operations`: 35 passed, 0 failed.
+- `pnpm run test:staff-booking-operations`: 38 passed, 0 failed.
 - `pnpm run test:physical-room-inventory`: 13 passed, 0 failed.
 - Complete workspace TypeScript check: passed.
 - Complete workspace production build: passed.
 - `git diff --check`: passed.
 - Existing Vite source-map and large-chunk warnings remain non-blocking.
-- Signed-in browser review remains pending: localhost reaches the real CatStays confirmation/sign-in gate, so the protected customer workspace was not bypassed or populated with fake authentication.
+- Local Reports shell browser review passed at 390px and 1440px: the document width equalled the viewport at both sizes, all 15 reports appeared, the deposit status menu exposed the five required filters, and no console errors were emitted.
+- Signed-in live-data browser review remains pending; the protected customer workspace was not bypassed or populated with fake authentication.
 
 ## Release-Coupled Migration
 
@@ -108,6 +114,15 @@ The new application queries expect the new tables and relations. After review, a
 - Select two customers for merging, confirm Customer 1 is the default for every profile field, then keep at least one different Customer 2 field.
 - Review the final summary, confirm the merge, and verify cats, bookings, payments, credit, messages, documents, and updates remain attached to the combined customer.
 - Confirm the second profile is gone, the earliest joined date remains, the selected portal login remains linked, and the merge event is present in the private audit table.
+
+### Reports
+
+- Open Reports from the staff navigation and check the 15 report choices on phone and laptop.
+- Open Deposit payments and verify Outstanding, Paid, Refunded, Booking cancelled, and Booking not cancelled filters against live records.
+- Set a date range, combine it with a status and search term, and confirm the visible rows update together.
+- Click the same column heading twice and confirm ascending then descending order; repeat with a date, money, and text column.
+- Print one report, use Save PDF through the browser print window, and open the Excel export to confirm it contains the complete visible filtered report.
+- Confirm phone reports use cards without document-level horizontal scrolling and laptop reports use the sortable table.
 
 ## Rollback Boundary
 
