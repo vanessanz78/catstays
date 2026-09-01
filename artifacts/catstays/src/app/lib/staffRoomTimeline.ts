@@ -8,6 +8,7 @@ import {
 
 export type TimelineSegment = {
   booking: BookingWithDetails;
+  segmentId?: string;
   startIndex: number;
   endIndex: number;
   lane: number;
@@ -60,6 +61,11 @@ export function bookingOverlapsRange(
 
 export function catNamesForRoom(booking: BookingWithDetails, roomId?: string, roomUnitNumber?: number) {
   if (roomId && roomUnitNumber) {
+    const splitNames = (booking.booking_room_segments || [])
+      .filter((segment) => segment.room?.id === roomId && segment.room_unit_number === roomUnitNumber)
+      .map((segment) => segment.cat?.name)
+      .filter((name): name is string => Boolean(name));
+    if (splitNames.length > 0) return [...new Set(splitNames)].join(', ');
     const assigned = (booking.booking_cat_rooms || [])
       .filter((assignment) => (
         assignment.room?.id === roomId
@@ -85,21 +91,40 @@ export function buildRoomSegments(
   lastDate: string,
 ): TimelineSegment[] {
   const segments = bookings
-    .filter((booking) => {
-      if (booking.status === 'cancelled' || !bookingOverlapsRange(booking, firstDate, lastDate)) return false;
-      return roomId && roomUnitNumber
+    .flatMap((booking) => {
+      if (booking.status === 'cancelled') return [];
+      const splitSegments = booking.booking_room_segments || [];
+      if (splitSegments.length > 0) {
+        return splitSegments.flatMap((segment) => {
+          if (segment.ends_on < firstDate || segment.starts_on > lastDate) return [];
+          if (!roomId || !roomUnitNumber || segment.room?.id !== roomId || segment.room_unit_number !== roomUnitNumber) return [];
+          return [{
+            booking,
+            segmentId: segment.id,
+            startIndex: Math.max(0, differenceInCalendarDays(parseISO(segment.starts_on), parseISO(firstDate))),
+            endIndex: Math.min(
+              differenceInCalendarDays(parseISO(lastDate), parseISO(firstDate)),
+              differenceInCalendarDays(parseISO(segment.ends_on), parseISO(firstDate)),
+            ),
+            lane: 0,
+          }];
+        });
+      }
+      if (!bookingOverlapsRange(booking, firstDate, lastDate)) return [];
+      const matches = roomId && roomUnitNumber
         ? bookingUsesRoomUnit(booking, roomId, roomUnitNumber)
         : bookingNeedsRoomUnit(booking);
+      if (!matches) return [];
+      return [{
+        booking,
+        startIndex: Math.max(0, differenceInCalendarDays(parseISO(booking.check_in), parseISO(firstDate))),
+        endIndex: Math.min(
+          differenceInCalendarDays(parseISO(lastDate), parseISO(firstDate)),
+          differenceInCalendarDays(parseISO(booking.check_out), parseISO(firstDate)),
+        ),
+        lane: 0,
+      }];
     })
-    .map((booking) => ({
-      booking,
-      startIndex: Math.max(0, differenceInCalendarDays(parseISO(booking.check_in), parseISO(firstDate))),
-      endIndex: Math.min(
-        differenceInCalendarDays(parseISO(lastDate), parseISO(firstDate)),
-        differenceInCalendarDays(parseISO(booking.check_out), parseISO(firstDate)),
-      ),
-      lane: 0,
-    }))
     .sort((a, b) => a.startIndex - b.startIndex || a.endIndex - b.endIndex);
 
   const laneEnds: number[] = [];

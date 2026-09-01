@@ -59,3 +59,16 @@ test('room-unit occupancy distinguishes rooms of the same type', () => {
 test('legacy bookings without a physical room number remain visibly unassigned', () => {
   assert.equal(bookingNeedsRoomUnit({ ...booking, room_unit_number: null }), true);
 });
+
+test('split room conflicts use the segment dates rather than the whole stay', () => {
+  const split = {
+    ...booking,
+    check_out: '2026-09-06',
+    booking_room_segments: [
+      { starts_on: '2026-09-01', ends_on: '2026-09-03', room_unit_number: 1, room: { id: 'private' } },
+      { starts_on: '2026-09-04', ends_on: '2026-09-06', room_unit_number: 2, room: { id: 'private' } },
+    ],
+  };
+  assert.equal(roomUnitHasConflict([split], 'private', 1, '2026-09-04', '2026-09-06'), false);
+  assert.equal(roomUnitHasConflict([split], 'private', 2, '2026-09-04', '2026-09-06'), true);
+});

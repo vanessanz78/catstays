@@ -13,6 +13,7 @@ import { ClientPortalEntry } from './pages/customer/ClientPortalEntry';
 import { NotificationSettings } from './pages/admin/NotificationSettings';
 import { PaymentIntegration } from './pages/admin/PaymentIntegration';
 import { AdminAccounting } from './pages/admin/Accounting';
+import { AdminReports } from './pages/admin/Reports';
 import { SmartImport } from './pages/admin/SmartImport';
 import { AdminMessages } from './pages/admin/Messages';
 import { AdminPromotions } from './pages/admin/Promotions';
@@ -112,6 +113,7 @@ export const subdomainRouter = createBrowserRouter([
   { path: '/staff-dashboard/cat-update-generator', Component: CatUpdateGenerator },
   { path: '/staff-dashboard/payment', Component: PaymentIntegration },
   { path: '/staff-dashboard/accounting', Component: AdminAccounting },
+  { path: '/staff-dashboard/reports', Component: AdminReports },
   { path: '/staff-dashboard/bookings', Component: AdminBookings },
   { path: '/staff-dashboard/website-editor', Component: DashboardWebsiteEditor },
   { path: '/staff-dashboard/marketing', Component: MarketingKit },

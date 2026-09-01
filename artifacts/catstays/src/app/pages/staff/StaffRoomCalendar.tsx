@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState, type DragEvent } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { format, parseISO } from 'date-fns';
 import { CalendarDays, ChevronLeft, ChevronRight, CircleAlert, GripHorizontal, Info, Plus } from 'lucide-react';
 import type { BookingWithDetails } from '@/hooks/useBookings';
@@ -45,6 +45,10 @@ type StaffRoomCalendarProps = {
   rooms: RoomRecord[];
   isLoading: boolean;
   moveBooking: MoveBooking;
+  splitBooking: (
+    bookingId: string,
+    segments: Array<{ cat_id?: string | null; room_id: string; room_unit_number: number; starts_on: string; ends_on: string }>,
+  ) => Promise<{ error: unknown }>;
 };
 
 function localDateKey(date = new Date()) {
@@ -90,10 +94,11 @@ function formatCompactRange(booking: BookingWithDetails) {
   return `${start} – ${format(checkOut, 'd MMM')}`;
 }
 
-export function StaffRoomCalendar({ bookings, rooms, isLoading, moveBooking }: StaffRoomCalendarProps) {
+export function StaffRoomCalendar({ bookings, rooms, isLoading, moveBooking, splitBooking }: StaffRoomCalendarProps) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const today = localDateKey();
-  const [anchorDate, setAnchorDate] = useState(() => addDateKey(today, -1));
+  const [anchorDate, setAnchorDate] = useState(() => addDateKey(searchParams.get('date') || today, -1));
   const [selected, setSelected] = useState<{
     booking: BookingWithDetails;
     roomId?: string;
@@ -103,6 +108,9 @@ export function StaffRoomCalendar({ bookings, rooms, isLoading, moveBooking }: S
   const [draggedBookingId, setDraggedBookingId] = useState<string | null>(null);
   const [movingBookingId, setMovingBookingId] = useState<string | null>(null);
   const [message, setMessage] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
+  const [moveDraft, setMoveDraft] = useState({ roomKey: '', checkIn: '' });
+  const [splitDraft, setSplitDraft] = useState({ firstRoomKey: '', secondRoomKey: '', secondStartsOn: '', thirdRoomKey: '', thirdStartsOn: '' });
+  const [editorMode, setEditorMode] = useState<'none' | 'move' | 'split'>('none');
   const dragEndedAt = useRef(0);
   const timelineRef = useRef<HTMLDivElement>(null);
 
@@ -159,6 +167,65 @@ export function StaffRoomCalendar({ bookings, rooms, isLoading, moveBooking }: S
   ) => {
     if (Date.now() - dragEndedAt.current < 300) return;
     setSelected({ booking, roomId, roomUnitNumber, roomName });
+    setMessage(null);
+    const existingKey = bookingRoomUnitKeys(booking)[0] || '';
+    setMoveDraft({ roomKey: existingKey, checkIn: booking.check_in });
+    setSplitDraft({ firstRoomKey: existingKey, secondRoomKey: '', secondStartsOn: addDateKey(booking.check_in, 1), thirdRoomKey: '', thirdStartsOn: '' });
+    setEditorMode('none');
+  };
+
+  const saveMoveFromDialog = async () => {
+    if (!selected || !moveDraft.roomKey || !moveDraft.checkIn) return;
+    const target = physicalRooms.find((room) => room.key === moveDraft.roomKey);
+    if (!target) return;
+    const nextDates = shiftBookingDates(selected.booking.check_in, selected.booking.check_out, moveDraft.checkIn);
+    setMovingBookingId(selected.booking.id);
+    const result = await moveBooking(selected.booking.id, {
+      roomId: target.roomId,
+      roomUnitNumber: target.unitNumber,
+      checkIn: nextDates.checkIn,
+      checkOut: nextDates.checkOut,
+    });
+    setMovingBookingId(null);
+    if (result.error) {
+      setMessage({ tone: 'error', text: errorMessage(result.error) });
+      return;
+    }
+    setSelected(null);
+    setMessage({ tone: 'success', text: `${catNamesForRoom(selected.booking)} moved to ${target.name}.` });
+  };
+
+  const saveSplitFromDialog = async () => {
+    if (!selected || !splitDraft.firstRoomKey || !splitDraft.secondRoomKey || !splitDraft.secondStartsOn) return;
+    const firstRoom = physicalRooms.find((room) => room.key === splitDraft.firstRoomKey);
+    const secondRoom = physicalRooms.find((room) => room.key === splitDraft.secondRoomKey);
+    if (!firstRoom || !secondRoom) return;
+    const wantsThirdRoom = Boolean(splitDraft.thirdRoomKey || splitDraft.thirdStartsOn);
+    const thirdRoom = wantsThirdRoom ? physicalRooms.find((room) => room.key === splitDraft.thirdRoomKey) : undefined;
+    if (splitDraft.secondStartsOn <= selected.booking.check_in || splitDraft.secondStartsOn > selected.booking.check_out) {
+      setMessage({ tone: 'error', text: 'Choose the first day the cats move to the second room.' });
+      return;
+    }
+    if (firstRoom.key === secondRoom.key || (thirdRoom && secondRoom.key === thirdRoom.key)) {
+      setMessage({ tone: 'error', text: 'Choose a different room for each move in the split stay.' });
+      return;
+    }
+    if (wantsThirdRoom && (!thirdRoom || !splitDraft.thirdStartsOn || splitDraft.thirdStartsOn <= splitDraft.secondStartsOn || splitDraft.thirdStartsOn > selected.booking.check_out)) {
+      setMessage({ tone: 'error', text: 'Choose the later day the cats move to the third room.' });
+      return;
+    }
+    const segments = [
+      { room_id: firstRoom.roomId, room_unit_number: firstRoom.unitNumber, starts_on: selected.booking.check_in, ends_on: addDateKey(splitDraft.secondStartsOn, -1) },
+      { room_id: secondRoom.roomId, room_unit_number: secondRoom.unitNumber, starts_on: splitDraft.secondStartsOn, ends_on: thirdRoom ? addDateKey(splitDraft.thirdStartsOn, -1) : selected.booking.check_out },
+      ...(thirdRoom ? [{ room_id: thirdRoom.roomId, room_unit_number: thirdRoom.unitNumber, starts_on: splitDraft.thirdStartsOn, ends_on: selected.booking.check_out }] : []),
+    ];
+    const result = await splitBooking(selected.booking.id, segments);
+    if (result.error) {
+      setMessage({ tone: 'error', text: errorMessage(result.error) });
+      return;
+    }
+    setSelected(null);
+    setMessage({ tone: 'success', text: `${catNamesForRoom(selected.booking)} now has a split stay across ${segments.length} rooms.` });
   };
 
   const handleDrop = async (
@@ -373,12 +440,12 @@ export function StaffRoomCalendar({ bookings, rooms, isLoading, moveBooking }: S
                     {segments.map((segment) => {
                       const { booking } = segment;
                       const width = ((segment.endIndex - segment.startIndex + 1) * DAY_COLUMN_WIDTH) - 8;
-                      const draggable = bookingRoomUnitKeys(booking).length <= 1 && booking.status !== 'completed';
+                      const draggable = bookingRoomUnitKeys(booking).length <= 1 && (booking.booking_room_segments || []).length === 0 && booking.status !== 'completed';
                       const roomId = row.roomId || undefined;
                       const roomUnitNumber = row.roomUnitNumber || undefined;
                       return (
                         <button
-                          key={`${booking.id}-${row.key}`}
+                          key={`${booking.id}-${segment.segmentId || 'whole'}-${row.key}`}
                           type="button"
                           draggable={draggable}
                           onDragStart={(event) => {
@@ -439,7 +506,26 @@ export function StaffRoomCalendar({ bookings, rooms, isLoading, moveBooking }: S
                   <dt className="text-[#4E5871]">Total</dt><dd className="font-medium">${Number(selected.booking.total_amount || 0).toFixed(2)}</dd>
                 </dl>
                 {selected.booking.notes && <div className="rounded-xl border border-[#E8DED4] p-3 text-[#4E5871]"><span className="font-semibold text-[#0A1128]">Notes: </span>{selected.booking.notes}</div>}
-                <p className="text-xs leading-5 text-[#4E5871]">Dragging changes the room and dates only. Existing times, payment status, and price remain unchanged.</p>
+                {(selected.booking.booking_room_segments || []).length > 0 && <div className="rounded-xl border border-[#C46A3A]/30 bg-[#FFF2EA] p-3"><p className="font-semibold">Split stay</p>{selected.booking.booking_room_segments.map((segment) => <p key={segment.id} className="mt-1 text-xs">{segment.room?.name} {segment.room_unit_number} · {formatBookingDate(segment.starts_on)} – {formatBookingDate(segment.ends_on)}</p>)}</div>}
+                <div className="grid grid-cols-2 gap-2">
+                  <Button type="button" variant="outline" onClick={() => setEditorMode(editorMode === 'move' ? 'none' : 'move')} disabled={(selected.booking.booking_room_segments || []).length > 0}>Move stay</Button>
+                  <Button type="button" variant="outline" onClick={() => setEditorMode(editorMode === 'split' ? 'none' : 'split')} disabled={selected.booking.check_in >= selected.booking.check_out}>Split stay</Button>
+                </div>
+                {editorMode === 'move' && <div className="space-y-3 rounded-xl bg-[#F8F7F5] p-3">
+                  <label className="block text-xs font-semibold uppercase text-[#4E5871]">New arrival date<input type="date" value={moveDraft.checkIn} onChange={(event) => setMoveDraft((current) => ({ ...current, checkIn: event.target.value }))} className="mt-1 h-11 w-full rounded-lg border border-[#D8D2CB] bg-white px-3 text-sm font-normal text-[#0A1128]" /></label>
+                  <label className="block text-xs font-semibold uppercase text-[#4E5871]">Room<select value={moveDraft.roomKey} onChange={(event) => setMoveDraft((current) => ({ ...current, roomKey: event.target.value }))} className="mt-1 h-11 w-full rounded-lg border border-[#D8D2CB] bg-white px-3 text-sm font-normal text-[#0A1128]"><option value="">Choose an available room</option>{physicalRooms.map((room) => <option key={room.key} value={room.key} disabled={!room.room.is_active || room.room.capacity < bookingCatCount(selected.booking)}>{room.name}</option>)}</select></label>
+                  <Button type="button" onClick={() => void saveMoveFromDialog()} className="w-full bg-[#C46A3A] text-white hover:bg-[#A85A30]">Move booking</Button>
+                </div>}
+                {editorMode === 'split' && <div className="space-y-3 rounded-xl bg-[#F8F7F5] p-3">
+                  <p className="text-xs leading-5 text-[#4E5871]">Choose the room used first, the day the cats move, and the room used for the rest of the stay.</p>
+                  <label className="block text-xs font-semibold uppercase text-[#4E5871]">First room<select value={splitDraft.firstRoomKey} onChange={(event) => setSplitDraft((current) => ({ ...current, firstRoomKey: event.target.value }))} className="mt-1 h-11 w-full rounded-lg border border-[#D8D2CB] bg-white px-3 text-sm font-normal text-[#0A1128]"><option value="">Choose first room</option>{physicalRooms.map((room) => <option key={room.key} value={room.key} disabled={!room.room.is_active || room.room.capacity < bookingCatCount(selected.booking)}>{room.name}</option>)}</select></label>
+                  <label className="block text-xs font-semibold uppercase text-[#4E5871]">Move to second room on<input type="date" min={addDateKey(selected.booking.check_in, 1)} max={selected.booking.check_out} value={splitDraft.secondStartsOn} onChange={(event) => setSplitDraft((current) => ({ ...current, secondStartsOn: event.target.value }))} className="mt-1 h-11 w-full rounded-lg border border-[#D8D2CB] bg-white px-3 text-sm font-normal text-[#0A1128]" /></label>
+                  <label className="block text-xs font-semibold uppercase text-[#4E5871]">Second room<select value={splitDraft.secondRoomKey} onChange={(event) => setSplitDraft((current) => ({ ...current, secondRoomKey: event.target.value }))} className="mt-1 h-11 w-full rounded-lg border border-[#D8D2CB] bg-white px-3 text-sm font-normal text-[#0A1128]"><option value="">Choose second room</option>{physicalRooms.map((room) => <option key={room.key} value={room.key} disabled={!room.room.is_active || room.room.capacity < bookingCatCount(selected.booking)}>{room.name}</option>)}</select></label>
+                  {!splitDraft.thirdRoomKey && !splitDraft.thirdStartsOn ? <Button type="button" variant="outline" disabled={addDateKey(splitDraft.secondStartsOn || selected.booking.check_in, 1) > selected.booking.check_out} onClick={() => setSplitDraft((current) => ({ ...current, thirdStartsOn: addDateKey(current.secondStartsOn || selected.booking.check_in, 1) }))}>Add a third room</Button> : <div className="space-y-3 rounded-lg border border-[#D8D2CB] bg-white p-3"><label className="block text-xs font-semibold uppercase text-[#4E5871]">Move to third room on<input type="date" min={addDateKey(splitDraft.secondStartsOn || selected.booking.check_in, 1)} max={selected.booking.check_out} value={splitDraft.thirdStartsOn} onChange={(event) => setSplitDraft((current) => ({ ...current, thirdStartsOn: event.target.value }))} className="mt-1 h-11 w-full rounded-lg border border-[#D8D2CB] bg-white px-3 text-sm font-normal text-[#0A1128]" /></label><label className="block text-xs font-semibold uppercase text-[#4E5871]">Third room<select value={splitDraft.thirdRoomKey} onChange={(event) => setSplitDraft((current) => ({ ...current, thirdRoomKey: event.target.value }))} className="mt-1 h-11 w-full rounded-lg border border-[#D8D2CB] bg-white px-3 text-sm font-normal text-[#0A1128]"><option value="">Choose third room</option>{physicalRooms.map((room) => <option key={room.key} value={room.key} disabled={!room.room.is_active || room.room.capacity < bookingCatCount(selected.booking)}>{room.name}</option>)}</select></label><Button type="button" variant="ghost" onClick={() => setSplitDraft((current) => ({ ...current, thirdRoomKey: '', thirdStartsOn: '' }))} className="text-red-700">Remove third room</Button></div>}
+                  <Button type="button" onClick={() => void saveSplitFromDialog()} className="w-full bg-[#0A4C8B] text-white hover:bg-[#083E72]">Save split stay</Button>
+                </div>}
+                {message?.tone === 'error' && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">{message.text}</div>}
+                <p className="text-xs leading-5 text-[#4E5871]">On a phone, use Move stay or Split stay. On a laptop, you can also drag the full stay. Times, payment status, and price are kept.</p>
               </div>
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setSelected(null)}>Close</Button>

@@ -4,6 +4,7 @@ import {
   bookingOverlapsStay,
   calculateAssignedRoomTotal,
   calculateBookingEstimate,
+  calculateStaffBookingPrice,
   inclusiveStayDays,
   longStayDiscountPercent,
 } from './bookingPricing';
@@ -48,6 +49,30 @@ test('long-stay discounts use inclusive day thresholds', () => {
 test('assigned-room totals support shared and separately priced rooms', () => {
   assert.equal(calculateAssignedRoomTotal(7, [20, 20, 20]), 420);
   assert.equal(calculateAssignedRoomTotal(7, [20, 25, 30]), 525);
+});
+
+test('staff pricing uses saved shared occupancy rates and configured tax', () => {
+  assert.deepEqual(calculateStaffBookingPrice({
+    days: 3,
+    dailyRates: [20, 20],
+    arrangement: 'shared',
+    occupancyRates: [{ numberOfCats: 2, price: 36 }],
+    chargeTax: true,
+    taxRate: 15,
+  }), {
+    days: 3,
+    dailyTotal: 36,
+    subtotal: 108,
+    tax: 16.2,
+    total: 124.2,
+    occupancyRateApplied: true,
+  });
+  assert.equal(calculateStaffBookingPrice({
+    days: 3,
+    dailyRates: [20, 25],
+    arrangement: 'separate',
+    chargeTax: false,
+  }).total, 135);
 });
 
 test('room availability treats every inclusive care day as occupied', () => {

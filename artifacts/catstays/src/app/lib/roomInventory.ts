@@ -20,6 +20,11 @@ type BookingRoomAssignment = {
   room?: { id?: string | null } | null;
 };
 
+type BookingRoomSegment = BookingRoomAssignment & {
+  starts_on: string;
+  ends_on: string;
+};
+
 export type InventoryBooking = {
   id: string;
   check_in: string;
@@ -28,6 +33,7 @@ export type InventoryBooking = {
   room_unit_number?: number | null;
   room?: { id?: string | null } | null;
   booking_cat_rooms?: BookingRoomAssignment[] | null;
+  booking_room_segments?: BookingRoomSegment[] | null;
 };
 
 export function normalizeRoomCount(value: number | null | undefined) {
@@ -81,7 +87,10 @@ export function expandPhysicalRooms<T extends RoomInventoryRecord>(rooms: T[]): 
 }
 
 export function bookingRoomUnits(booking: InventoryBooking) {
-  const assigned = (booking.booking_cat_rooms || [])
+  const source = (booking.booking_room_segments || []).length > 0
+    ? booking.booking_room_segments || []
+    : booking.booking_cat_rooms || [];
+  const assigned = source
     .filter((assignment) => assignment.room?.id && assignment.room_unit_number)
     .map((assignment) => ({
       roomId: String(assignment.room?.id),
@@ -105,7 +114,18 @@ export function bookingRoomUnitKeys(booking: InventoryBooking) {
   return bookingRoomUnits(booking).map((assignment) => roomUnitKey(assignment.roomId, assignment.unitNumber));
 }
 
+export function bookingRoomUnitKeysForDate(booking: InventoryBooking, dateKey: string) {
+  const splitSegments = booking.booking_room_segments || [];
+  if (splitSegments.length === 0) return bookingRoomUnitKeys(booking);
+  return [...new Set(splitSegments
+    .filter((segment) => segment.starts_on <= dateKey && segment.ends_on >= dateKey && segment.room?.id && segment.room_unit_number)
+    .map((segment) => roomUnitKey(String(segment.room?.id), Number(segment.room_unit_number))))];
+}
+
 export function bookingNeedsRoomUnit(booking: InventoryBooking) {
+  if ((booking.booking_room_segments || []).length > 0) {
+    return (booking.booking_room_segments || []).some((segment) => !segment.room?.id || !segment.room_unit_number);
+  }
   if ((booking.booking_cat_rooms || []).length > 0) {
     return (booking.booking_cat_rooms || []).some((assignment) => !assignment.room?.id || !assignment.room_unit_number);
   }
@@ -135,8 +155,14 @@ export function roomUnitHasConflict(
   return bookings.some((booking) => (
     booking.id !== ignoredBookingId
     && booking.status !== 'cancelled'
-    && bookingUsesRoomUnit(booking, roomId, unitNumber)
-    && bookingOverlapsDates(booking, checkIn, checkOut)
+    && ((booking.booking_room_segments || []).length > 0
+      ? (booking.booking_room_segments || []).some((segment) => (
+          segment.room?.id === roomId
+          && segment.room_unit_number === unitNumber
+          && segment.starts_on <= checkOut
+          && segment.ends_on >= checkIn
+        ))
+      : bookingUsesRoomUnit(booking, roomId, unitNumber) && bookingOverlapsDates(booking, checkIn, checkOut))
   ));
 }
 

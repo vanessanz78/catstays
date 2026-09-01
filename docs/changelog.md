@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-09-01
+
+- Reordered the staff dashboard around daily operational work: Today, Bookings, Calendar, Customers, Messages, and Cat Updates.
+- Replaced the View Website sidebar row with a compact accessible website action beside the Dashboard/cattery identity.
+- Moved Room Planner and Edit Website into the bottom navigation group, with Edit Website last.
+- Compressed the phone Today overview into one at-a-glance panel with Arrivals, Departures, and Occupied side by side.
+
 ## 2026-08-31
 
 - Expanded accommodation types into numbered physical-room inventory for staff operations while keeping the public room choice grouped and simple.

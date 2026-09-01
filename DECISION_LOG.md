@@ -1,6 +1,21 @@
 # Decision Log
 
-Last updated: 2026-08-31
+Last updated: 2026-09-01
+
+## 2026-09-01 - Daily Operations Lead The Dashboard Navigation
+
+Working ref: `refine/dashboard-priority-today-overview-20260901`.
+
+Decision: Make Today, Bookings, Calendar, Customers, Messages, and Cat Updates the first six staff dashboard actions; move Room Planner and Edit Website into a separated bottom group with Edit Website last; replace the View Website menu row with a small accessible website action beside the Dashboard/cattery identity.
+
+Reason: Founder phone UAT showed that the most frequently used daily work was buried among setup and administration actions, while the large stacked Today cards delayed the actual arrivals and departures lists. The dashboard should provide a quick operational snapshot before secondary configuration tools.
+
+Impact:
+
+- The 2026-08-27 decision to make View Website the first sidebar row is superseded for navigation placement only; the public-site shortcut remains available in the dashboard header.
+- Desktop and mobile navigation share the same primary and lower-priority grouping.
+- The Today date and three live figures are combined into one compact panel, with Arrivals, Departures, and Occupied side by side at phone width.
+- Existing destinations, live calculations, tenant isolation, authentication, bookings, calendar, room inventory, and public website behaviour remain unchanged.
 
 ## 2026-08-31 - Accommodation Types Expand Into Physical Rooms
 
@@ -225,3 +240,64 @@ Impact:
 - WordPress imports use the WordPress page content feed as an enrichment route rather than relying only on rendered/fetched HTML.
 - Generated-template source understanding reads the saved platform confidence and flags weak imports so they do not silently masquerade as complete generic template previews.
 - The change remains Phase 2-safe because it enriches existing `content_sources` JSON payloads and does not add a database migration or start Phase 3 Media Library.
+## 2026-09-01 - Phone-First Staff Booking Operations
+
+Working ref: `refine/dashboard-priority-today-overview-20260901`.
+
+Decision: Make the daily staff path Today → New Booking → Confirmation → Payment the primary CatStays operating experience, with optional tools hidden unless configured.
+
+Reason: Founder evidence showed the highest-value work is scanning arrivals/departures, creating bookings by customer or cat, preserving sensible defaults, and recording what actually happened. Large generic forms and unused payment/appointment options slow that work down.
+
+Impact:
+
+- Today can move one day backward or forward and shows live operational lists, pending work, waiting-list entries, and seven-day occupancy.
+- Customer and cat search share one suggestion list; selecting a result opens the date range picker immediately.
+- Default arrival/collection times, enabled payment methods, confirmation request, message, deposit, shared occupancy rates, and tax remain cattery settings.
+- Manual payment methods are bank transfer, cash, Stripe, and customer credit only.
+- Booking notes can be internal or included in the customer confirmation, and material booking actions create an audit event.
+
+## 2026-09-01 - Taxable Adjustments And Customer Credit Ledger
+
+Working ref: `refine/dashboard-priority-today-overview-20260901`.
+
+Decision: Store staff charges/discounts as pre-tax adjustments, recalculate configured GST, record manual payments separately, and represent retained value as a signed customer-credit ledger.
+
+Reason: A post-payment discount must expose the true overpayment—including its tax effect—and cancellation credit must remain reusable and auditable instead of being disguised as a refund or overwritten booking total.
+
+Impact:
+
+- Fixed and percentage adjustments preserve an explicit charge/discount sign.
+- Completed payments, deposits, payment method, date, and reference remain separate ledger records.
+- Overpayment appears as credit; applying customer credit creates a negative ledger entry.
+- Payment status is recalculated after adjustments and payments.
+
+## 2026-09-01 - Continuous Split Stays Across Physical Rooms
+
+Working ref: `refine/dashboard-priority-today-overview-20260901`.
+
+Decision: Represent a split stay as two or three dated physical-room segments on one booking, validated and replaced through one staff-only database function.
+
+Reason: Moving a cat between rooms is an inventory plan for one continuous stay, not multiple unrelated bookings. The database must prevent gaps, duplicate days, non-existent rooms, capacity failures, and collisions even if a client submits invalid data.
+
+Impact:
+
+- The desktop timeline renders each segment only on its own room dates.
+- Phone staff can create the same split without drag-and-drop.
+- Whole-stay drag remains disabled once a booking has split segments; staff edit it through the explicit split flow.
+- Existing whole-room and per-cat room assignments continue to render for non-split bookings.
+
+## 2026-09-01 - Audited Atomic Customer Merging
+
+Working ref: `refine/dashboard-priority-today-overview-20260901`.
+
+Decision: Merge two customer profiles through one staff-authorized database function that locks both records, validates the cattery boundary, moves every customer-owned relation, stores both original profiles and the chosen result in a private audit event, and deletes Customer 2 only if the whole transaction succeeds.
+
+Reason: Duplicate signups and family/household accounts are normal, but a client-side series of updates can leave cats, bookings, payments, credit, messages, documents, or updates split across two accounts if any request fails. Staff also need to choose profile fields and the surviving portal login without losing operational history.
+
+Impact:
+
+- Customer 1 supplies all default profile choices; staff can choose individual values from Customer 2.
+- Cats, bookings, payments, customer credit, payment requests, messages, documents, and cat updates are combined automatically.
+- The earliest original `created_at` remains the joined date.
+- One linked portal user survives by explicit/default choice; the other authentication user is not deleted.
+- Merge history remains private to authorized cattery staff and is retained independently of the removed customer row.

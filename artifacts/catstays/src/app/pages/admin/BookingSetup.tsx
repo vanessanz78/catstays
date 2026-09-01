@@ -11,6 +11,8 @@ import {
   Save,
   Trash2,
   Warehouse,
+  Mail,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRooms } from '@/hooks/useRooms';
@@ -25,6 +27,7 @@ import {
   type BookingSetupValues,
 } from '@/app/lib/bookingSetup';
 import { bookingHoursSummary } from '@/app/lib/bookingSchedule';
+import { PAYMENT_METHOD_LABELS, type PaymentMethod } from '@/app/lib/bookingOperations';
 import { NotificationBell } from '../../components/NotificationBell';
 import { RightMenu } from '../../components/RightMenu';
 import { Button } from '../../components/ui/button';
@@ -129,6 +132,20 @@ export function BookingSetup() {
 
   const updateBlackout = (id: string, changes: Partial<BookingBlackout>) => {
     setBlackouts((current) => current.map((blackout) => blackout.id === id ? { ...blackout, ...changes } : blackout));
+  };
+
+  const addSharedRate = () => {
+    const nextCatCount = Math.max(1, ...values.pricingRates.map((rate) => rate.numberOfCats)) + 1;
+    update('pricingRates', [...values.pricingRates, {
+      numberOfCats: nextCatCount,
+      price: 0,
+      discountType: 'none',
+      discountValue: 0,
+    }]);
+  };
+
+  const updateSharedRate = (index: number, changes: Partial<BookingSetupValues['pricingRates'][number]>) => {
+    update('pricingRates', values.pricingRates.map((rate, rateIndex) => rateIndex === index ? { ...rate, ...changes } : rate));
   };
 
   const save = async () => {
@@ -275,6 +292,11 @@ export function BookingSetup() {
                     <label className="text-sm font-semibold">Appointment spacing<select className={fieldClass} disabled={values.openByAppointmentOnly} value={values.bookingInterval} onChange={(event) => update('bookingInterval', Number(event.target.value))}><option value={15}>Every 15 minutes</option><option value={30}>Every 30 minutes</option><option value={45}>Every 45 minutes</option><option value={60}>Every 60 minutes</option></select></label>
                     <div className="rounded-xl border border-[#D9D1C8] bg-[#F8F1EC] p-4 text-sm text-[#4E5871]"><strong className="block text-[#0A1128]">{values.openByAppointmentOnly ? 'Bookings are by appointment only.' : hoursSummary.heading}</strong>{!values.openByAppointmentOnly && hoursSummary.lines.map((line) => <span key={line} className="mt-1 block">{line}</span>)}</div>
                   </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <label className="text-sm font-semibold">Default arrival time<input type="time" className={fieldClass} value={values.defaultCheckInTime} onChange={(event) => update('defaultCheckInTime', event.target.value)} /></label>
+                    <label className="text-sm font-semibold">Default collection time<input type="time" className={fieldClass} value={values.defaultCheckOutTime} onChange={(event) => update('defaultCheckOutTime', event.target.value)} /></label>
+                  </div>
+                  <p className="rounded-xl bg-[#F8F1EC] p-3 text-sm text-[#4E5871]">Staff bookings use these defaults automatically when those times are available on the selected days.</p>
                 </CardContent>
               </Card>
 
@@ -284,6 +306,14 @@ export function BookingSetup() {
                     <div className="flex items-start gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#C46A3A]/10"><CreditCard className="h-5 w-5 text-[#C46A3A]" /></span><div><h3 className="text-xl font-semibold">Pricing and deposit</h3><p className="mt-1 text-sm text-[#4E5871]">Room prices come from Room Planner. CatStays charges by calendar day, including arrival and departure.</p></div></div>
                     <label className="text-sm font-semibold">Deposit required<select className={fieldClass} value={depositMode} onChange={(event) => { const mode = event.target.value; if (mode === 'none') { update('depositType', 'fixed'); update('depositAmount', 0); } else { update('depositType', mode as BookingSetupValues['depositType']); if (values.depositAmount === 0) update('depositAmount', mode === 'percentage' ? 25 : 50); } }}><option value="none">No upfront deposit</option><option value="fixed">Fixed NZD amount</option><option value="percentage">Percentage of booking</option></select></label>
                     {depositMode !== 'none' && <label className="text-sm font-semibold">{values.depositType === 'percentage' ? 'Deposit percentage' : 'Deposit amount (NZD)'}<div className="relative"><input type="number" min="0" max={values.depositType === 'percentage' ? 100 : undefined} step={values.depositType === 'percentage' ? 1 : 0.01} className={`${fieldClass} ${values.depositType === 'percentage' ? 'pr-10' : 'pl-8'}`} value={values.depositAmount} onChange={(event) => update('depositAmount', Number(event.target.value))} /><span className={`pointer-events-none absolute top-1/2 -translate-y-1/2 text-[#4E5871] ${values.depositType === 'percentage' ? 'right-3' : 'left-3'}`}>{values.depositType === 'percentage' ? '%' : '$'}</span></div></label>}
+                    <div className="rounded-xl border border-[#D9D1C8] bg-[#F8F1EC] p-4">
+                      <div className="flex items-start justify-between gap-3"><div><p className="text-sm font-semibold">Shared-room daily rates</p><p className="mt-1 text-xs leading-5 text-[#4E5871]">Use an exact total for two or more cats sharing one room. If no matching rate is saved, CatStays adds the individual cat rates.</p></div><Button type="button" size="sm" variant="outline" onClick={addSharedRate}><Plus className="mr-1 h-4 w-4" />Add</Button></div>
+                      {values.pricingRates.length === 0 ? <p className="mt-3 rounded-lg border border-dashed border-[#D9D1C8] bg-white p-3 text-xs text-[#4E5871]">No shared rate overrides saved.</p> : <div className="mt-3 space-y-2">{values.pricingRates.map((rate, index) => <div key={`${rate.numberOfCats}-${index}`} className="grid grid-cols-[1fr_1fr_40px] items-end gap-2 rounded-lg bg-white p-2"><label className="text-xs font-semibold">Cats<input aria-label={`Cats for shared rate ${index + 1}`} type="number" min="1" step="1" className={fieldClass} value={rate.numberOfCats} onChange={(event) => updateSharedRate(index, { numberOfCats: Math.max(1, Number(event.target.value) || 1) })} /></label><label className="text-xs font-semibold">Total per day<input aria-label={`Price for shared rate ${index + 1}`} type="number" min="0" step="0.01" className={fieldClass} value={rate.price} onChange={(event) => updateSharedRate(index, { price: Math.max(0, Number(event.target.value) || 0) })} /></label><button type="button" aria-label={`Remove ${rate.numberOfCats}-cat rate`} onClick={() => update('pricingRates', values.pricingRates.filter((_, rateIndex) => rateIndex !== index))} className="grid h-11 place-items-center rounded-xl text-red-600 hover:bg-red-50"><Trash2 className="h-4 w-4" /></button></div>)}</div>}
+                    </div>
+                    <div className="rounded-xl border border-[#D9D1C8] p-4">
+                      <label className="flex items-center gap-3 text-sm font-semibold"><input type="checkbox" checked={values.chargeTax} onChange={(event) => update('chargeTax', event.target.checked)} className="h-5 w-5 accent-[#C46A3A]" />Add tax to booking totals</label>
+                      {values.chargeTax && <div className="mt-3 grid grid-cols-2 gap-3"><label className="text-xs font-semibold">Tax name<input className={fieldClass} value={values.taxType} onChange={(event) => update('taxType', event.target.value)} /></label><label className="text-xs font-semibold">Rate (%)<input type="number" min="0" max="100" step="0.01" className={fieldClass} value={values.taxRate} onChange={(event) => update('taxRate', Number(event.target.value))} /></label></div>}
+                    </div>
                     <label className="text-sm font-semibold">Cancellation policy<textarea className="mt-1 min-h-28 w-full rounded-xl border border-[#D9D1C8] bg-white p-3 text-sm font-normal text-[#0A1128] outline-none focus:border-[#C46A3A] focus:ring-2 focus:ring-[#C46A3A]/15" value={values.cancellationPolicy} onChange={(event) => update('cancellationPolicy', event.target.value)} placeholder="Explain cancellation notice and refund terms." /></label>
                     <Link to="/staff-dashboard/room-planner" className="inline-flex h-11 items-center justify-center rounded-xl border border-[#C46A3A] px-4 text-sm font-semibold text-[#A8562E] hover:bg-[#F8F1EC]">Manage room prices</Link>
                   </CardContent>
@@ -293,6 +323,38 @@ export function BookingSetup() {
                   <CardContent className="space-y-5 p-5 sm:p-6">
                     <div className="flex items-start gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#C46A3A]/10"><Warehouse className="h-5 w-5 text-[#C46A3A]" /></span><div><h3 className="text-xl font-semibold">Live room inventory</h3><p className="mt-1 text-sm text-[#4E5871]">These are the actual rooms customers can be assigned—not a separate setup list.</p></div></div>
                     {roomsLoading ? <div className="flex items-center gap-2 py-4 text-sm text-[#4E5871]"><Loader2 className="h-4 w-4 animate-spin" />Loading rooms…</div> : rooms.length === 0 ? <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">No rooms are configured. Add rooms in Room Planner before accepting bookings.</div> : <div className="space-y-2">{rooms.map((room) => <div key={room.id} className="flex items-center justify-between gap-4 rounded-xl border border-[#E8DED4] p-4"><div className="min-w-0"><strong className="block truncate">{room.name}</strong><span className="text-sm text-[#4E5871]">Capacity {room.capacity} · {room.is_active ? 'Available for booking' : 'Inactive'}</span></div><span className="shrink-0 font-semibold text-[#A8562E]">${Number(room.price_per_night).toFixed(2)}/day</span></div>)}</div>}
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="grid gap-6 lg:grid-cols-2">
+                <Card className="border-[#E8DED4] bg-white">
+                  <CardContent className="space-y-5 p-5 sm:p-6">
+                    <div className="flex items-start gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#C46A3A]/10"><SlidersHorizontal className="h-5 w-5 text-[#C46A3A]" /></span><div><h3 className="text-xl font-semibold">Daily workflow</h3><p className="mt-1 text-sm text-[#4E5871]">Keep optional tools out of Today unless this cattery actually uses them.</p></div></div>
+                    <label className="flex items-start gap-3 rounded-xl border border-[#D9D1C8] bg-[#F8F1EC] p-4 text-sm">
+                      <input type="checkbox" checked={values.appointmentsEnabled} onChange={(event) => update('appointmentsEnabled', event.target.checked)} className="mt-0.5 h-5 w-5 accent-[#C46A3A]" />
+                      <span><strong className="block">Show appointments on Today</strong><span className="mt-1 block text-[#4E5871]">Leave this off when boarding bookings are the only daily work.</span></span>
+                    </label>
+                    <div>
+                      <p className="text-sm font-semibold">Manual payment methods</p>
+                      <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                        {(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethod[]).map((method) => (
+                          <label key={method} className="flex items-center gap-2 rounded-xl border border-[#D9D1C8] p-3 text-sm">
+                            <input type="checkbox" checked={values.enabledPaymentMethods.includes(method)} onChange={(event) => update('enabledPaymentMethods', event.target.checked ? [...values.enabledPaymentMethods, method] : values.enabledPaymentMethods.filter((item) => item !== method))} className="h-4 w-4 accent-[#C46A3A]" />
+                            {PAYMENT_METHOD_LABELS[method]}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border-[#E8DED4] bg-white">
+                  <CardContent className="space-y-5 p-5 sm:p-6">
+                    <div className="flex items-start gap-3"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#C46A3A]/10"><Mail className="h-5 w-5 text-[#C46A3A]" /></span><div><h3 className="text-xl font-semibold">Booking confirmation defaults</h3><p className="mt-1 text-sm text-[#4E5871]">The customer email opens ready to send with these choices.</p></div></div>
+                    <label className="text-sm font-semibold">Default payment request<select className={fieldClass} value={values.defaultConfirmationPayment} onChange={(event) => update('defaultConfirmationPayment', event.target.value as BookingSetupValues['defaultConfirmationPayment'])}><option value="deposit">Request deposit</option><option value="full">Request total booking payment</option><option value="none">Do not request payment</option></select></label>
+                    <label className="text-sm font-semibold">Default message<textarea className="mt-1 min-h-32 w-full rounded-xl border border-[#D9D1C8] bg-white p-3 text-sm font-normal text-[#0A1128] outline-none focus:border-[#C46A3A] focus:ring-2 focus:ring-[#C46A3A]/15" value={values.confirmationMessage} onChange={(event) => update('confirmationMessage', event.target.value)} /></label>
+                    <p className="text-xs leading-5 text-[#4E5871]">The confirmation also adds the customer, cats, stay dates, times, room, total, deposit choice, terms, and any note marked customer-visible.</p>
                   </CardContent>
                 </Card>
               </div>
