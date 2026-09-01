@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   adjustmentAmount,
   bookingFinancials,
+  cancellationSettlement,
   customerCreditBalance,
   normalizePaymentMethods,
 } from './bookingOperations';
@@ -45,4 +46,44 @@ test('taxable adjustments recalculate GST and expose an overpayment as credit', 
 test('customer credit is a signed ledger and methods stay intentionally short', () => {
   assert.equal(customerCreditBalance([{ amount: 75 }, { amount: '-25.50' }]), 49.5);
   assert.deepEqual(normalizePaymentMethods(['cash', 'stripe', 'cash', 'cheque']), ['cash', 'stripe']);
+});
+
+test('cancellation can retain a non-refundable deposit or override it', () => {
+  assert.deepEqual(cancellationSettlement({
+    paidAmount: 124.2,
+    nonRefundableDeposit: 50,
+    choice: 'after_deposit',
+  }), {
+    paid: 124.2,
+    credit: 74.2,
+    retained: 50,
+    deposit: 50,
+    isCustomAmountValid: true,
+  });
+  assert.equal(cancellationSettlement({
+    paidAmount: 124.2,
+    nonRefundableDeposit: 50,
+    choice: 'full',
+  }).credit, 124.2);
+});
+
+test('custom cancellation credit is bounded by the money paid', () => {
+  assert.deepEqual(cancellationSettlement({
+    paidAmount: 100,
+    nonRefundableDeposit: 50,
+    choice: 'custom',
+    customCreditAmount: 60,
+  }), {
+    paid: 100,
+    credit: 60,
+    retained: 40,
+    deposit: 50,
+    isCustomAmountValid: true,
+  });
+  assert.equal(cancellationSettlement({
+    paidAmount: 100,
+    nonRefundableDeposit: 50,
+    choice: 'custom',
+    customCreditAmount: 120,
+  }).isCustomAmountValid, false);
 });

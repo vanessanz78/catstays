@@ -123,6 +123,24 @@ const REPORTS: ReportDefinition[] = [
     ],
   },
   {
+    key: "cancellations",
+    label: "Cancelled bookings",
+    description: "Cancellation reasons, notes, payments, retained value, and customer credit.",
+    group: "Daily operations",
+    columns: [
+      { key: "cancelled", label: "Cancelled", type: "date" },
+      { key: "reference", label: "Reference" },
+      { key: "customer", label: "Customer" },
+      { key: "cats", label: "Cats" },
+      { key: "stay", label: "Stay dates" },
+      { key: "reason", label: "Reason" },
+      { key: "note", label: "Note" },
+      { key: "received", label: "Paid", type: "money" },
+      { key: "credit", label: "Customer credit", type: "money" },
+      { key: "retained", label: "Retained", type: "money" },
+    ],
+  },
+  {
     key: "occupancy",
     label: "Occupancy",
     description: "Occupied rooms and nights by stay.",
@@ -537,6 +555,31 @@ export function AdminReports() {
           total: bookingMoney(booking).total,
         },
       }));
+    if (activeKey === "cancellations")
+      return bookings
+        .filter((booking) => booking.status === "cancelled")
+        .map((booking) => {
+          const financials = bookingMoney(booking);
+          const credit = Number(booking.cancellation_credit_amount || 0);
+          return {
+            id: booking.id,
+            date: booking.cancelled_at || booking.created_at,
+            status: booking.cancellation_reason || "Cancelled",
+            bookingStatus: "Cancelled",
+            values: {
+              cancelled: booking.cancelled_at || booking.created_at,
+              reference: bookingReference(booking),
+              customer: customerName(booking),
+              cats: catNames(booking),
+              stay: `${formatDate(booking.check_in)} – ${formatDate(booking.check_out)}`,
+              reason: booking.cancellation_reason || "Not recorded",
+              note: booking.cancellation_note || "—",
+              received: financials.received,
+              credit,
+              retained: Math.max(0, financials.received - credit),
+            },
+          };
+        });
     if (activeKey === "occupancy")
       return activeBookings.map((booking) => ({
         id: booking.id,

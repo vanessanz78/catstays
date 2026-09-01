@@ -15,6 +15,10 @@ export interface BookingWithDetails {
   total_amount: number | null;
   notes: string | null;
   customer_note_visible: boolean;
+  cancellation_reason: string | null;
+  cancellation_note: string | null;
+  cancelled_at: string | null;
+  cancellation_credit_amount: number;
   created_at: string;
   guest_name: string | null;
   guest_email: string | null;
@@ -233,6 +237,37 @@ export function useBookings() {
     return { error };
   };
 
+  const cancelBooking = async (input: {
+    id: string;
+    reason: string;
+    note?: string;
+    customerCreditAmount?: number;
+  }) => {
+    const { data, error } = await supabase.rpc('catstays_cancel_booking', {
+      target_booking_id: input.id,
+      cancellation_reason: input.reason,
+      cancellation_note: input.note?.trim() || null,
+      customer_credit_amount: input.customerCreditAmount || 0,
+    });
+    if (!error) {
+      await fetchBookings();
+      announceCatStaysBookingsChanged();
+    }
+    return { data, error };
+  };
+
+  const deleteErroneousBooking = async (id: string, reason: string) => {
+    const { data, error } = await supabase.rpc('catstays_delete_erroneous_booking', {
+      target_booking_id: id,
+      deletion_reason: reason.trim(),
+    });
+    if (!error) {
+      await fetchBookings();
+      announceCatStaysBookingsChanged();
+    }
+    return { data, error };
+  };
+
   const moveBooking = async (
     id: string,
     move: { roomId: string; roomUnitNumber: number; checkIn: string; checkOut: string },
@@ -408,6 +443,8 @@ export function useBookings() {
     createBooking,
     updateBookingStatus,
     updatePaymentStatus,
+    cancelBooking,
+    deleteErroneousBooking,
     moveBooking,
     splitBooking,
     refetch: fetchBookings,

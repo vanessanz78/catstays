@@ -18,6 +18,7 @@ The supplied Revelation Pets walkthrough established the daily operating path:
 4. Add another cat from the same customer without repeating dates/times; choose shared or separate rooms and review the full cost.
 5. Save, send the prepared confirmation with a default $50 deposit request, and later record bank transfer, cash, Stripe, or customer-credit payments.
 6. Add internal/customer-visible notes, inspect booking changes, apply fixed/percentage charges or discounts, and move or split stays on the room calendar.
+7. Cancel a genuine booking with a tracked reason and note, then keep all, part, or none of the received payment as customer credit; hard-delete only unpaid entries created by mistake.
 
 ## Implemented On This Branch
 
@@ -34,7 +35,7 @@ The supplied Revelation Pets walkthrough established the daily operating path:
 - Existing Add Customer plus a direct Import / export route to Smart Import.
 - Guided customer merging with live dual-customer search, Customer 1 defaults, field-by-field side-by-side choices, portal-login selection, final confirmation, and an all-done state.
 - Atomic customer merging for cats, bookings, payments, customer credit, payment requests, messages, documents, and cat updates, with earliest join date and immutable audit snapshots retained.
-- Dedicated modern Reports area with 15 operational, financial, customer, and care report choices.
+- Dedicated modern Reports area with 16 operational, financial, customer, and care report choices.
 - Live arrival, departure, booking, occupancy, appointment, deposit, outstanding-payment, sales, payment, feeding/medical, waiting-list, and tips views built from tenant-owned records.
 - Click-again ascending/descending column sorting, live report search, date-range filtering, report-specific status filtering, phone cards, and desktop tables.
 - Print, browser Save as PDF, and Excel-compatible export for the complete visible filtered report.
@@ -43,18 +44,22 @@ The supplied Revelation Pets walkthrough established the daily operating path:
 - Pending alerts update by live database subscription with a 30-second recovery poll; duplicate push/in-app booking-request alerts are not double-counted.
 - New server-generated booking notifications now carry the exact booking link, while older notifications recover that link from their saved booking metadata.
 - Settings remain in the existing left navigation and the header stays focused on the booking bell and primary work; help and power controls were not added.
+- Tracked booking cancellation with standard reasons, optional notes, cancelled-at/by audit fields, and an atomic customer-credit decision that can keep the configured non-refundable deposit, credit the full payment, or use a custom amount.
+- A dedicated Cancelled bookings report showing reason, note, paid value, customer credit, and retained value.
+- Strict accidental-entry deletion that is blocked whenever payment or booking-linked customer-credit history exists, with a private immutable deletion snapshot for authorised staff audit.
 
 Appointments, Xero, and unrelated payment methods are not placed in the default daily path.
 
 ## Verification Completed
 
-- `pnpm run test:staff-booking-operations`: 41 passed, 0 failed.
+- `pnpm run test:staff-booking-operations`: 43 passed, 0 failed.
 - `pnpm run test:physical-room-inventory`: 13 passed, 0 failed.
 - Complete workspace TypeScript check: passed.
 - Complete workspace production build: passed.
 - `git diff --check`: passed.
 - Existing Vite source-map and large-chunk warnings remain non-blocking.
-- Local Reports shell browser review passed at 390px and 1440px: the document width equalled the viewport at both sizes, all 15 reports appeared, the deposit status menu exposed the five required filters, and no console errors were emitted.
+- Local Reports shell browser review passed at 390px and 1440px: the document width equalled the viewport at both sizes, all 16 reports appeared, the deposit status menu exposed the five required filters, and no console errors were emitted.
+- Local Cancelled bookings report review passed at 390px: the report appeared in the selector, the document width equalled the viewport, and no console errors were emitted.
 - Local booking-alert browser review passed at 390px: the bell and panel were keyboard-labelled, the document width equalled the 390px viewport, and the panel stayed within the viewport at 366px wide.
 - Signed-in live-data browser review remains pending; the protected customer workspace was not bypassed or populated with fake authentication.
 
@@ -64,6 +69,7 @@ Migrations, in required order:
 
 1. `supabase/migrations/20260901093000_staff_booking_operations.sql`
 2. `supabase/migrations/20260901094500_customer_directory_merge.sql`
+3. `supabase/migrations/20260901101500_booking_cancellation_safe_delete.sql`
 
 The new application queries expect the new tables and relations. After review, apply both migrations in order before starting the new application SHA. Do not apply them during branch review and do not publish application code without its schema.
 
@@ -111,6 +117,10 @@ The new application queries expect the new tables and relations. After review, a
 - Record deposit/payment by bank transfer, cash, Stripe, and customer credit; confirm Mark total paid only activates for Payment.
 - Add a post-payment discount and confirm the GST-adjusted overpayment appears as credit.
 - Check Booking changes contains the actions.
+- Cancel an unpaid booking with a reason and note; verify it leaves the calendar but remains in the Cancelled bookings report.
+- Cancel a paid booking three ways: keep the configured non-refundable deposit, credit the full payment, and enter a custom credit amount. Confirm the customer balance, retained amount, and history are correct each time.
+- Create a duplicate test booking with no payment and delete it as an accidental entry; confirm the record disappears and the private deletion audit remains.
+- Confirm a booking with a payment cannot be deleted and clearly directs staff to cancel it instead.
 
 ### Calendar
 
@@ -130,7 +140,8 @@ The new application queries expect the new tables and relations. After review, a
 
 ### Reports
 
-- Open Reports from the staff navigation and check the 15 report choices on phone and laptop.
+- Open Reports from the staff navigation and check the 16 report choices on phone and laptop.
+- Open Cancelled bookings and verify reason, note, paid value, customer credit, and retained value.
 - Open Deposit payments and verify Outstanding, Paid, Refunded, Booking cancelled, and Booking not cancelled filters against live records.
 - Set a date range, combine it with a status and search term, and confirm the visible rows update together.
 - Click the same column heading twice and confirm ascending then descending order; repeat with a date, money, and text column.

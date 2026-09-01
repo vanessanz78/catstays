@@ -2,6 +2,7 @@ export type AdjustmentKind = 'charge' | 'discount';
 export type AdjustmentCalculation = 'fixed' | 'percentage';
 export type PaymentMethod = 'bank_transfer' | 'cash' | 'stripe' | 'customer_credit';
 export type PaymentPurpose = 'booking' | 'deposit';
+export type CancellationCreditChoice = 'none' | 'after_deposit' | 'full' | 'custom';
 
 export type BookingAdjustment = {
   id: string;
@@ -96,4 +97,30 @@ export function normalizePaymentMethods(value: unknown): PaymentMethod[] {
 
 export function customerCreditBalance(entries: Array<{ amount: number | string }>) {
   return Number(entries.reduce((sum, entry) => sum + number(entry.amount), 0).toFixed(2));
+}
+
+export function cancellationSettlement(input: {
+  paidAmount: number;
+  nonRefundableDeposit: number;
+  choice: CancellationCreditChoice;
+  customCreditAmount?: number;
+}) {
+  const paid = Math.max(0, number(input.paidAmount));
+  const deposit = Math.min(paid, Math.max(0, number(input.nonRefundableDeposit)));
+  const requestedCredit = input.choice === 'full'
+    ? paid
+    : input.choice === 'after_deposit'
+      ? Math.max(0, paid - deposit)
+      : input.choice === 'custom'
+        ? Math.max(0, number(input.customCreditAmount))
+        : 0;
+  const credit = Math.min(paid, requestedCredit);
+  return {
+    paid: Number(paid.toFixed(2)),
+    credit: Number(credit.toFixed(2)),
+    retained: Number(Math.max(0, paid - credit).toFixed(2)),
+    deposit: Number(deposit.toFixed(2)),
+    isCustomAmountValid: input.choice !== 'custom'
+      || (number(input.customCreditAmount) >= 0 && number(input.customCreditAmount) <= paid),
+  };
 }

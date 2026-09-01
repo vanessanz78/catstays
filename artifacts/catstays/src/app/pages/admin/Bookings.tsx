@@ -69,8 +69,10 @@ import {
 import { normalizeBookingSetup } from '../../lib/bookingSetup';
 import {
   PAYMENT_METHOD_LABELS,
+  cancellationSettlement,
   type AdjustmentCalculation,
   type AdjustmentKind,
+  type CancellationCreditChoice,
   type PaymentMethod,
   type PaymentPurpose,
 } from '../../lib/bookingOperations';
@@ -126,11 +128,25 @@ export function AdminBookings() {
   const [showHistory, setShowHistory] = useState(false);
   const [adjustmentDraft, setAdjustmentDraft] = useState<{ kind: AdjustmentKind; label: string; calculation: AdjustmentCalculation; value: string }>({ kind: 'discount', label: '', calculation: 'fixed', value: '' });
   const [paymentDraft, setPaymentDraft] = useState<{ purpose: PaymentPurpose; method: PaymentMethod; paidOn: string; amount: string; reference: string }>({ purpose: 'deposit', method: 'bank_transfer', paidOn: format(new Date(), 'yyyy-MM-dd'), amount: '', reference: '' });
-  const [creditDraft, setCreditDraft] = useState('');
   const [operationMessage, setOperationMessage] = useState('');
+  const [showCancelBooking, setShowCancelBooking] = useState(false);
+  const [cancellationReason, setCancellationReason] = useState('');
+  const [cancellationNote, setCancellationNote] = useState('');
+  const [cancellationCreditChoice, setCancellationCreditChoice] = useState<CancellationCreditChoice>('after_deposit');
+  const [customCancellationCredit, setCustomCancellationCredit] = useState('');
+  const [showDeleteBooking, setShowDeleteBooking] = useState(false);
+  const [deletionReason, setDeletionReason] = useState('');
+  const [closingBooking, setClosingBooking] = useState(false);
 
   const { cattery } = useAuth();
-  const { bookings: rawBookings, loading: bookingsLoading, createBooking, updateBookingStatus } = useBookings();
+  const {
+    bookings: rawBookings,
+    loading: bookingsLoading,
+    createBooking,
+    updateBookingStatus,
+    cancelBooking,
+    deleteErroneousBooking,
+  } = useBookings();
   const { customers: rawCustomers, createCustomer, addCat } = useCustomers();
   const { rooms: rawRooms } = useRooms();
   const [customerSearch, setCustomerSearch] = useState('');
@@ -223,6 +239,10 @@ export function AdminBookings() {
       receivedDate: b.created_at,
       specialRequirements: b.notes || '',
       customerNoteVisible: Boolean((b as any).customer_note_visible),
+      cancellationReason: b.cancellation_reason,
+      cancellationNote: b.cancellation_note,
+      cancelledAt: b.cancelled_at,
+      cancellationCreditAmount: Number(b.cancellation_credit_amount || 0),
       customerId: b.customer?.id || null,
       roomArrangement: b.room_arrangement || 'shared',
       roomAssignments: (b.booking_cat_rooms ?? []).map((assignment) => ({
@@ -334,6 +354,11 @@ export function AdminBookings() {
     setShowHistory(false);
     setConfirmationMessage(bookingSetup.confirmationMessage);
     setConfirmationPayment(bookingSetup.defaultConfirmationPayment);
+    setCancellationReason('');
+    setCancellationNote('');
+    setCancellationCreditChoice('after_deposit');
+    setCustomCancellationCredit('');
+    setDeletionReason('');
     setPaymentDraft((current) => ({
       ...current,
       method: bookingSetup.enabledPaymentMethods[0] || 'bank_transfer',
@@ -643,15 +668,76 @@ export function AdminBookings() {
     setOperationMessage(markTotal ? 'Remaining balance marked as paid.' : 'Payment added to this booking.');
   };
 
-  const handleIssueCredit = async () => {
-    const amount = Number(creditDraft);
-    const result = await bookingOperations.issueCredit(amount, 'Booking value retained as customer credit');
-    if (result.error) {
-      setBookingActionError((result.error as any)?.message || String(result.error));
+  const configuredDeposit = selectedBooking
+    ? bookingSetup.depositType === 'fixed'
+      ? bookingSetup.depositAmount
+      : bookingOperations.financials.total * (bookingSetup.depositAmount / 100)
+    : 0;
+  const cancellationSummary = cancellationSettlement({
+    paidAmount: bookingOperations.financials.paid,
+    nonRefundableDeposit: configuredDeposit,
+    choice: cancellationCreditChoice,
+    customCreditAmount: Number(customCancellationCredit),
+  });
+
+  const handleCancelBooking = async () => {
+    if (!selectedBooking || !cancellationReason) {
+      setBookingActionError('Choose a cancellation reason.');
       return;
     }
-    setCreditDraft('');
-    setOperationMessage('Customer credit saved for a future booking.');
+    if (!cancellationSummary.isCustomAmountValid) {
+      setBookingActionError(`Customer credit cannot exceed $${cancellationSummary.paid.toFixed(2)}.`);
+      return;
+    }
+    setClosingBooking(true);
+    setBookingActionError('');
+    const result = await cancelBooking({
+      id: selectedBooking.id,
+      reason: cancellationReason,
+      note: cancellationNote,
+      customerCreditAmount: cancellationSummary.credit,
+    });
+    if (result.error) {
+      setBookingActionError((result.error as any)?.message || String(result.error));
+      setClosingBooking(false);
+      return;
+    }
+    setSelectedBooking((current: any) => ({
+      ...current,
+      status: 'cancelled',
+      cancellationReason,
+      cancellationNote,
+      cancelledAt: new Date().toISOString(),
+      cancellationCreditAmount: cancellationSummary.credit,
+    }));
+    await bookingOperations.refetch();
+    setShowCancelBooking(false);
+    setClosingBooking(false);
+    setOperationMessage(
+      cancellationSummary.credit > 0
+        ? `Booking cancelled and $${cancellationSummary.credit.toFixed(2)} saved as customer credit.`
+        : 'Booking cancelled and retained in booking history.',
+    );
+  };
+
+  const handleDeleteBooking = async () => {
+    if (!selectedBooking || deletionReason.trim().length < 5) {
+      setBookingActionError('Briefly explain why this booking was created by mistake.');
+      return;
+    }
+    setClosingBooking(true);
+    setBookingActionError('');
+    const result = await deleteErroneousBooking(selectedBooking.id, deletionReason);
+    if (result.error) {
+      setBookingActionError((result.error as any)?.message || String(result.error));
+      setClosingBooking(false);
+      return;
+    }
+    setShowDeleteBooking(false);
+    setShowBookingDetails(false);
+    setSelectedBooking(null);
+    setClosingBooking(false);
+    navigate('/staff-dashboard/bookings', { replace: true });
   };
 
   if (showCreateBooking) {
@@ -1862,7 +1948,7 @@ export function AdminBookings() {
                 </Card>
               )}
 
-              <Card className="rounded-2xl border-sage/10">
+              {selectedBooking.status !== 'cancelled' && <Card className="rounded-2xl border-sage/10">
                 <CardContent className="space-y-4 p-4">
                   <div className="flex items-center gap-2"><Mail className="h-5 w-5 text-sage" /><h3 className="font-semibold text-[#2d3e2f]">Send booking confirmation</h3></div>
                   <p className="text-sm text-[#6b7a6d]">To {selectedBooking.customerEmail || 'customer email not saved'}</p>
@@ -1874,7 +1960,7 @@ export function AdminBookings() {
                   </div>
                   <Button type="button" onClick={() => void handleSendConfirmation()} disabled={sendingConfirmation || !selectedBooking.customerEmail} className="w-full bg-[#C46A3A] text-white hover:bg-[#A85A30]"><Mail className="mr-2 h-4 w-4" />{sendingConfirmation ? 'Sending…' : 'Send to customer'}</Button>
                 </CardContent>
-              </Card>
+              </Card>}
 
               {/* Payment summary */}
               <Card className="rounded-2xl border-sage/10 bg-gradient-to-br from-sage/5 to-sage-light/5">
@@ -1883,7 +1969,7 @@ export function AdminBookings() {
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between"><span className="text-[#6b7a6d]">Booking</span><span>${bookingOperations.financials.baseTotal.toFixed(2)}</span></div>
                     {bookingOperations.adjustments.map((adjustment) => (
-                      <div key={adjustment.id} className="flex items-center justify-between gap-3 rounded-lg bg-white p-2"><span className="min-w-0 truncate">{adjustment.label}</span><span className="flex shrink-0 items-center gap-2 font-medium">{adjustment.amount < 0 ? '-' : '+'}${Math.abs(Number(adjustment.amount)).toFixed(2)}<button type="button" aria-label={`Remove ${adjustment.label}`} onClick={() => void handleRemoveAdjustment(adjustment.id)} className="text-red-500"><Trash2 className="h-4 w-4" /></button></span></div>
+                      <div key={adjustment.id} className="flex items-center justify-between gap-3 rounded-lg bg-white p-2"><span className="min-w-0 truncate">{adjustment.label}</span><span className="flex shrink-0 items-center gap-2 font-medium">{adjustment.amount < 0 ? '-' : '+'}${Math.abs(Number(adjustment.amount)).toFixed(2)}{selectedBooking.status !== 'cancelled' && <button type="button" aria-label={`Remove ${adjustment.label}`} onClick={() => void handleRemoveAdjustment(adjustment.id)} className="text-red-500"><Trash2 className="h-4 w-4" /></button>}</span></div>
                     ))}
                     {bookingSetup.chargeTax && <><div className="flex justify-between border-t border-sage/15 pt-2"><span className="text-[#6b7a6d]">Subtotal</span><span>${bookingOperations.financials.subtotal.toFixed(2)}</span></div><div className="flex justify-between"><span className="text-[#6b7a6d]">{bookingSetup.taxType} at {bookingSetup.taxRate}%</span><span>${bookingOperations.financials.tax.toFixed(2)}</span></div></>}
                     <div className="flex justify-between border-t border-sage/15 pt-2 font-semibold"><span>Total</span><span>${bookingOperations.financials.total.toFixed(2)}</span></div>
@@ -1894,7 +1980,7 @@ export function AdminBookings() {
                 </CardContent>
               </Card>
 
-              <Card className="rounded-2xl border-sage/10">
+              {selectedBooking.status !== 'cancelled' && <Card className="rounded-2xl border-sage/10">
                 <CardContent className="space-y-3 p-4">
                   <h3 className="font-semibold text-[#2d3e2f]">Add charge or discount</h3>
                   <div className="grid grid-cols-2 gap-2"><select value={adjustmentDraft.kind} onChange={(event) => setAdjustmentDraft((current) => ({ ...current, kind: event.target.value as AdjustmentKind }))} className="h-11 rounded-xl border border-sage/20 bg-white px-3 text-sm"><option value="charge">Charge</option><option value="discount">Discount</option></select><select value={adjustmentDraft.calculation} onChange={(event) => setAdjustmentDraft((current) => ({ ...current, calculation: event.target.value as AdjustmentCalculation }))} className="h-11 rounded-xl border border-sage/20 bg-white px-3 text-sm"><option value="fixed">Fixed amount</option><option value="percentage">Percentage</option></select></div>
@@ -1902,9 +1988,9 @@ export function AdminBookings() {
                   <Input type="number" min="0" step="0.01" inputMode="decimal" value={adjustmentDraft.value} onChange={(event) => setAdjustmentDraft((current) => ({ ...current, value: event.target.value }))} placeholder={adjustmentDraft.calculation === 'fixed' ? 'Amount' : 'Percentage'} />
                   <Button type="button" onClick={() => void handleAddAdjustment()} variant="outline" className="w-full border-sage/20">Add to booking</Button>
                 </CardContent>
-              </Card>
+              </Card>}
 
-              <Card className="rounded-2xl border-sage/10">
+              {selectedBooking.status !== 'cancelled' && <Card className="rounded-2xl border-sage/10">
                 <CardContent className="space-y-3 p-4">
                   <div className="flex items-center justify-between"><div className="flex items-center gap-2"><DollarSign className="h-5 w-5 text-sage" /><h3 className="font-semibold text-[#2d3e2f]">Record payment</h3></div>{bookingOperations.creditBalance > 0 && <Badge variant="outline">${bookingOperations.creditBalance.toFixed(2)} credit</Badge>}</div>
                   <select value={paymentDraft.purpose} onChange={(event) => setPaymentDraft((current) => ({ ...current, purpose: event.target.value as PaymentPurpose }))} className="h-11 w-full rounded-xl border border-sage/20 bg-white px-3 text-sm"><option value="deposit">Deposit</option><option value="booking">Payment</option></select>
@@ -1915,13 +2001,38 @@ export function AdminBookings() {
                   <div className="grid grid-cols-2 gap-2"><Button type="button" onClick={() => void handleAddPayment(false)} variant="outline">Add payment</Button><Button type="button" onClick={() => void handleAddPayment(true)} disabled={bookingOperations.financials.owing <= 0 || paymentDraft.purpose !== 'booking'} className="bg-[#7DAF7B] text-white hover:bg-[#699967]">Mark total paid</Button></div>
                   {paymentDraft.purpose !== 'booking' && <p className="text-xs text-[#6b7a6d]">Choose Payment to use “Mark total paid”. Deposits keep their entered amount.</p>}
                 </CardContent>
-              </Card>
+              </Card>}
 
-              <Card className="rounded-2xl border-sage/10">
+              <Card className={`rounded-2xl ${selectedBooking.status === 'cancelled' ? 'border-amber-200 bg-amber-50' : 'border-red-200 bg-white'}`}>
                 <CardContent className="space-y-3 p-4">
-                  <div className="flex items-center gap-2"><WalletCards className="h-5 w-5 text-sage" /><h3 className="font-semibold text-[#2d3e2f]">Keep as customer credit</h3></div>
-                  <p className="text-xs text-[#6b7a6d]">For a cancellation, retain an agreed amount for this customer to use on a future booking.</p>
-                  <div className="flex gap-2"><Input type="number" min="0" step="0.01" inputMode="decimal" value={creditDraft} onChange={(event) => setCreditDraft(event.target.value)} placeholder="Credit amount" /><Button type="button" onClick={() => void handleIssueCredit()} variant="outline">Save credit</Button></div>
+                  {selectedBooking.status === 'cancelled' ? (
+                    <>
+                      <div className="flex items-center gap-2"><AlertCircle className="h-5 w-5 text-amber-700" /><h3 className="font-semibold text-[#2d3e2f]">Cancelled booking</h3></div>
+                      <div className="space-y-1 text-sm text-[#4E5871]">
+                        <p><strong>Reason:</strong> {selectedBooking.cancellationReason || 'Not recorded'}</p>
+                        {selectedBooking.cancellationNote && <p><strong>Note:</strong> {selectedBooking.cancellationNote}</p>}
+                        {selectedBooking.cancelledAt && <p><strong>Cancelled:</strong> {format(new Date(selectedBooking.cancelledAt), 'd MMM yyyy, h:mm a')}</p>}
+                        <p><strong>Customer credit:</strong> ${Number(selectedBooking.cancellationCreditAmount || 0).toFixed(2)}</p>
+                      </div>
+                      <p className="text-xs text-amber-800">This record stays in cancelled-booking history and is removed from room availability.</p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-2"><AlertCircle className="h-5 w-5 text-red-600" /><h3 className="font-semibold text-[#2d3e2f]">Cancel or remove booking</h3></div>
+                      <p className="text-xs leading-5 text-[#6b7a6d]">Cancel a genuine booking to keep its reason and financial history. Delete only an entry that should never have been created.</p>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <Button type="button" variant="outline" onClick={() => {
+                          setBookingActionError('');
+                          setCancellationCreditChoice(bookingOperations.financials.paid > 0 ? 'after_deposit' : 'none');
+                          setShowCancelBooking(true);
+                        }} className="min-h-11 border-red-200 text-red-700 hover:bg-red-50">Cancel booking</Button>
+                        <Button type="button" variant="outline" onClick={() => {
+                          setBookingActionError('');
+                          setShowDeleteBooking(true);
+                        }} className="min-h-11 border-red-200 text-red-700 hover:bg-red-50"><Trash2 className="mr-2 h-4 w-4" />Created by mistake</Button>
+                      </div>
+                    </>
+                  )}
                 </CardContent>
               </Card>
 
@@ -1943,7 +2054,7 @@ export function AdminBookings() {
               )}
 
               {/* Action Buttons */}
-              <div className={`sticky bottom-0 -mx-4 -mb-8 mt-4 grid gap-3 border-t border-sage/10 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(10,17,40,0.08)] ${selectedBooking.status === 'confirmed' ? 'grid-cols-1' : 'grid-cols-2'}`}>
+              <div className={`sticky bottom-0 -mx-4 -mb-8 mt-4 grid gap-3 border-t border-sage/10 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(10,17,40,0.08)] ${selectedBooking.status === 'confirmed' || selectedBooking.status === 'cancelled' ? 'grid-cols-1' : 'grid-cols-2'}`}>
                 <Button 
                   variant="outline" 
                   className="rounded-xl border-sage/20"
@@ -1951,7 +2062,7 @@ export function AdminBookings() {
                 >
                   Close
                 </Button>
-                {selectedBooking.status !== 'confirmed' && <Button
+                {selectedBooking.status !== 'confirmed' && selectedBooking.status !== 'cancelled' && <Button
                   type="button"
                   disabled={confirmingBooking}
                   onClick={() => void handleConfirmSelectedBooking()}
@@ -1966,6 +2077,76 @@ export function AdminBookings() {
           )}
         </SheetContent>
       </Sheet>
+
+      <Dialog open={showCancelBooking} onOpenChange={(open) => !closingBooking && setShowCancelBooking(open)}>
+        <DialogContent className="max-h-[calc(100dvh-1.5rem)] w-[calc(100%-1.5rem)] max-w-lg overflow-y-auto rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-serif">Cancel this booking?</DialogTitle>
+            <DialogDescription className="leading-6">
+              The stay will leave the operational calendar, but its booking, payment, and cancellation history will remain available.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="cancellation-reason" className="text-sm font-semibold text-[#2d3e2f]">Reason</label>
+              <select id="cancellation-reason" value={cancellationReason} onChange={(event) => setCancellationReason(event.target.value)} className="h-12 w-full rounded-xl border border-sage/20 bg-white px-3 text-sm">
+                <option value="">Select a reason</option>
+                <option value="Customer change of plans">Customer change of plans</option>
+                <option value="No show">No show</option>
+                <option value="Deposit not paid">Deposit not paid</option>
+                <option value="Vaccination requirements">Vaccination requirements</option>
+                <option value="Cattery unavailable or full">Cattery unavailable or full</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="cancellation-note" className="text-sm font-semibold text-[#2d3e2f]">Note <span className="font-normal text-[#6b7a6d]">(optional)</span></label>
+              <textarea id="cancellation-note" value={cancellationNote} onChange={(event) => setCancellationNote(event.target.value)} placeholder="Add any useful detail for the cancellation record…" className="min-h-24 w-full rounded-xl border border-sage/20 bg-white p-3 text-sm" />
+            </div>
+
+            {cancellationSummary.paid > 0 && (
+              <div className="space-y-3 rounded-2xl border border-[#E8DED4] bg-[#F6F2EA] p-4">
+                <div className="flex items-center gap-2"><WalletCards className="h-5 w-5 text-[#C46A3A]" /><h3 className="font-semibold text-[#2d3e2f]">What happens to the ${cancellationSummary.paid.toFixed(2)} paid?</h3></div>
+                <p className="text-xs leading-5 text-[#6b7a6d]">Customer credit remains on the account for a future booking. Money not credited remains retained; this does not send a bank or Stripe refund.</p>
+                <div className="space-y-2">
+                  <label className="flex items-start gap-3 rounded-xl border border-[#E8DED4] bg-white p-3 text-sm"><input type="radio" name="cancellation-credit" checked={cancellationCreditChoice === 'none'} onChange={() => setCancellationCreditChoice('none')} className="mt-0.5 accent-[#C46A3A]" /><span><strong>Keep payment</strong><br /><span className="text-xs text-[#6b7a6d]">No customer credit</span></span></label>
+                  <label className="flex items-start gap-3 rounded-xl border border-[#E8DED4] bg-white p-3 text-sm"><input type="radio" name="cancellation-credit" checked={cancellationCreditChoice === 'after_deposit'} onChange={() => setCancellationCreditChoice('after_deposit')} className="mt-0.5 accent-[#C46A3A]" /><span><strong>Keep non-refundable deposit</strong><br /><span className="text-xs text-[#6b7a6d]">Credit ${Math.max(0, cancellationSummary.paid - cancellationSummary.deposit).toFixed(2)} and retain ${cancellationSummary.deposit.toFixed(2)}</span></span></label>
+                  <label className="flex items-start gap-3 rounded-xl border border-[#E8DED4] bg-white p-3 text-sm"><input type="radio" name="cancellation-credit" checked={cancellationCreditChoice === 'full'} onChange={() => setCancellationCreditChoice('full')} className="mt-0.5 accent-[#C46A3A]" /><span><strong>Credit the full payment</strong><br /><span className="text-xs text-[#6b7a6d]">Add ${cancellationSummary.paid.toFixed(2)} to customer balance</span></span></label>
+                  <label className="flex items-start gap-3 rounded-xl border border-[#E8DED4] bg-white p-3 text-sm"><input type="radio" name="cancellation-credit" checked={cancellationCreditChoice === 'custom'} onChange={() => setCancellationCreditChoice('custom')} className="mt-0.5 accent-[#C46A3A]" /><span className="flex-1"><strong>Choose another amount</strong>{cancellationCreditChoice === 'custom' && <Input type="number" min="0" max={cancellationSummary.paid} step="0.01" inputMode="decimal" value={customCancellationCredit} onChange={(event) => setCustomCancellationCredit(event.target.value)} placeholder="Customer credit amount" className="mt-2 bg-white" />}</span></label>
+                </div>
+                <div className="grid grid-cols-2 gap-2 rounded-xl bg-white p-3 text-sm"><div><span className="text-xs text-[#6b7a6d]">Customer credit</span><p className="font-bold text-emerald-700">${cancellationSummary.credit.toFixed(2)}</p></div><div><span className="text-xs text-[#6b7a6d]">Payment retained</span><p className="font-bold text-[#2d3e2f]">${cancellationSummary.retained.toFixed(2)}</p></div></div>
+              </div>
+            )}
+
+            {bookingActionError && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{bookingActionError}</p>}
+          </div>
+
+          <DialogFooter className="gap-2 sm:flex-row">
+            <Button type="button" variant="outline" disabled={closingBooking} onClick={() => setShowCancelBooking(false)}>Back</Button>
+            <Button type="button" disabled={closingBooking || !cancellationReason || !cancellationSummary.isCustomAmountValid} onClick={() => void handleCancelBooking()} className="bg-red-600 text-white hover:bg-red-700">{closingBooking ? 'Cancelling…' : 'Confirm cancellation'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDeleteBooking} onOpenChange={(open) => !closingBooking && setShowDeleteBooking(open)}>
+        <DialogContent className="w-[calc(100%-1.5rem)] max-w-md rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-2xl font-serif"><Trash2 className="h-6 w-6 text-red-600" />Delete an accidental entry?</DialogTitle>
+            <DialogDescription className="leading-6">Use this only when the booking should never have existed. A booking with any payment or customer-credit history cannot be deleted and must be cancelled instead.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <label htmlFor="deletion-reason" className="text-sm font-semibold text-[#2d3e2f]">Why was this created by mistake?</label>
+            <textarea id="deletion-reason" value={deletionReason} onChange={(event) => setDeletionReason(event.target.value)} placeholder="For example: duplicate entry created while taking a phone booking" className="min-h-28 w-full rounded-xl border border-sage/20 p-3 text-sm" />
+            {bookingOperations.payments.length > 0 && <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">This booking has a payment record, so deletion is blocked. Cancel it instead.</p>}
+            {bookingActionError && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{bookingActionError}</p>}
+          </div>
+          <DialogFooter className="gap-2 sm:flex-row">
+            <Button type="button" variant="outline" disabled={closingBooking} onClick={() => setShowDeleteBooking(false)}>Back</Button>
+            <Button type="button" disabled={closingBooking || deletionReason.trim().length < 5 || bookingOperations.payments.length > 0} onClick={() => void handleDeleteBooking()} className="bg-red-600 text-white hover:bg-red-700">{closingBooking ? 'Deleting…' : 'Delete accidental entry'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Removed BottomNav component */}
       </div>

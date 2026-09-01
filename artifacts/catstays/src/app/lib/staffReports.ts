@@ -2,6 +2,7 @@ export type ReportKey =
   | "arrivals"
   | "departures"
   | "bookings"
+  | "cancellations"
   | "occupancy"
   | "appointments"
   | "training"
