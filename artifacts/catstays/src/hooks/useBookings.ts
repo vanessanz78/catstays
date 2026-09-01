@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { bookingRoomUnitKeys, roomUnitHasConflict } from '@/app/lib/roomInventory';
+import { announceCatStaysBookingsChanged } from '@/app/lib/bookingAlerts';
 
 export interface BookingWithDetails {
   id: string;
@@ -192,6 +193,7 @@ export function useBookings() {
         created_by: user?.id || null,
       });
       await fetchBookings();
+      announceCatStaysBookingsChanged();
     }
     return { data, error };
   };
@@ -214,6 +216,7 @@ export function useBookings() {
         created_by: user?.id || null,
       });
       await fetchBookings();
+      announceCatStaysBookingsChanged();
     }
     return { error };
   };

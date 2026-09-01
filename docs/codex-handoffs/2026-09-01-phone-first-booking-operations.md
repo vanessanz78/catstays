@@ -12,7 +12,7 @@ Draft pull request: `#49`
 
 The supplied Revelation Pets walkthrough established the daily operating path:
 
-1. Scan today’s arrivals, departures, occupancy, pending bookings, and near-term availability.
+1. See the pending-booking count on the top bell, open a request directly for approval, then scan today’s arrivals, departures, occupancy, and near-term availability.
 2. Start a booking and search by either customer or cat.
 3. Pick an inclusive date range, keep the normal 9:30 arrival and 4:30 collection defaults, and choose an available physical room.
 4. Add another cat from the same customer without repeating dates/times; choose shared or separate rooms and review the full cost.
@@ -39,18 +39,23 @@ The supplied Revelation Pets walkthrough established the daily operating path:
 - Click-again ascending/descending column sorting, live report search, date-range filtering, report-specific status filtering, phone cards, and desktop tables.
 - Print, browser Save as PDF, and Excel-compatible export for the complete visible filtered report.
 - Honest empty states for training, birthdays, and vaccine-expiry reports until structured source fields are added; no report fabricates records.
+- A true top-of-screen booking alert bell that queries live pending bookings, shows the customer, cats, and stay dates, and opens the exact booking directly for approval.
+- Pending alerts update by live database subscription with a 30-second recovery poll; duplicate push/in-app booking-request alerts are not double-counted.
+- New server-generated booking notifications now carry the exact booking link, while older notifications recover that link from their saved booking metadata.
+- Settings remain in the existing left navigation and the header stays focused on the booking bell and primary work; help and power controls were not added.
 
 Appointments, Xero, and unrelated payment methods are not placed in the default daily path.
 
 ## Verification Completed
 
-- `pnpm run test:staff-booking-operations`: 38 passed, 0 failed.
+- `pnpm run test:staff-booking-operations`: 41 passed, 0 failed.
 - `pnpm run test:physical-room-inventory`: 13 passed, 0 failed.
 - Complete workspace TypeScript check: passed.
 - Complete workspace production build: passed.
 - `git diff --check`: passed.
 - Existing Vite source-map and large-chunk warnings remain non-blocking.
 - Local Reports shell browser review passed at 390px and 1440px: the document width equalled the viewport at both sizes, all 15 reports appeared, the deposit status menu exposed the five required filters, and no console errors were emitted.
+- Local booking-alert browser review passed at 390px: the bell and panel were keyboard-labelled, the document width equalled the 390px viewport, and the panel stayed within the viewport at 366px wide.
 - Signed-in live-data browser review remains pending; the protected customer workspace was not bypassed or populated with fake authentication.
 
 ## Release-Coupled Migration
@@ -73,6 +78,14 @@ The new application queries expect the new tables and relations. After review, a
 7. Complete signed-in founder UAT on the published Deloraine tenant.
 
 ## Founder UAT
+
+### Booking Alerts
+
+- Create a public booking request and confirm the bell badge increases without a page refresh.
+- Open the bell and confirm the pending card shows the right customer, cats, arrival, and departure dates.
+- Tap Review and confirm the exact booking opens with the sticky Confirm Booking action visible.
+- Confirm the booking and verify it disappears from pending alerts and the badge count updates.
+- Repeat on a phone while moving between Today, Bookings, Customers, and Reports; confirm the bell stays available and no help or power controls clutter the header.
 
 ### Today
 

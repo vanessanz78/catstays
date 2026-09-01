@@ -619,7 +619,7 @@ router.post('/bookings/request', async (req, res) => {
       type: 'booking_request',
       title: 'New booking request',
       body: bookingBody,
-      url: '/staff-dashboard/bookings',
+      url: `/staff-dashboard/bookings?booking=${encodeURIComponent(String(booking?.id || ''))}`,
       tag: `catstays-booking-${booking?.id || catteryId}`,
       metadata: { bookingId: booking?.id, customerId },
     }).catch((pushError) => {
