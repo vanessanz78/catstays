@@ -17,6 +17,7 @@ import { useCustomers } from '@/hooks/useCustomers';
 import { useRooms } from '@/hooks/useRooms';
 import { useAuth } from '@/contexts/AuthContext';
 import { sendBookingConfirmation } from '@/utils/email';
+import { useBookingOperations } from '@/hooks/useBookingOperations';
 import { 
   Plus, 
   Search, 
@@ -33,17 +34,23 @@ import {
   Filter,
   ArrowUpDown,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  History,
+  Mail,
+  NotebookPen,
+  Receipt,
+  Trash2,
+  WalletCards,
 } from 'lucide-react';
 import { RightMenu } from '../../components/RightMenu';
 import { NotificationBell } from '../../components/NotificationBell';
 import { format, parseISO, startOfToday } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
-import { bookingOverlapsStay, calculateAssignedRoomTotal, inclusiveStayDays } from '../../lib/bookingPricing';
+import { calculateStaffBookingPrice, inclusiveStayDays } from '../../lib/bookingPricing';
 import {
-  bookingRoomUnitKeys,
   expandPhysicalRooms,
   physicalRoomName,
+  roomUnitHasConflict,
 } from '../../lib/roomInventory';
 import {
   bookingHoursSummary,
@@ -53,17 +60,20 @@ import {
 } from '../../lib/bookingSchedule';
 import { Calendar as DateRangeCalendar } from '../../components/ui/calendar';
 import {
-  getCatteryPaymentStatus,
-  requestBookingPayment,
-  type CatteryPaymentStatus,
-} from '@/utils/catteryPayments';
-import {
   Sheet,
   SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
 } from '../../components/ui/sheet';
+import { normalizeBookingSetup } from '../../lib/bookingSetup';
+import {
+  PAYMENT_METHOD_LABELS,
+  type AdjustmentCalculation,
+  type AdjustmentKind,
+  type PaymentMethod,
+  type PaymentPurpose,
+} from '../../lib/bookingOperations';
 
 export function AdminBookings() {
   const [searchParams] = useSearchParams();
@@ -102,13 +112,22 @@ export function AdminBookings() {
   const [newCustomer, setNewCustomer] = useState({ name: '', email: '', phone: '', catName: '' });
   const [newCustomerError, setNewCustomerError] = useState('');
   const [savingCustomer, setSavingCustomer] = useState(false);
+  const [creatingBooking, setCreatingBooking] = useState(false);
   const [bookingError, setBookingError] = useState('');
   const [bookingActionError, setBookingActionError] = useState('');
   const [confirmingBooking, setConfirmingBooking] = useState(false);
-  const [detailRequestPayment, setDetailRequestPayment] = useState(false);
-  const [detailPaymentChoice, setDetailPaymentChoice] = useState<'deposit' | 'full' | 'both'>('both');
   const [paymentActionMessage, setPaymentActionMessage] = useState('');
-  const [catteryPaymentStatus, setCatteryPaymentStatus] = useState<CatteryPaymentStatus>({ connected: false });
+  const [sendingConfirmation, setSendingConfirmation] = useState(false);
+  const [confirmationMessage, setConfirmationMessage] = useState('');
+  const [confirmationPayment, setConfirmationPayment] = useState<'deposit' | 'full' | 'none'>('deposit');
+  const [noteDraft, setNoteDraft] = useState('');
+  const [noteVisible, setNoteVisible] = useState(false);
+  const [showNoteEditor, setShowNoteEditor] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [adjustmentDraft, setAdjustmentDraft] = useState<{ kind: AdjustmentKind; label: string; calculation: AdjustmentCalculation; value: string }>({ kind: 'discount', label: '', calculation: 'fixed', value: '' });
+  const [paymentDraft, setPaymentDraft] = useState<{ purpose: PaymentPurpose; method: PaymentMethod; paidOn: string; amount: string; reference: string }>({ purpose: 'deposit', method: 'bank_transfer', paidOn: format(new Date(), 'yyyy-MM-dd'), amount: '', reference: '' });
+  const [creditDraft, setCreditDraft] = useState('');
+  const [operationMessage, setOperationMessage] = useState('');
 
   const { cattery } = useAuth();
   const { bookings: rawBookings, loading: bookingsLoading, createBooking, updateBookingStatus } = useBookings();
@@ -117,17 +136,17 @@ export function AdminBookings() {
   const [customerSearch, setCustomerSearch] = useState('');
 
   const bookingSettings = cattery?.website_settings ?? {};
+  const bookingSetup = normalizeBookingSetup(bookingSettings);
+  const bookingOperations = useBookingOperations(
+    selectedBooking?.id || null,
+    selectedBooking?.customerId || null,
+    Number(selectedBooking?.total || 0),
+    { chargeTax: bookingSetup.chargeTax, taxRate: bookingSetup.taxRate },
+  );
 
   useEffect(() => {
     setShowCreateBooking(isCreating);
   }, [isCreating]);
-
-  useEffect(() => {
-    if (!cattery?.id) return;
-    getCatteryPaymentStatus(cattery.id)
-      .then(setCatteryPaymentStatus)
-      .catch(() => setCatteryPaymentStatus({ connected: false }));
-  }, [cattery?.id]);
 
   // Map real customers to UI shape
   const customers = rawCustomers.map(c => ({
@@ -142,6 +161,13 @@ export function AdminBookings() {
   const filteredCustomers = hasCustomerSearch
     ? customers.filter((customer) => customerMatchesSearch(customer, customerSearch))
     : [];
+  const customerSuggestions = filteredCustomers.flatMap((customer) => {
+    const query = customerSearch.trim().toLowerCase();
+    const matchingCats = customer.cats.filter((cat: any) => cat.name.toLowerCase().includes(query));
+    return matchingCats.length > 0
+      ? matchingCats.map((cat: any) => ({ customer, cat }))
+      : [{ customer, cat: null }];
+  });
 
   const checkInTimeSlots = bookingTimeSlotsForDate(bookingSettings, checkIn);
   const checkOutTimeSlots = bookingTimeSlotsForDate(bookingSettings, checkOut);
@@ -196,6 +222,7 @@ export function AdminBookings() {
       days,
       receivedDate: b.created_at,
       specialRequirements: b.notes || '',
+      customerNoteVisible: Boolean((b as any).customer_note_visible),
       customerId: b.customer?.id || null,
       roomArrangement: b.room_arrangement || 'shared',
       roomAssignments: (b.booking_cat_rooms ?? []).map((assignment) => ({
@@ -211,17 +238,11 @@ export function AdminBookings() {
     };
   });
 
-  const occupiedRoomKeys = new Set(
-    checkIn && checkOut
-      ? rawBookings
-        .filter((booking) => (
-          booking.status !== 'cancelled'
-          && bookingOverlapsStay(booking.check_in, booking.check_out, checkIn, checkOut)
-        ))
-        .flatMap((booking) => bookingRoomUnitKeys(booking))
-      : []
-  );
-  const availableRoomOptions = roomOptions.filter((room) => !occupiedRoomKeys.has(room.key));
+  const availableRoomOptions = roomOptions.filter((room) => (
+    !checkIn
+    || !checkOut
+    || !roomUnitHasConflict(rawBookings, room.id, room.unitNumber, checkIn, checkOut)
+  ));
   const roomSelectionComplete = roomArrangement === 'shared'
     ? Boolean(selectedRoom)
     : cats.length > 0 && cats.every((cat) => Boolean(roomAssignments[cat.id]));
@@ -304,11 +325,33 @@ export function AdminBookings() {
 
   const handleViewBooking = (booking: any) => {
     setSelectedBooking(booking);
-    setDetailRequestPayment(false);
-    setDetailPaymentChoice('both');
     setBookingActionError('');
     setPaymentActionMessage('');
+    setOperationMessage('');
+    setNoteDraft(booking.specialRequirements || '');
+    setNoteVisible(Boolean(booking.customerNoteVisible));
+    setShowNoteEditor(false);
+    setShowHistory(false);
+    setConfirmationMessage(bookingSetup.confirmationMessage);
+    setConfirmationPayment(bookingSetup.defaultConfirmationPayment);
+    setPaymentDraft((current) => ({
+      ...current,
+      method: bookingSetup.enabledPaymentMethods[0] || 'bank_transfer',
+      paidOn: format(new Date(), 'yyyy-MM-dd'),
+      amount: '',
+      reference: '',
+    }));
     setShowBookingDetails(true);
+  };
+
+  const selectCustomerSuggestion = (customer: any, cat?: any | null) => {
+    setSelectedCustomer(customer);
+    setCats(cat ? [cat] : customer.cats?.length ? [customer.cats[0]] : []);
+    setSelectedRoom(null);
+    setRoomAssignments({});
+    setStep(2);
+    setDraftDateRange(undefined);
+    setShowDateRangePicker(true);
   };
 
   useEffect(() => {
@@ -323,14 +366,22 @@ export function AdminBookings() {
     if (!open && requestedBookingId) navigate('/staff-dashboard/bookings', { replace: true });
   };
 
-  const calculateTotal = () => {
-    if (!checkIn || !checkOut || cats.length === 0) return 0;
-    const days = inclusiveStayDays(checkIn, checkOut);
-    if (roomArrangement === 'separate') {
-      return calculateAssignedRoomTotal(days, cats.map((cat) => roomAssignments[cat.id]?.pricePerDay ?? 0));
-    }
-    return selectedRoom ? calculateAssignedRoomTotal(days, cats.map(() => selectedRoom.pricePerDay)) : 0;
+  const calculatePrice = () => {
+    const days = checkIn && checkOut ? inclusiveStayDays(checkIn, checkOut) : 0;
+    const dailyRates = roomArrangement === 'separate'
+      ? cats.map((cat) => roomAssignments[cat.id]?.pricePerDay ?? 0)
+      : selectedRoom ? cats.map(() => selectedRoom.pricePerDay) : [];
+    return calculateStaffBookingPrice({
+      days,
+      dailyRates,
+      arrangement: roomArrangement,
+      occupancyRates: bookingSetup.pricingRates,
+      chargeTax: bookingSetup.chargeTax,
+      taxRate: bookingSetup.taxRate,
+    });
   };
+
+  const calculateTotal = () => calculatePrice().total;
 
   const calculateDays = () => {
     if (!checkIn || !checkOut) return 0;
@@ -353,13 +404,16 @@ export function AdminBookings() {
     setCheckOut(nextCheckOut);
     setSelectedRoom(null);
     setRoomAssignments({});
-    if (!bookingTimeSlotsForDate(bookingSettings, nextCheckIn).includes(checkInTime)) {
-      setCheckInTime('');
-    }
-    if (!bookingTimeSlotsForDate(bookingSettings, nextCheckOut).includes(checkOutTime)) {
-      setCheckOutTime('');
-    }
+    const nextCheckInSlots = bookingTimeSlotsForDate(bookingSettings, nextCheckIn);
+    const nextCheckOutSlots = bookingTimeSlotsForDate(bookingSettings, nextCheckOut);
+    setCheckInTime(nextCheckInSlots.includes(bookingSetup.defaultCheckInTime)
+      ? bookingSetup.defaultCheckInTime
+      : nextCheckInSlots[0] || '');
+    setCheckOutTime(nextCheckOutSlots.includes(bookingSetup.defaultCheckOutTime)
+      ? bookingSetup.defaultCheckOutTime
+      : nextCheckOutSlots[nextCheckOutSlots.length - 1] || '');
     setShowDateRangePicker(false);
+    setStep(cats.length > 0 ? 4 : 3);
   };
 
   const handleAddCustomer = async () => {
@@ -395,11 +449,12 @@ export function AdminBookings() {
 
     const createdCustomer = { ...customer, phone: customer.phone || '', cats: customerCats };
     setSelectedCustomer(createdCustomer);
-    setCats([]);
+    setCats(customerCats);
     setNewCustomer({ name: '', email: '', phone: '', catName: '' });
     setShowAddCustomer(false);
     setSavingCustomer(false);
     setStep(2);
+    setShowDateRangePicker(true);
   };
 
   const handleCreateBooking = async () => {
@@ -422,6 +477,7 @@ export function AdminBookings() {
       || assignedRooms.some((assignment) => !assignment.room_id || !assignment.room_unit_number)
     ) return;
 
+    setCreatingBooking(true);
     setBookingError('');
 
     const { data, error } = await createBooking({
@@ -447,30 +503,12 @@ export function AdminBookings() {
 
     if (error) {
       setBookingError(typeof error === 'string' ? error : error.message || 'Booking could not be created.');
+      setCreatingBooking(false);
       return;
     }
 
-    if (selectedCustomer.email && cattery?.name) {
-      sendBookingConfirmation({
-        catteryId: cattery.id,
-        customerId: selectedCustomer.id,
-        customerName: selectedCustomer.name,
-        customerEmail: selectedCustomer.email,
-        catteryName: cattery.name,
-        catName: cats[0]?.name,
-        roomName: roomArrangement === 'shared'
-          ? selectedRoom.physicalName
-          : cats.map((cat) => `${cat.name}: ${roomAssignments[cat.id]?.physicalName}`).join(', '),
-        checkIn: `${format(parseISO(checkIn), 'd MMM yyyy')} at ${formatBookingTime(checkInTime)}`,
-        checkOut: `${format(parseISO(checkOut), 'd MMM yyyy')} at ${formatBookingTime(checkOutTime)}`,
-        totalAmount: `$${calculateTotal().toFixed(2)}`,
-        bookingRef: data?.id?.slice(0, 8).toUpperCase(),
-        catteryEmail: cattery.email ?? undefined,
-      }).catch(err => console.warn('[email] Confirmation not sent:', err));
-    }
-
     setShowCreateBooking(false);
-    navigate('/staff-dashboard/bookings');
+    navigate(`/staff-dashboard/bookings?booking=${data?.id}`);
     setStep(1);
     setSelectedCustomer(null);
     setCats([]);
@@ -483,6 +521,7 @@ export function AdminBookings() {
     setRoomAssignments({});
     setSpecialRequirements('');
     setPaymentStatus('unpaid');
+    setCreatingBooking(false);
   };
 
   const handleConfirmSelectedBooking = async () => {
@@ -501,41 +540,118 @@ export function AdminBookings() {
       }
 
       setSelectedBooking((current: any) => ({ ...current, status: 'confirmed' }));
-      if (selectedBooking.customerEmail && cattery?.name) {
-        const roomName = selectedBooking.roomAssignments.length > 0
-          ? selectedBooking.roomAssignments.map((assignment: any) => `${assignment.catName}: ${assignment.roomName}`).join(', ')
-          : selectedBooking.roomNumber;
-        sendBookingConfirmation({
-          catteryId: cattery.id,
-          customerId: selectedBooking.customerId,
-          customerName: selectedBooking.customerName,
-          customerEmail: selectedBooking.customerEmail,
-          catteryName: cattery.name,
-          catName: selectedBooking.catNames.join(', '),
-          roomName,
-          checkIn: `${format(parseISO(selectedBooking.checkIn), 'd MMM yyyy')} at ${formatBookingTime(selectedBooking.checkInTime || '')}`,
-          checkOut: `${format(parseISO(selectedBooking.checkOut), 'd MMM yyyy')} at ${formatBookingTime(selectedBooking.checkOutTime || '')}`,
-          totalAmount: `$${Number(selectedBooking.total).toFixed(2)}`,
-          bookingRef: selectedBooking.id.slice(0, 8).toUpperCase(),
-          catteryEmail: cattery.email ?? undefined,
-        }).catch((emailError) => console.warn('[email] Confirmation not sent:', emailError));
-      }
-    }
-
-    if (detailRequestPayment) {
-      try {
-        const result = await requestBookingPayment(selectedBooking.id, detailPaymentChoice);
-        setSelectedBooking((current: any) => ({ ...current, paymentStatus: 'pending' }));
-        setPaymentActionMessage(result.emailSent
-          ? 'Payment options sent to the customer.'
-          : 'Payment links were created, but the email could not be sent.');
-      } catch (error: any) {
-        setBookingActionError(error.message || 'The payment request could not be sent.');
-        setConfirmingBooking(false);
-        return;
-      }
     }
     setConfirmingBooking(false);
+  };
+
+  const handleSendConfirmation = async () => {
+    if (!selectedBooking || !cattery?.id || !cattery.name || !selectedBooking.customerEmail) {
+      setBookingActionError('Add a customer email address before sending the confirmation.');
+      return;
+    }
+    setSendingConfirmation(true);
+    setBookingActionError('');
+    setPaymentActionMessage('');
+    const roomName = selectedBooking.roomAssignments.length > 0
+      ? selectedBooking.roomAssignments.map((assignment: any) => `${assignment.catName}: ${assignment.roomName}`).join(', ')
+      : selectedBooking.roomNumber;
+    const fixedDeposit = bookingSetup.depositType === 'fixed'
+      ? bookingSetup.depositAmount
+      : Number(selectedBooking.total) * (bookingSetup.depositAmount / 100);
+    const result = await sendBookingConfirmation({
+      catteryId: cattery.id,
+      customerId: selectedBooking.customerId,
+      customerName: selectedBooking.customerName,
+      customerEmail: selectedBooking.customerEmail,
+      catteryName: cattery.name,
+      catName: selectedBooking.catNames.join(', '),
+      roomName,
+      checkIn: `${format(parseISO(selectedBooking.checkIn), 'd MMM yyyy')} at ${formatBookingTime(selectedBooking.checkInTime || '')}`,
+      checkOut: `${format(parseISO(selectedBooking.checkOut), 'd MMM yyyy')} at ${formatBookingTime(selectedBooking.checkOutTime || '')}`,
+      totalAmount: `$${bookingOperations.financials.total.toFixed(2)}`,
+      deposit: confirmationPayment === 'deposit' ? `$${fixedDeposit.toFixed(2)}` : undefined,
+      paymentRequest: confirmationPayment,
+      customMessage: confirmationMessage,
+      customerNote: noteVisible ? noteDraft : undefined,
+      terms: bookingSetup.cancellationPolicy,
+      bookingRef: selectedBooking.id.slice(0, 8).toUpperCase(),
+      catteryEmail: cattery.email ?? undefined,
+    });
+    if (!result.success) {
+      setBookingActionError(result.error || 'The confirmation could not be sent.');
+      setSendingConfirmation(false);
+      return;
+    }
+    await bookingOperations.recordEvent('confirmation_emailed', `Booking confirmation emailed to ${selectedBooking.customerEmail}`, {
+      payment_request: confirmationPayment,
+      provider_message_id: result.id || null,
+    });
+    await bookingOperations.refetch();
+    setPaymentActionMessage('Booking confirmation sent to the customer.');
+    setSendingConfirmation(false);
+  };
+
+  const handleSaveNote = async () => {
+    const result = await bookingOperations.saveNote(noteDraft, noteVisible);
+    if (result.error) {
+      setBookingActionError(typeof result.error === 'string' ? result.error : (result.error as any)?.message || 'The note could not be saved.');
+      return;
+    }
+    setSelectedBooking((current: any) => ({ ...current, specialRequirements: noteDraft, customerNoteVisible: noteVisible }));
+    setShowNoteEditor(false);
+    setOperationMessage('Booking note saved.');
+  };
+
+  const handleAddAdjustment = async () => {
+    const value = Number(adjustmentDraft.value);
+    const label = adjustmentDraft.label.trim();
+    if (!label || !Number.isFinite(value) || value <= 0) {
+      setBookingActionError('Add a description and an amount greater than zero.');
+      return;
+    }
+    const result = await bookingOperations.addAdjustment({ ...adjustmentDraft, label, value });
+    if (result.error) {
+      setBookingActionError((result.error as any)?.message || String(result.error));
+      return;
+    }
+    setAdjustmentDraft({ kind: 'discount', label: '', calculation: 'fixed', value: '' });
+    setOperationMessage('Booking total updated.');
+  };
+
+  const handleRemoveAdjustment = async (id: string) => {
+    const result = await bookingOperations.removeAdjustment(id);
+    if (result.error) {
+      setBookingActionError((result.error as any)?.message || String(result.error));
+      return;
+    }
+    setOperationMessage('Charge or discount removed.');
+  };
+
+  const handleAddPayment = async (markTotal = false) => {
+    if (markTotal && paymentDraft.purpose !== 'booking') {
+      setBookingActionError('Choose Payment before marking the remaining total as paid.');
+      return;
+    }
+    const amount = markTotal ? Math.max(0, bookingOperations.financials.owing) : Number(paymentDraft.amount);
+    const result = await bookingOperations.addPayment({ ...paymentDraft, amount });
+    if (result.error) {
+      setBookingActionError((result.error as any)?.message || String(result.error));
+      return;
+    }
+    setPaymentDraft((current) => ({ ...current, amount: '', reference: '' }));
+    setSelectedBooking((current: any) => ({ ...current, paymentStatus: amount >= bookingOperations.financials.owing ? 'paid' : paymentDraft.purpose === 'deposit' ? 'deposit_paid' : 'partially_paid' }));
+    setOperationMessage(markTotal ? 'Remaining balance marked as paid.' : 'Payment added to this booking.');
+  };
+
+  const handleIssueCredit = async () => {
+    const amount = Number(creditDraft);
+    const result = await bookingOperations.issueCredit(amount, 'Booking value retained as customer credit');
+    if (result.error) {
+      setBookingActionError((result.error as any)?.message || String(result.error));
+      return;
+    }
+    setCreditDraft('');
+    setOperationMessage('Customer credit saved for a future booking.');
   };
 
   if (showCreateBooking) {
@@ -597,7 +713,7 @@ export function AdminBookings() {
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-sage/50" />
                     <Input 
-                      placeholder="Search customers..." 
+                      placeholder="Type a customer or cat name…"
                       className="pl-10 rounded-xl border-sage/20"
                       value={customerSearch}
                       onChange={e => setCustomerSearch(e.target.value)}
@@ -606,16 +722,10 @@ export function AdminBookings() {
 
                   {hasCustomerSearch && (
                   <div className="space-y-2 max-h-96 overflow-y-auto">
-                    {filteredCustomers.map((customer) => (
+                    {customerSuggestions.map(({ customer, cat }) => (
                       <button
-                        key={customer.id}
-                        onClick={() => {
-                          setSelectedCustomer(customer);
-                          setCats([]);
-                          setSelectedRoom(null);
-                          setRoomAssignments({});
-                          setStep(2);
-                        }}
+                        key={`${customer.id}:${cat?.id || 'customer'}`}
+                        onClick={() => selectCustomerSuggestion(customer, cat)}
                         className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
                           selectedCustomer?.id === customer.id
                             ? 'border-sage bg-sage/5'
@@ -625,10 +735,10 @@ export function AdminBookings() {
                         <div className="flex items-center justify-between">
                           <div>
                             <div className="font-semibold" style={{ color: '#2d3e2f' }}>
-                              {customer.name}
+                              {cat ? `🐱 ${cat.name}` : customer.name}
                             </div>
                             <div className="text-sm" style={{ color: '#6b7a6d' }}>
-                              {customer.email} • {customer.phone}
+                              {cat ? `${customer.name} · ` : ''}{customer.email}{customer.phone ? ` · ${customer.phone}` : ''}
                             </div>
                             <div className="flex gap-1 mt-1">
                               {customer.cats.map((cat) => (
@@ -642,7 +752,7 @@ export function AdminBookings() {
                         </div>
                       </button>
                     ))}
-                    {filteredCustomers.length === 0 && (
+                    {customerSuggestions.length === 0 && (
                       <div className="rounded-xl border border-dashed border-sage/20 bg-white p-4 text-center">
                         <p className="text-sm font-medium" style={{ color: '#2d3e2f' }}>
                           No matching customers
@@ -794,7 +904,7 @@ export function AdminBookings() {
                       Back
                     </Button>
                     <Button
-                      onClick={() => setStep(3)}
+                      onClick={() => setStep(cats.length > 0 ? 4 : 3)}
                       disabled={calculateDays() === 0 || !checkInTime || !checkOutTime}
                       className="flex-1 rounded-xl text-white"
                       style={{ backgroundColor: '#7DAF7B' }}
@@ -900,6 +1010,37 @@ export function AdminBookings() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  <div className="rounded-2xl border border-sage/15 bg-[#F6F4EF] p-3">
+                    <p className="text-sm font-semibold" style={{ color: '#2d3e2f' }}>Cats in this booking</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {selectedCustomer?.cats?.map((cat: any) => {
+                        const selected = cats.some((candidate) => candidate.id === cat.id);
+                        return (
+                          <button
+                            key={cat.id}
+                            type="button"
+                            aria-pressed={selected}
+                            onClick={() => {
+                              const nextCats = selected
+                                ? cats.filter((candidate) => candidate.id !== cat.id)
+                                : [...cats, cat];
+                              if (nextCats.length === 0) return;
+                              setCats(nextCats);
+                              setSelectedRoom(null);
+                              setRoomAssignments({});
+                            }}
+                            className={`rounded-full border px-3 py-2 text-sm font-semibold ${selected ? 'border-sage bg-sage text-white' : 'border-sage/20 bg-white text-sage'}`}
+                          >
+                            🐱 {cat.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {selectedCustomer?.cats?.some((cat: any) => !cats.some((selectedCat) => selectedCat.id === cat.id)) && (
+                      <p className="mt-2 text-xs" style={{ color: '#6b7a6d' }}>Tap the next cat to add them with the same dates and times.</p>
+                    )}
+                  </div>
+
                   {cats.length > 1 && (
                     <div className="grid grid-cols-2 gap-2 rounded-2xl bg-[#F6F4EF] p-2">
                       <button
@@ -1037,7 +1178,7 @@ export function AdminBookings() {
                   <div className="flex gap-3 pt-2">
                     <Button
                       variant="outline"
-                      onClick={() => setStep(3)}
+                      onClick={() => setStep(2)}
                       className="flex-1 rounded-xl border-sage/20"
                     >
                       Back
@@ -1173,12 +1314,11 @@ export function AdminBookings() {
                       </span>
                       <DollarSign className="w-5 h-5 text-sage" />
                     </div>
-                    <p className="text-3xl font-bold text-sage">
-                      ${calculateTotal().toFixed(2)}
-                    </p>
+                    <div className="space-y-1 text-sm text-[#6b7a6d]"><div className="flex justify-between"><span>Accommodation subtotal</span><span>${calculatePrice().subtotal.toFixed(2)}</span></div>{bookingSetup.chargeTax && <div className="flex justify-between"><span>{bookingSetup.taxType} at {bookingSetup.taxRate}%</span><span>${calculatePrice().tax.toFixed(2)}</span></div>}</div>
+                    <p className="mt-3 text-3xl font-bold text-sage">${calculateTotal().toFixed(2)}</p>
                     <p className="text-sm mt-1" style={{ color: '#6b7a6d' }}>
                       {roomArrangement === 'shared'
-                        ? `${cats.length} cat${cats.length !== 1 ? 's' : ''} × ${calculateDays()} days × $${selectedRoom?.pricePerDay}`
+                        ? `${cats.length} cat${cats.length !== 1 ? 's' : ''} sharing × ${calculateDays()} days × $${calculatePrice().dailyTotal.toFixed(2)}${calculatePrice().occupancyRateApplied ? ' shared rate' : ''}`
                         : `${calculateDays()} days × ${cats.length} separately assigned rooms`}
                     </p>
                   </div>
@@ -1200,11 +1340,12 @@ export function AdminBookings() {
                     </Button>
                     <Button 
                       onClick={handleCreateBooking}
+                      disabled={creatingBooking}
                       className="flex-1 rounded-xl text-white"
                       style={{ backgroundColor: '#7DAF7B' }}
                     >
                       <Check className="w-4 h-4 mr-2" />
-                      Confirm Booking
+                      {creatingBooking ? 'Saving…' : 'Confirm Booking'}
                     </Button>
                   </div>
                 </CardContent>
@@ -1554,6 +1695,35 @@ export function AdminBookings() {
 
           {selectedBooking && (
             <div className="flex-1 space-y-4 overflow-y-auto bg-[#F6F4EF] p-4 pb-8">
+              <Card className="rounded-2xl border-sage/10">
+                <CardContent className="space-y-3 p-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {selectedBooking.catNames.map((cat: string) => <Badge key={cat} className="bg-[#0A4C8B] text-white">{cat}</Badge>)}
+                    <Badge variant="outline">Ref {selectedBooking.id.slice(0, 8).toUpperCase()}</Badge>
+                  </div>
+                  <p className="text-xs" style={{ color: '#6b7a6d' }}>Added {format(new Date(selectedBooking.receivedDate), 'd MMM yyyy, h:mm a')}</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <Link to={`/staff-dashboard/calendar?date=${selectedBooking.checkIn}&booking=${selectedBooking.id}`} className="flex min-h-11 items-center justify-center gap-1 rounded-xl border border-sage/20 bg-white px-2 text-center text-xs font-semibold text-sage"><Calendar className="h-4 w-4" />Calendar</Link>
+                    <button type="button" onClick={() => setShowNoteEditor((value) => !value)} className="flex min-h-11 items-center justify-center gap-1 rounded-xl border border-sage/20 bg-white px-2 text-xs font-semibold text-sage"><NotebookPen className="h-4 w-4" />Notes</button>
+                    <button type="button" onClick={() => setShowHistory((value) => !value)} className="flex min-h-11 items-center justify-center gap-1 rounded-xl border border-sage/20 bg-white px-2 text-xs font-semibold text-sage"><History className="h-4 w-4" />History</button>
+                  </div>
+                  {showNoteEditor && (
+                    <div className="space-y-3 rounded-xl bg-[#F6F4EF] p-3">
+                      <textarea value={noteDraft} onChange={(event) => setNoteDraft(event.target.value)} placeholder="Add an internal booking note…" className="min-h-24 w-full rounded-xl border border-sage/20 bg-white p-3 text-sm" />
+                      <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={noteVisible} onChange={(event) => setNoteVisible(event.target.checked)} className="mt-0.5 h-4 w-4 accent-[#C46A3A]" /><span>Show this note on the customer confirmation</span></label>
+                      <Button type="button" onClick={() => void handleSaveNote()} className="w-full bg-[#C46A3A] text-white hover:bg-[#A85A30]">Save note</Button>
+                    </div>
+                  )}
+                  {showHistory && (
+                    <div className="space-y-2 rounded-xl bg-[#F6F4EF] p-3">
+                      {bookingOperations.loading ? <p className="text-sm text-[#6b7a6d]">Loading booking history…</p> : bookingOperations.events.length > 0 ? bookingOperations.events.map((event) => (
+                        <div key={event.id} className="border-b border-sage/10 pb-2 last:border-0 last:pb-0"><p className="text-sm font-medium text-[#2d3e2f]">{event.summary}</p><p className="text-xs text-[#6b7a6d]">{format(new Date(event.created_at), 'd MMM yyyy, h:mm a')}</p></div>
+                      )) : <p className="text-sm text-[#6b7a6d]">No recorded changes yet.</p>}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
               {/* Customer Info */}
               <Card className="rounded-2xl border-sage/10">
                 <CardContent className="p-4">
@@ -1674,101 +1844,84 @@ export function AdminBookings() {
                 </CardContent>
               </Card>
 
-              {/* Special Requirements */}
-              {selectedBooking.specialRequirements && (
+              {/* Booking note */}
+              {selectedBooking.specialRequirements && !showNoteEditor && (
                 <Card className="rounded-2xl border-sage/10">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-2 mb-3">
                       <AlertCircle className="w-5 h-5 text-sage" />
                       <h3 className="font-semibold" style={{ color: '#2d3e2f' }}>
-                        Special Requirements
+                        Booking note
                       </h3>
                     </div>
                     <p className="text-sm" style={{ color: '#2d3e2f' }}>
                       {selectedBooking.specialRequirements}
                     </p>
+                    <p className="mt-2 text-xs" style={{ color: '#6b7a6d' }}>{selectedBooking.customerNoteVisible ? 'Included on customer confirmation' : 'Internal only'}</p>
                   </CardContent>
                 </Card>
               )}
 
-              {/* Payment Info */}
+              <Card className="rounded-2xl border-sage/10">
+                <CardContent className="space-y-4 p-4">
+                  <div className="flex items-center gap-2"><Mail className="h-5 w-5 text-sage" /><h3 className="font-semibold text-[#2d3e2f]">Send booking confirmation</h3></div>
+                  <p className="text-sm text-[#6b7a6d]">To {selectedBooking.customerEmail || 'customer email not saved'}</p>
+                  <textarea value={confirmationMessage} onChange={(event) => setConfirmationMessage(event.target.value)} className="min-h-24 w-full rounded-xl border border-sage/20 p-3 text-sm" aria-label="Confirmation message" />
+                  <div className="grid gap-2">
+                    {([['deposit', `Request deposit${bookingSetup.depositAmount ? ` (${bookingSetup.depositType === 'fixed' ? `$${bookingSetup.depositAmount}` : `${bookingSetup.depositAmount}%`})` : ''}`], ['full', 'Request total booking payment'], ['none', "Don't request payment"]] as const).map(([value, label]) => (
+                      <label key={value} className="flex items-center gap-2 rounded-xl border border-sage/15 px-3 py-2 text-sm"><input type="radio" name="confirmation-payment" checked={confirmationPayment === value} onChange={() => setConfirmationPayment(value)} className="accent-[#C46A3A]" />{label}</label>
+                    ))}
+                  </div>
+                  <Button type="button" onClick={() => void handleSendConfirmation()} disabled={sendingConfirmation || !selectedBooking.customerEmail} className="w-full bg-[#C46A3A] text-white hover:bg-[#A85A30]"><Mail className="mr-2 h-4 w-4" />{sendingConfirmation ? 'Sending…' : 'Send to customer'}</Button>
+                </CardContent>
+              </Card>
+
+              {/* Payment summary */}
               <Card className="rounded-2xl border-sage/10 bg-gradient-to-br from-sage/5 to-sage-light/5">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <DollarSign className="w-5 h-5 text-sage" />
-                    <h3 className="font-semibold" style={{ color: '#2d3e2f' }}>
-                      Payment
-                    </h3>
+                <CardContent className="space-y-3 p-4">
+                  <div className="flex items-center gap-2"><Receipt className="h-5 w-5 text-sage" /><h3 className="font-semibold text-[#2d3e2f]">Costs and payments</h3></div>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between"><span className="text-[#6b7a6d]">Booking</span><span>${bookingOperations.financials.baseTotal.toFixed(2)}</span></div>
+                    {bookingOperations.adjustments.map((adjustment) => (
+                      <div key={adjustment.id} className="flex items-center justify-between gap-3 rounded-lg bg-white p-2"><span className="min-w-0 truncate">{adjustment.label}</span><span className="flex shrink-0 items-center gap-2 font-medium">{adjustment.amount < 0 ? '-' : '+'}${Math.abs(Number(adjustment.amount)).toFixed(2)}<button type="button" aria-label={`Remove ${adjustment.label}`} onClick={() => void handleRemoveAdjustment(adjustment.id)} className="text-red-500"><Trash2 className="h-4 w-4" /></button></span></div>
+                    ))}
+                    {bookingSetup.chargeTax && <><div className="flex justify-between border-t border-sage/15 pt-2"><span className="text-[#6b7a6d]">Subtotal</span><span>${bookingOperations.financials.subtotal.toFixed(2)}</span></div><div className="flex justify-between"><span className="text-[#6b7a6d]">{bookingSetup.taxType} at {bookingSetup.taxRate}%</span><span>${bookingOperations.financials.tax.toFixed(2)}</span></div></>}
+                    <div className="flex justify-between border-t border-sage/15 pt-2 font-semibold"><span>Total</span><span>${bookingOperations.financials.total.toFixed(2)}</span></div>
+                    <div className="flex justify-between text-emerald-700"><span>Paid</span><span>-${bookingOperations.financials.paid.toFixed(2)}</span></div>
+                    <div className="flex justify-between text-lg font-bold"><span>{bookingOperations.financials.owing < 0 ? 'Credit' : 'Owing'}</span><span>${Math.abs(bookingOperations.financials.owing).toFixed(2)}</span></div>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm" style={{ color: '#6b7a6d' }}>Total Amount</p>
-                      <p className="text-3xl font-bold text-sage">
-                        ${selectedBooking.total}
-                      </p>
-                    </div>
-                    <Badge 
-                      className={
-                        selectedBooking.paymentStatus === 'paid' 
-                          ? 'bg-sage/10 text-sage border-sage/20' 
-                          : selectedBooking.paymentStatus === 'pending'
-                          ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
-                          : 'bg-rose/10 text-rose border-rose/20'
-                      }
-                    >
-                      {selectedBooking.paymentStatus}
-                    </Badge>
-                  </div>
-                  <p className="text-xs mt-2" style={{ color: '#6b7a6d' }}>
-                    Status: {selectedBooking.status}
-                  </p>
+                  {bookingOperations.payments.map((payment) => <div key={payment.id} className="rounded-lg border border-emerald-200 bg-emerald-50 p-2 text-xs text-emerald-800"><strong>{payment.type === 'deposit' ? 'Deposit' : 'Payment'}</strong> · {payment.payment_method ? PAYMENT_METHOD_LABELS[payment.payment_method] : 'Payment'} · {payment.paid_on || format(new Date(payment.created_at), 'd MMM yyyy')}<span className="float-right font-semibold">${Number(payment.amount).toFixed(2)}</span></div>)}
                 </CardContent>
               </Card>
 
               <Card className="rounded-2xl border-sage/10">
                 <CardContent className="space-y-3 p-4">
-                  <label className="flex cursor-pointer items-start gap-3">
-                    <input
-                      type="checkbox"
-                      checked={detailRequestPayment}
-                      onChange={(event) => setDetailRequestPayment(event.target.checked)}
-                      className="mt-1 h-4 w-4 rounded border-sage/30 accent-[#C46A3A]"
-                    />
-                    <span>
-                      <span className="block font-semibold" style={{ color: '#2d3e2f' }}>Request payment from customer</span>
-                      <span className="block text-xs" style={{ color: '#6b7a6d' }}>
-                        Generate secure Stripe Checkout links and email them to the customer.
-                      </span>
-                    </span>
-                  </label>
+                  <h3 className="font-semibold text-[#2d3e2f]">Add charge or discount</h3>
+                  <div className="grid grid-cols-2 gap-2"><select value={adjustmentDraft.kind} onChange={(event) => setAdjustmentDraft((current) => ({ ...current, kind: event.target.value as AdjustmentKind }))} className="h-11 rounded-xl border border-sage/20 bg-white px-3 text-sm"><option value="charge">Charge</option><option value="discount">Discount</option></select><select value={adjustmentDraft.calculation} onChange={(event) => setAdjustmentDraft((current) => ({ ...current, calculation: event.target.value as AdjustmentCalculation }))} className="h-11 rounded-xl border border-sage/20 bg-white px-3 text-sm"><option value="fixed">Fixed amount</option><option value="percentage">Percentage</option></select></div>
+                  <Input value={adjustmentDraft.label} onChange={(event) => setAdjustmentDraft((current) => ({ ...current, label: event.target.value }))} placeholder="e.g. Daily medication or loyalty discount" />
+                  <Input type="number" min="0" step="0.01" inputMode="decimal" value={adjustmentDraft.value} onChange={(event) => setAdjustmentDraft((current) => ({ ...current, value: event.target.value }))} placeholder={adjustmentDraft.calculation === 'fixed' ? 'Amount' : 'Percentage'} />
+                  <Button type="button" onClick={() => void handleAddAdjustment()} variant="outline" className="w-full border-sage/20">Add to booking</Button>
+                </CardContent>
+              </Card>
 
-                  {detailRequestPayment && catteryPaymentStatus.connected && (
-                    <div className="space-y-2 rounded-xl bg-[#F6F4EF] p-3">
-                      {([
-                        ['deposit', 'Deposit only'],
-                        ['full', 'Full balance only'],
-                        ['both', 'Offer deposit or full payment'],
-                      ] as const).map(([value, label]) => (
-                        <label key={value} className="flex cursor-pointer items-center gap-2 text-sm" style={{ color: '#2d3e2f' }}>
-                          <input
-                            type="radio"
-                            name="detail-payment-choice"
-                            value={value}
-                            checked={detailPaymentChoice === value}
-                            onChange={() => setDetailPaymentChoice(value)}
-                            className="accent-[#C46A3A]"
-                          />
-                          {label}{value === 'deposit' || value === 'both' ? ' (uses the cattery deposit setting)' : ''}
-                        </label>
-                      ))}
-                    </div>
-                  )}
+              <Card className="rounded-2xl border-sage/10">
+                <CardContent className="space-y-3 p-4">
+                  <div className="flex items-center justify-between"><div className="flex items-center gap-2"><DollarSign className="h-5 w-5 text-sage" /><h3 className="font-semibold text-[#2d3e2f]">Record payment</h3></div>{bookingOperations.creditBalance > 0 && <Badge variant="outline">${bookingOperations.creditBalance.toFixed(2)} credit</Badge>}</div>
+                  <select value={paymentDraft.purpose} onChange={(event) => setPaymentDraft((current) => ({ ...current, purpose: event.target.value as PaymentPurpose }))} className="h-11 w-full rounded-xl border border-sage/20 bg-white px-3 text-sm"><option value="deposit">Deposit</option><option value="booking">Payment</option></select>
+                  <select value={paymentDraft.method} onChange={(event) => setPaymentDraft((current) => ({ ...current, method: event.target.value as PaymentMethod }))} className="h-11 w-full rounded-xl border border-sage/20 bg-white px-3 text-sm">{bookingSetup.enabledPaymentMethods.map((method) => <option key={method} value={method}>{PAYMENT_METHOD_LABELS[method]}</option>)}</select>
+                  <Input type="date" value={paymentDraft.paidOn} onChange={(event) => setPaymentDraft((current) => ({ ...current, paidOn: event.target.value }))} />
+                  <Input value={paymentDraft.reference} onChange={(event) => setPaymentDraft((current) => ({ ...current, reference: event.target.value }))} placeholder="Reference (optional)" />
+                  <Input type="number" min="0" step="0.01" inputMode="decimal" value={paymentDraft.amount} onChange={(event) => setPaymentDraft((current) => ({ ...current, amount: event.target.value }))} placeholder="Amount" />
+                  <div className="grid grid-cols-2 gap-2"><Button type="button" onClick={() => void handleAddPayment(false)} variant="outline">Add payment</Button><Button type="button" onClick={() => void handleAddPayment(true)} disabled={bookingOperations.financials.owing <= 0 || paymentDraft.purpose !== 'booking'} className="bg-[#7DAF7B] text-white hover:bg-[#699967]">Mark total paid</Button></div>
+                  {paymentDraft.purpose !== 'booking' && <p className="text-xs text-[#6b7a6d]">Choose Payment to use “Mark total paid”. Deposits keep their entered amount.</p>}
+                </CardContent>
+              </Card>
 
-                  {detailRequestPayment && !catteryPaymentStatus.connected && (
-                    <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                      Connect this cattery's Stripe keys in <Link to="/staff-dashboard/payment" className="font-semibold underline">Payment Setup</Link> before requesting payment.
-                    </p>
-                  )}
+              <Card className="rounded-2xl border-sage/10">
+                <CardContent className="space-y-3 p-4">
+                  <div className="flex items-center gap-2"><WalletCards className="h-5 w-5 text-sage" /><h3 className="font-semibold text-[#2d3e2f]">Keep as customer credit</h3></div>
+                  <p className="text-xs text-[#6b7a6d]">For a cancellation, retain an agreed amount for this customer to use on a future booking.</p>
+                  <div className="flex gap-2"><Input type="number" min="0" step="0.01" inputMode="decimal" value={creditDraft} onChange={(event) => setCreditDraft(event.target.value)} placeholder="Credit amount" /><Button type="button" onClick={() => void handleIssueCredit()} variant="outline">Save credit</Button></div>
                 </CardContent>
               </Card>
 
@@ -1777,39 +1930,37 @@ export function AdminBookings() {
                   {bookingActionError}
                 </p>
               )}
+              {bookingOperations.loadError && (
+                <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">Booking operations could not be loaded. {bookingOperations.loadError}</p>
+              )}
               {paymentActionMessage && (
                 <p role="status" className="rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-800">
                   {paymentActionMessage}
                 </p>
               )}
+              {operationMessage && (
+                <p role="status" className="rounded-xl border border-green-200 bg-green-50 p-3 text-sm text-green-800">{operationMessage}</p>
+              )}
 
               {/* Action Buttons */}
-              <div className="sticky bottom-0 -mx-4 -mb-8 mt-4 grid grid-cols-2 gap-3 border-t border-sage/10 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(10,17,40,0.08)]">
+              <div className={`sticky bottom-0 -mx-4 -mb-8 mt-4 grid gap-3 border-t border-sage/10 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-8px_24px_rgba(10,17,40,0.08)] ${selectedBooking.status === 'confirmed' ? 'grid-cols-1' : 'grid-cols-2'}`}>
                 <Button 
                   variant="outline" 
                   className="rounded-xl border-sage/20"
-                  onClick={() => setShowBookingDetails(false)}
+                  onClick={() => handleBookingDetailsOpenChange(false)}
                 >
                   Close
                 </Button>
-                <Button 
+                {selectedBooking.status !== 'confirmed' && <Button
                   type="button"
-                  disabled={
-                    confirmingBooking
-                    || (selectedBooking.status === 'confirmed' && !detailRequestPayment)
-                    || (detailRequestPayment && !catteryPaymentStatus.connected)
-                  }
+                  disabled={confirmingBooking}
                   onClick={() => void handleConfirmSelectedBooking()}
                   className="rounded-xl text-white disabled:bg-sage/50"
                   style={{ backgroundColor: '#7DAF7B' }}
                 >
                   <Check className="mr-2 h-4 w-4" />
-                  {confirmingBooking
-                    ? 'Working…'
-                    : detailRequestPayment
-                      ? selectedBooking.status === 'confirmed' ? 'Send Payment Request' : 'Confirm & Request Payment'
-                      : selectedBooking.status === 'confirmed' ? 'Confirmed' : 'Confirm Booking'}
-                </Button>
+                  {confirmingBooking ? 'Working…' : 'Confirm Booking'}
+                </Button>}
               </div>
             </div>
           )}

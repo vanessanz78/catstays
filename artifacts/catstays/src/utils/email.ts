@@ -13,6 +13,11 @@ export interface BookingConfirmationPayload {
   checkIn: string;
   checkOut: string;
   totalAmount?: string;
+  deposit?: string;
+  paymentRequest?: 'deposit' | 'full' | 'none';
+  customMessage?: string;
+  customerNote?: string;
+  terms?: string;
   bookingRef?: string;
   catteryEmail?: string;
 }

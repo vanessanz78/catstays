@@ -54,7 +54,8 @@ router.post('/email/booking-confirmation', async (req, res) => {
   const {
     customerName, customerEmail, catteryName, catName, roomName,
     checkIn, checkOut, nights, pricePerNight, subtotal, gst, totalAmount, deposit,
-    bookingRef, catteryEmail, catteryId, customerId,
+    bookingRef, catteryEmail, catteryId, customerId, paymentRequest,
+    customMessage, customerNote, terms,
   } = req.body;
 
   const user = await authenticatedUser(req);
@@ -73,6 +74,7 @@ router.post('/email/booking-confirmation', async (req, res) => {
       html: bookingConfirmationHtml({
         customerName, catteryName, catName, roomName, checkIn, checkOut,
         nights, pricePerNight, subtotal, gst, totalAmount, deposit,
+        paymentRequest, customMessage, customerNote, terms,
         bookingRef: bookingRef ?? 'N/A',
       }),
     });

@@ -218,6 +218,10 @@ export function bookingConfirmationHtml(opts: {
   gst?: string;
   totalAmount?: string;
   deposit?: string;
+  paymentRequest?: 'deposit' | 'full' | 'none';
+  customMessage?: string;
+  customerNote?: string;
+  terms?: string;
   bookingRef: string;
 }) {
   const receiptRows: DetailRow[] = [
@@ -233,7 +237,7 @@ export function bookingConfirmationHtml(opts: {
     eyebrow: 'Booking confirmed',
     badge: 'Confirmed',
     catteryName: opts.catteryName,
-    intro: `We are looking forward to welcoming ${opts.catName || 'your cat'} for their stay.`,
+    intro: opts.customMessage || `We are looking forward to welcoming ${opts.catName || 'your cat'} for their stay.`,
     cards: [
       {
         title: 'Booking details',
@@ -248,6 +252,13 @@ export function bookingConfirmationHtml(opts: {
         ],
       },
       ...(receiptRows.some((row) => row.value) ? [{ title: 'Receipt', rows: receiptRows, tone: 'success' as const }] : []),
+      ...(opts.paymentRequest && opts.paymentRequest !== 'none' ? [{
+        title: 'Payment requested',
+        html: `<p style="margin:0;font:14px/1.6 Arial,sans-serif;color:${colors.ink};">${opts.paymentRequest === 'deposit' ? `Please pay the ${escapeHtml(opts.deposit || 'booking deposit')} to secure this stay.` : 'Please pay the total booking amount.'}</p>`,
+        tone: 'warning' as const,
+      }] : []),
+      ...(opts.customerNote ? [{ title: 'Note from the cattery', html: `<p style="margin:0;font:14px/1.6 Arial,sans-serif;color:${colors.ink};">${textToHtml(opts.customerNote)}</p>` }] : []),
+      ...(opts.terms ? [{ title: 'Terms and cancellation', html: `<p style="margin:0;font:13px/1.65 Arial,sans-serif;color:${colors.muted};">${textToHtml(opts.terms)}</p>` }] : []),
     ],
     footerNote: `Questions about this booking? Contact ${opts.catteryName} directly.`,
   });

@@ -240,3 +240,48 @@ Impact:
 - WordPress imports use the WordPress page content feed as an enrichment route rather than relying only on rendered/fetched HTML.
 - Generated-template source understanding reads the saved platform confidence and flags weak imports so they do not silently masquerade as complete generic template previews.
 - The change remains Phase 2-safe because it enriches existing `content_sources` JSON payloads and does not add a database migration or start Phase 3 Media Library.
+## 2026-09-01 - Phone-First Staff Booking Operations
+
+Working ref: `refine/dashboard-priority-today-overview-20260901`.
+
+Decision: Make the daily staff path Today → New Booking → Confirmation → Payment the primary CatStays operating experience, with optional tools hidden unless configured.
+
+Reason: Founder evidence showed the highest-value work is scanning arrivals/departures, creating bookings by customer or cat, preserving sensible defaults, and recording what actually happened. Large generic forms and unused payment/appointment options slow that work down.
+
+Impact:
+
+- Today can move one day backward or forward and shows live operational lists, pending work, waiting-list entries, and seven-day occupancy.
+- Customer and cat search share one suggestion list; selecting a result opens the date range picker immediately.
+- Default arrival/collection times, enabled payment methods, confirmation request, message, deposit, shared occupancy rates, and tax remain cattery settings.
+- Manual payment methods are bank transfer, cash, Stripe, and customer credit only.
+- Booking notes can be internal or included in the customer confirmation, and material booking actions create an audit event.
+
+## 2026-09-01 - Taxable Adjustments And Customer Credit Ledger
+
+Working ref: `refine/dashboard-priority-today-overview-20260901`.
+
+Decision: Store staff charges/discounts as pre-tax adjustments, recalculate configured GST, record manual payments separately, and represent retained value as a signed customer-credit ledger.
+
+Reason: A post-payment discount must expose the true overpayment—including its tax effect—and cancellation credit must remain reusable and auditable instead of being disguised as a refund or overwritten booking total.
+
+Impact:
+
+- Fixed and percentage adjustments preserve an explicit charge/discount sign.
+- Completed payments, deposits, payment method, date, and reference remain separate ledger records.
+- Overpayment appears as credit; applying customer credit creates a negative ledger entry.
+- Payment status is recalculated after adjustments and payments.
+
+## 2026-09-01 - Continuous Split Stays Across Physical Rooms
+
+Working ref: `refine/dashboard-priority-today-overview-20260901`.
+
+Decision: Represent a split stay as two or three dated physical-room segments on one booking, validated and replaced through one staff-only database function.
+
+Reason: Moving a cat between rooms is an inventory plan for one continuous stay, not multiple unrelated bookings. The database must prevent gaps, duplicate days, non-existent rooms, capacity failures, and collisions even if a client submits invalid data.
+
+Impact:
+
+- The desktop timeline renders each segment only on its own room dates.
+- Phone staff can create the same split without drag-and-drop.
+- Whole-stay drag remains disabled once a booking has split segments; staff edit it through the explicit split flow.
+- Existing whole-room and per-cat room assignments continue to render for non-split bookings.

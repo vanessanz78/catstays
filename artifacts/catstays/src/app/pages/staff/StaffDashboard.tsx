@@ -6,6 +6,7 @@ import {
   CalendarDays,
   Cat,
   CheckCircle2,
+  ChevronLeft,
   ChevronRight,
   Clock,
   CreditCard,
@@ -42,9 +43,12 @@ import { StaffRoomCalendar } from './StaffRoomCalendar';
 import { StaffSubscription } from './StaffSubscription';
 import {
   bookingRoomUnitKeys,
+  bookingRoomUnitKeysForDate,
   expandPhysicalRooms,
   physicalRoomName,
 } from '../../lib/roomInventory';
+import { bookingFinancials } from '../../lib/bookingOperations';
+import { normalizeBookingSetup } from '../../lib/bookingSetup';
 
 const ROOT_DOMAIN = 'catstays.app';
 
@@ -126,13 +130,19 @@ function formatDate(value: string) {
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-function formatTodayLabel() {
-  return new Date().toLocaleDateString(undefined, {
+function formatDayLabel(dateKey: string) {
+  return new Date(`${dateKey}T12:00:00`).toLocaleDateString(undefined, {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
     year: 'numeric',
   });
+}
+
+function shiftDateKey(dateKey: string, days: number) {
+  const date = new Date(`${dateKey}T12:00:00`);
+  date.setDate(date.getDate() + days);
+  return getLocalDateKey(date);
 }
 
 function staffSectionFromPath(pathname: string): StaffSection {
@@ -174,22 +184,29 @@ function BookingRow({
   booking: Booking;
   actionLabel: string;
 }) {
+  const { cattery } = useAuth();
+  const bookingSetup = normalizeBookingSetup(cattery?.website_settings);
   const catNames = getCatNames(booking);
   const customerName = booking.customer?.name || booking.guest_name || 'New customer';
-  const roomName = booking.room?.name || 'Unassigned room';
+  const roomName = booking.room ? getBookingPhysicalRoomNames(booking, booking.room as Room) : 'Unassigned room';
+  const financials = bookingFinancials(Number(booking.total_amount || 0), booking.booking_adjustments || [], booking.payments || [], {
+    chargeTax: bookingSetup.chargeTax,
+    taxRate: bookingSetup.taxRate,
+  });
+  const paid = financials.owing <= 0 || booking.payment_status === 'paid';
 
   return (
     <Link to={`/staff-dashboard/bookings?booking=${booking.id}`} className="grid gap-3 rounded-lg bg-[#F8F7F5] p-4 transition hover:bg-[#F1E8DE] sm:grid-cols-[1fr_auto] sm:items-center">
       <div>
-        <h3 className="font-semibold text-[#0A1128]">{catNames}</h3>
-        <p className="text-sm text-[#4E5871]">{customerName}</p>
+        <p className="font-semibold text-[#0A1128]">{customerName}</p>
+        <div className="mt-1 flex flex-wrap gap-1">{catNames.split(',').map((name) => <Badge key={name.trim()} variant="outline" className="bg-white text-xs">🐱 {name.trim()}</Badge>)}</div>
         <p className="mt-1 text-xs text-[#768098]">
           {roomName} · {formatDate(booking.check_in)} to {formatDate(booking.check_out)}
         </p>
       </div>
       <div className="flex items-center gap-2 sm:justify-end">
         <Badge className="rounded-full bg-[#E9D7C8] text-[#8A4E2B] hover:bg-[#E9D7C8]">
-          {booking.payment_status || booking.status}
+          {paid ? 'Paid' : `Owing $${financials.owing.toFixed(2)}`}
         </Badge>
         <span className="inline-flex h-9 items-center rounded-full bg-[#0A1128] px-4 text-sm font-medium text-white">
           {actionLabel}
@@ -300,6 +317,8 @@ function TodaySection({
   tenantHost,
   data,
   catterySlug,
+  selectedDate,
+  onSelectedDateChange,
 }: {
   businessName: string;
   bookings: Booking[];
@@ -309,6 +328,8 @@ function TodaySection({
   tenantHost: string;
   data: ReturnType<typeof buildDashboardData>;
   catterySlug?: string;
+  selectedDate: string;
+  onSelectedDateChange: (date: string) => void;
 }) {
   return (
     <>
@@ -322,17 +343,17 @@ function TodaySection({
 
         <div className="rounded-lg border border-[#E8DED4] bg-[#F8F7F5] p-3 sm:p-4">
           <div className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3 text-left">
+            <button type="button" onClick={() => onSelectedDateChange(shiftDateKey(selectedDate, -1))} aria-label="Previous day" className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#E8DED4] bg-white"><ChevronLeft className="h-5 w-5" /></button>
+            <div className="flex min-w-0 flex-1 items-center justify-center gap-3 text-center">
               <CalendarDays className="h-5 w-5 shrink-0 text-[#0A1128]" />
               <div className="min-w-0">
-                <h2 className="text-lg font-semibold leading-tight sm:text-xl">Today</h2>
-                <p className="truncate text-xs text-[#4E5871] sm:text-sm">{formatTodayLabel()}</p>
+                <h2 className="text-lg font-semibold leading-tight sm:text-xl">{selectedDate === getLocalDateKey() ? 'Today' : 'Daily overview'}</h2>
+                <p className="truncate text-xs text-[#4E5871] sm:text-sm">{formatDayLabel(selectedDate)}</p>
               </div>
             </div>
-            <Link to="/staff-dashboard/calendar" className="shrink-0 text-sm font-semibold text-[#C46A3A]">
-              Calendar
-            </Link>
+            <button type="button" onClick={() => onSelectedDateChange(shiftDateKey(selectedDate, 1))} aria-label="Next day" className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#E8DED4] bg-white"><ChevronRight className="h-5 w-5" /></button>
           </div>
+          {selectedDate !== getLocalDateKey() && <button type="button" onClick={() => onSelectedDateChange(getLocalDateKey())} className="mx-auto mt-2 block text-xs font-semibold text-[#C46A3A]">Return to today</button>}
 
           <div className="mt-3 grid grid-cols-3 gap-2 sm:gap-3">
             <div className="min-w-0 rounded-lg bg-[#0A1128] p-3 text-center text-white shadow-sm sm:p-5">
@@ -353,7 +374,7 @@ function TodaySection({
 
       <div className="grid gap-5 lg:grid-cols-2">
         <BookingListPanel
-          title="Arrivals Today"
+          title={selectedDate === getLocalDateKey() ? 'Arrivals Today' : 'Arrivals'}
           count={data.arrivalsToday.length}
           loadingLabel="Loading arrivals..."
           bookings={data.arrivalsToday}
@@ -364,7 +385,7 @@ function TodaySection({
           isLoading={isLoading}
         />
         <BookingListPanel
-          title="Departures Today"
+          title={selectedDate === getLocalDateKey() ? 'Departures Today' : 'Departures'}
           count={data.departuresToday.length}
           loadingLabel="Loading departures..."
           bookings={data.departuresToday}
@@ -405,6 +426,24 @@ function TodaySection({
         </PagePanel>
 
         <aside className="space-y-5">
+          <PagePanel>
+            <div className="flex items-center justify-between"><h2 className="text-xl font-semibold">Pending bookings</h2><Badge className="bg-[#F1E8DE] text-[#8A4E2B] hover:bg-[#F1E8DE]">{data.pending.length}</Badge></div>
+            <div className="mt-4 space-y-2">
+              {data.pending.slice(0, 4).map((booking) => <BookingRow key={booking.id} booking={booking} actionLabel="Review" />)}
+              {data.pending.length === 0 && <p className="rounded-lg bg-[#F8F7F5] p-4 text-sm text-[#4E5871]">No booking requests are waiting.</p>}
+            </div>
+          </PagePanel>
+
+          {data.waitingList.length > 0 && <PagePanel>
+            <div className="flex items-center justify-between"><h2 className="text-xl font-semibold">Waiting list</h2><Badge variant="outline">{data.waitingList.length}</Badge></div>
+            <div className="mt-4 space-y-2">{data.waitingList.map((booking) => <BookingRow key={booking.id} booking={booking} actionLabel="Open" />)}</div>
+          </PagePanel>}
+
+          <PagePanel>
+            <div className="flex items-center justify-between"><div><h2 className="text-xl font-semibold">7-day occupancy</h2><p className="text-xs text-[#4E5871]">Physical rooms in use</p></div><Link to={`/staff-dashboard/calendar?date=${selectedDate}`} className="text-sm font-semibold text-[#C46A3A]">Calendar</Link></div>
+            <div className="mt-4 grid grid-cols-7 gap-1">{data.occupancyWeek.map((day) => <div key={day.date} className="text-center"><div className="flex h-20 items-end overflow-hidden rounded-md bg-[#F1E8DE]"><div className="w-full bg-[#C46A3A]" style={{ height: `${Math.max(day.percentage, day.count ? 8 : 0)}%` }} /></div><span className="mt-1 block text-[10px] text-[#4E5871]">{new Date(`${day.date}T12:00:00`).toLocaleDateString(undefined, { weekday: 'narrow' })}</span><span className="block text-[10px] font-semibold">{day.count}</span></div>)}</div>
+          </PagePanel>
+
           <PagePanel>
             <h2 className="text-xl font-semibold">Workspace</h2>
             <div className="mt-4 space-y-3">
@@ -1187,10 +1226,22 @@ function buildDashboardData(bookings: Booking[], rooms: Room[], today: string) {
     return booking.check_in <= today && booking.check_out >= today;
   });
   const pending = bookings.filter((booking) => booking.status === 'pending');
+  const waitingList = bookings.filter((booking) => booking.status === 'waitlist');
   const activeRooms = rooms.filter((room) => room.is_active);
   const physicalRooms = expandPhysicalRooms(activeRooms);
-  const occupiedRoomKeys = [...new Set(occupiedNow.flatMap((booking) => bookingRoomUnitKeys(booking)))]
+  const occupiedRoomKeys = [...new Set(occupiedNow.flatMap((booking) => bookingRoomUnitKeysForDate(booking, today)))]
     .filter((key) => physicalRooms.some((room) => room.key === key));
+  const occupancyWeek = Array.from({ length: 7 }, (_, index) => {
+    const date = shiftDateKey(today, index);
+    const stays = activeBookings.filter((booking) => booking.check_in <= date && booking.check_out >= date);
+    const count = [...new Set(stays.flatMap((booking) => bookingRoomUnitKeysForDate(booking, date)))]
+      .filter((key) => physicalRooms.some((room) => room.key === key)).length;
+    return {
+      date,
+      count,
+      percentage: physicalRooms.length > 0 ? Math.round((count / physicalRooms.length) * 100) : 0,
+    };
+  });
 
   return {
     activeRooms,
@@ -1199,6 +1250,8 @@ function buildDashboardData(bookings: Booking[], rooms: Room[], today: string) {
     occupiedNow,
     occupiedRoomKeys,
     pending,
+    waitingList,
+    occupancyWeek,
     availableRooms: Math.max(physicalRooms.length - occupiedRoomKeys.length, 0),
     occupancyLabel: physicalRooms.length > 0 ? `${occupiedRoomKeys.length}/${physicalRooms.length}` : '0/0',
   };
@@ -1235,7 +1288,7 @@ function getBookingPhysicalRoomNames(booking: Booking, room: Room) {
 export function StaffDashboard() {
   const location = useLocation();
   const { cattery, loading: authLoading } = useAuth();
-  const { bookings, loading: bookingsLoading, moveBooking } = useBookings();
+  const { bookings, loading: bookingsLoading, moveBooking, splitBooking } = useBookings();
   const {
     customers,
     loading: customersLoading,
@@ -1254,10 +1307,11 @@ export function StaffDashboard() {
   const draftAccount = getDraftAccount();
   const isLoading = authLoading || bookingsLoading || customersLoading || roomsLoading;
   const today = getLocalDateKey();
+  const [selectedDate, setSelectedDate] = useState(() => new URLSearchParams(location.search).get('date') || today);
   const section = staffSectionFromPath(location.pathname);
   const showNewBooking = section === 'bookings' && new URLSearchParams(location.search).get('new') === 'true';
 
-  const dashboardData = useMemo(() => buildDashboardData(bookings, rooms, today), [bookings, rooms, today]);
+  const dashboardData = useMemo(() => buildDashboardData(bookings, rooms, selectedDate), [bookings, rooms, selectedDate]);
 
   const businessName = cattery?.name || draftAccount?.businessName || 'Your cattery';
   const tenantHost = cattery?.slug ? `${cattery.slug}.${ROOT_DOMAIN}` : 'your-handle.catstays.app';
@@ -1381,6 +1435,8 @@ export function StaffDashboard() {
             tenantHost={tenantHost}
             data={dashboardData}
             catterySlug={cattery?.slug}
+            selectedDate={selectedDate}
+            onSelectedDateChange={setSelectedDate}
           />
         )}
         {section === 'bookings' && <BookingsSection bookings={bookings} isLoading={isLoading} showNewBooking={showNewBooking} />}
@@ -1398,6 +1454,7 @@ export function StaffDashboard() {
             rooms={rooms}
             isLoading={isLoading}
             moveBooking={moveBooking}
+            splitBooking={splitBooking}
           />
         )}
         {section === 'room-planner' && (

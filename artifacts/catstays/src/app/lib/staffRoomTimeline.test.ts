@@ -21,6 +21,7 @@ function booking(overrides: Partial<BookingWithDetails> = {}): BookingWithDetail
     payment_status: 'unpaid',
     total_amount: 60,
     notes: null,
+    customer_note_visible: false,
     created_at: '2026-08-31T00:00:00Z',
     guest_name: null,
     guest_email: null,
@@ -37,6 +38,7 @@ function booking(overrides: Partial<BookingWithDetails> = {}): BookingWithDetail
       cat: { id: 'cat-1', name: 'Car' },
       room: { id: 'room-1', name: 'Private Room 1', type: 'private', price_per_night: 20 },
     }],
+    booking_room_segments: [],
     ...overrides,
   };
 }
@@ -85,4 +87,27 @@ test('conflict detection ignores cancelled and currently dragged bookings', () =
   assert.equal(roomHasBookingConflict(bookings, 'room-1', 2, '2026-09-03', '2026-09-04'), false);
   assert.equal(roomHasBookingConflict(bookings, 'room-1', 1, '2026-09-04', '2026-09-05'), false);
   assert.equal(roomHasBookingConflict(bookings, 'room-1', 1, '2026-09-01', '2026-09-03', 'existing'), false);
+});
+
+test('split stays render on each room only for that room segment', () => {
+  const split = booking({
+    id: 'split',
+    check_in: '2026-09-01',
+    check_out: '2026-09-06',
+    booking_room_segments: [
+      { id: 'segment-a', starts_on: '2026-09-01', ends_on: '2026-09-03', room_unit_number: 1, cat: null, room: { id: 'room-1', name: 'Private 1', type: 'private', price_per_night: 20 } },
+      { id: 'segment-b', starts_on: '2026-09-04', ends_on: '2026-09-06', room_unit_number: 2, cat: null, room: { id: 'room-1', name: 'Private 2', type: 'private', price_per_night: 20 } },
+    ],
+  });
+
+  assert.deepEqual(buildRoomSegments([split], 'room-1', 1, '2026-09-01', '2026-09-07').map((segment) => ({
+    id: segment.segmentId,
+    startIndex: segment.startIndex,
+    endIndex: segment.endIndex,
+  })), [{ id: 'segment-a', startIndex: 0, endIndex: 2 }]);
+  assert.deepEqual(buildRoomSegments([split], 'room-1', 2, '2026-09-01', '2026-09-07').map((segment) => ({
+    id: segment.segmentId,
+    startIndex: segment.startIndex,
+    endIndex: segment.endIndex,
+  })), [{ id: 'segment-b', startIndex: 3, endIndex: 5 }]);
 });

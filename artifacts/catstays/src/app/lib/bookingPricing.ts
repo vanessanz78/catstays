@@ -24,6 +24,42 @@ export function calculateAssignedRoomTotal(days: number, dailyRates: number[]) {
   return safeDays * safeRates.reduce((total, rate) => total + rate, 0);
 }
 
+export function calculateStaffBookingPrice({
+  days,
+  dailyRates,
+  arrangement,
+  occupancyRates = [],
+  chargeTax = true,
+  taxRate = 15,
+}: {
+  days: number;
+  dailyRates: number[];
+  arrangement: 'shared' | 'separate';
+  occupancyRates?: Array<{ numberOfCats: number; price: number }>;
+  chargeTax?: boolean;
+  taxRate?: number;
+}) {
+  const safeDays = Number.isFinite(days) ? Math.max(0, Math.floor(days)) : 0;
+  const safeRates = dailyRates.map((rate) => Number.isFinite(rate) ? Math.max(0, rate) : 0);
+  const occupancyRate = arrangement === 'shared'
+    ? occupancyRates.find((rate) => rate.numberOfCats === safeRates.length && Number.isFinite(rate.price))
+    : undefined;
+  const dailyTotal = occupancyRate
+    ? Math.max(0, Number(occupancyRate.price))
+    : safeRates.reduce((total, rate) => total + rate, 0);
+  const subtotal = Number((safeDays * dailyTotal).toFixed(2));
+  const safeTaxRate = chargeTax && Number.isFinite(taxRate) ? Math.min(100, Math.max(0, taxRate)) : 0;
+  const tax = Number((subtotal * (safeTaxRate / 100)).toFixed(2));
+  return {
+    days: safeDays,
+    dailyTotal: Number(dailyTotal.toFixed(2)),
+    subtotal,
+    tax,
+    total: Number((subtotal + tax).toFixed(2)),
+    occupancyRateApplied: Boolean(occupancyRate),
+  };
+}
+
 export function bookingOverlapsStay(
   existingCheckIn: string,
   existingCheckOut: string,

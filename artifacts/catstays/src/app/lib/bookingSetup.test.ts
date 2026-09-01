@@ -14,6 +14,10 @@ test('normalizes Deloraine opening hours, intervals, and percentage deposit', ()
     morningStart: '09:00', morningEnd: '10:30', afternoonStart: '16:30', afternoonEnd: '18:00',
     bookingInterval: '15', morningDays: [1, 2, 3, 4, 5, 6], afternoonDays: [0, 1, 2, 3, 4, 5, 6],
     depositType: 'percentage', depositAmount: '25', pricingPer: 'night',
+    pricingRates: [{ numberOfCats: '2', price: '36', discountType: 'none', discountValue: '0' }],
+    chargeTax: true, taxRate: '15', taxType: 'GST',
+    defaultCheckInTime: '09:30', defaultCheckOutTime: '16:30',
+    enabledPaymentMethods: ['cash', 'stripe'], defaultConfirmationPayment: 'deposit',
   });
   assert.equal(result.bookingInterval, 15);
   assert.deepEqual(result.morningDays, [1, 2, 3, 4, 5, 6]);
@@ -21,6 +25,20 @@ test('normalizes Deloraine opening hours, intervals, and percentage deposit', ()
   assert.equal(result.depositType, 'percentage');
   assert.equal(result.depositAmount, 25);
   assert.equal(result.pricingPer, 'day');
+  assert.deepEqual(result.pricingRates, [{ numberOfCats: 2, price: 36, discountType: 'none', discountValue: 0 }]);
+  assert.equal(result.chargeTax, true);
+  assert.equal(result.taxRate, 15);
+  assert.deepEqual(result.enabledPaymentMethods, ['cash', 'stripe']);
+});
+
+test('defaults fast staff workflow to 9:30 arrival, 4:30 collection, and a $50 deposit', () => {
+  const result = normalizeBookingSetup({});
+  assert.equal(result.defaultCheckInTime, '09:30');
+  assert.equal(result.defaultCheckOutTime, '16:30');
+  assert.equal(result.depositAmount, 50);
+  assert.equal(result.defaultConfirmationPayment, 'deposit');
+  assert.equal(result.appointmentsEnabled, false);
+  assert.deepEqual(result.enabledPaymentMethods, ['bank_transfer', 'cash', 'stripe', 'customer_credit']);
 });
 
 test('validates schedule and deposit boundaries', () => {
