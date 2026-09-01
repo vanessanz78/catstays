@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export interface CustomerWithCats {
   id: string;
+  user_id: string | null;
   name: string;
   email: string;
   phone: string | null;
@@ -16,8 +17,18 @@ export interface CustomerWithCats {
     breed: string | null;
     age: string | null;
   }[];
+  customer_credit_ledger: {
+    amount: number | string;
+  }[];
   booking_count?: number;
 }
+
+export type MergeCustomersInput = {
+  primaryCustomerId: string;
+  secondaryCustomerId: string;
+  profile: Pick<CustomerWithCats, 'name' | 'email' | 'phone' | 'address' | 'notes'>;
+  keepPortalFrom: 'primary' | 'secondary';
+};
 
 export function useCustomers() {
   const { cattery } = useAuth();
@@ -37,7 +48,8 @@ export function useCustomers() {
       .from('customers')
       .select(`
         *,
-        cats(id, name, breed, age)
+        cats(id, name, breed, age),
+        customer_credit_ledger(amount)
       `)
       .eq('cattery_id', cattery.id)
       .order('created_at', { ascending: false });
@@ -74,10 +86,13 @@ export function useCustomers() {
   };
 
   const updateCustomer = async (id: string, updates: Partial<CustomerWithCats>) => {
+    if (!cattery?.id) return { error: 'No cattery found' };
+
     const { error } = await supabase
       .from('customers')
       .update(updates)
-      .eq('id', id);
+      .eq('id', id)
+      .eq('cattery_id', cattery.id);
     if (!error) await fetchCustomers();
     return { error };
   };
@@ -101,5 +116,33 @@ export function useCustomers() {
     return { data, error };
   };
 
-  return { customers, loading, error, createCustomer, updateCustomer, addCat, refetch: fetchCustomers };
+  const mergeCustomers = async ({
+    primaryCustomerId,
+    secondaryCustomerId,
+    profile,
+    keepPortalFrom,
+  }: MergeCustomersInput) => {
+    if (!cattery?.id) return { data: null, error: 'No cattery found' };
+
+    const { data, error } = await supabase.rpc('catstays_merge_customers', {
+      primary_customer_id: primaryCustomerId,
+      secondary_customer_id: secondaryCustomerId,
+      merged_profile: profile,
+      keep_portal_from: keepPortalFrom,
+    });
+
+    if (!error) await fetchCustomers();
+    return { data, error };
+  };
+
+  return {
+    customers,
+    loading,
+    error,
+    createCustomer,
+    updateCustomer,
+    addCat,
+    mergeCustomers,
+    refetch: fetchCustomers,
+  };
 }

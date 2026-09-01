@@ -40,6 +40,7 @@ import { RightMenu } from '../../components/RightMenu';
 import { NotificationBell } from '../../components/NotificationBell';
 import { StaffInsights } from './StaffInsights';
 import { StaffRoomCalendar } from './StaffRoomCalendar';
+import { StaffCustomerDirectory } from './StaffCustomerDirectory';
 import { StaffSubscription } from './StaffSubscription';
 import {
   bookingRoomUnitKeys,
@@ -79,7 +80,7 @@ type Customer = ReturnType<typeof useCustomers>['customers'][number];
 const sectionMeta: Record<StaffSection, { title: string; subtitle: string }> = {
   today: { title: 'Today', subtitle: 'Check-ins, departures, and live room status' },
   bookings: { title: 'Bookings', subtitle: 'All reservations for this cattery' },
-  customers: { title: 'Customers', subtitle: 'Contact details and cat profiles' },
+  customers: { title: 'Customers', subtitle: 'Customer details, cats, stays, balances, and credits' },
   calendar: { title: 'Calendar', subtitle: 'Room availability and draggable stays' },
   'room-planner': { title: 'Room Planner & Pricing', subtitle: 'Rooms, availability, and rate setup' },
   'smart-import': { title: 'Smart Import', subtitle: 'Bring in existing cattery data' },
@@ -1288,12 +1289,19 @@ function getBookingPhysicalRoomNames(booking: Booking, room: Room) {
 export function StaffDashboard() {
   const location = useLocation();
   const { cattery, loading: authLoading } = useAuth();
-  const { bookings, loading: bookingsLoading, moveBooking, splitBooking } = useBookings();
+  const {
+    bookings,
+    loading: bookingsLoading,
+    moveBooking,
+    splitBooking,
+    refetch: refetchBookings,
+  } = useBookings();
   const {
     customers,
     loading: customersLoading,
     createCustomer,
     addCat,
+    mergeCustomers,
   } = useCustomers();
   const {
     rooms,
@@ -1441,11 +1449,14 @@ export function StaffDashboard() {
         )}
         {section === 'bookings' && <BookingsSection bookings={bookings} isLoading={isLoading} showNewBooking={showNewBooking} />}
         {section === 'customers' && (
-          <CustomersSection
+          <StaffCustomerDirectory
             customers={customers}
+            bookings={bookings}
             isLoading={isLoading}
             createCustomer={createCustomer}
             addCat={addCat}
+            mergeCustomers={mergeCustomers}
+            refetchBookings={refetchBookings}
           />
         )}
         {section === 'calendar' && (

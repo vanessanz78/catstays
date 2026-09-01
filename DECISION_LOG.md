@@ -285,3 +285,19 @@ Impact:
 - Phone staff can create the same split without drag-and-drop.
 - Whole-stay drag remains disabled once a booking has split segments; staff edit it through the explicit split flow.
 - Existing whole-room and per-cat room assignments continue to render for non-split bookings.
+
+## 2026-09-01 - Audited Atomic Customer Merging
+
+Working ref: `refine/dashboard-priority-today-overview-20260901`.
+
+Decision: Merge two customer profiles through one staff-authorized database function that locks both records, validates the cattery boundary, moves every customer-owned relation, stores both original profiles and the chosen result in a private audit event, and deletes Customer 2 only if the whole transaction succeeds.
+
+Reason: Duplicate signups and family/household accounts are normal, but a client-side series of updates can leave cats, bookings, payments, credit, messages, documents, or updates split across two accounts if any request fails. Staff also need to choose profile fields and the surviving portal login without losing operational history.
+
+Impact:
+
+- Customer 1 supplies all default profile choices; staff can choose individual values from Customer 2.
+- Cats, bookings, payments, customer credit, payment requests, messages, documents, and cat updates are combined automatically.
+- The earliest original `created_at` remains the joined date.
+- One linked portal user survives by explicit/default choice; the other authentication user is not deleted.
+- Merge history remains private to authorized cattery staff and is retained independently of the removed customer row.
