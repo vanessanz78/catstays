@@ -1302,6 +1302,7 @@ export function StaffDashboard() {
     createCustomer,
     addCat,
     mergeCustomers,
+    deleteEmptyCustomer,
   } = useCustomers();
   const {
     rooms,
@@ -1456,6 +1457,7 @@ export function StaffDashboard() {
             createCustomer={createCustomer}
             addCat={addCat}
             mergeCustomers={mergeCustomers}
+            deleteEmptyCustomer={deleteEmptyCustomer}
             refetchBookings={refetchBookings}
           />
         )}

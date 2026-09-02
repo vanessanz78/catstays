@@ -11,6 +11,7 @@ import {
   Plus,
   Search,
   ShieldCheck,
+  Trash2,
   Users,
   X,
 } from 'lucide-react';
@@ -39,6 +40,7 @@ type StaffCustomerDirectoryProps = {
   createCustomer: ReturnType<typeof useCustomers>['createCustomer'];
   addCat: ReturnType<typeof useCustomers>['addCat'];
   mergeCustomers: ReturnType<typeof useCustomers>['mergeCustomers'];
+  deleteEmptyCustomer: ReturnType<typeof useCustomers>['deleteEmptyCustomer'];
   refetchBookings: ReturnType<typeof useBookings>['refetch'];
 };
 
@@ -73,6 +75,61 @@ function Panel({ children, className = '' }: { children: ReactNode; className?: 
     <section className={`rounded-2xl border border-[#E8DED4] bg-white p-4 shadow-sm sm:p-6 ${className}`}>
       {children}
     </section>
+  );
+}
+
+function DeleteCustomerModal({
+  customer,
+  deleteEmptyCustomer,
+  onClose,
+}: {
+  customer: Customer;
+  deleteEmptyCustomer: StaffCustomerDirectoryProps['deleteEmptyCustomer'];
+  onClose: () => void;
+}) {
+  const [reason, setReason] = useState('');
+  const [confirmation, setConfirmation] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+  const canDelete = reason.trim().length >= 3 && confirmation.trim() === customer.name;
+
+  const confirmDelete = async () => {
+    if (!canDelete) return;
+    setDeleting(true);
+    setDeleteError('');
+    const { error } = await deleteEmptyCustomer({ customerId: customer.id, reason });
+    if (error) {
+      setDeleteError(errorMessage(error, 'The customer could not be deleted. Nothing was changed.'));
+      setDeleting(false);
+      return;
+    }
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#0A1128]/55 p-0 sm:items-center sm:p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !deleting) onClose(); }}>
+      <section role="dialog" aria-modal="true" aria-labelledby="delete-customer-title" className="max-h-[100dvh] w-full overflow-y-auto rounded-t-2xl bg-white p-5 shadow-2xl sm:max-w-lg sm:rounded-2xl sm:p-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-red-700">Mistaken record only</p>
+            <h3 id="delete-customer-title" className="mt-1 text-2xl font-semibold text-[#0A1128]">Delete {customer.name}?</h3>
+          </div>
+          <button type="button" onClick={onClose} disabled={deleting} aria-label="Close customer deletion" className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#E8DED4] text-[#4E5871] hover:bg-[#F8F7F5] disabled:opacity-50"><X className="h-5 w-5" /></button>
+        </div>
+        <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-800">
+          This removes the customer and {(customer.cats || []).length ? `${customer.cats.length} linked ${customer.cats.length === 1 ? 'cat' : 'cats'}` : 'their empty profile'}. The system will refuse if it finds bookings, payments, credit, messages, documents, a portal login, or cat-stay history. An audit snapshot is always retained.
+        </div>
+        {deleteError && <p role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{deleteError}</p>}
+        <div className="mt-5 space-y-4">
+          <label className="block text-sm font-semibold text-[#0A1128]">Why was this record created by mistake?<textarea value={reason} onChange={(event) => setReason(event.currentTarget.value)} rows={3} placeholder="For example: duplicate UAT record" className="mt-1.5 w-full rounded-xl border border-[#E8DED4] px-3 py-3 font-normal outline-none focus:border-[#C46A3A]" /></label>
+          <label className="block text-sm font-semibold text-[#0A1128]">Type <span className="font-bold">{customer.name}</span> to confirm<input value={confirmation} onChange={(event) => setConfirmation(event.currentTarget.value)} autoComplete="off" className="mt-1.5 h-11 w-full rounded-xl border border-[#E8DED4] px-3 font-normal outline-none focus:border-red-500" /></label>
+        </div>
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <Button type="button" variant="outline" onClick={onClose} disabled={deleting}>Keep customer</Button>
+          <Button type="button" onClick={() => void confirmDelete()} disabled={!canDelete || deleting} className="bg-red-700 text-white hover:bg-red-800"><Trash2 className="mr-2 h-4 w-4" />{deleting ? 'Checking and deleting…' : 'Delete mistaken record'}</Button>
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -427,6 +484,7 @@ export function StaffCustomerDirectory({
   createCustomer,
   addCat,
   mergeCustomers,
+  deleteEmptyCustomer,
   refetchBookings,
 }: StaffCustomerDirectoryProps) {
   const { cattery } = useAuth();
@@ -434,6 +492,7 @@ export function StaffCustomerDirectory({
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddCustomer, setShowAddCustomer] = useState(false);
   const [showMergeCustomers, setShowMergeCustomers] = useState(false);
+  const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [newCustomer, setNewCustomer] = useState({ name: '', email: '', phone: '', catName: '' });
@@ -560,6 +619,7 @@ export function StaffCustomerDirectory({
                     {(customer.cats || []).length === 0 && <span className="text-xs text-[#9AA1B2]">No cats</span>}
                     <span className="ml-auto text-sm font-semibold text-[#32633B]">{metrics.creditBalance > 0 ? `${money(metrics.creditBalance)} credit` : 'No credit'}</span>
                   </div>
+                  <button type="button" onClick={() => setCustomerToDelete(customer)} className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-red-700 hover:text-red-800"><Trash2 className="h-3.5 w-3.5" />Delete mistaken record</button>
                 </article>
               ))}
             </div>
@@ -568,7 +628,7 @@ export function StaffCustomerDirectory({
               <table className="min-w-[1100px] w-full border-separate border-spacing-0 text-left text-sm">
                 <thead>
                   <tr className="text-xs font-semibold uppercase tracking-wide text-[#768098]">
-                    {['Customer', 'Contact', 'Cats', 'Joined', 'Last booking', 'Outstanding', 'Account balance'].map((heading) => (
+                    {['Customer', 'Contact', 'Cats', 'Joined', 'Last booking', 'Outstanding', 'Account balance', 'Actions'].map((heading) => (
                       <th key={heading} className="border-b border-[#E8DED4] px-3 py-3">{heading}</th>
                     ))}
                   </tr>
@@ -583,6 +643,7 @@ export function StaffCustomerDirectory({
                       <td className="border-b border-[#EEE7DF] px-3 py-4 align-top">{metrics.lastBooking ? <Link to={`/staff-dashboard/bookings?booking=${metrics.lastBooking.id}`} className="font-medium text-[#0A1128] hover:text-[#C46A3A]">{shortDate(metrics.lastBooking.check_in)}<span className="block text-xs font-normal text-[#768098]">{metrics.lastBookingDays} {metrics.lastBookingDays === 1 ? 'day' : 'days'}</span></Link> : <span className="text-[#9AA1B2]">No bookings</span>}</td>
                       <td className="border-b border-[#EEE7DF] px-3 py-4 align-top font-semibold"><span className={metrics.outstanding > 0 ? 'text-[#A14F2A]' : 'text-[#4E5871]'}>{money(metrics.outstanding)}</span></td>
                       <td className="border-b border-[#EEE7DF] px-3 py-4 align-top font-semibold"><span className={metrics.creditBalance > 0 ? 'text-[#32633B]' : 'text-[#4E5871]'}>{money(metrics.creditBalance)}</span></td>
+                      <td className="border-b border-[#EEE7DF] px-3 py-4 align-top"><button type="button" onClick={() => setCustomerToDelete(customer)} className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-red-700 hover:text-red-800"><Trash2 className="h-3.5 w-3.5" />Delete mistaken record</button></td>
                     </tr>
                   ))}
                 </tbody>
@@ -627,6 +688,14 @@ export function StaffCustomerDirectory({
           mergeCustomers={mergeCustomers}
           refetchBookings={refetchBookings}
           onClose={() => setShowMergeCustomers(false)}
+        />
+      )}
+
+      {customerToDelete && (
+        <DeleteCustomerModal
+          customer={customerToDelete}
+          deleteEmptyCustomer={deleteEmptyCustomer}
+          onClose={() => setCustomerToDelete(null)}
         />
       )}
     </div>
