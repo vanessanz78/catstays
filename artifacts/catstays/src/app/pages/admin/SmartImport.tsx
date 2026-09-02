@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import Papa from 'papaparse';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { AlertCircle, CheckCircle2, Download, FileSpreadsheet, Loader2, Upload } from 'lucide-react';
 import { RightMenu } from '../../components/RightMenu';
 import { NotificationBell } from '../../components/NotificationBell';
@@ -204,7 +205,8 @@ export function SmartImport() {
       : nextKind === 'cats' ? 'name,breed,age,medical_notes,dietary_requirements,customer:customers(name,email)'
       : nextKind === 'rooms' ? 'name,type,description,price_per_night,capacity,amenities,is_active'
       : 'check_in,check_out,check_in_time,check_out_time,status,payment_status,total_amount,cat_names,notes,customer:customers(name,email),room:rooms(name)';
-    const { data, error } = await fetchAllRows<Record<string, any>>((from,to) => supabase.from(nextKind)
+    const exportClient = supabase as SupabaseClient;
+    const { data, error } = await fetchAllRows<Record<string, any>>((from,to) => exportClient.from(nextKind)
       .select(columns,{count:'exact'}).eq('cattery_id',cattery.id).order('id').range(from,to));
     if (error) {
       setMessage({ kind: 'error', text: `Export could not be created. ${error.message}` });
