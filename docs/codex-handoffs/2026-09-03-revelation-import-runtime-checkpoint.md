@@ -54,3 +54,11 @@ Nightly cron is NOT activated at this checkpoint. `supabase/operations/activate_
 7. Record nightly activation, complete-job proof, published deployment and remaining coverage/device exceptions separately.
 
 Temporary source/build files are retained solely to resume unfinished migration/UAT. The archived original business data and protected migration evidence must remain recoverable.
+
+## Later checkpoint — repaired first scheduled run
+
+Frontend typecheck and production build PASSED at a0d94d6fffa4cbd4fb0e9f89c2f2112163546779; existing sourcemap/chunk-size warnings remain. Worker tests now 23/23 at 0b9e02cd022e3f68c0c6c558f8f71e7e8ed0dc5f. The first detail batch exposed a numeric confidence contract mismatch for API-only metadata; automatic retries were paused, the field was corrected from a text label to numeric 1, and two subsequent real batches completed successfully. Latest observed checkpoint: 47 of 8,957 source booking details processed, 8,910 remaining, 80 warnings, last_error null. Baseline imported booking/payment counts remained 8,938/10,040. Source records requiring review are not silently deleted.
+
+Nightly activation has now been requested again after the verified repair, for 00:01 Pacific/Auckland, with minute-by-minute bounded continuation while a daily job is active. Confirm cron active plus a newer successful checkpoint/HTTP response before claiming autonomous operation verified. The first full sweep is still NOT complete; do not imply all source fields or historical reconciliation are finished.
+
+Authenticated development UAT remains blocked: preview is at /login, not signed in. No front-end main merge or Replit publication was performed. Root Replit checkout and original protected archives remain preserved. Updated migration evidence is in PR #61.
