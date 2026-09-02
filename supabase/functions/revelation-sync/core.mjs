@@ -92,7 +92,7 @@ export async function processTick(env, force=false, transport=clients(env)) {
             const map=new Map(old.map(c=>[c.external_id,c]));
             await rpc('customers',chunk.map(c=>{const o=map.get(String(c.id)),b=o?.legacy_metadata?._revelation_source||{};return {
               external_id:String(c.id),customer_name:c.name,email:c.email||'',phone:c.mobile||c.telephone||null,
-              address:['address_line1','address_line2','city','postcode'].map(k=>c[k]).filter(Boolean).join(', '),notes:c.note||null,
+              address:['address_line1','address_line2','city','state/county','postcode'].map(k=>c[k]).filter(Boolean).join(', '),notes:c.note||null,
               created_at:o?.created_at||null,legacy_account_balance:b.legacy_account_balance??o?.legacy_account_balance??null,
               legacy_total_spent:b.legacy_total_spent??o?.legacy_total_spent??null,legacy_last_booking:b.legacy_last_booking??o?.legacy_last_booking??null,
               legacy_metadata:{api:c}};}));
@@ -152,8 +152,12 @@ export async function processTick(env, force=false, transport=clients(env)) {
           check_in:start,check_out:end,check_in_time:sourceTime(d.boarding_arriving),check_out_time:sourceTime(d.boarding_departing),
           status,payment_status:outstanding<=0?'paid':amount-outstanding>0?'partial':'unpaid',notes:d.notes||null,
           legacy_amount:amount,legacy_monies_received:amount-outstanding,legacy_outstanding:outstanding,
-          number_of_cats:selected.size||old?.number_of_cats||1,room_arrangement:old?.room_arrangement||'shared',
+          number_of_cats:ambiguous?(old?.number_of_cats||selected.size||1):(selected.size||old?.number_of_cats||1),room_arrangement:old?.room_arrangement||'shared',
           legacy_run_name:[...new Set((d.overnights||[]).map(x=>x.run))].join(', '),created_at:old?.created_at||null,
+          legacy_booking_type:old?.legacy_booking_type||null,legacy_source:old?.legacy_source||null,legacy_tax_amount:old?.legacy_tax_amount??null,
+          legacy_belongs:old?.legacy_metadata?.belongs??null,legacy_pet_breed:old?.legacy_metadata?.pet_breed??null,legacy_xero:old?.legacy_metadata?.xero??null,
+          customer_match_method:old?.legacy_metadata?.customer_match_method||'api_unique_identity',customer_match_confidence:old?.legacy_metadata?.customer_match_confidence||'exact',
+          possible_customer_external_ids:old?.legacy_metadata?.possible_customer_external_ids||[],
           cancellation_reason:old?.cancellation_reason||null,cancellation_note:old?.cancellation_note||null,
           source_record_checksum:await hash(JSON.stringify(d))}]);
         const saved=(await query('bookings',`external_source=eq.revelation_pets&external_id=eq.${item.reference}`))[0];
