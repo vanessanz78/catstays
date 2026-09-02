@@ -1,6 +1,23 @@
 # Decision Log
 
-Last updated: 2026-09-01
+Last updated: 2026-09-02
+
+## 2026-09-02 - Adopt The Legacy Workflow, Keep An Independent CatStays Product
+
+Working ref: `refine/revelation-workflow-gaps-20260902`.
+
+Decision: Use Vanessa's narrated Revelation Pets booking and daily-operations workflows as behavioural research, while retaining CatStays' own visual system, copy, information architecture, source code, and data model. Close the remaining speed gaps on Today with customer/cat lookup, direct booking start, one-tap arrival/departure actions, recent bookings, visible times, and a seven-day In / Out / Day end summary.
+
+Reason: Twelve years of daily use demonstrate which defaults and shortcuts make phone calls fast, but a screen-for-screen clone would discard CatStays' stronger availability-first room model and create avoidable product and intellectual-property risk. The highest-value gap was the daily cockpit, not the underlying booking workflow.
+
+Impact:
+
+- Today remains the first staff destination and becomes the primary launch point for customer lookup, new bookings, arrivals, departures, recent work, and occupancy.
+- Search matches customer name, ID, email, phone, or cat while typing; a selected customer can open their filtered record or start a preselected booking.
+- Arrival and departure cards show both dates and times and can record check-in/check-out without opening the full booking.
+- Latest bookings and the seven-day movement table provide the operational visibility described in the founder recordings.
+- Revelation Pets branding, visual styling, assets, source code, and distinctive copy are not copied.
+- This refinement introduces no new database schema. Deployment remains coupled to the already-merged customer-portal migration now present on `main`.
 
 ## 2026-09-01 - Daily Operations Lead The Dashboard Navigation
 

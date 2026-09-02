@@ -1,5 +1,5 @@
-import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
-import { Link } from 'react-router';
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { Link, useSearchParams } from 'react-router';
 import {
   ArrowLeft,
   ArrowRight,
@@ -488,14 +488,19 @@ export function StaffCustomerDirectory({
   refetchBookings,
 }: StaffCustomerDirectoryProps) {
   const { cattery } = useAuth();
+  const [searchParams] = useSearchParams();
   const bookingSetup = normalizeBookingSetup(cattery?.website_settings);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get('search') || '');
   const [showAddCustomer, setShowAddCustomer] = useState(false);
   const [showMergeCustomers, setShowMergeCustomers] = useState(false);
   const [customerToDelete, setCustomerToDelete] = useState<Customer | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [newCustomer, setNewCustomer] = useState({ name: '', email: '', phone: '', catName: '' });
+
+  useEffect(() => {
+    setSearchQuery(searchParams.get('search') || '');
+  }, [searchParams]);
 
   const rows = useMemo(() => customers
     .filter((customer) => customerMatchesDirectorySearch(customer, searchQuery))

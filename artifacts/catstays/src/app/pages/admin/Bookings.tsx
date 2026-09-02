@@ -86,6 +86,7 @@ export function AdminBookings() {
   const navigate = useNavigate();
   const isCreating = searchParams.get('new') === 'true';
   const requestedBookingId = searchParams.get('booking');
+  const requestedCustomerId = searchParams.get('customer');
   const requestedCheckIn = searchParams.get('checkIn') || '';
   const requestedCheckOut = searchParams.get('checkOut') || requestedCheckIn;
   const requestedRoomId = searchParams.get('room');
@@ -384,6 +385,12 @@ export function AdminBookings() {
     setDraftDateRange(undefined);
     setShowDateRangePicker(true);
   };
+
+  useEffect(() => {
+    if (!isCreating || !requestedCustomerId || selectedCustomer) return;
+    const requestedCustomer = customers.find((customer) => customer.id === requestedCustomerId);
+    if (requestedCustomer) selectCustomerSuggestion(requestedCustomer);
+  }, [customers, isCreating, requestedCustomerId, selectedCustomer]);
 
   useEffect(() => {
     if (!requestedBookingId || bookingsLoading) return;
