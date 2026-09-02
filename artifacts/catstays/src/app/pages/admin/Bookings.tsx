@@ -91,9 +91,11 @@ export function AdminBookings() {
   const [showCreateBooking, setShowCreateBooking] = useState(isCreating);
   
   // Filter and sort state
-  const [viewMode, setViewMode] = useState<'latest' | 'all'>('latest');
-  const [sortField, setSortField] = useState<'arrival' | 'departure' | 'received'>('received');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [viewMode, setViewMode] = useState<'upcoming' | 'latest' | 'all'>('upcoming');
+  const [sortField, setSortField] = useState<'arrival' | 'departure' | 'received'>('arrival');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [bookingSearch, setBookingSearch] = useState('');
+  const [bookingPage, setBookingPage] = useState(1);
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
   const [showBookingDetails, setShowBookingDetails] = useState(false);
   const [customerDetailsOpen, setCustomerDetailsOpen] = useState(false);
@@ -225,7 +227,8 @@ export function AdminBookings() {
 
     return {
       id: b.id,
-      customerName: b.customer?.name || b.guest_name || 'Online customer',
+      customerName: b.customer?.name || b.legacy_customer_name || b.guest_name || 'Online customer',
+      sourceReference: b.legacy_reference || b.external_id || '',
       customerEmail: b.customer?.email || b.guest_email || '',
       customerPhone: b.customer?.phone || b.guest_phone || '',
       catNames: linkedCatNames.length > 0 ? linkedCatNames : guestCatNames,
@@ -233,10 +236,10 @@ export function AdminBookings() {
       checkOut: b.check_out,
       checkInTime: b.check_in_time,
       checkOutTime: b.check_out_time,
-      roomType: b.room?.type || 'Room',
+      roomType: b.room?.type || (b.legacy_run_name ? 'Historical run' : 'Room'),
       roomNumber: b.room && b.room_unit_number
         ? physicalRoomName(b.room, b.room_unit_number)
-        : b.room?.name || '',
+        : b.room?.name || b.legacy_run_name || '',
       status: b.status,
       paymentStatus: b.payment_status,
       total: b.total_amount || 0,
@@ -295,6 +298,17 @@ export function AdminBookings() {
       );
     }
     
+    if (viewMode === 'upcoming') {
+      const today = format(now, 'yyyy-MM-dd');
+      filtered = filtered.filter(booking => booking.status !== 'cancelled' && booking.checkOut >= today);
+    }
+    const search = bookingSearch.trim().toLowerCase();
+    if (search) {
+      filtered = filtered.filter(booking => [
+        booking.customerName, booking.customerEmail, booking.customerPhone,
+        booking.sourceReference, ...booking.catNames,
+      ].some(value => value.toLowerCase().includes(search)));
+    }
     return filtered;
   };
 
@@ -325,7 +339,11 @@ export function AdminBookings() {
     });
   };
 
-  const displayedBookings = getSortedBookings();
+  const matchingBookings = getSortedBookings();
+  const pageCount = Math.max(1, Math.ceil(matchingBookings.length / 50));
+  const currentPage = Math.min(bookingPage, pageCount);
+  const displayedBookings = matchingBookings.slice((currentPage - 1) * 50, currentPage * 50);
+  useEffect(() => { setBookingPage(1); }, [viewMode, bookingSearch, sortField, sortDirection]);
 
   const handleSort = (field: 'arrival' | 'departure' | 'received') => {
     setSortField(field);
@@ -1592,35 +1610,26 @@ export function AdminBookings() {
           </Button>
         </Link>
 
-        {/* Filter Tabs */}
         <Card className="rounded-3xl border-sage/10">
-          <CardContent className="p-2">
-            <div className="flex gap-2">
-              <Button
-                onClick={() => setViewMode('latest')}
-                variant={viewMode === 'latest' ? 'default' : 'ghost'}
-                className={`flex-1 rounded-xl ${
-                  viewMode === 'latest' 
-                    ? 'text-white' 
-                    : 'text-sage'
-                }`}
-                style={viewMode === 'latest' ? { backgroundColor: '#2d3e2f' } : {}}
-              >
-                Latest Bookings
-              </Button>
-              <Button
-                onClick={() => setViewMode('all')}
-                variant={viewMode === 'all' ? 'default' : 'ghost'}
-                className={`flex-1 rounded-xl ${
-                  viewMode === 'all' 
-                    ? 'text-white' 
-                    : 'text-sage'
-                }`}
-                style={viewMode === 'all' ? { backgroundColor: '#2d3e2f' } : {}}
-              >
-                All Bookings
-              </Button>
+          <CardContent className="space-y-3 p-3">
+            <div className="grid grid-cols-3 gap-1" aria-label="Booking views">
+              {([
+                ['upcoming', 'Current & future'],
+                ['latest', 'Recent'],
+                ['all', 'All history'],
+              ] as const).map(([mode, label]) => (
+                <Button key={mode}
+                  onClick={() => { setViewMode(mode); setSortField(mode === 'upcoming' ? 'arrival' : 'received'); setSortDirection(mode === 'upcoming' ? 'asc' : 'desc'); }}
+                  aria-pressed={viewMode === mode}
+                  variant={viewMode === mode ? 'default' : 'ghost'}
+                  className="min-w-0 rounded-xl px-1 text-xs sm:text-sm"
+                  style={viewMode === mode ? { backgroundColor: '#2d3e2f', color: 'white' } : { color: '#2d3e2f' }}>
+                  {label}
+                </Button>
+              ))}
             </div>
+            <Input aria-label="Search bookings" placeholder="Customer, cat or Revelation booking number"
+              value={bookingSearch} onChange={event => setBookingSearch(event.target.value)} />
           </CardContent>
         </Card>
 
@@ -1657,6 +1666,9 @@ export function AdminBookings() {
           </Card>
         )}
 
+        {!bookingsLoading && !bookingsError && <p role="status" className="text-sm text-[#6b7a6d]">
+          {matchingBookings.length.toLocaleString()} bookings{matchingBookings.length > 50 ? ` · Page ${currentPage} of ${pageCount}` : ''}
+        </p>}
         {/* Bookings List */}
         {!bookingsLoading && !bookingsError && <div className="space-y-3">
           {displayedBookings.map((booking) => (
@@ -1728,19 +1740,21 @@ export function AdminBookings() {
           ))}
         </div>}
 
+        {!bookingsLoading && !bookingsError && pageCount > 1 && <nav aria-label="Booking pages" className="flex items-center justify-between gap-3">
+          <Button variant="outline" disabled={currentPage === 1} onClick={() => setBookingPage(currentPage - 1)}>Previous</Button>
+          <span className="text-sm">{currentPage} / {pageCount}</span>
+          <Button variant="outline" disabled={currentPage === pageCount} onClick={() => setBookingPage(currentPage + 1)}>Next</Button>
+        </nav>}
         {/* Empty State */}
         {!bookingsLoading && !bookingsError && displayedBookings.length === 0 && (
           <Card className="rounded-3xl border-sage/10">
             <CardContent className="p-12 text-center">
               <Calendar className="w-16 h-16 text-sage/30 mx-auto mb-4" />
               <h3 className="text-lg font-semibold mb-2" style={{ color: '#2d3e2f' }}>
-                {viewMode === 'latest' ? 'No recent bookings' : 'No bookings yet'}
+                {bookingSearch ? 'No matching bookings' : viewMode === 'upcoming' ? 'No current or future bookings' : viewMode === 'latest' ? 'No recent bookings' : 'No bookings yet'}
               </h3>
               <p className="text-sm mb-6" style={{ color: '#6b7a6d' }}>
-                {viewMode === 'latest' 
-                  ? 'No bookings received in the last 7 days' 
-                  : 'Create your first booking to get started'
-                }
+                {bookingSearch ? 'Try another customer, cat or booking number.' : viewMode === 'upcoming' ? 'Older and cancelled bookings are available under All history.' : viewMode === 'latest' ? 'No bookings received in the last 7 days' : 'Create your first booking to get started'}
               </p>
               <Link to="?new=true">
                 <Button className="rounded-xl text-white" style={{ backgroundColor: '#C46A3A' }}>
