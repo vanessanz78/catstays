@@ -43,6 +43,12 @@ type PaymentRecord = {
   paid_on: string | null;
   reference: string | null;
   created_at: string;
+  external_source: string | null;
+  external_id: string | null;
+  legacy_invoice_id: string | null;
+  legacy_description: string | null;
+  legacy_payment_type: string | null;
+  legacy_deleted: boolean;
 };
 
 type PaymentRequest = {
@@ -325,7 +331,7 @@ const REPORTS: ReportDefinition[] = [
 const GROUPS = ["Daily operations", "Money", "Customers & care"] as const;
 
 function customerName(booking: BookingWithDetails | undefined) {
-  return booking?.customer?.name || booking?.guest_name || "Customer";
+  return booking?.customer?.name || booking?.legacy_customer_name || booking?.guest_name || "Customer";
 }
 
 function catNames(booking: BookingWithDetails | undefined) {
@@ -333,7 +339,9 @@ function catNames(booking: BookingWithDetails | undefined) {
   const names = booking.booking_cats
     .map((entry) => entry.cat?.name)
     .filter(Boolean);
-  return names.length ? names.join(", ") : booking.cat_names || "Cat guest";
+  return names.length
+    ? names.join(", ")
+    : booking.legacy_pet_names || booking.cat_names || "Cat guest";
 }
 
 function roomName(booking: BookingWithDetails | undefined) {
@@ -342,11 +350,16 @@ function roomName(booking: BookingWithDetails | undefined) {
     (segment) => `${segment.room.name} ${segment.room_unit_number}`,
   );
   if (segmentRooms.length) return [...new Set(segmentRooms)].join(", ");
-  return `${booking.room?.name || "Unassigned"}${booking.room_unit_number ? ` ${booking.room_unit_number}` : ""}`;
+  if (booking.room) {
+    return `${booking.room.name}${booking.room_unit_number ? ` ${booking.room_unit_number}` : ""}`;
+  }
+  return booking.legacy_run_name || "Unassigned";
 }
 
 function bookingReference(booking: BookingWithDetails | undefined) {
-  return booking ? booking.id.slice(0, 8).toUpperCase() : "—";
+  return booking
+    ? booking.legacy_reference || booking.id.slice(0, 8).toUpperCase()
+    : "—";
 }
 
 function numberOfNights(start: string, end: string) {
@@ -400,7 +413,7 @@ export function AdminReports() {
     loading: bookingsLoading,
     error: bookingsError,
     refetch,
-  } = useBookings();
+  } = useBookings({ allPages: true });
   const [payments, setPayments] = useState<PaymentRecord[]>([]);
   const [requests, setRequests] = useState<PaymentRequest[]>([]);
   const [careCats, setCareCats] = useState<CareCat[]>([]);
@@ -411,6 +424,8 @@ export function AdminReports() {
   const [to, setTo] = useState("");
   const [search, setSearch] = useState("");
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
+  const [includeDeletedLegacyPayments, setIncludeDeletedLegacyPayments] =
+    useState(false);
   const [sort, setSort] = useState<{ key: string; direction: SortDirection }>({
     key: "arrival",
     direction: "asc",
@@ -427,37 +442,61 @@ export function AdminReports() {
     }
     setLedgerLoading(true);
     setLedgerError("");
-    const [paymentsResult, requestsResult, catsResult] = await Promise.all([
-      supabase
-        .from("payments")
-        .select(
-          "id,booking_id,customer_id,amount,type,status,payment_method,paid_on,reference,created_at",
-        )
-        .eq("cattery_id", cattery.id)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("payment_requests")
-        .select(
-          "id,booking_id,customer_id,request_type,amount,status,paid_at,created_at",
-        )
-        .eq("cattery_id", cattery.id)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("cats")
-        .select(
-          "id,customer_id,name,breed,age,medical_notes,dietary_requirements,created_at,customer:customers(name,email)",
-        )
-        .eq("cattery_id", cattery.id)
-        .order("name"),
-    ]);
-    const errors = [
-      paymentsResult.error?.message,
-      requestsResult.error?.message,
-      catsResult.error?.message,
-    ].filter(Boolean);
-    setPayments((paymentsResult.data || []) as PaymentRecord[]);
-    setRequests((requestsResult.data || []) as PaymentRequest[]);
-    setCareCats((catsResult.data || []) as unknown as CareCat[]);
+    const pageSize = 500;
+    const allPayments: PaymentRecord[] = [];
+    const allRequests: PaymentRequest[] = [];
+    const allCats: CareCat[] = [];
+    let from = 0;
+    let errors: string[] = [];
+    while (true) {
+      const [paymentsResult, requestsResult, catsResult] = await Promise.all([
+        supabase
+          .from("payments")
+          .select(
+            "id,booking_id,customer_id,amount,type,status,payment_method,paid_on,reference,created_at,external_source,external_id,legacy_invoice_id,legacy_description,legacy_payment_type,legacy_deleted",
+          )
+          .eq("cattery_id", cattery.id)
+          .order("created_at", { ascending: false })
+          .range(from, from + pageSize - 1),
+        supabase
+          .from("payment_requests")
+          .select(
+            "id,booking_id,customer_id,request_type,amount,status,paid_at,created_at",
+          )
+          .eq("cattery_id", cattery.id)
+          .order("created_at", { ascending: false })
+          .range(from, from + pageSize - 1),
+        supabase
+          .from("cats")
+          .select(
+            "id,customer_id,name,breed,age,medical_notes,dietary_requirements,created_at,customer:customers(name,email)",
+          )
+          .eq("cattery_id", cattery.id)
+          .order("name")
+          .range(from, from + pageSize - 1),
+      ]);
+      errors = [
+        paymentsResult.error?.message,
+        requestsResult.error?.message,
+        catsResult.error?.message,
+      ].filter((message): message is string => Boolean(message));
+      if (errors.length) break;
+      const paymentPage = (paymentsResult.data || []) as PaymentRecord[];
+      const requestPage = (requestsResult.data || []) as PaymentRequest[];
+      const catPage = (catsResult.data || []) as unknown as CareCat[];
+      allPayments.push(...paymentPage);
+      allRequests.push(...requestPage);
+      allCats.push(...catPage);
+      if (
+        paymentPage.length < pageSize &&
+        requestPage.length < pageSize &&
+        catPage.length < pageSize
+      ) break;
+      from += pageSize;
+    }
+    setPayments(allPayments);
+    setRequests(allRequests);
+    setCareCats(allCats);
     setLedgerError(errors.join(" "));
     setLedgerLoading(false);
   };
@@ -497,6 +536,11 @@ export function AdminReports() {
   }, [payments]);
 
   const bookingMoney = (booking: BookingWithDetails) => {
+    if (booking.external_source === "revelation_pets") {
+      const received = Number(booking.legacy_monies_received || 0);
+      const outstanding = Number(booking.legacy_outstanding || 0);
+      return { total: received + outstanding, received, outstanding };
+    }
     const bookingPayments = paymentsByBooking.get(booking.id) || [];
     const received = bookingPayments
       .filter((payment) => payment.status === "completed")
@@ -711,7 +755,11 @@ export function AdminReports() {
       });
     if (activeKey === "payments" || activeKey === "tips")
       return payments
-        .filter((payment) => activeKey !== "tips" || payment.type === "tip")
+        .filter(
+          (payment) =>
+            (includeDeletedLegacyPayments || !payment.legacy_deleted) &&
+            (activeKey !== "tips" || payment.type === "tip"),
+        )
         .map((payment) => {
           const booking = payment.booking_id
             ? bookingById.get(payment.booking_id)
@@ -727,8 +775,12 @@ export function AdminReports() {
               customer: booking
                 ? customerName(booking)
                 : customerById.get(payment.customer_id || "") || "Customer",
-              method: normaliseStatus(payment.payment_method),
-              type: normaliseStatus(payment.type),
+              method: normaliseStatus(
+                payment.legacy_payment_type || payment.payment_method,
+              ),
+              type: normaliseStatus(
+                payment.legacy_description || payment.type,
+              ),
               status: normaliseStatus(payment.status),
               amount: Number(payment.amount),
             },
@@ -776,6 +828,7 @@ export function AdminReports() {
     bookingById,
     customerById,
     paymentsByBooking,
+    includeDeletedLegacyPayments,
   ]);
 
   const statusOptions = useMemo(
@@ -1067,6 +1120,19 @@ export function AdminReports() {
                     </div>
                   </details>
                 </div>
+                {activeKey === "payments" && (
+                  <label className="mt-3 flex cursor-pointer items-center gap-3 rounded-lg bg-[#F6F2EA] px-3 py-2 text-sm text-[#4E5871]">
+                    <input
+                      type="checkbox"
+                      checked={includeDeletedLegacyPayments}
+                      onChange={(event) =>
+                        setIncludeDeletedLegacyPayments(event.target.checked)
+                      }
+                      className="h-4 w-4 accent-[#C46A3A]"
+                    />
+                    Include payments that were deleted in Revelation Pets
+                  </label>
+                )}
               </div>
 
               <div id="report-print-area" className="space-y-5">
