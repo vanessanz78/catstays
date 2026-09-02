@@ -146,16 +146,36 @@ exception when others then
 end;
 $safety$;
 
+do $fidelity$
+declare r uuid; b uuid;
+begin
+  r:=public.catstays_create_legacy_import_run('7f6d029f-b727-4645-83be-db6ec56d1b46','revelation_pets','fidelity_validation','{}');
+  perform public.catstays_set_legacy_import_status(r,'ready','{}');
+  perform public.catstays_import_legacy_bookings(r,'[{"external_id":"fidelity-validation-booking","check_in":"2010-01-01","check_out":"2010-01-02","created_at":"2009-12-01T00:00:00Z","notes":"original source note"}]');
+  select id into b from public.bookings where legacy_import_run_id=r and external_id='fidelity-validation-booking';
+  if (select notes from public.bookings where id=b) <> 'original source note' then raise exception 'Source note missing'; end if;
+  perform public.catstays_import_legacy_bookings(r,'[{"external_id":"fidelity-validation-booking","check_in":"2010-01-01","check_out":"2010-01-02","notes":"changed source note"}]');
+  if (select notes from public.bookings where id=b) <> 'changed source note' or (select created_at from public.bookings where id=b) <> '2009-12-01T00:00:00Z'::timestamptz then raise exception 'Notes or original date not retained'; end if;
+  update public.bookings set notes='staff note' where id=b;
+  perform public.catstays_import_legacy_bookings(r,'[{"external_id":"fidelity-validation-booking","check_in":"2010-01-01","check_out":"2010-01-02","notes":"another source note"}]');
+  if (select notes from public.bookings where id=b) <> 'staff note' then raise exception 'Staff note overwritten'; end if;
+  insert into migration_validation_results values ('booking notes update safely and preserve original creation date',true,'{}');
+exception when others then
+  insert into migration_validation_results values ('booking note and original date fidelity',false,jsonb_build_object('error',sqlerrm));
+end;
+$fidelity$;
+
 reset role;
 -- Service connection is deny-by-default; an explicit tenant connection enables it.
 select set_config('request.jwt.claim.sub','',true);
 select set_config('request.jwt.claim.role','service_role',true);
 set local role service_role;
 insert into migration_validation_results values ('service denied without enabled connection',
-  not public.catstays_can_run_legacy_import('7f6d029f-b727-4645-83be-db6ec56d1b46'),'{}');
+  not public.catstays_can_run_legacy_import('00000000-0000-4000-8000-000000000099'),'{}');
 reset role;
 insert into public.legacy_sync_connections(cattery_id,source_system,enabled)
-values('7f6d029f-b727-4645-83be-db6ec56d1b46','revelation_pets',true);
+values('7f6d029f-b727-4645-83be-db6ec56d1b46','revelation_pets',true)
+on conflict (cattery_id) do nothing;
 grant insert,select on migration_validation_results to service_role;
 set local role service_role;
 do $service_test$
