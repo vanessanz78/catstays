@@ -62,7 +62,7 @@ export function NotificationSettings() {
     try {
       await sendTestPhoneNotification(cattery.id);
       await refresh();
-      setMessage({ tone: 'success', text: 'Test sent. It will appear in your phone notifications even when CatStays is closed.' });
+      setMessage({ tone: 'success', text: 'Test accepted by the notification service. Check this device’s notification centre to confirm it arrived; sending alone does not verify receipt.' });
     } catch (error) {
       setMessage({ tone: 'error', text: error instanceof Error ? error.message : 'The test notification could not be sent.' });
     } finally {
@@ -103,7 +103,7 @@ export function NotificationSettings() {
           <CardHeader className="bg-gradient-to-br from-white to-[#F4E9E2]">
             <CardTitle className="flex items-center gap-3 text-[#0A1128]">
               <span className="rounded-full bg-[#C46A3A]/10 p-3"><Smartphone className="h-6 w-6 text-[#C46A3A]" /></span>
-              Native phone alerts
+              PWA phone alerts
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-5 p-5">
@@ -111,6 +111,7 @@ export function NotificationSettings() {
               CatStays uses your installed app and your phone's own notification system. Booking and customer alerts can appear on the lock screen, with sound and vibration, whether the app is open or closed.
             </p>
 
+            <p className="text-sm text-[#0A1128]/70">Set this up on each staff member’s own phone. Open CatStays from its installed home-screen icon, sign in, then enable notifications here. Saving a staff phone number does not turn on push alerts or SMS.</p>
             <div className="flex items-center justify-between rounded-xl bg-[#F8F7F5] px-4 py-3">
               <span className="font-medium text-[#0A1128]">This phone</span>
               <span className={`text-sm font-semibold ${state.subscribed ? 'text-emerald-700' : 'text-[#C46A3A]'}`}>
