@@ -28,6 +28,13 @@ export type CatUpdateCandidate = {
   stayStatus: 'boarding' | 'upcoming' | 'completed';
 };
 
+export function catUpdateCandidateMatchesSearch(candidate: CatUpdateCandidate, rawQuery: string) {
+  const query = rawQuery.trim().toLowerCase();
+  if (!query) return true;
+  return [candidate.catName, candidate.customerName, candidate.customerEmail]
+    .some((value) => value.toLowerCase().includes(query));
+}
+
 export function normalizeCatUpdateCaption(value: string) {
   return value.replace(/\r\n/g, '\n').replace(/[ \t]+\n/g, '\n').trim();
 }

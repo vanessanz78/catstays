@@ -601,6 +601,8 @@ function BookingListPanel({
   actionBookingId?: string;
   onBookingAction?: (booking: Booking, nextStatus: string) => Promise<void>;
 }) {
+  const EmptyIcon = emptyIcon;
+
   return (
     <PagePanel>
       <div className="mb-4 flex items-center justify-between">
@@ -625,7 +627,11 @@ function BookingListPanel({
           ))}
         </div>
       ) : (
-        <EmptyPanel icon={emptyIcon} title={emptyTitle} description={emptyDescription} />
+        <div className="flex items-center gap-3 rounded-lg border border-[#E8DED4] bg-[#F8F7F5] px-3 py-3">
+          <EmptyIcon className="h-5 w-5 shrink-0 text-[#C46A3A]" />
+          <p className="text-sm font-semibold text-[#0A1128]">{emptyTitle}</p>
+          <span className="sr-only">{emptyDescription}</span>
+        </div>
       )}
     </PagePanel>
   );
@@ -1506,10 +1512,10 @@ export function StaffDashboard() {
 
       <main className="mx-auto max-w-7xl px-4 py-6">
         {section !== 'today' && (
-          <div className="mb-5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[#C46A3A]">{section === 'room-planner' ? 'Room planner' : 'Workspace'}</p>
+          <div className={`mb-5 ${section === 'calendar' ? 'max-sm:hidden' : ''}`}>
+            <p className={`text-xs font-semibold uppercase tracking-wide text-[#C46A3A] ${section === 'customers' ? 'max-sm:hidden' : ''}`}>{section === 'room-planner' ? 'Room planner' : 'Workspace'}</p>
             <h2 className="text-3xl font-semibold text-[#0A1128]">{meta.title}</h2>
-            <p className="mt-1 text-sm text-[#4E5871]">{meta.subtitle}</p>
+            <p className={`mt-1 text-sm text-[#4E5871] ${section === 'customers' ? 'max-sm:hidden' : ''}`}>{meta.subtitle}</p>
           </div>
         )}
 

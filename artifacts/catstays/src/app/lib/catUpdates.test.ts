@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   buildCatUpdateCandidates,
+  catUpdateCandidateMatchesSearch,
   catUpdateFileError,
   normalizeCatUpdateCaption,
   safeCatUpdateFilename,
@@ -50,4 +51,18 @@ test('excludes cancelled bookings and bookings without a linked customer', () =>
     { ...base, id: 'cancelled', status: 'cancelled', customer: { id: 'one', name: 'One', email: 'one@example.com' } },
     { ...base, id: 'orphan', status: 'confirmed', customer: null },
   ], '2026-08-30').length, 0);
+});
+
+test('searches booked cat choices by cat, customer, or customer email', () => {
+  const candidate = buildCatUpdateCandidates([{
+    id: 'booking-1', check_in: '2026-09-02', check_out: '2026-09-05', status: 'confirmed',
+    customer: { id: 'customer-1', name: 'Vanessa Wilson', email: 'vanessa@example.com' },
+    room: { id: 'room-1', name: 'Private 1' },
+    booking_cats: [{ cat: { id: 'cat-1', name: 'Milo' } }], booking_cat_rooms: [],
+  }], '2026-09-02')[0]!;
+
+  assert.equal(catUpdateCandidateMatchesSearch(candidate, 'milo'), true);
+  assert.equal(catUpdateCandidateMatchesSearch(candidate, 'wilson'), true);
+  assert.equal(catUpdateCandidateMatchesSearch(candidate, 'example.com'), true);
+  assert.equal(catUpdateCandidateMatchesSearch(candidate, 'poppy'), false);
 });

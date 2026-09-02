@@ -7,7 +7,13 @@ export interface SmartImportCustomer {
   name: string;
   email: string;
   phone: string | null;
-  cats?: Array<{ name: string }>;
+  external_source?: string | null;
+  external_id?: string | null;
+  cats?: Array<{
+    name: string;
+    external_source?: string | null;
+    external_id?: string | null;
+  }>;
 }
 
 export interface SmartImportRoom {
@@ -60,6 +66,16 @@ function money(value: string) {
   return Number.isFinite(parsed) ? parsed : Number.NaN;
 }
 
+function jsonObject(value: string) {
+  if (!value) return {};
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
 function positiveInteger(value: string, fallback: number) {
   if (!value) return fallback;
   const parsed = Number(value);
@@ -103,6 +119,11 @@ export function splitImportList(value: string) {
 }
 
 function findCustomer(row: Record<string, string>, customers: SmartImportCustomer[]) {
+  const externalOwnerId = cell(row, ['owner_external_id', 'customer_external_id', 'external_customer_id']);
+  if (externalOwnerId) {
+    const source = cell(row, ['external_source', 'source']) || 'revelation_pets';
+    return customers.find((customer) => customer.external_id === externalOwnerId && customer.external_source === source) || null;
+  }
   const email = cell(row, ['owner_email', 'customer_email', 'client_email', 'email']).toLowerCase();
   if (email) return customers.find((customer) => customer.email.toLowerCase() === email) || null;
   const name = cell(row, ['owner_name', 'customer_name', 'client_name', 'owner', 'customer', 'client']).toLowerCase();
@@ -120,13 +141,17 @@ function previewCustomer(row: Record<string, string>, rowNumber: number, context
   const name = cell(row, ['customer_name', 'client_name', 'owner_name', 'full_name', 'customer', 'client', 'owner', 'name']);
   const email = cell(row, ['email_address', 'customer_email', 'client_email', 'owner_email', 'email']).toLowerCase();
   const phone = cell(row, ['phone_number', 'mobile_number', 'cell_phone', 'mobile', 'phone']);
+  const externalSource = cell(row, ['external_source', 'source']);
+  const externalId = cell(row, ['external_id', 'customer_id', 'custid']);
   const errors: string[] = [];
   if (!name) errors.push('Customer name is required.');
   if (!email) errors.push('Email is required.');
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.push('Email is not valid.');
-  const duplicate = context.customers.some((customer) =>
-    customer.email.toLowerCase() === email || (!!phone && normalisePhone(customer.phone || '') === normalisePhone(phone)),
-  );
+  const duplicate = context.customers.some((customer) => (
+    !!externalSource && !!externalId
+      ? customer.external_source === externalSource && customer.external_id === externalId
+      : customer.email.toLowerCase() === email || (!!phone && normalisePhone(customer.phone || '') === normalisePhone(phone))
+  ));
   return {
     rowNumber,
     summary: [name || 'Unnamed customer', email].filter(Boolean).join(' · '),
@@ -136,6 +161,13 @@ function previewCustomer(row: Record<string, string>, rowNumber: number, context
       phone: phone || null,
       address: cell(row, ['postal_address', 'street_address', 'address']) || null,
       notes: cell(row, ['customer_notes', 'client_notes', 'notes']) || null,
+      created_at: cell(row, ['created_at', 'customer_added']) || null,
+      external_source: externalSource || null,
+      external_id: externalId || null,
+      legacy_last_booking: normaliseImportDate(cell(row, ['legacy_last_booking', 'last_booking'])) || null,
+      legacy_account_balance: money(cell(row, ['legacy_account_balance', 'account_balance'])),
+      legacy_total_spent: money(cell(row, ['legacy_total_spent', 'total_amount_spent', 'total_spent'])),
+      legacy_metadata: jsonObject(cell(row, ['legacy_metadata', 'metadata'])),
     },
     errors,
     warnings: duplicate ? ['An existing customer has the same email or phone number.'] : [],
@@ -146,12 +178,18 @@ function previewCustomer(row: Record<string, string>, rowNumber: number, context
 function previewCat(row: Record<string, string>, rowNumber: number, context: SmartImportContext): SmartImportPreviewRow {
   const name = cell(row, ['cat_name', 'pet_name', 'animal_name', 'cat', 'pet', 'name']);
   const customer = findCustomer(row, context.customers);
-  const ownerLabel = cell(row, ['owner_email', 'customer_email', 'client_email', 'owner_name', 'customer_name', 'client_name', 'owner', 'customer', 'client']);
+  const ownerLabel = cell(row, ['owner_external_id', 'customer_external_id', 'external_customer_id', 'owner_email', 'customer_email', 'client_email', 'owner_name', 'customer_name', 'client_name', 'owner', 'customer', 'client']);
+  const externalSource = cell(row, ['external_source', 'source']);
+  const externalId = cell(row, ['external_id', 'pet_id']);
   const errors: string[] = [];
   if (!name) errors.push('Cat name is required.');
   if (!ownerLabel) errors.push('Owner email or exact owner name is required.');
   else if (!customer) errors.push('Owner could not be matched to one existing customer.');
-  const duplicate = !!customer?.cats?.some((cat) => cat.name.toLowerCase() === name.toLowerCase());
+  const duplicate = !!customer?.cats?.some((cat) => (
+    externalSource && externalId
+      ? cat.external_source === externalSource && cat.external_id === externalId
+      : cat.name.toLowerCase() === name.toLowerCase()
+  ));
   return {
     rowNumber,
     summary: `${name || 'Unnamed cat'} · ${customer?.name || ownerLabel || 'Owner not found'}`,
@@ -162,6 +200,9 @@ function previewCat(row: Record<string, string>, rowNumber: number, context: Sma
       age: cell(row, ['cat_age', 'pet_age', 'age']) || null,
       medical_notes: cell(row, ['medical_notes', 'health_notes', 'medication_notes']) || null,
       dietary_requirements: cell(row, ['dietary_requirements', 'feeding_instructions', 'diet', 'food']) || null,
+      external_source: externalSource || null,
+      external_id: externalId || null,
+      legacy_metadata: jsonObject(cell(row, ['legacy_metadata', 'metadata'])),
     },
     errors,
     warnings: duplicate ? ['This customer already has a cat with the same name.'] : [],
@@ -285,9 +326,13 @@ export function buildSmartImportPreview(
   return mappedRows.map((row) => {
     const payload = row.payload;
     const key = kind === 'customers'
-      ? `${String(payload.email || '').toLowerCase()}|${normalisePhone(String(payload.phone || ''))}`
+      ? payload.external_source && payload.external_id
+        ? `${payload.external_source}|${payload.external_id}`
+        : `${String(payload.email || '').toLowerCase()}|${normalisePhone(String(payload.phone || ''))}`
       : kind === 'cats'
-        ? `${payload.customer_id}|${String(payload.name || '').toLowerCase()}`
+        ? payload.external_source && payload.external_id
+          ? `${payload.external_source}|${payload.external_id}`
+          : `${payload.customer_id}|${String(payload.name || '').toLowerCase()}`
         : kind === 'rooms'
           ? String(payload.name || '').toLowerCase()
           : `${payload.customer_id}|${payload.room_id}|${payload.check_in}|${payload.check_out}`;

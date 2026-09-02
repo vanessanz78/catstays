@@ -11,11 +11,19 @@ export interface CustomerWithCats {
   address: string | null;
   notes: string | null;
   created_at: string;
+  external_source: string | null;
+  external_id: string | null;
+  legacy_last_booking: string | null;
+  legacy_account_balance: number | string | null;
+  legacy_total_spent: number | string | null;
+  legacy_metadata: Record<string, unknown>;
   cats: {
     id: string;
     name: string;
     breed: string | null;
     age: string | null;
+    external_source: string | null;
+    external_id: string | null;
   }[];
   customer_credit_ledger: {
     amount: number | string;
@@ -49,21 +57,36 @@ export function useCustomers() {
     }
 
     setLoading(true);
-    const { data, error } = await supabase
-      .from('customers')
-      .select(`
-        *,
-        cats(id, name, breed, age),
-        customer_credit_ledger(amount)
-      `)
-      .eq('cattery_id', cattery.id)
-      .order('created_at', { ascending: false });
+    const pageSize = 500;
+    const allCustomers: CustomerWithCats[] = [];
+    let from = 0;
 
-    if (error) {
-      setError(error.message);
-    } else {
-      setCustomers((data as unknown as CustomerWithCats[]) || []);
+    while (true) {
+      const { data, error: pageError } = await supabase
+        .from('customers')
+        .select(`
+          *,
+          cats(id, name, breed, age, external_source, external_id),
+          customer_credit_ledger(amount)
+        `)
+        .eq('cattery_id', cattery.id)
+        .order('created_at', { ascending: false })
+        .range(from, from + pageSize - 1);
+
+      if (pageError) {
+        setError(pageError.message);
+        setLoading(false);
+        return;
+      }
+
+      const page = (data as unknown as CustomerWithCats[]) || [];
+      allCustomers.push(...page);
+      if (page.length < pageSize) break;
+      from += pageSize;
     }
+
+    setError(null);
+    setCustomers(allCustomers);
     setLoading(false);
   };
 

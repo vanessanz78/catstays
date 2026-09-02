@@ -11,6 +11,8 @@ export type DirectoryCustomer = {
   phone?: string | null;
   address?: string | null;
   notes?: string | null;
+  external_id?: string | null;
+  legacy_last_booking?: string | null;
   cats?: Array<{ id?: string; name: string }> | null;
 };
 
@@ -38,6 +40,7 @@ export function customerMatchesDirectorySearch(customer: DirectoryCustomer, rawQ
   if (!query) return true;
   return [
     customer.id,
+    customer.external_id,
     customer.name,
     customer.email,
     customer.phone,
@@ -62,6 +65,7 @@ export function customerDirectoryMetrics(
   bookings: DirectoryBooking[],
   creditEntries: Array<{ amount: number | string }> = [],
   tax: { chargeTax?: boolean; taxRate?: number } = {},
+  importedLastBooking: string | null = null,
 ) {
   const customerBookings = bookings
     .filter((booking) => booking.customer?.id === customerId && booking.status !== 'cancelled')
@@ -79,6 +83,7 @@ export function customerDirectoryMetrics(
   return {
     bookingCount: customerBookings.length,
     lastBooking,
+    importedLastBooking: lastBooking ? null : importedLastBooking,
     lastBookingDays: lastBooking ? inclusiveStayDays(lastBooking.check_in, lastBooking.check_out) : 0,
     outstanding: Number(outstanding.toFixed(2)),
     creditBalance: customerCreditBalance(creditEntries),
