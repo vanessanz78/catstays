@@ -5,7 +5,7 @@ begin;
 set local lock_timeout = '1s';
 set local statement_timeout = '8s';
 create temporary table migration_validation_results (test_name text, passed boolean, details jsonb);
-grant select, insert on migration_validation_results to authenticated;
+grant select, insert on migration_validation_results to authenticated, service_role;
 select set_config('request.jwt.claim.sub', owner_id::text, true) from public.catteries where id='7f6d029f-b727-4645-83be-db6ec56d1b46';
 set local role authenticated;
 do $test$
@@ -146,6 +146,47 @@ exception when others then
 end;
 $safety$;
 
+reset role;
+-- Service connection is deny-by-default; an explicit tenant connection enables it.
+select set_config('request.jwt.claim.sub','',true);
+select set_config('request.jwt.claim.role','service_role',true);
+set local role service_role;
+insert into migration_validation_results values ('service denied without enabled connection',
+  not public.catstays_can_run_legacy_import('7f6d029f-b727-4645-83be-db6ec56d1b46'),'{}');
+reset role;
+insert into public.legacy_sync_connections(cattery_id,source_system,enabled)
+values('7f6d029f-b727-4645-83be-db6ec56d1b46','revelation_pets',true);
+grant insert,select on migration_validation_results to service_role;
+set local role service_role;
+do $service_test$
+declare r uuid; b uuid; before_n integer;
+begin
+  r:=public.catstays_create_legacy_import_run('7f6d029f-b727-4645-83be-db6ec56d1b46','revelation_pets','service_validation','{}');
+  perform public.catstays_set_legacy_import_status(r,'ready','{}');
+  perform public.catstays_import_legacy_customers(r,'[{"customer_name":"SERVICE VALIDATION","external_id":"service-validation-owner"}]');
+  perform public.catstays_import_legacy_cats(r,'[{"cat_name":"SERVICE CAT","external_id":"service-validation-cat","owner_external_id":"service-validation-owner"}]');
+  perform public.catstays_import_legacy_bookings(r,'[{"external_id":"service-validation-booking","customer_external_id":"service-validation-owner","check_in":"2010-01-01","check_out":"2010-01-02","legacy_amount":12}]');
+  for i in 1..2 loop
+    perform public.catstays_import_legacy_booking_relations(r,'[{"external_id":"service-validation-booking","cat_external_ids":["service-validation-cat"],"assignments":[{"cat_external_id":"service-validation-cat","room_id":"fd4f4a86-2da7-4700-88a7-0aae486c438a","room_unit_number":1,"starts_on":"2010-01-01","ends_on":"2010-01-02"}]}]');
+  end loop;
+  select id into b from public.bookings where cattery_id='7f6d029f-b727-4645-83be-db6ec56d1b46' and external_id='service-validation-booking';
+  if (select count(*) from public.booking_cats where booking_id=b)<>1
+    or (select count(*) from public.booking_cat_rooms where booking_id=b)<>1 then raise exception 'Duplicate relationship rows'; end if;
+  insert into migration_validation_results values ('service import and exact room links repeat safely',true,'{}');
+  if not exists(select 1 from public.legacy_import_changes where import_run_id=r and target_table='customers' and operation='INSERT' and after_record->>'external_id'='service-validation-owner')
+    or not exists(select 1 from public.legacy_import_changes where import_run_id=r and target_table='booking_cat_rooms' and operation='DELETE' and before_record is not null)
+    then raise exception 'Missing durable rollback images'; end if;
+  insert into migration_validation_results values ('before and after images cover imported records and links',true,'{}');
+  update public.booking_cat_rooms set room_unit_number=2 where booking_id=b;
+  perform public.catstays_import_legacy_booking_relations(r,'[{"external_id":"service-validation-booking","cat_external_ids":["service-validation-cat"],"assignments":[]}]');
+  if not exists(select 1 from public.booking_cat_rooms where booking_id=b and room_unit_number=2)
+    or not exists(select 1 from public.legacy_reconciliation_issues where import_run_id=r and details->>'field'='relationships')
+    then raise exception 'Staff room change overwritten'; end if;
+  insert into migration_validation_results values ('staff room changes preserved and surfaced for review',true,'{}');
+exception when others then
+  insert into migration_validation_results values ('service and relationship audit suite',false,jsonb_build_object('state',sqlstate,'error',sqlerrm));
+end;
+$service_test$;
 reset role;
 insert into migration_validation_results select 'anonymous import execution is denied',not has_function_privilege('anon','public.catstays_import_legacy_customers(uuid,jsonb)','EXECUTE'),'{}';
 select jsonb_agg(to_jsonb(t)) as validation_results from migration_validation_results t;
