@@ -1376,6 +1376,7 @@ export function StaffDashboard() {
   const {
     bookings,
     loading: bookingsLoading,
+    error: bookingsError,
     moveBooking,
     splitBooking,
     updateBookingStatus,
@@ -1384,6 +1385,8 @@ export function StaffDashboard() {
   const {
     customers,
     loading: customersLoading,
+    error: customersError,
+    refetch: refetchCustomers,
     createCustomer,
     addCat,
     mergeCustomers,
@@ -1511,6 +1514,7 @@ export function StaffDashboard() {
       </header>
 
       <main className="mx-auto max-w-7xl px-4 py-6">
+        {(bookingsError || customersError || roomsError) && <div role="alert" className="mb-5 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">Some dashboard information could not be loaded. Your records have not been deleted. Please retry before relying on availability or totals.<Button variant="outline" className="mt-3 block" onClick={() => { void refetchBookings(); void refetchCustomers(); }}>Try again</Button></div>}
         {section !== 'today' && (
           <div className={`mb-5 ${section === 'calendar' ? 'max-sm:hidden' : ''}`}>
             <p className={`text-xs font-semibold uppercase tracking-wide text-[#C46A3A] ${section === 'customers' ? 'max-sm:hidden' : ''}`}>{section === 'room-planner' ? 'Room planner' : 'Workspace'}</p>
@@ -1519,7 +1523,7 @@ export function StaffDashboard() {
           </div>
         )}
 
-        {section === 'today' && (
+        {section === 'today' && !bookingsError && !customersError && !roomsError && (
           <TodaySection
             businessName={businessName}
             bookings={bookings}
