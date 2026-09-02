@@ -46,7 +46,7 @@ export function clients(env) {
   return {
     async db(path,body,method='POST') {
       const r=await fetch(`${dbUrl}/rest/v1/${path}`,{method,redirect:'error',headers:{apikey:dbKey,Authorization:`Bearer ${dbKey}`,'Content-Type':'application/json',Prefer:'return=representation'},...(body===undefined?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(30000)});
-      if(!r.ok)throw Error(`Database operation failed: ${path.split('?')[0]} (${r.status})`);
+      if(!r.ok){const error=await r.json().catch(()=>({}));throw Error(`Database operation failed: ${path.split('?')[0]} (${r.status}/${error.code||'unknown'}): ${String(error.message||'').slice(0,250)}`);}
       return r.status===204?null:r.json();
     },
     async source(endpoint,params) {
