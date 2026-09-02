@@ -13,7 +13,8 @@ async function sql(query,parameters=[],read_only=false){
   return r.json();
 }
 async function trigger(){
-  const rows=await sql('select decrypted_secret from vault.decrypted_secrets where name=$1',[tokenName],true);
+  // Vault decryption requires the privileged database connection, not its read-only role.
+  const rows=await sql('select decrypted_secret from vault.decrypted_secrets where name=$1',[tokenName]);
   if(rows.length===1)return rows[0].decrypted_secret;
   if(rows.length)throw Error('Ambiguous trigger configuration');
   if(mode!=='configure')throw Error('Trigger secret has not been configured');
