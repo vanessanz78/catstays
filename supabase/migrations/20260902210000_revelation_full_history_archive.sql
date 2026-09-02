@@ -237,6 +237,33 @@ begin
 end
 $$;
 
+-- Explicit server-side allowlist: service credentials never infer a tenant.
+create table if not exists public.legacy_sync_connections (
+  cattery_id uuid primary key references public.catteries(id),
+  source_system text not null check (source_system = 'revelation_pets'),
+  enabled boolean not null default false,
+  schedule_timezone text not null default 'Pacific/Auckland',
+  last_success_at timestamptz,
+  updated_at timestamptz not null default now()
+);
+alter table public.legacy_sync_connections enable row level security;
+revoke all on public.legacy_sync_connections from anon, authenticated;
+grant select on public.legacy_sync_connections to authenticated;
+grant all on public.legacy_sync_connections to service_role;
+create policy "Staff read source connection" on public.legacy_sync_connections for select to authenticated
+using (public.open_home_can_manage_cattery(cattery_id));
+
+create or replace function public.catstays_can_run_legacy_import(target_cattery_id uuid)
+returns boolean language sql stable security definer set search_path = '' as $access$
+  select coalesce(public.open_home_can_manage_cattery(target_cattery_id), false)
+    or (coalesce(auth.role(), '') = 'service_role' and exists (
+      select 1 from public.legacy_sync_connections c where c.cattery_id=target_cattery_id
+        and c.source_system='revelation_pets' and c.enabled
+    ));
+$access$;
+revoke all on function public.catstays_can_run_legacy_import(uuid) from public, anon;
+grant execute on function public.catstays_can_run_legacy_import(uuid) to authenticated, service_role;
+
 create or replace function public.catstays_create_legacy_import_run(
   target_cattery_id uuid,
   source_system text,
@@ -252,7 +279,7 @@ declare
   new_run_id uuid;
 begin
   if target_cattery_id is null
-    or not public.open_home_can_manage_cattery(target_cattery_id) then
+    or not public.catstays_can_run_legacy_import(target_cattery_id) then
     raise exception 'Not authorised to create a legacy import for this cattery.';
   end if;
 
@@ -303,7 +330,7 @@ begin
   where id = target_import_run_id;
 
   if target_run.id is null
-    or not public.open_home_can_manage_cattery(target_run.cattery_id) then
+    or not public.catstays_can_run_legacy_import(target_run.cattery_id) then
     raise exception 'Not authorised to stage a source file for this import.';
   end if;
 
@@ -369,7 +396,7 @@ begin
 
   if target_file.id is null
     or target_run.id is null
-    or not public.open_home_can_manage_cattery(target_file.cattery_id) then
+    or not public.catstays_can_run_legacy_import(target_file.cattery_id) then
     raise exception 'Not authorised to stage source rows for this import.';
   end if;
 
@@ -451,11 +478,11 @@ begin
   for update;
 
   if target_run.id is null
-    or not public.open_home_can_manage_cattery(target_run.cattery_id) then
+    or not public.catstays_can_run_legacy_import(target_run.cattery_id) then
     raise exception 'Not authorised to update this legacy import.';
   end if;
 
-  if new_status not in ('staging', 'dry_run', 'ready', 'importing', 'imported', 'failed', 'rolled_back') then
+  if new_status is null or new_status not in ('staging', 'dry_run', 'ready', 'importing', 'imported', 'failed', 'rolled_back') then
     raise exception 'Invalid legacy import status.';
   end if;
 
@@ -525,7 +552,7 @@ begin
   from public.legacy_import_runs
   where id = target_import_run_id;
   if target_run.id is null
-    or not public.open_home_can_manage_cattery(target_run.cattery_id) then
+    or not public.catstays_can_run_legacy_import(target_run.cattery_id) then
     raise exception 'Not authorised to import customers for this migration.';
   end if;
   if target_run.status not in ('ready', 'importing') then
@@ -670,7 +697,7 @@ begin
   from public.legacy_import_runs
   where id = target_import_run_id;
   if target_run.id is null
-    or not public.open_home_can_manage_cattery(target_run.cattery_id) then
+    or not public.catstays_can_run_legacy_import(target_run.cattery_id) then
     raise exception 'Not authorised to import cats for this migration.';
   end if;
   if target_run.status not in ('ready', 'importing') then
@@ -779,7 +806,7 @@ begin
   from public.legacy_import_runs
   where id = target_import_run_id;
   if target_run.id is null
-    or not public.open_home_can_manage_cattery(target_run.cattery_id) then
+    or not public.catstays_can_run_legacy_import(target_run.cattery_id) then
     raise exception 'Not authorised to import bookings for this migration.';
   end if;
   if target_run.status not in ('ready', 'importing') then
@@ -1021,7 +1048,7 @@ begin
   from public.legacy_import_runs
   where id = target_import_run_id;
   if target_run.id is null
-    or not public.open_home_can_manage_cattery(target_run.cattery_id) then
+    or not public.catstays_can_run_legacy_import(target_run.cattery_id) then
     raise exception 'Not authorised to import payments for this migration.';
   end if;
   if target_run.status not in ('ready', 'importing') then
@@ -1257,5 +1284,176 @@ begin
   end loop;
 end;
 $triggers$;
+
+-- Import explicit source cat IDs and physical rooms. Never guess a customer or
+-- rewrite staff-edited relationships. Historical rooms may remain unassigned.
+create or replace function public.catstays_import_legacy_booking_relations(target_import_run_id uuid, records jsonb)
+returns jsonb language plpgsql security invoker set search_path='' as $relations$
+declare
+  target_run public.legacy_import_runs%rowtype;
+  b public.bookings%rowtype;
+  r jsonb;
+  a jsonb;
+  current_plan jsonb;
+  source_plan jsonb;
+  baseline jsonb;
+  linked integer := 0;
+  conflicts integer := 0;
+  cat_uuid uuid;
+  missing_ids integer;
+begin
+  select * into target_run from public.legacy_import_runs where id=target_import_run_id;
+  if target_run.id is null or not public.catstays_can_run_legacy_import(target_run.cattery_id)
+    or target_run.status not in ('ready','importing') then raise exception 'Import is not authorised or ready'; end if;
+  perform public.catstays_assert_legacy_batch(records,500,array['external_id']);
+  perform set_config('catstays.legacy_import_run',target_run.id::text,true);
+  for r in select value from jsonb_array_elements(records) loop
+    select * into b from public.bookings where cattery_id=target_run.cattery_id
+      and external_source='revelation_pets' and external_id=r->>'external_id' for update;
+    if b.id is null then raise exception 'Booking source ID not found'; end if;
+    if jsonb_typeof(r->'cat_external_ids') is distinct from 'array'
+      or jsonb_typeof(r->'assignments') is distinct from 'array' then raise exception 'Invalid relationship arrays'; end if;
+    select count(*) into missing_ids from jsonb_array_elements_text(r->'cat_external_ids') c(id)
+      where not exists(select 1 from public.cats where cattery_id=target_run.cattery_id
+        and external_source='revelation_pets' and external_id=c.id);
+    if missing_ids>0 then raise exception 'Unresolved source cat IDs'; end if;
+    -- The normalized plan is ordered by source IDs, not generated row IDs.
+    select jsonb_build_object('cats',coalesce((select jsonb_agg(c.external_id order by c.external_id)
+      from public.booking_cats bc join public.cats c on c.id=bc.cat_id where bc.booking_id=b.id),'[]'::jsonb),
+      'rooms',coalesce((select jsonb_agg(jsonb_build_object('cat_external_id',c.external_id,'room_id',cr.room_id,
+        'room_unit_number',cr.room_unit_number) order by c.external_id)
+        from public.booking_cat_rooms cr join public.cats c on c.id=cr.cat_id where cr.booking_id=b.id),'[]'::jsonb),
+      'segments',coalesce((select jsonb_agg(jsonb_build_object('cat_external_id',c.external_id,'room_id',s.room_id,
+        'room_unit_number',s.room_unit_number,'starts_on',s.starts_on,'ends_on',s.ends_on)
+        order by c.external_id,s.starts_on,s.ends_on,s.room_id,s.room_unit_number)
+        from public.booking_room_segments s left join public.cats c on c.id=s.cat_id where s.booking_id=b.id),'[]'::jsonb),
+      'room_id',b.room_id,'room_unit_number',b.room_unit_number) into current_plan;
+    baseline := b.legacy_metadata->'_revelation_relations';
+    if (baseline is not null and current_plan is distinct from baseline)
+      or (baseline is null and (current_plan->'cats'<>'[]'::jsonb or current_plan->'rooms'<>'[]'::jsonb
+          or current_plan->'segments'<>'[]'::jsonb or b.room_id is not null)) then
+      insert into public.legacy_reconciliation_issues(import_run_id,cattery_id,issue_type,severity,summary,details)
+      values(target_run.id,target_run.cattery_id,'sync_field_conflict','warning','Staff-edited booking room or cat links were kept.',
+        jsonb_build_object('target_table','bookings','target_id',b.id,'field','relationships','incoming_source',r)) on conflict do nothing;
+      conflicts:=conflicts+1; continue;
+    end if;
+    for a in select value from jsonb_array_elements(r->'assignments') loop
+      if not (r->'cat_external_ids' ? (a->>'cat_external_id')) then raise exception 'Assignment cat outside source booking'; end if;
+      if not exists(select 1 from public.rooms where id=(a->>'room_id')::uuid and cattery_id=target_run.cattery_id
+        and (a->>'room_unit_number')::integer between 1 and room_count) then raise exception 'Invalid physical room'; end if;
+      if nullif(a->>'starts_on','') is null or nullif(a->>'ends_on','') is null
+        or (a->>'starts_on')::date<b.check_in or (a->>'ends_on')::date>b.check_out
+        or (a->>'ends_on')::date<(a->>'starts_on')::date then raise exception 'Invalid stay dates'; end if;
+    end loop;
+    delete from public.booking_cat_rooms where booking_id=b.id;
+    delete from public.booking_room_segments where booking_id=b.id;
+    delete from public.booking_cats where booking_id=b.id;
+    insert into public.booking_cats(booking_id,cat_id)
+      select b.id,c.id from public.cats c where c.cattery_id=target_run.cattery_id and c.external_source='revelation_pets'
+        and r->'cat_external_ids' ? c.external_id;
+    if coalesce((r->>'split_stay')::boolean,false) then
+      insert into public.booking_room_segments(cattery_id,booking_id,cat_id,room_id,room_unit_number,starts_on,ends_on)
+      select target_run.cattery_id,b.id,c.id,(p->>'room_id')::uuid,(p->>'room_unit_number')::integer,
+        (p->>'starts_on')::date,(p->>'ends_on')::date from jsonb_array_elements(r->'assignments') p
+        join public.cats c on c.cattery_id=target_run.cattery_id and c.external_source='revelation_pets' and c.external_id=p->>'cat_external_id';
+    else
+      insert into public.booking_cat_rooms(booking_id,cat_id,room_id,room_unit_number)
+      select b.id,c.id,(p->>'room_id')::uuid,(p->>'room_unit_number')::integer from jsonb_array_elements(r->'assignments') p
+        join public.cats c on c.cattery_id=target_run.cattery_id and c.external_source='revelation_pets' and c.external_id=p->>'cat_external_id';
+    end if;
+    update public.bookings set room_id=(r->'assignments'->0->>'room_id')::uuid,
+      room_unit_number=(r->'assignments'->0->>'room_unit_number')::integer where id=b.id;
+    select jsonb_build_object('cats',coalesce((select jsonb_agg(c.external_id order by c.external_id)
+      from public.booking_cats bc join public.cats c on c.id=bc.cat_id where bc.booking_id=b.id),'[]'::jsonb),
+      'rooms',coalesce((select jsonb_agg(jsonb_build_object('cat_external_id',c.external_id,'room_id',cr.room_id,
+        'room_unit_number',cr.room_unit_number) order by c.external_id)
+        from public.booking_cat_rooms cr join public.cats c on c.id=cr.cat_id where cr.booking_id=b.id),'[]'::jsonb),
+      'segments',coalesce((select jsonb_agg(jsonb_build_object('cat_external_id',c.external_id,'room_id',s.room_id,
+        'room_unit_number',s.room_unit_number,'starts_on',s.starts_on,'ends_on',s.ends_on)
+        order by c.external_id,s.starts_on,s.ends_on,s.room_id,s.room_unit_number)
+        from public.booking_room_segments s left join public.cats c on c.id=s.cat_id where s.booking_id=b.id),'[]'::jsonb),
+      'room_id',(select room_id from public.bookings where id=b.id),
+      'room_unit_number',(select room_unit_number from public.bookings where id=b.id)) into source_plan;
+    update public.bookings set legacy_metadata=legacy_metadata||jsonb_build_object('_revelation_relations',source_plan)
+      where id=b.id;
+    linked:=linked+1;
+  end loop;
+  perform set_config('catstays.legacy_import_run','',true);
+  return jsonb_build_object('bookings_linked',linked,'staff_edits_preserved',conflicts);
+end;
+$relations$;
+revoke all on function public.catstays_import_legacy_booking_relations(uuid,jsonb) from public,anon;
+grant execute on function public.catstays_import_legacy_booking_relations(uuid,jsonb) to authenticated,service_role;
+
+-- Durable before/after images, including relation rows, support a reviewed
+-- rollback without ever restoring over a later staff change automatically.
+create table if not exists public.legacy_import_changes (
+  id bigint generated always as identity primary key,
+  import_run_id uuid not null,
+  cattery_id uuid not null,
+  target_table text not null,
+  target_id uuid not null,
+  operation text not null check(operation in ('INSERT','UPDATE','DELETE')),
+  before_record jsonb,
+  after_record jsonb,
+  changed_at timestamptz not null default now(),
+  foreign key(import_run_id,cattery_id) references public.legacy_import_runs(id,cattery_id)
+);
+create index if not exists legacy_import_changes_run_idx on public.legacy_import_changes(import_run_id,id);
+alter table public.legacy_import_changes enable row level security;
+revoke all on public.legacy_import_changes from anon, authenticated;
+grant select on public.legacy_import_changes to authenticated;
+grant all on public.legacy_import_changes to service_role;
+grant usage, select on sequence public.legacy_import_changes_id_seq to service_role;
+create policy "Staff read import changes" on public.legacy_import_changes for select to authenticated
+using (public.open_home_can_manage_cattery(cattery_id));
+
+create or replace function public.catstays_audit_legacy_import_change()
+returns trigger language plpgsql security definer set search_path = '' as $audit$
+declare
+  run_id uuid := nullif(current_setting('catstays.legacy_import_run',true),'')::uuid;
+  run_tenant uuid;
+  record_tenant uuid;
+  row_value jsonb := case when tg_op='DELETE' then to_jsonb(old) else to_jsonb(new) end;
+begin
+  if run_id is null then return coalesce(new,old); end if;
+  select cattery_id into run_tenant from public.legacy_import_runs where id=run_id;
+  record_tenant := (row_value->>'cattery_id')::uuid;
+  if tg_table_name in ('booking_cats','booking_cat_rooms') then
+    select cattery_id into record_tenant from public.bookings where id=(row_value->>'booking_id')::uuid;
+  end if;
+  if run_tenant is null or record_tenant is distinct from run_tenant then
+    raise exception 'Import audit tenant mismatch';
+  end if;
+  insert into public.legacy_import_changes(import_run_id,cattery_id,target_table,target_id,operation,before_record,after_record)
+  values(run_id,run_tenant,tg_table_name,(row_value->>'id')::uuid,tg_op,
+    case when tg_op<>'INSERT' then to_jsonb(old) end,
+    case when tg_op<>'DELETE' then to_jsonb(new) end);
+  return coalesce(new,old);
+end;
+$audit$;
+revoke all on function public.catstays_audit_legacy_import_change() from public,anon,authenticated;
+do $audit_triggers$
+declare target_table text;
+begin
+  foreach target_table in array array['customers','cats','bookings','payments','customer_credit_ledger','booking_cats','booking_cat_rooms','booking_room_segments'] loop
+    execute format('drop trigger if exists catstays_legacy_change_audit on public.%I',target_table);
+    execute format('create trigger catstays_legacy_change_audit after insert or update or delete on public.%I
+      for each row execute function public.catstays_audit_legacy_import_change()',target_table);
+  end loop;
+end;
+$audit_triggers$;
+
+-- Service execution is restricted again inside every RPC by the allowlist.
+grant execute on function public.catstays_create_legacy_import_run(uuid,text,text,jsonb),
+  public.catstays_stage_legacy_source_file(uuid,text,text,text,bigint,integer,jsonb,text),
+  public.catstays_stage_legacy_source_records(uuid,jsonb),
+  public.catstays_set_legacy_import_status(uuid,text,jsonb),
+  public.catstays_import_legacy_customers(uuid,jsonb),
+  public.catstays_import_legacy_cats(uuid,jsonb),
+  public.catstays_import_legacy_bookings(uuid,jsonb),
+  public.catstays_import_legacy_payments(uuid,jsonb),
+  public.catstays_assert_legacy_batch(jsonb,integer,text[]),
+  public.catstays_preserve_legacy_local_edits() to service_role;
 
 commit;
