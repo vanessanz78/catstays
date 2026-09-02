@@ -62,3 +62,7 @@ Frontend typecheck and production build PASSED at a0d94d6fffa4cbd4fb0e9f89c2f211
 Nightly activation has now been requested again after the verified repair, for 00:01 Pacific/Auckland, with minute-by-minute bounded continuation while a daily job is active. Confirm cron active plus a newer successful checkpoint/HTTP response before claiming autonomous operation verified. The first full sweep is still NOT complete; do not imply all source fields or historical reconciliation are finished.
 
 Authenticated development UAT remains blocked: preview is at /login, not signed in. No front-end main merge or Replit publication was performed. Root Replit checkout and original protected archives remain preserved. Updated migration evidence is in PR #61.
+
+## Autonomous execution verified — 2026-09-02 13:07 UTC
+
+`catstays-revelation-nightly` is active. Cron execution at 13:06 UTC succeeded; without any further manual tick the worker advanced from 47 to 87 processed booking details (8,870 remaining), `last_error` null, and acquired the next scheduled lease at 13:07 UTC. This independently proves scheduled continuation, not merely that a cron row exists. The first full sweep is still running. Its completion, complete exception reconciliation, preview mobile UAT and frontend publication are NOT verified. The published website remains on its previous frontend release; source data/index repairs are already applied to the real database. Continue using Revelation Pets as primary.
