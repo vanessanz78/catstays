@@ -107,3 +107,13 @@ test('customer pets are imported in bounded bulk batches',async()=>{
   assert.equal(f.calls.filter(c=>c.path==='rpc/catstays_import_legacy_cats').length,1);
   assert.equal(f.calls.at(-1).body.next_phase,'bookings');
 });
+test('blank source customer names are archived and flagged without blocking valid profiles',async()=>{
+  const f=fixture('customers',{queue:[{from:'2026-01-01',to:'2026-12-31'}]});
+  f.sourceRows=[{id:1,name:' ',pets:[{id:2,name:'Not linked'}]},{id:3,name:'Valid',pets:[{id:4,name:''},{id:5,name:'Valid cat'}]}];await tick(f);
+  assert.equal(f.calls.find(c=>c.path==='rpc/catstays_stage_legacy_source_records').body.records.length,2);
+  assert.deepEqual(f.calls.find(c=>c.path==='rpc/catstays_import_legacy_customers').body.records.map(c=>c.external_id),['3']);
+  assert.deepEqual(f.calls.find(c=>c.path==='rpc/catstays_import_legacy_cats').body.records.map(c=>c.external_id),['5']);
+  assert.ok(f.calls.some(c=>c.body?.issue_type==='api_customer_missing_name'));
+  assert.ok(f.calls.some(c=>c.body?.issue_type==='api_cat_missing_name'));
+  assert.equal(f.calls.at(-1).body.next_phase,'bookings');
+});
