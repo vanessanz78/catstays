@@ -9,8 +9,8 @@ Deliver the founder-described, phone-first cattery operations workflow and compl
 ## Source Of Truth
 
 - Repository: `vanessanz78/catstays`
-- Working ref: `codex/customer-portal-collaboration`
-- Base `main`: `a121201f32a31e84a7a042f4f3e996d6cee1d23a`
+- Working ref: `refine/revelation-workflow-gaps-20260902`
+- Base `main`: `01c828f2e692a2e6b898a3f8f73d652fbae52597`
 - Review and deployment environment: CatStays Replit
 - Operating-system entrypoint: `START_HERE.md` in `vanessanz78/codex-operating-system`
 
@@ -27,13 +27,15 @@ Deliver the founder-described, phone-first cattery operations workflow and compl
 - Customer merging is a guided choose → compare → confirm → complete workflow. It defaults every profile field to Customer 1, allows field-by-field choices from Customer 2, combines all tenant-owned related records, preserves the earliest join date, and writes a private audit snapshot before removing the second profile.
 - The 2 September mobile UAT repairs make move/split and report date inputs reliable, refresh adjustment totals immediately, add phone report sorting, and add an audited history-free customer cleanup path that refuses any real operational or financial history.
 - The customer portal release candidate replaces the read-only portal shell with live booking, cat, profile, photo-update, and conversation workspaces. Customer writes use narrowly scoped authenticated database functions, while customer amendment messages are saved in the shared staff conversation, create a staff alert, and send a cattery email alert.
+- A fresh founder walkthrough of the two core Revelation Pets workflows confirmed that CatStays should keep Today as the operating cockpit rather than rebuild the legacy product screen for screen. Today now adds live customer/cat lookup, direct start-booking shortcuts, one-tap check-in/check-out, the five most recently received bookings, explicit arrival/collection times on operational cards, and a seven-day In / Out / Day end summary.
+- The universal Today lookup routes a selected match to the filtered customer directory or opens New Booking with that customer already selected, preserving the existing availability-first CatStays booking flow and modern visual language.
 - The database migration for operational events, adjustments, credit ledger, payment metadata, customer-visible notes, and split-room segments is committed but must not be applied outside the reviewed release workflow.
 - The customer-directory migration for merge history and the atomic merge function is also committed but must not be applied outside the reviewed release workflow.
 - The frozen Open Home architecture is unchanged.
 
 ## Verification Required Before Completion
 
-1. Keep the 47-test staff booking operations suite green.
+1. Keep the 49-test staff booking operations suite green.
 2. Pass the complete workspace type check and production build.
 3. Review the customer-portal Supabase migration before applying it to the CatStays project.
 4. Verify Today, New Booking, booking detail, payments, calendar, customer report, live search, and all customer-merge steps at phone and laptop widths, including `scrollWidth <= viewport width` for the page and intentional horizontal scrolling only inside the room timeline.
@@ -53,4 +55,4 @@ Deliver the founder-described, phone-first cattery operations workflow and compl
 
 ## Handoff
 
-Read the standard project sequence from root `START_HERE.md`, then read this file, `DECISION_LOG.md`, and `docs/codex-handoffs/2026-09-01-phone-first-booking-operations.md` before continuing this sprint.
+Read the standard project sequence from root `START_HERE.md`, then read this file, `DECISION_LOG.md`, and `docs/codex-handoffs/2026-09-02-revelation-workflow-refinement.md` before continuing this sprint.

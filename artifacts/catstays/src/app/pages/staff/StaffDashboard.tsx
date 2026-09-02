@@ -44,12 +44,13 @@ import { StaffCustomerDirectory } from './StaffCustomerDirectory';
 import { StaffSubscription } from './StaffSubscription';
 import {
   bookingRoomUnitKeys,
-  bookingRoomUnitKeysForDate,
-  expandPhysicalRooms,
   physicalRoomName,
 } from '../../lib/roomInventory';
 import { bookingFinancials } from '../../lib/bookingOperations';
 import { normalizeBookingSetup } from '../../lib/bookingSetup';
+import { customerMatchesDirectorySearch } from '../../lib/customerDirectory';
+import { formatBookingTime } from '../../lib/bookingSchedule';
+import { buildDashboardData, dailyBookingAction } from '../../lib/staffDashboard';
 
 const ROOT_DOMAIN = 'catstays.app';
 
@@ -181,9 +182,13 @@ function getCatNames(booking: { booking_cats?: { cat?: { name?: string | null } 
 function BookingRow({
   booking,
   actionLabel,
+  onAction,
+  actionDisabled = false,
 }: {
   booking: Booking;
   actionLabel: string;
+  onAction?: () => void;
+  actionDisabled?: boolean;
 }) {
   const { cattery } = useAuth();
   const bookingSetup = normalizeBookingSetup(cattery?.website_settings);
@@ -196,24 +201,40 @@ function BookingRow({
   });
   const paid = financials.owing <= 0 || booking.payment_status === 'paid';
 
+  const bookingHref = `/staff-dashboard/bookings?booking=${booking.id}`;
+
   return (
-    <Link to={`/staff-dashboard/bookings?booking=${booking.id}`} className="grid gap-3 rounded-lg bg-[#F8F7F5] p-4 transition hover:bg-[#F1E8DE] sm:grid-cols-[1fr_auto] sm:items-center">
-      <div>
+    <article className="grid gap-3 rounded-lg bg-[#F8F7F5] p-4 transition hover:bg-[#F1E8DE] sm:grid-cols-[1fr_auto] sm:items-center">
+      <Link to={bookingHref} aria-label={`Open ${customerName} booking`} className="min-w-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C46A3A] focus-visible:ring-offset-2">
         <p className="font-semibold text-[#0A1128]">{customerName}</p>
         <div className="mt-1 flex flex-wrap gap-1">{catNames.split(',').map((name) => <Badge key={name.trim()} variant="outline" className="bg-white text-xs">🐱 {name.trim()}</Badge>)}</div>
-        <p className="mt-1 text-xs text-[#768098]">
-          {roomName} · {formatDate(booking.check_in)} to {formatDate(booking.check_out)}
+        <p className="mt-2 text-xs text-[#768098]">{roomName}</p>
+        <p className="mt-0.5 text-xs font-medium text-[#4E5871]">
+          {formatDate(booking.check_in)} {booking.check_in_time ? formatBookingTime(booking.check_in_time) : ''}
+          {' → '}
+          {formatDate(booking.check_out)} {booking.check_out_time ? formatBookingTime(booking.check_out_time) : ''}
         </p>
-      </div>
+      </Link>
       <div className="flex items-center gap-2 sm:justify-end">
         <Badge className="rounded-full bg-[#E9D7C8] text-[#8A4E2B] hover:bg-[#E9D7C8]">
           {paid ? 'Paid' : `Owing $${financials.owing.toFixed(2)}`}
         </Badge>
-        <span className="inline-flex h-9 items-center rounded-full bg-[#0A1128] px-4 text-sm font-medium text-white">
-          {actionLabel}
-        </span>
+        {onAction ? (
+          <button
+            type="button"
+            onClick={onAction}
+            disabled={actionDisabled}
+            className="inline-flex h-9 items-center rounded-full bg-[#0A1128] px-4 text-sm font-medium text-white transition hover:bg-[#19233D] disabled:cursor-wait disabled:opacity-55"
+          >
+            {actionDisabled ? 'Saving…' : actionLabel}
+          </button>
+        ) : (
+          <Link to={bookingHref} className="inline-flex h-9 items-center rounded-full bg-[#0A1128] px-4 text-sm font-medium text-white transition hover:bg-[#19233D]">
+            {actionLabel}
+          </Link>
+        )}
       </div>
-    </Link>
+    </article>
   );
 }
 
@@ -320,6 +341,7 @@ function TodaySection({
   catterySlug,
   selectedDate,
   onSelectedDateChange,
+  updateBookingStatus,
 }: {
   businessName: string;
   bookings: Booking[];
@@ -331,7 +353,25 @@ function TodaySection({
   catterySlug?: string;
   selectedDate: string;
   onSelectedDateChange: (date: string) => void;
+  updateBookingStatus: ReturnType<typeof useBookings>['updateBookingStatus'];
 }) {
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [statusActionId, setStatusActionId] = useState('');
+  const [statusActionError, setStatusActionError] = useState('');
+  const customerMatches = customerSearch.trim()
+    ? customers.filter((customer) => customerMatchesDirectorySearch(customer, customerSearch)).slice(0, 6)
+    : [];
+
+  const applyDailyStatus = async (booking: Booking, nextStatus: string) => {
+    setStatusActionId(booking.id);
+    setStatusActionError('');
+    const { error } = await updateBookingStatus(booking.id, nextStatus);
+    if (error) {
+      setStatusActionError(typeof error === 'string' ? error : error.message || 'The booking could not be updated.');
+    }
+    setStatusActionId('');
+  };
+
   return (
     <>
       <section className="mb-5 rounded-lg border border-[#E8DED4] bg-white p-4 shadow-sm sm:p-5">
@@ -341,6 +381,43 @@ function TodaySection({
             New booking
           </Button>
         </Link>
+
+        <div className="relative mb-3">
+          <label className="flex min-w-0 items-center gap-3 rounded-lg border border-[#E8DED4] bg-white px-4 py-3 shadow-sm focus-within:border-[#C46A3A]">
+            <Search className="h-5 w-5 shrink-0 text-[#C46A3A]" />
+            <span className="sr-only">Find a customer or cat</span>
+            <input
+              value={customerSearch}
+              onChange={(event) => setCustomerSearch(event.currentTarget.value)}
+              placeholder="Find a customer or cat…"
+              className="min-w-0 flex-1 bg-transparent text-sm text-[#0A1128] outline-none placeholder:text-[#768098]"
+            />
+            {customerSearch && <button type="button" onClick={() => setCustomerSearch('')} aria-label="Clear customer search" className="text-[#768098] hover:text-[#0A1128]"><X className="h-4 w-4" /></button>}
+          </label>
+          {customerSearch.trim() && (
+            <div className="absolute inset-x-0 z-20 mt-2 max-h-80 overflow-y-auto rounded-xl border border-[#E8DED4] bg-white p-1 shadow-xl">
+              {customerMatches.length > 0 ? customerMatches.map((customer) => (
+                <div key={customer.id} className="flex items-stretch gap-1 rounded-lg hover:bg-[#FFF8F2]">
+                  <Link
+                    to={`/staff-dashboard/customers?search=${encodeURIComponent(customer.id)}`}
+                    className="min-w-0 flex-1 px-3 py-3"
+                  >
+                    <p className="truncate font-semibold text-[#0A1128]">{customer.name}</p>
+                    <p className="truncate text-sm text-[#4E5871]">{customer.email} · {customer.phone || 'No phone'}</p>
+                    <p className="mt-0.5 truncate text-xs text-[#768098]">{(customer.cats || []).map((cat) => cat.name).join(', ') || 'No cats saved'}</p>
+                  </Link>
+                  <Link
+                    to={`/staff-dashboard/bookings?new=true&customer=${customer.id}`}
+                    aria-label={`Start a booking for ${customer.name}`}
+                    className="m-1 grid w-11 shrink-0 place-items-center rounded-lg text-[#C46A3A] hover:bg-[#C46A3A]/10"
+                  >
+                    <Plus className="h-5 w-5" />
+                  </Link>
+                </div>
+              )) : <p className="px-3 py-4 text-sm text-[#4E5871]">No matching customer or cat.</p>}
+            </div>
+          )}
+        </div>
 
         <div className="rounded-lg border border-[#E8DED4] bg-[#F8F7F5] p-3 sm:p-4">
           <div className="flex items-center justify-between gap-3">
@@ -384,6 +461,9 @@ function TodaySection({
           emptyDescription="New arrivals will appear here as soon as they are booked for this cattery."
           actionLabel="Check in"
           isLoading={isLoading}
+          actionKind="arrival"
+          actionBookingId={statusActionId}
+          onBookingAction={applyDailyStatus}
         />
         <BookingListPanel
           title={selectedDate === getLocalDateKey() ? 'Departures Today' : 'Departures'}
@@ -395,8 +475,13 @@ function TodaySection({
           emptyDescription="Check-outs for this cattery will show here when bookings reach their departure date."
           actionLabel="Check out"
           isLoading={isLoading}
+          actionKind="departure"
+          actionBookingId={statusActionId}
+          onBookingAction={applyDailyStatus}
         />
       </div>
+
+      {statusActionError && <p role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{statusActionError}</p>}
 
       <div className="mt-5 grid gap-5 lg:grid-cols-[1.35fr_0.65fr]">
         <PagePanel>
@@ -435,6 +520,17 @@ function TodaySection({
             </div>
           </PagePanel>
 
+          <PagePanel>
+            <div className="flex items-center justify-between gap-3">
+              <div><h2 className="text-xl font-semibold">Latest bookings</h2><p className="text-xs text-[#4E5871]">Most recently received</p></div>
+              <Link to="/staff-dashboard/bookings" className="text-sm font-semibold text-[#C46A3A]">View all</Link>
+            </div>
+            <div className="mt-4 space-y-2">
+              {data.latestBookings.map((booking) => <BookingRow key={booking.id} booking={booking} actionLabel="Open" />)}
+              {data.latestBookings.length === 0 && <p className="rounded-lg bg-[#F8F7F5] p-4 text-sm text-[#4E5871]">No recent bookings yet.</p>}
+            </div>
+          </PagePanel>
+
           {data.waitingList.length > 0 && <PagePanel>
             <div className="flex items-center justify-between"><h2 className="text-xl font-semibold">Waiting list</h2><Badge variant="outline">{data.waitingList.length}</Badge></div>
             <div className="mt-4 space-y-2">{data.waitingList.map((booking) => <BookingRow key={booking.id} booking={booking} actionLabel="Open" />)}</div>
@@ -443,6 +539,12 @@ function TodaySection({
           <PagePanel>
             <div className="flex items-center justify-between"><div><h2 className="text-xl font-semibold">7-day occupancy</h2><p className="text-xs text-[#4E5871]">Physical rooms in use</p></div><Link to={`/staff-dashboard/calendar?date=${selectedDate}`} className="text-sm font-semibold text-[#C46A3A]">Calendar</Link></div>
             <div className="mt-4 grid grid-cols-7 gap-1">{data.occupancyWeek.map((day) => <div key={day.date} className="text-center"><div className="flex h-20 items-end overflow-hidden rounded-md bg-[#F1E8DE]"><div className="w-full bg-[#C46A3A]" style={{ height: `${Math.max(day.percentage, day.count ? 8 : 0)}%` }} /></div><span className="mt-1 block text-[10px] text-[#4E5871]">{new Date(`${day.date}T12:00:00`).toLocaleDateString(undefined, { weekday: 'narrow' })}</span><span className="block text-[10px] font-semibold">{day.count}</span></div>)}</div>
+            <div className="mt-4 overflow-hidden rounded-lg border border-[#E8DED4]">
+              <table className="w-full table-fixed text-center text-xs">
+                <thead className="bg-[#F8F7F5] text-[#4E5871]"><tr><th className="px-2 py-2 text-left font-semibold">Day</th><th className="px-1 py-2 font-semibold">In</th><th className="px-1 py-2 font-semibold">Out</th><th className="px-1 py-2 font-semibold">Day end</th></tr></thead>
+                <tbody>{data.occupancyWeek.map((day) => <tr key={`${day.date}-summary`} className="border-t border-[#EEE7DF]"><td className="px-2 py-2 text-left font-medium">{new Date(`${day.date}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' })}</td><td className="px-1 py-2">{day.arrivals}</td><td className="px-1 py-2">{day.departures}</td><td className="px-1 py-2 font-semibold">{day.dayEnd}</td></tr>)}</tbody>
+              </table>
+            </div>
           </PagePanel>
 
           <PagePanel>
@@ -482,6 +584,9 @@ function BookingListPanel({
   emptyDescription,
   actionLabel,
   isLoading,
+  actionKind,
+  actionBookingId,
+  onBookingAction,
 }: {
   title: string;
   count: number;
@@ -492,6 +597,9 @@ function BookingListPanel({
   emptyDescription: string;
   actionLabel: string;
   isLoading: boolean;
+  actionKind?: 'arrival' | 'departure';
+  actionBookingId?: string;
+  onBookingAction?: (booking: Booking, nextStatus: string) => Promise<void>;
 }) {
   return (
     <PagePanel>
@@ -504,7 +612,16 @@ function BookingListPanel({
       ) : bookings.length > 0 ? (
         <div className="space-y-3">
           {bookings.map((booking) => (
-            <BookingRow key={booking.id} booking={booking} actionLabel={actionLabel} />
+            (() => {
+              const action = actionKind ? dailyBookingAction(booking.status, actionKind) : { label: actionLabel, nextStatus: null };
+              return <BookingRow
+                key={booking.id}
+                booking={booking}
+                actionLabel={action.label}
+                actionDisabled={actionBookingId === booking.id}
+                onAction={action.nextStatus && onBookingAction ? () => void onBookingAction(booking, action.nextStatus as string) : undefined}
+              />;
+            })()
           ))}
         </div>
       ) : (
@@ -1219,45 +1336,6 @@ function MetricTile({ label, value, tone = 'light' }: { label: string; value: st
   );
 }
 
-function buildDashboardData(bookings: Booking[], rooms: Room[], today: string) {
-  const activeBookings = bookings.filter((booking) => booking.status !== 'cancelled');
-  const arrivalsToday = activeBookings.filter((booking) => booking.check_in === today);
-  const departuresToday = activeBookings.filter((booking) => booking.check_out === today);
-  const occupiedNow = activeBookings.filter((booking) => {
-    return booking.check_in <= today && booking.check_out >= today;
-  });
-  const pending = bookings.filter((booking) => booking.status === 'pending');
-  const waitingList = bookings.filter((booking) => booking.status === 'waitlist');
-  const activeRooms = rooms.filter((room) => room.is_active);
-  const physicalRooms = expandPhysicalRooms(activeRooms);
-  const occupiedRoomKeys = [...new Set(occupiedNow.flatMap((booking) => bookingRoomUnitKeysForDate(booking, today)))]
-    .filter((key) => physicalRooms.some((room) => room.key === key));
-  const occupancyWeek = Array.from({ length: 7 }, (_, index) => {
-    const date = shiftDateKey(today, index);
-    const stays = activeBookings.filter((booking) => booking.check_in <= date && booking.check_out >= date);
-    const count = [...new Set(stays.flatMap((booking) => bookingRoomUnitKeysForDate(booking, date)))]
-      .filter((key) => physicalRooms.some((room) => room.key === key)).length;
-    return {
-      date,
-      count,
-      percentage: physicalRooms.length > 0 ? Math.round((count / physicalRooms.length) * 100) : 0,
-    };
-  });
-
-  return {
-    activeRooms,
-    arrivalsToday,
-    departuresToday,
-    occupiedNow,
-    occupiedRoomKeys,
-    pending,
-    waitingList,
-    occupancyWeek,
-    availableRooms: Math.max(physicalRooms.length - occupiedRoomKeys.length, 0),
-    occupancyLabel: physicalRooms.length > 0 ? `${occupiedRoomKeys.length}/${physicalRooms.length}` : '0/0',
-  };
-}
-
 function bookingRoomIds(booking: Booking) {
   const assignedRoomIds = (booking.booking_cat_rooms || [])
     .map((assignment) => assignment.room?.id)
@@ -1294,6 +1372,7 @@ export function StaffDashboard() {
     loading: bookingsLoading,
     moveBooking,
     splitBooking,
+    updateBookingStatus,
     refetch: refetchBookings,
   } = useBookings();
   const {
@@ -1446,6 +1525,7 @@ export function StaffDashboard() {
             catterySlug={cattery?.slug}
             selectedDate={selectedDate}
             onSelectedDateChange={setSelectedDate}
+            updateBookingStatus={updateBookingStatus}
           />
         )}
         {section === 'bookings' && <BookingsSection bookings={bookings} isLoading={isLoading} showNewBooking={showNewBooking} />}

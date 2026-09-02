@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-09-02
+
+- Refined Today from the founder's narrated daily workflow: live customer/cat lookup, direct preselected booking start, one-tap check-in/check-out, recent bookings, and clear arrival/collection times.
+- Added a compact seven-day In / Out / Day end movement summary alongside physical-room occupancy.
+- Kept CatStays' independent modern visual language and availability-first booking model while adopting the proven operational shortcuts from the reference workflow.
+
 ## 2026-09-01
 
 - Reordered the staff dashboard around daily operational work: Today, Bookings, Calendar, Customers, Messages, and Cat Updates.
