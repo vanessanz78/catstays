@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { bookingRoomUnitKeys, roomUnitHasConflict } from '@/app/lib/roomInventory';
 import { announceCatStaysBookingsChanged } from '@/app/lib/bookingAlerts';
-import { fetchAllRows } from '@/app/lib/fetchAllRows';
+import { fetchAllRows, fetchRowsByIds } from '@/app/lib/fetchAllRows';
 
 export interface BookingWithDetails {
   id: string;
@@ -98,7 +98,9 @@ export function useBookings(_options?: { allPages?: boolean }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const requestGeneration = useRef(0);
   const fetchBookings = async () => {
+    const generation = ++requestGeneration.current;
     if (!cattery?.id) {
       setBookings([]);
       setLoading(false);
@@ -107,7 +109,20 @@ export function useBookings(_options?: { allPages?: boolean }) {
 
     setLoading(true);
     setError(null);
-    const { data, error } = await fetchAllRows<BookingWithDetails>((from, to) => supabase
+    const { data, error } = await fetchRowsByIds<BookingWithDetails>(
+      () => fetchAllRows<{ id: string }>((from, to) => supabase
+        .from('bookings')
+        .select('id')
+        .eq('cattery_id', cattery.id)
+        .order('created_at', { ascending: false })
+        .order('id')
+        .range(from, to), {
+          pageSize: 500, concurrency: 2,
+          count: () => supabase.from('bookings')
+            .select('id', { count: 'exact', head: true })
+            .eq('cattery_id', cattery.id),
+        }),
+      (ids) => supabase
       .from('bookings')
       .select(`
         *,
@@ -131,16 +146,9 @@ export function useBookings(_options?: { allPages?: boolean }) {
         payments(id, amount, status, type, payment_method, paid_on)
       `)
       .eq('cattery_id', cattery.id)
-      .order('created_at', { ascending: false })
-      .order('id')
-      .range(from, to), {
-        // Counting every nested page caused authenticated history requests to time out.
-        pageSize: 250,
-        concurrency: 2,
-        count: () => supabase.from('bookings')
-          .select('id', { count: 'exact', head: true })
-          .eq('cattery_id', cattery.id),
-      });
+      .in('id', ids));
+
+    if (generation !== requestGeneration.current) return;
 
     if (error) {
       setError(error.message);
@@ -152,6 +160,7 @@ export function useBookings(_options?: { allPages?: boolean }) {
 
   useEffect(() => {
     fetchBookings();
+    return () => { requestGeneration.current++; };
   }, [cattery?.id]);
 
   const createBooking = async (booking: {
