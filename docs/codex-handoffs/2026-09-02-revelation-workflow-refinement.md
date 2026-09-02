@@ -47,6 +47,8 @@ CatStays already had the hard booking and financial mechanics: customer/cat sear
 
 This refinement adds no schema. However, its base `main` already includes the unreleased customer-portal collaboration code and `supabase/migrations/20260902162000_customer_portal_collaboration.sql`. Do not publish the combined application SHA until that migration has been reviewed and applied to the CatStays Supabase project in the approved release sequence.
 
+The pre-application review found and corrected PostgreSQL's default function execution grant: both customer write RPCs now revoke `PUBLIC` and anonymous execution before granting only `authenticated`, retain explicit `auth.uid()` ownership checks and input bounds, and use an empty search path. Re-run Supabase security advisors after applying the migration.
+
 Use Replit Shell only. Never use Replit Agent.
 
 ## Remaining Release Workflow
