@@ -1181,7 +1181,7 @@ comment on column public.legacy_source_records.raw_record is
 -- Native credits retain the existing nonzero constraint.
 alter table public.customer_credit_ledger drop constraint if exists customer_credit_ledger_amount_check;
 alter table public.customer_credit_ledger add constraint customer_credit_ledger_amount_check
-  check (amount <> 0 or (external_source = 'revelation_pets' and external_id is not null and legacy_import_run_id is not null));
+  check (amount <> 0 or coalesce((external_source = 'revelation_pets' and external_id is not null and legacy_import_run_id is not null), false));
 
 create unique index if not exists legacy_sync_conflict_per_field_idx
 on public.legacy_reconciliation_issues (import_run_id, issue_type,
