@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { bookingRoomUnitKeys, roomUnitHasConflict } from '@/app/lib/roomInventory';
 import { announceCatStaysBookingsChanged } from '@/app/lib/bookingAlerts';
 import { fetchAllRowsById, fetchRowsByIds } from '@/app/lib/fetchAllRows';
+import { applyBookingReadScope, bookingReadScope } from '@/app/lib/bookingReadScope';
 
 export interface BookingWithDetails {
   id: string;
@@ -92,15 +93,20 @@ export interface BookingWithDetails {
   }[];
 }
 
-export function useBookings(_options?: { allPages?: boolean }) {
+export function useBookings(options?: { allPages?: boolean; checkOutFrom?: string }) {
+  const { checkOutFrom } = bookingReadScope(options);
   const { cattery, user } = useAuth();
   const [bookings, setBookings] = useState<BookingWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const requestGeneration = useRef(0);
+  const activeRequest = useRef<AbortController | null>(null);
   const fetchBookings = async () => {
     const generation = ++requestGeneration.current;
+    activeRequest.current?.abort();
+    const controller = new AbortController();
+    activeRequest.current = controller;
     if (!cattery?.id) {
       setBookings([]);
       setLoading(false);
@@ -111,13 +117,14 @@ export function useBookings(_options?: { allPages?: boolean }) {
     setError(null);
     const { data, error } = await fetchRowsByIds<BookingWithDetails>(
       () => fetchAllRowsById<{ id: string }>((afterId, limit) => {
-        let query = supabase.from('bookings').select('id')
-          .eq('cattery_id', cattery.id).order('id').limit(limit);
+        let query = applyBookingReadScope(supabase.from('bookings').select('id')
+          .eq('cattery_id', cattery.id), { checkOutFrom })
+          .order('id').limit(limit).abortSignal(controller.signal);
         if (afterId) query = query.gt('id', afterId);
         return query;
-      }, () => supabase.from('bookings')
+      }, () => applyBookingReadScope(supabase.from('bookings')
         .select('id', { count: 'exact', head: true })
-        .eq('cattery_id', cattery.id)),
+        .eq('cattery_id', cattery.id), { checkOutFrom }).abortSignal(controller.signal)),
       (ids) => supabase
       .from('bookings')
       .select(`
@@ -142,7 +149,7 @@ export function useBookings(_options?: { allPages?: boolean }) {
         payments(id, amount, status, type, payment_method, paid_on)
       `)
       .eq('cattery_id', cattery.id)
-      .in('id', ids));
+      .in('id', ids).abortSignal(controller.signal));
 
     if (generation !== requestGeneration.current) return;
 
@@ -156,8 +163,8 @@ export function useBookings(_options?: { allPages?: boolean }) {
 
   useEffect(() => {
     fetchBookings();
-    return () => { requestGeneration.current++; };
-  }, [cattery?.id]);
+    return () => { requestGeneration.current++; activeRequest.current?.abort(); };
+  }, [cattery?.id, checkOutFrom]);
 
   const createBooking = async (booking: {
     customer_id: string;
