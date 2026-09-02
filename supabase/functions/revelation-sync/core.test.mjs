@@ -88,6 +88,12 @@ test('export-only source fields survive API refreshes',async()=>{
   const row=f.calls.find(c=>c.path==='rpc/catstays_import_legacy_bookings').body.records[0];
   assert.equal(row.legacy_tax_amount,13.04);assert.equal(row.legacy_source,'Online');assert.equal(row.legacy_xero,'original');
 });
+test('API-only booking identity confidence uses the numeric database contract',async()=>{
+  const f=fixture();await tick(f);
+  const row=f.calls.find(c=>c.path==='rpc/catstays_import_legacy_bookings').body.records[0];
+  assert.equal(row.customer_match_confidence,1);
+  assert.equal(typeof row.customer_match_confidence,'number');
+});
 test('shared invoice cannot duplicate existing money',async()=>{
   const f=fixture();f.payments=[{...pay(),booking_id:'other-booking'}];await tick(f);
   assert.ok(!f.calls.some(c=>c.path==='rpc/catstays_import_legacy_payments'));
