@@ -377,7 +377,7 @@ begin
     raise exception 'Source rows can only be staged during staging or dry-run.';
   end if;
 
-  if jsonb_typeof(records) <> 'array' then
+  if jsonb_typeof(records) is distinct from 'array' then
     raise exception 'Legacy source records must be a JSON array.';
   end if;
 
@@ -471,6 +471,42 @@ begin
 end;
 $$;
 
+-- Validate a complete batch before touching any rows. Never silently discard bad IDs.
+create or replace function public.catstays_assert_legacy_batch(records jsonb, max_records integer, required_fields text[])
+returns void language plpgsql security invoker set search_path = '' as $
+declare field_name text;
+begin
+  if records is null or jsonb_typeof(records) is distinct from 'array' then
+    raise exception 'Legacy records must be a JSON array.';
+  end if;
+  if jsonb_array_length(records) > max_records then
+    raise exception 'Legacy batch exceeds % records.', max_records;
+  end if;
+  if exists (select 1 from jsonb_array_elements(records) r where jsonb_typeof(r) is distinct from 'object') then
+    raise exception 'Every legacy record must be an object.';
+  end if;
+  foreach field_name in array required_fields loop
+    if exists (select 1 from jsonb_array_elements(records) r
+      where jsonb_typeof(r->field_name) is distinct from 'string'
+         or nullif(btrim(r->>field_name), '') is null) then
+      raise exception 'Missing or invalid required legacy field: %', field_name;
+    end if;
+  end loop;
+  if 'external_id' = any(required_fields) then
+    if exists (select 1 from jsonb_array_elements(records) r where length(btrim(r->>'external_id')) > 160)
+      or exists (select 1 from jsonb_array_elements(records) r group by btrim(r->>'external_id') having count(*) > 1) then
+      raise exception 'Legacy external IDs must be unique within a batch and at most 160 characters.';
+    end if;
+    if exists (select 1 from jsonb_array_elements(records) r
+       where r ? 'external_source' and coalesce(r->>'external_source', '') <> 'revelation_pets') then
+      raise exception 'Only revelation_pets source records are accepted.';
+    end if;
+  end if;
+end;
+$;
+revoke all on function public.catstays_assert_legacy_batch(jsonb,integer,text[]) from public, anon;
+grant execute on function public.catstays_assert_legacy_batch(jsonb,integer,text[]) to authenticated;
+
 create or replace function public.catstays_import_legacy_customers(
   target_import_run_id uuid,
   records jsonb
@@ -495,12 +531,15 @@ begin
   if target_run.status not in ('ready', 'importing') then
     raise exception 'The legacy import must be ready before customers are imported.';
   end if;
-  if jsonb_typeof(records) <> 'array' then
+  if jsonb_typeof(records) is distinct from 'array' then
     raise exception 'Legacy customer records must be a JSON array.';
   end if;
   if jsonb_array_length(records) > 1000 then
     raise exception 'Legacy customer batches are limited to 1000 records.';
   end if;
+
+  perform public.catstays_assert_legacy_batch(records, 1000, array['external_id','customer_name']);
+  perform set_config('catstays.legacy_import_run', target_run.id::text, true);
 
   with source_rows as (
     select * from jsonb_to_recordset(records) as source(
@@ -537,7 +576,7 @@ begin
     select
       target_run.cattery_id,
       left(btrim(source.customer_name), 250),
-      lower(btrim(source.email)),
+      lower(btrim(coalesce(source.email, ''))),
       nullif(left(btrim(source.phone), 80), ''),
       nullif(btrim(source.address), ''),
       nullif(btrim(source.notes), ''),
@@ -551,7 +590,6 @@ begin
       coalesce(source.legacy_metadata, '{}'::jsonb)
     from source_rows source
     where nullif(btrim(source.customer_name), '') is not null
-      and nullif(btrim(source.email), '') is not null
       and nullif(btrim(source.external_id), '') is not null
     on conflict (cattery_id, external_source, external_id)
       where external_source is not null and external_id is not null
@@ -584,14 +622,14 @@ begin
       target_run.cattery_id,
       imported.id,
       'issued',
-      imported.legacy_account_balance,
+      coalesce(imported.legacy_account_balance, 0),
       'Opening account balance imported from Revelation Pets',
       'revelation_pets',
       'customer:' || imported.external_id || ':opening-balance',
       target_run.id,
       jsonb_build_object('source', 'customer_export')
     from imported
-    where coalesce(imported.legacy_account_balance, 0) <> 0
+    where imported.legacy_account_balance is not null
     on conflict (cattery_id, external_source, external_id)
       where external_source is not null and external_id is not null
     do update set
@@ -606,6 +644,7 @@ begin
     (select count(*) from balances)
   into imported_count, balance_count;
 
+  perform set_config('catstays.legacy_import_run', '', true);
   return jsonb_build_object(
     'customers', imported_count,
     'account_balances', balance_count
@@ -637,12 +676,15 @@ begin
   if target_run.status not in ('ready', 'importing') then
     raise exception 'The legacy import must be ready before cats are imported.';
   end if;
-  if jsonb_typeof(records) <> 'array' then
+  if jsonb_typeof(records) is distinct from 'array' then
     raise exception 'Cat import records must be a JSON array.';
   end if;
   if jsonb_array_length(records) > 5000 then
     raise exception 'Cat imports are limited to 5000 records at a time.';
   end if;
+
+  perform public.catstays_assert_legacy_batch(records, 5000, array['external_id','owner_external_id','cat_name']);
+  perform set_config('catstays.legacy_import_run', target_run.id::text, true);
 
   with source_rows as (
     select * from jsonb_to_recordset(records) as source(
@@ -661,7 +703,7 @@ begin
     from source_rows source
     left join public.customers customer
       on customer.cattery_id = target_run.cattery_id
-      and customer.external_source = source.external_source
+      and customer.external_source = coalesce(source.external_source, 'revelation_pets')
       and customer.external_id = source.owner_external_id
   ), imported as (
     insert into public.cats (
@@ -685,8 +727,8 @@ begin
       nullif(btrim(resolved.age), ''),
       nullif(btrim(resolved.medical_notes), ''),
       nullif(btrim(resolved.dietary_requirements), ''),
-      nullif(left(btrim(resolved.external_source), 80), ''),
-      nullif(left(btrim(resolved.external_id), 160), ''),
+      'revelation_pets',
+      btrim(resolved.external_id),
       target_run.id,
       coalesce(resolved.legacy_metadata, '{}'::jsonb)
     from resolved
@@ -710,6 +752,7 @@ begin
     (select count(*) from resolved where customer_id is null)
   into imported_count, unmatched_owner_count;
 
+  perform set_config('catstays.legacy_import_run', '', true);
   return jsonb_build_object(
     'cats', imported_count,
     'unmatched_owners', unmatched_owner_count
@@ -742,12 +785,15 @@ begin
   if target_run.status not in ('ready', 'importing') then
     raise exception 'The legacy import must be ready before bookings are imported.';
   end if;
-  if jsonb_typeof(records) <> 'array' then
+  if jsonb_typeof(records) is distinct from 'array' then
     raise exception 'Legacy booking records must be a JSON array.';
   end if;
   if jsonb_array_length(records) > 1000 then
     raise exception 'Legacy booking batches are limited to 1000 records.';
   end if;
+
+  perform public.catstays_assert_legacy_batch(records, 1000, array['external_id']);
+  perform set_config('catstays.legacy_import_run', target_run.id::text, true);
 
   with source_rows as (
     select * from jsonb_to_recordset(records) as source(
@@ -844,7 +890,7 @@ begin
       nullif(resolved.cancellation_note, ''),
       coalesce(resolved.created_at, timezone('utc', now())),
       'revelation_pets',
-      resolved.external_id,
+      btrim(resolved.external_id),
       resolved.legacy_reference,
       nullif(resolved.legacy_customer_name, ''),
       nullif(resolved.legacy_pet_names, ''),
@@ -948,6 +994,7 @@ begin
     where source_record_id is not null
   do nothing;
 
+  perform set_config('catstays.legacy_import_run', '', true);
   return jsonb_build_object(
     'bookings', imported_count,
     'invalid_dates', invalid_date_count,
@@ -980,12 +1027,18 @@ begin
   if target_run.status not in ('ready', 'importing') then
     raise exception 'The legacy import must be ready before payments are imported.';
   end if;
-  if jsonb_typeof(records) <> 'array' then
+  if jsonb_typeof(records) is distinct from 'array' then
     raise exception 'Legacy payment records must be a JSON array.';
   end if;
   if jsonb_array_length(records) > 1000 then
     raise exception 'Legacy payment batches are limited to 1000 records.';
   end if;
+
+  perform public.catstays_assert_legacy_batch(records, 1000, array['external_id']);
+  if exists (select 1 from jsonb_array_elements(records) r where jsonb_typeof(r->'amount') is distinct from 'number') then
+    raise exception 'Every legacy payment must have an explicit numeric amount.';
+  end if;
+  perform set_config('catstays.legacy_import_run', target_run.id::text, true);
 
   with source_rows as (
     select * from jsonb_to_recordset(records) as source(
@@ -1043,7 +1096,7 @@ begin
       resolved.resolved_customer_id,
       round(coalesce(resolved.amount, 0), 2),
       case when lower(btrim(coalesce(resolved.legacy_description, ''))) = 'deposit' then 'deposit' else 'booking' end,
-      'completed',
+      case when coalesce(resolved.legacy_deleted, false) then 'deleted' else 'completed' end,
       case lower(btrim(coalesce(resolved.legacy_payment_type, '')))
         when 'bacs / bank transfer' then 'bank_transfer'
         when 'cash' then 'cash'
@@ -1056,7 +1109,7 @@ begin
       nullif(resolved.legacy_invoice_id, ''),
       coalesce(resolved.paid_on::timestamptz, timezone('utc', now())),
       'revelation_pets',
-      resolved.external_id,
+      btrim(resolved.external_id),
       nullif(resolved.legacy_invoice_id, ''),
       nullif(resolved.legacy_description, ''),
       nullif(resolved.legacy_payment_type, ''),
@@ -1093,6 +1146,7 @@ begin
     (select count(*) from resolved where resolved_booking_id is null)
   into imported_count, unmatched_booking_count;
 
+  perform set_config('catstays.legacy_import_run', '', true);
   return jsonb_build_object(
     'payments', imported_count,
     'unmatched_bookings', unmatched_booking_count
@@ -1122,5 +1176,86 @@ comment on table public.legacy_source_records is
   'Immutable-shape lossless source rows retained for migration audit, reconciliation, and future report recovery.';
 comment on column public.legacy_source_records.raw_record is
   'The complete source row exactly as represented in the prepared migration archive.';
+
+-- A zero imported balance is meaningful: it clears the prior source balance.
+-- Native credits retain the existing nonzero constraint.
+alter table public.customer_credit_ledger drop constraint if exists customer_credit_ledger_amount_check;
+alter table public.customer_credit_ledger add constraint customer_credit_ledger_amount_check
+  check (amount <> 0 or (external_source = 'revelation_pets' and external_id is not null and legacy_import_run_id is not null));
+
+create unique index if not exists legacy_sync_conflict_per_field_idx
+on public.legacy_reconciliation_issues (import_run_id, issue_type,
+  (details->>'target_table'), (details->>'target_id'), (details->>'field'))
+where issue_type = 'sync_field_conflict';
+
+-- Three-way merge only fields owned by the importer. Native edits are kept.
+-- Conflicts are recorded for staff review; no customer messages are sent.
+create or replace function public.catstays_preserve_legacy_local_edits()
+returns trigger language plpgsql security invoker set search_path = '' as $
+declare
+  incoming jsonb := to_jsonb(new);
+  prior jsonb;
+  baseline jsonb;
+  source_snapshot jsonb := '{}'::jsonb;
+  overrides jsonb := '{}'::jsonb;
+  field_name text;
+  fields text[];
+  current_run text := current_setting('catstays.legacy_import_run', true);
+begin
+  if new.external_source is distinct from 'revelation_pets'
+    or current_run is null or current_run = ''
+    or new.legacy_import_run_id::text is distinct from current_run then
+    return new;
+  end if;
+  fields := case tg_table_name
+    when 'customers' then array['name','email','phone','address','notes','legacy_last_booking','legacy_account_balance','legacy_total_spent']
+    when 'cats' then array['customer_id','name','breed','age','medical_notes','dietary_requirements']
+    when 'bookings' then array['customer_id','check_in','check_out','check_in_time','check_out_time','status','payment_status','total_amount','guest_name','cat_names','number_of_cats','room_arrangement','cancellation_reason','cancellation_note']
+    when 'payments' then array['booking_id','customer_id','amount','type','status','payment_method','paid_on','reference']
+    when 'customer_credit_ledger' then array['customer_id','amount']
+    else array[]::text[]
+  end;
+  if tg_op = 'UPDATE' then
+    prior := to_jsonb(old);
+    baseline := old.legacy_metadata->'_revelation_source';
+  end if;
+  foreach field_name in array fields loop
+    source_snapshot := source_snapshot || jsonb_build_object(field_name, incoming->field_name);
+    if tg_op = 'UPDATE' and (
+      baseline is null or not baseline ? field_name
+      or prior->field_name is distinct from baseline->field_name
+    ) then
+      overrides := overrides || jsonb_build_object(field_name, prior->field_name);
+      if incoming->field_name is distinct from prior->field_name
+        and (baseline is null or incoming->field_name is distinct from baseline->field_name) then
+        insert into public.legacy_reconciliation_issues(import_run_id,cattery_id,issue_type,severity,summary,details)
+        values (new.legacy_import_run_id,new.cattery_id,'sync_field_conflict','warning',
+          'A CatStays edit was kept instead of overwriting it with a source change.',
+          jsonb_build_object('target_table',tg_table_name,'target_id',new.id,'external_id',new.external_id,
+            'field',field_name,'previous_source',baseline->field_name,'catstays_value',prior->field_name,'incoming_source',incoming->field_name))
+        on conflict do nothing;
+      end if;
+    end if;
+  end loop;
+  new := jsonb_populate_record(new, overrides);
+  new.legacy_metadata := coalesce(case when tg_op='UPDATE' then old.legacy_metadata end, '{}'::jsonb)
+    || coalesce(new.legacy_metadata, '{}'::jsonb)
+    || jsonb_build_object('_revelation_source', source_snapshot);
+  return new;
+end;
+$;
+revoke all on function public.catstays_preserve_legacy_local_edits() from public, anon;
+grant execute on function public.catstays_preserve_legacy_local_edits() to authenticated;
+
+do $triggers$
+declare target_table text;
+begin
+  foreach target_table in array array['customers','cats','bookings','payments','customer_credit_ledger'] loop
+    execute format('drop trigger if exists catstays_legacy_preserve_edits on public.%I',target_table);
+    execute format('create trigger catstays_legacy_preserve_edits before insert or update on public.%I
+      for each row execute function public.catstays_preserve_legacy_local_edits()',target_table);
+  end loop;
+end;
+$triggers$;
 
 commit;
