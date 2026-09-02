@@ -28,7 +28,7 @@ try {
     if(/[\r\n]/.test(env.REVELATION_PETS_API_KEY))throw Error('Unexpected API key format');
     const r=spawnSync('npx',['--yes','supabase','secrets','set','--project-ref',project,'--env-file','/dev/stdin'],{
       input:`REVELATION_PETS_API_KEY=${env.REVELATION_PETS_API_KEY}\nREVELATION_SYNC_TRIGGER_TOKEN=${value}\n`,encoding:'utf8',timeout:120000});
-    if(r.status!==0)throw Error('Edge secret configuration failed; no secret values logged');
+    if(r.status!==0)throw Error(`Edge secret configuration failed: ${String(r.stderr||r.error?.message||'').replaceAll(env.REVELATION_PETS_API_KEY,'[REDACTED]').replaceAll(value,'[REDACTED]').slice(0,800)}`);
     console.log(JSON.stringify({edge_secrets_configured:true,replit_source_secret_retained:true}));
   } else if(mode==='verify'||mode==='tick'){
     const url=`https://${project}.supabase.co/functions/v1/revelation-sync`;
