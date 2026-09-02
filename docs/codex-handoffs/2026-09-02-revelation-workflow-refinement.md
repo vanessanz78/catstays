@@ -52,7 +52,7 @@ Use Replit Shell only. Never use Replit Agent.
 ## Remaining Release Workflow
 
 1. Review and apply the release-coupled customer-portal migration.
-2. Pull exact merged SHA `510c83f9fc3063a6f81964b93766619cb95244de` in CatStays Replit using Shell only, restart the configured Runtime, verify health, and publish.
+2. Resolve and record the exact current `main` SHA containing feature merge `510c83f9fc3063a6f81964b93766619cb95244de`, then pull that exact SHA in CatStays Replit using Shell only, restart the configured Runtime, verify health, and publish.
 3. Complete live signed-in phone UAT for Today search, direct booking start, Latest bookings, and the movement summary.
 4. Test one-tap arrival/departure only on explicitly identified synthetic bookings; do not change a real customer booking.
 

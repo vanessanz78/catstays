@@ -10,7 +10,7 @@ Deliver the founder-described, phone-first cattery operations workflow and compl
 
 - Repository: `vanessanz78/catstays`
 - Working ref: `main`
-- Current `main`: `510c83f9fc3063a6f81964b93766619cb95244de`
+- Feature merge on `main`: `510c83f9fc3063a6f81964b93766619cb95244de`
 - Review and deployment environment: CatStays Replit
 - Operating-system entrypoint: `START_HERE.md` in `vanessanz78/codex-operating-system`
 
