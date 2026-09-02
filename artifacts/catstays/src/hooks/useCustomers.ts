@@ -30,6 +30,11 @@ export type MergeCustomersInput = {
   keepPortalFrom: 'primary' | 'secondary';
 };
 
+export type DeleteEmptyCustomerInput = {
+  customerId: string;
+  reason: string;
+};
+
 export function useCustomers() {
   const { cattery } = useAuth();
   const [customers, setCustomers] = useState<CustomerWithCats[]>([]);
@@ -135,6 +140,18 @@ export function useCustomers() {
     return { data, error };
   };
 
+  const deleteEmptyCustomer = async ({ customerId, reason }: DeleteEmptyCustomerInput) => {
+    if (!cattery?.id) return { data: null, error: 'No cattery found' };
+
+    const { data, error } = await supabase.rpc('catstays_delete_empty_customer', {
+      target_customer_id: customerId,
+      deletion_reason: reason.trim(),
+    });
+
+    if (!error) await fetchCustomers();
+    return { data, error };
+  };
+
   return {
     customers,
     loading,
@@ -143,6 +160,7 @@ export function useCustomers() {
     updateCustomer,
     addCat,
     mergeCustomers,
+    deleteEmptyCustomer,
     refetch: fetchCustomers,
   };
 }

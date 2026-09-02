@@ -1004,7 +1004,7 @@ export function AdminReports() {
                     <input
                       type="date"
                       value={from}
-                      onChange={(event) => setFrom(event.target.value)}
+                      onInput={(event) => setFrom(event.currentTarget.value)}
                       className="h-11 w-full rounded-lg border border-[#D8D1C8] px-3 text-sm"
                     />
                   </label>
@@ -1015,7 +1015,7 @@ export function AdminReports() {
                     <input
                       type="date"
                       value={to}
-                      onChange={(event) => setTo(event.target.value)}
+                      onInput={(event) => setTo(event.currentTarget.value)}
                       className="h-11 w-full rounded-lg border border-[#D8D1C8] px-3 text-sm"
                     />
                   </label>
@@ -1256,6 +1256,37 @@ export function AdminReports() {
                             ))}
                           </tbody>
                         </table>
+                      </div>
+                      <div className="report-no-print border-b border-[#E8DED4] bg-[#F8F7F5] p-4 md:hidden">
+                        <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+                          <label>
+                            <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#6B7A6D]">
+                              Sort by
+                            </span>
+                            <select
+                              value={sort.key}
+                              onChange={(event) => setSort({ key: event.currentTarget.value, direction: "asc" })}
+                              className="h-11 w-full rounded-lg border border-[#D8D1C8] bg-white px-3 text-sm font-semibold"
+                            >
+                              {activeReport.columns.map((column) => (
+                                <option key={column.key} value={column.key}>{column.label}</option>
+                              ))}
+                            </select>
+                          </label>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setSort((current) => ({
+                              ...current,
+                              direction: current.direction === "asc" ? "desc" : "asc",
+                            }))}
+                            className="mt-5 h-11 px-3"
+                            aria-label={`Sort ${sort.direction === "asc" ? "descending" : "ascending"}`}
+                          >
+                            {sort.direction === "asc" ? <ArrowUp className="mr-2 h-4 w-4" /> : <ArrowDown className="mr-2 h-4 w-4" />}
+                            {sort.direction === "asc" ? "Lowest first" : "Highest first"}
+                          </Button>
+                        </div>
                       </div>
                       <div className="divide-y divide-[#E8DED4] md:hidden">
                         {visibleRows.map((row) => (

@@ -53,8 +53,12 @@ test("report headers sort ascending then descending", () => {
 
 test("date, status, booking status, and live search filters combine", () => {
   assert.deepEqual(
-    filterReportRows(rows, { from: "2026-09-02" }).map((row) => row.id),
+    filterReportRows(rows, { from: "2026-09-02", to: "2026-09-04" }).map((row) => row.id),
     ["2"],
+  );
+  assert.deepEqual(
+    filterReportRows(rows, { to: "2026-09-02" }).map((row) => row.id),
+    ["1"],
   );
   assert.deepEqual(
     filterReportRows(rows, { statuses: ["Booking cancelled"] }).map(

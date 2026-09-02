@@ -121,7 +121,7 @@ export function useBookingOperations(
     if (!cattery?.id || !bookingId) return { error: 'Booking not found' };
     const taxableSubtotal = bookingFinancials(baseTotal, [], [], tax).subtotal;
     const amount = adjustmentAmount(taxableSubtotal, input.kind, input.calculation, input.value);
-    const { error } = await supabase.from('booking_adjustments').insert({
+    const { data, error } = await supabase.from('booking_adjustments').insert({
       cattery_id: cattery.id,
       booking_id: bookingId,
       kind: input.kind,
@@ -130,17 +130,11 @@ export function useBookingOperations(
       value: input.value,
       amount,
       created_by: user?.id || null,
-    });
+    }).select('*').single();
     if (!error) {
-      await syncPaymentStatus([...adjustments, {
-        id: 'pending-adjustment',
-        kind: input.kind,
-        label: input.label.trim(),
-        calculation: input.calculation,
-        value: input.value,
-        amount,
-        created_at: new Date().toISOString(),
-      }]);
+      const nextAdjustments = [...adjustments, data as unknown as BookingAdjustment];
+      setAdjustments(nextAdjustments);
+      await syncPaymentStatus(nextAdjustments);
       await recordEvent('adjustment_added', `${input.kind === 'discount' ? 'Discount' : 'Charge'} added: ${input.label.trim()}`, { amount });
       await load();
     }
@@ -152,7 +146,9 @@ export function useBookingOperations(
     const existing = adjustments.find((item) => item.id === id);
     const { error } = await supabase.from('booking_adjustments').delete().eq('id', id).eq('cattery_id', cattery.id).eq('booking_id', bookingId);
     if (!error) {
-      await syncPaymentStatus(adjustments.filter((item) => item.id !== id));
+      const nextAdjustments = adjustments.filter((item) => item.id !== id);
+      setAdjustments(nextAdjustments);
+      await syncPaymentStatus(nextAdjustments);
       await recordEvent('adjustment_removed', `Adjustment removed${existing?.label ? `: ${existing.label}` : ''}`);
       await load();
     }
