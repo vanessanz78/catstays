@@ -3,9 +3,18 @@ import { supabase } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { bookingRoomUnitKeys, roomUnitHasConflict } from '@/app/lib/roomInventory';
 import { announceCatStaysBookingsChanged } from '@/app/lib/bookingAlerts';
+import { fetchAllRows } from '@/app/lib/fetchAllRows';
 
 export interface BookingWithDetails {
   id: string;
+  external_source?: string | null;
+  external_id?: string | null;
+  legacy_reference?: string | null;
+  legacy_customer_name?: string | null;
+  legacy_pet_names?: string | null;
+  legacy_run_name?: string | null;
+  legacy_monies_received?: number | string | null;
+  legacy_outstanding?: number | string | null;
   check_in: string;
   check_out: string;
   check_in_time: string | null;
@@ -20,14 +29,6 @@ export interface BookingWithDetails {
   cancelled_at: string | null;
   cancellation_credit_amount: number;
   created_at: string;
-  external_source?: string | null;
-  external_id?: string | null;
-  legacy_reference?: string | null;
-  legacy_customer_name?: string | null;
-  legacy_pet_names?: string | null;
-  legacy_run_name?: string | null;
-  legacy_monies_received?: number | string | null;
-  legacy_outstanding?: number | string | null;
   guest_name: string | null;
   guest_email: string | null;
   guest_phone: string | null;
@@ -91,9 +92,8 @@ export interface BookingWithDetails {
   }[];
 }
 
-export function useBookings(options?: { allPages?: boolean }) {
+export function useBookings(_options?: { allPages?: boolean }) {
   const { cattery, user } = useAuth();
-  const allPages = options?.allPages ?? false;
   const [bookings, setBookings] = useState<BookingWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -107,14 +107,9 @@ export function useBookings(options?: { allPages?: boolean }) {
 
     setLoading(true);
     setError(null);
-    const pageSize = 500;
-    const allBookings: BookingWithDetails[] = [];
-    let from = 0;
-
-    while (true) {
-      let query = supabase
-        .from('bookings')
-        .select(`
+    const { data, error } = await fetchAllRows<BookingWithDetails>((from, to) => supabase
+      .from('bookings')
+      .select(`
         *,
         customer:customers(id, name, email, phone),
         room:rooms(id, name, type, price_per_night),
@@ -134,31 +129,23 @@ export function useBookings(options?: { allPages?: boolean }) {
         ),
         booking_adjustments(id, amount),
         payments(id, amount, status, type, payment_method, paid_on)
-        `)
-        .eq('cattery_id', cattery.id)
-        .order('created_at', { ascending: false });
-      if (allPages) query = query.range(from, from + pageSize - 1);
+      `, { count: 'exact' })
+      .eq('cattery_id', cattery.id)
+      .order('created_at', { ascending: false })
+      .order('id')
+      .range(from, to));
 
-      const { data, error: pageError } = await query;
-      if (pageError) {
-        setError(pageError.message);
-        setLoading(false);
-        return;
-      }
-      const page = (data as unknown as BookingWithDetails[]) || [];
-      allBookings.push(...page);
-      if (!allPages || page.length < pageSize) break;
-      from += pageSize;
+    if (error) {
+      setError(error.message);
+    } else {
+      setBookings((data as unknown as BookingWithDetails[]) || []);
     }
-
-    setError(null);
-    setBookings(allBookings);
     setLoading(false);
   };
 
   useEffect(() => {
     fetchBookings();
-  }, [cattery?.id, allPages]);
+  }, [cattery?.id]);
 
   const createBooking = async (booking: {
     customer_id: string;
