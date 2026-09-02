@@ -83,6 +83,11 @@ test('staff edited dates keep their room relationships',async()=>{
   assert.ok(!f.calls.some(c=>c.path==='rpc/catstays_import_legacy_booking_relations'));
   assert.ok(f.calls.some(c=>c.body?.issue_type==='api_staff_edited_booking_review'));
 });
+test('export-only source fields survive API refreshes',async()=>{
+  const f=fixture();Object.assign(f.existing,{legacy_tax_amount:13.04,legacy_booking_type:'Boarding',legacy_source:'Online',legacy_metadata:{belongs:'Deloraine',xero:'original'}});await tick(f);
+  const row=f.calls.find(c=>c.path==='rpc/catstays_import_legacy_bookings').body.records[0];
+  assert.equal(row.legacy_tax_amount,13.04);assert.equal(row.legacy_source,'Online');assert.equal(row.legacy_xero,'original');
+});
 test('shared invoice cannot duplicate existing money',async()=>{
   const f=fixture();f.payments=[{...pay(),booking_id:'other-booking'}];await tick(f);
   assert.ok(!f.calls.some(c=>c.path==='rpc/catstays_import_legacy_payments'));
