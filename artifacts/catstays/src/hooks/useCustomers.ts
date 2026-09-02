@@ -71,6 +71,7 @@ export function useCustomers() {
         `)
         .eq('cattery_id', cattery.id)
         .order('created_at', { ascending: false })
+        .order('id')
         .range(from, from + pageSize - 1);
 
       if (pageError) {
