@@ -1,30 +1,53 @@
 /** Fetch complete tenant-scoped reports without Supabase's default row truncation.
- * Callers must supply a stable order (including id) and count: 'exact'.
+ * Callers must supply a stable order (including id) and an exact count.
+ * Expensive nested queries can count separately, once, using the same scope.
  */
+type QueryError = { message: string };
+type CountResult = { count: number | null; error: QueryError | null };
+type PageResult<T> = { data: T[] | null; error: QueryError | null; count?: number | null };
+
 export async function fetchAllRows<T>(
-  page: (from: number, to: number) => PromiseLike<{
-    data: T[] | null; error: { message: string } | null; count?: number | null;
-  }>,
+  page: (from: number, to: number) => PromiseLike<PageResult<T>>,
+  options: {
+    pageSize?: number;
+    concurrency?: number;
+    count?: () => PromiseLike<CountResult>;
+  } = {},
 ) {
-  const size = 500;
+  const size = options.pageSize ?? 500;
+  const concurrency = options.concurrency ?? 4;
   try {
+    if (!Number.isInteger(size) || size < 1 || !Number.isInteger(concurrency) || concurrency < 1) {
+      throw new Error('Invalid report paging configuration.');
+    }
+    const counted = options.count ? await options.count() : null;
+    if (counted?.error) return { data: null, error: counted.error };
+    if (counted && counted.count == null) throw new Error('The report did not return a complete row count. Please refresh.');
+    if (counted?.count === 0) return { data: [] as T[], error: null };
+
     const first = await page(0, size - 1);
     if (first.error) return { data: null, error: first.error };
-    const rows = [...(first.data || [])];
-    if (first.count == null) throw new Error('The report did not return a complete row count. Please refresh.');
-    for (let from = rows.length; from < first.count;) {
-      if (from === 0 || (rows.length < size && rows.length < first.count)) {
-        throw new Error('The report was truncated. Please refresh.');
+    const total = counted?.count ?? first.count;
+    if (total == null || !Number.isInteger(total) || total < 0) {
+      throw new Error('The report did not return a complete row count. Please refresh.');
+    }
+    const rows: T[] = [];
+    const append = (result: PageResult<T>, from: number) => {
+      if (result.error) throw new Error(result.error.message);
+      if ((result.count != null && result.count !== total) ||
+          (result.data?.length ?? 0) !== Math.min(size, total - from)) {
+        throw new Error('Records changed or the report was truncated while loading. Please refresh this report.');
       }
-      const starts = Array.from({ length: Math.min(4, Math.ceil((first.count - from) / size)) }, (_, i) => from + i * size);
+      rows.push(...(result.data || []));
+    };
+    append(first, 0);
+    for (let from = rows.length; from < total;) {
+      const starts = Array.from({ length: Math.min(concurrency, Math.ceil((total - from) / size)) }, (_, i) => from + i * size);
       const pages = await Promise.all(starts.map(start => page(start, start + size - 1)));
-      for (const result of pages) {
-        if (result.error) return { data: null, error: result.error };
-        rows.push(...(result.data || []));
-      }
+      pages.forEach((result, i) => append(result, starts[i]));
       from += starts.length * size;
     }
-    if (rows.length !== first.count) throw new Error('Records changed while loading. Please refresh this report.');
+    if (rows.length !== total) throw new Error('Records changed while loading. Please refresh this report.');
     return { data: rows, error: null };
   } catch (error) {
     return { data: null, error: { message: error instanceof Error ? error.message : 'Unable to load the complete report.' } };
