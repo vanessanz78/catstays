@@ -16,6 +16,7 @@ begin
   get diagnostics accepted = row_count;
   return accepted;
 end;
+$$;
 
 create or replace function public.catstays_save_staff_profile(
   target_cattery uuid, target_profile uuid, profile_name text, profile_email text,
@@ -75,6 +76,7 @@ begin
   end if;
   return saved;
 end;
+$$;
 
 revoke all on function public.catstays_accept_staff_access() from public, anon;
 revoke all on function public.catstays_save_staff_profile(uuid,uuid,text,text,text,text,text) from public, anon;
