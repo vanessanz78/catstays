@@ -145,6 +145,8 @@ export function AdminBookings() {
   const {
     bookings: rawBookings,
     loading: bookingsLoading,
+    error: bookingsError,
+    refetch: refetchBookings,
     createBooking,
     updateBookingStatus,
     cancelBooking,
@@ -1644,6 +1646,8 @@ export function AdminBookings() {
           </CardContent>
         </Card>
 
+        {bookingsError && <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">Bookings could not be loaded. Your records have not been deleted.<Button variant="outline" className="mt-3 block" onClick={() => void refetchBookings()}>Try again</Button></div>}
+
         {/* Loading state */}
         {bookingsLoading && (
           <Card className="rounded-3xl border-sage/10">
@@ -1654,7 +1658,7 @@ export function AdminBookings() {
         )}
 
         {/* Bookings List */}
-        {!bookingsLoading && <div className="space-y-3">
+        {!bookingsLoading && !bookingsError && <div className="space-y-3">
           {displayedBookings.map((booking) => (
             <Card 
               key={booking.id} 
@@ -1725,7 +1729,7 @@ export function AdminBookings() {
         </div>}
 
         {/* Empty State */}
-        {!bookingsLoading && displayedBookings.length === 0 && (
+        {!bookingsLoading && !bookingsError && displayedBookings.length === 0 && (
           <Card className="rounded-3xl border-sage/10">
             <CardContent className="p-12 text-center">
               <Calendar className="w-16 h-16 text-sage/30 mx-auto mb-4" />
