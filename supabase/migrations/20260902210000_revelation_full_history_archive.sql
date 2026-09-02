@@ -473,7 +473,7 @@ $$;
 
 -- Validate a complete batch before touching any rows. Never silently discard bad IDs.
 create or replace function public.catstays_assert_legacy_batch(records jsonb, max_records integer, required_fields text[])
-returns void language plpgsql security invoker set search_path = '' as $
+returns void language plpgsql security invoker set search_path = '' as $$
 declare field_name text;
 begin
   if records is null or jsonb_typeof(records) is distinct from 'array' then
@@ -503,7 +503,7 @@ begin
     end if;
   end if;
 end;
-$;
+$$;
 revoke all on function public.catstays_assert_legacy_batch(jsonb,integer,text[]) from public, anon;
 grant execute on function public.catstays_assert_legacy_batch(jsonb,integer,text[]) to authenticated;
 
@@ -1191,7 +1191,7 @@ where issue_type = 'sync_field_conflict';
 -- Three-way merge only fields owned by the importer. Native edits are kept.
 -- Conflicts are recorded for staff review; no customer messages are sent.
 create or replace function public.catstays_preserve_legacy_local_edits()
-returns trigger language plpgsql security invoker set search_path = '' as $
+returns trigger language plpgsql security invoker set search_path = '' as $$
 declare
   incoming jsonb := to_jsonb(new);
   prior jsonb;
@@ -1243,7 +1243,7 @@ begin
     || jsonb_build_object('_revelation_source', source_snapshot);
   return new;
 end;
-$;
+$$;
 revoke all on function public.catstays_preserve_legacy_local_edits() from public, anon;
 grant execute on function public.catstays_preserve_legacy_local_edits() to authenticated;
 
