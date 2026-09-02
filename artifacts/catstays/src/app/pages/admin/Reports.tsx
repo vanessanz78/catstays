@@ -459,7 +459,7 @@ export function AdminReports() {
         )
         .eq("cattery_id", cattery.id)
         .order("created_at", { ascending: false }).order('id').range(from, to)),
-      fetchAllRows<CareCat>((from, to) => supabase
+      fetchAllRows((from, to) => supabase
         .from("cats")
         .select(
           "id,customer_id,name,breed,age,medical_notes,dietary_requirements,created_at,customer:customers(name,email)", { count: 'exact' },
