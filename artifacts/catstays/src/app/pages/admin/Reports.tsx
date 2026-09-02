@@ -15,6 +15,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useBookings, type BookingWithDetails } from "@/hooks/useBookings";
 import { supabase } from "@/utils/supabase/client";
+import { fetchAllRows } from "@/app/lib/fetchAllRows";
 import {
   DEPOSIT_STATUS_OPTIONS,
   depositReportStatus,
@@ -46,6 +47,7 @@ type PaymentRecord = {
   external_source: string | null;
   external_id: string | null;
   legacy_invoice_id: string | null;
+  legacy_customer_name?: string | null;
   legacy_description: string | null;
   legacy_payment_type: string | null;
   legacy_deleted: boolean;
@@ -442,61 +444,37 @@ export function AdminReports() {
     }
     setLedgerLoading(true);
     setLedgerError("");
-    const pageSize = 500;
-    const allPayments: PaymentRecord[] = [];
-    const allRequests: PaymentRequest[] = [];
-    const allCats: CareCat[] = [];
-    let from = 0;
-    let errors: string[] = [];
-    while (true) {
-      const [paymentsResult, requestsResult, catsResult] = await Promise.all([
-        supabase
-          .from("payments")
-          .select(
-            "id,booking_id,customer_id,amount,type,status,payment_method,paid_on,reference,created_at,external_source,external_id,legacy_invoice_id,legacy_description,legacy_payment_type,legacy_deleted",
-          )
-          .eq("cattery_id", cattery.id)
-          .order("created_at", { ascending: false })
-          .range(from, from + pageSize - 1),
-        supabase
-          .from("payment_requests")
-          .select(
-            "id,booking_id,customer_id,request_type,amount,status,paid_at,created_at",
-          )
-          .eq("cattery_id", cattery.id)
-          .order("created_at", { ascending: false })
-          .range(from, from + pageSize - 1),
-        supabase
-          .from("cats")
-          .select(
-            "id,customer_id,name,breed,age,medical_notes,dietary_requirements,created_at,customer:customers(name,email)",
-          )
-          .eq("cattery_id", cattery.id)
-          .order("name")
-          .range(from, from + pageSize - 1),
-      ]);
-      errors = [
-        paymentsResult.error?.message,
-        requestsResult.error?.message,
-        catsResult.error?.message,
-      ].filter((message): message is string => Boolean(message));
-      if (errors.length) break;
-      const paymentPage = (paymentsResult.data || []) as PaymentRecord[];
-      const requestPage = (requestsResult.data || []) as PaymentRequest[];
-      const catPage = (catsResult.data || []) as unknown as CareCat[];
-      allPayments.push(...paymentPage);
-      allRequests.push(...requestPage);
-      allCats.push(...catPage);
-      if (
-        paymentPage.length < pageSize &&
-        requestPage.length < pageSize &&
-        catPage.length < pageSize
-      ) break;
-      from += pageSize;
-    }
-    setPayments(allPayments);
-    setRequests(allRequests);
-    setCareCats(allCats);
+    const [paymentsResult, requestsResult, catsResult] = await Promise.all([
+      fetchAllRows<PaymentRecord>((from, to) => supabase
+        .from("payments")
+        .select(
+          "id,booking_id,customer_id,amount,type,status,payment_method,paid_on,reference,created_at,legacy_customer_name,legacy_invoice_id,external_source,external_id,legacy_description,legacy_payment_type,legacy_deleted", { count: 'exact' },
+        )
+        .eq("cattery_id", cattery.id)
+        .order("created_at", { ascending: false }).order('id').range(from, to)),
+      fetchAllRows<PaymentRequest>((from, to) => supabase
+        .from("payment_requests")
+        .select(
+          "id,booking_id,customer_id,request_type,amount,status,paid_at,created_at", { count: 'exact' },
+        )
+        .eq("cattery_id", cattery.id)
+        .order("created_at", { ascending: false }).order('id').range(from, to)),
+      fetchAllRows<CareCat>((from, to) => supabase
+        .from("cats")
+        .select(
+          "id,customer_id,name,breed,age,medical_notes,dietary_requirements,created_at,customer:customers(name,email)", { count: 'exact' },
+        )
+        .eq("cattery_id", cattery.id)
+        .order("name").order('id').range(from, to)),
+    ]);
+    const errors = [
+      paymentsResult.error?.message,
+      requestsResult.error?.message,
+      catsResult.error?.message,
+    ].filter(Boolean);
+    setPayments((paymentsResult.data || []) as PaymentRecord[]);
+    setRequests((requestsResult.data || []) as PaymentRequest[]);
+    setCareCats((catsResult.data || []) as unknown as CareCat[]);
     setLedgerError(errors.join(" "));
     setLedgerLoading(false);
   };
@@ -771,10 +749,10 @@ export function AdminReports() {
             values: {
               date: payment.paid_on || payment.created_at,
               reference: payment.reference || "—",
-              booking: bookingReference(booking),
+              booking: booking ? bookingReference(booking) : payment.legacy_invoice_id || '—',
               customer: booking
                 ? customerName(booking)
-                : customerById.get(payment.customer_id || "") || "Customer",
+                : customerById.get(payment.customer_id || "") || payment.legacy_customer_name || "Customer",
               method: normaliseStatus(
                 payment.legacy_payment_type || payment.payment_method,
               ),
