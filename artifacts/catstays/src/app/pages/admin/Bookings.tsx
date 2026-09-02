@@ -34,9 +34,6 @@ import {
   ChevronUp,
   Clock,
   Filter,
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
   History,
   Mail,
   NotebookPen,
@@ -328,25 +325,9 @@ export function AdminBookings() {
 
   const displayedBookings = getSortedBookings();
 
-  // Toggle sort direction or change field
   const handleSort = (field: 'arrival' | 'departure' | 'received') => {
-    if (sortField === field) {
-      // Toggle direction
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      // Change field and default to desc
-      setSortField(field);
-      setSortDirection('desc');
-    }
-  };
-
-  const getSortIcon = (field: 'arrival' | 'departure' | 'received') => {
-    if (sortField !== field) {
-      return <ArrowUpDown className="w-4 h-4" />;
-    }
-    return sortDirection === 'asc' ? 
-      <ArrowUp className="w-4 h-4" /> : 
-      <ArrowDown className="w-4 h-4" />;
+    setSortField(field);
+    setSortDirection(field === 'received' ? 'desc' : 'asc');
   };
 
   const handleViewBooking = (booking: any) => {
@@ -1644,35 +1625,22 @@ export function AdminBookings() {
         {/* Sort Controls */}
         <Card className="rounded-3xl border-sage/10">
           <CardContent className="p-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-medium mr-2" style={{ color: '#6b7a6d' }}>
-                Sort by:
+            <label className="flex items-center gap-3 text-sm font-medium" style={{ color: '#6b7a6d' }}>
+              <span className="shrink-0">Sort by</span>
+              <span className="relative min-w-0 flex-1">
+                <select
+                  aria-label="Sort bookings"
+                  value={sortField}
+                  onChange={(event) => handleSort(event.target.value as 'arrival' | 'departure' | 'received')}
+                  className="h-11 w-full appearance-none rounded-xl border border-sage/20 bg-white px-4 pr-10 text-sm font-semibold text-[#0A1128] outline-none focus:border-[#C46A3A] focus:ring-2 focus:ring-[#C46A3A]/15"
+                >
+                  <option value="arrival">Arrival date</option>
+                  <option value="departure">Departure date</option>
+                  <option value="received">Received date</option>
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6b7a6d]" />
               </span>
-              <Button
-                onClick={() => handleSort('arrival')}
-                variant="outline"
-                size="sm"
-                className="rounded-xl border-sage/20 text-xs"
-              >
-                Arrival {getSortIcon('arrival')}
-              </Button>
-              <Button
-                onClick={() => handleSort('departure')}
-                variant="outline"
-                size="sm"
-                className="rounded-xl border-sage/20 text-xs"
-              >
-                Departure {getSortIcon('departure')}
-              </Button>
-              <Button
-                onClick={() => handleSort('received')}
-                variant="outline"
-                size="sm"
-                className="rounded-xl border-sage/20 text-xs"
-              >
-                Received {getSortIcon('received')}
-              </Button>
-            </div>
+            </label>
           </CardContent>
         </Card>
 

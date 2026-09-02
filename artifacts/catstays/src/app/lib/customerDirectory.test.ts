@@ -36,6 +36,18 @@ test('customer directory search matches names, customer ids, email, phone, and c
   assert.equal(customerMatchesDirectorySearch(primary, 'loop'), false);
 });
 
+test('customer directory search matches an imported Revelation customer id', () => {
+  const customer = {
+    id: 'internal-id',
+    external_id: '24611',
+    name: 'Vanessa Bardett',
+    email: 'owner@example.com',
+    cats: [{ name: 'Pipi' }],
+  };
+
+  assert.equal(customerMatchesDirectorySearch(customer, '24611'), true);
+});
+
 test('customer metrics show latest stay, GST-aware outstanding money, and signed customer credit', () => {
   const metrics = customerDirectoryMetrics(primary.id, [
     {

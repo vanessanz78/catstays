@@ -89,7 +89,13 @@ export function SmartImport() {
       name: customer.name,
       email: customer.email,
       phone: customer.phone,
-      cats: customer.cats.map((cat) => ({ name: cat.name })),
+      external_source: customer.external_source,
+      external_id: customer.external_id,
+      cats: customer.cats.map((cat) => ({
+        name: cat.name,
+        external_source: cat.external_source,
+        external_id: cat.external_id,
+      })),
     })),
     rooms: rooms.map((room) => ({ id: room.id, name: room.name })),
     bookingKeys: bookings
@@ -100,6 +106,7 @@ export function SmartImport() {
   const readyRows = preview.filter((row) => !row.duplicate && row.errors.length === 0);
   const invalidRows = preview.filter((row) => row.errors.length > 0);
   const duplicateRows = preview.filter((row) => row.duplicate);
+  const visiblePreview = preview.slice(0, 200);
 
   const chooseFile = (nextKind: SmartImportKind) => {
     pendingKindRef.current = nextKind;
@@ -161,7 +168,12 @@ export function SmartImport() {
     setSaving(true);
     setMessage(null);
     const payloads = readyRows.map((row) => ({ ...row.payload, cattery_id: cattery.id }));
-    const { error } = await supabase.from(kind).insert(payloads);
+    const { error } = kind === 'customers'
+      ? await supabase.rpc('catstays_import_customers', {
+        target_cattery_id: cattery.id,
+        records: payloads,
+      })
+      : await supabase.from(kind).insert(payloads);
     if (error) {
       setMessage({ kind: 'error', text: `Nothing was imported. ${error.message}` });
       setSaving(false);
@@ -314,7 +326,7 @@ export function SmartImport() {
                 {preview.length > 0 && (
                   <>
                     <div className="max-h-[36rem] divide-y divide-[#E8DED4] overflow-y-auto">
-                      {preview.map((row) => (
+                      {visiblePreview.map((row) => (
                         <div key={row.rowNumber} className="grid gap-3 p-4 sm:grid-cols-[5rem_minmax(0,1fr)_auto] sm:items-start sm:px-5">
                           <span className="text-xs font-semibold uppercase tracking-wide text-[#768098]">Row {row.rowNumber}</span>
                           <div className="min-w-0">
@@ -328,6 +340,11 @@ export function SmartImport() {
                         </div>
                       ))}
                     </div>
+                    {preview.length > visiblePreview.length && (
+                      <p className="border-t border-[#E8DED4] bg-white px-5 py-3 text-sm text-[#4E5871]">
+                        Showing the first {visiblePreview.length} of {preview.length} rows. Every row will still be checked and imported.
+                      </p>
+                    )}
                     <div className="flex flex-col gap-3 border-t border-[#E8DED4] bg-[#FBF9F5] p-5 sm:flex-row sm:items-center sm:justify-between">
                       <p className="text-sm text-[#4E5871]">Only the {readyRows.length} ready row{readyRows.length === 1 ? '' : 's'} will be added to {cattery?.name || 'this cattery'}.</p>
                       <Button onClick={() => void importReadyRows()} disabled={saving || readyRows.length === 0} className="bg-[#C46A3A] hover:bg-[#A85A30]">

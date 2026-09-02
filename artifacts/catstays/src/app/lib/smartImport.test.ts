@@ -30,6 +30,52 @@ test('maps customer aliases and detects an existing customer', () => {
   assert.deepEqual(row.errors, []);
 });
 
+test('preserves Revelation customer identifiers and historic balances', () => {
+  const [row] = buildSmartImportPreview('customers', [{
+    customer_name: 'Legacy Customer',
+    email: 'legacy@example.com',
+    external_source: 'revelation_pets',
+    external_id: '24611',
+    legacy_last_booking: '1/9/2025',
+    legacy_account_balance: '$42.50',
+    legacy_metadata: '{"marketing_opt_in":true}',
+  }], { customers: [], rooms: [] });
+  assert.equal(row.payload.external_id, '24611');
+  assert.equal(row.payload.legacy_last_booking, '2025-09-01');
+  assert.equal(row.payload.legacy_account_balance, 42.5);
+  assert.deepEqual(row.payload.legacy_metadata, { marketing_opt_in: true });
+  assert.equal(row.duplicate, false);
+});
+
+test('matches Revelation cats to their owner by source identifier', () => {
+  const [row] = buildSmartImportPreview('cats', [{
+    cat_name: 'Pipi',
+    owner_external_id: '24611',
+    external_source: 'revelation_pets',
+    external_id: '24611:1',
+  }], {
+    customers: [{ id: 'customer-legacy', name: 'Legacy Customer', email: 'legacy@example.com', phone: null, external_source: 'revelation_pets', external_id: '24611' }],
+    rooms: [],
+  });
+  assert.equal(row.payload.customer_id, 'customer-legacy');
+  assert.equal(row.payload.external_id, '24611:1');
+  assert.deepEqual(row.errors, []);
+});
+
+test('keeps same-name Revelation cats when their source identifiers differ', () => {
+  const preview = buildSmartImportPreview('cats', [
+    { cat_name: 'Milo', owner_external_id: '100', external_source: 'revelation_pets', external_id: '100:1' },
+    { cat_name: 'Milo', owner_external_id: '100', external_source: 'revelation_pets', external_id: '100:2' },
+  ], {
+    customers: [{ id: 'customer-1', name: 'Owner', email: 'owner@example.com', phone: null, external_source: 'revelation_pets', external_id: '100', cats: [] }],
+    rooms: [],
+  });
+
+  assert.equal(preview.length, 2);
+  assert.equal(preview.filter((row) => row.duplicate).length, 0);
+  assert.deepEqual(preview.map((row) => row.payload.external_id), ['100:1', '100:2']);
+});
+
 test('matches cats to owners and blocks unknown owners', () => {
   const [matched, missing] = buildSmartImportPreview('cats', [
     { 'Cat Name': 'Luna', 'Owner Email': 'vanessa@example.com', Breed: 'Ragdoll' },

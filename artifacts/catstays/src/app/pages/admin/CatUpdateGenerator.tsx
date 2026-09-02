@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, Camera, CheckCircle2, Image as ImageIcon, Loader2, RefreshCw, Send } from 'lucide-react';
+import { AlertCircle, Camera, CheckCircle2, Image as ImageIcon, Loader2, RefreshCw, Search, Send } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBookings } from '@/hooks/useBookings';
 import { supabase } from '@/utils/supabase/client';
@@ -10,6 +10,7 @@ import {
   catUpdateFileError,
   normalizeCatUpdateCaption,
   safeCatUpdateFilename,
+  catUpdateCandidateMatchesSearch,
 } from '@/app/lib/catUpdates';
 import { NotificationBell } from '../../components/NotificationBell';
 import { RightMenu } from '../../components/RightMenu';
@@ -59,6 +60,7 @@ export function CatUpdateGenerator() {
   const { bookings, loading: bookingsLoading, error: bookingsError } = useBookings();
   const candidates = useMemo(() => buildCatUpdateCandidates(bookings), [bookings]);
   const [selectedKey, setSelectedKey] = useState('');
+  const [candidateSearch, setCandidateSearch] = useState('');
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState('');
   const [caption, setCaption] = useState('');
@@ -69,10 +71,14 @@ export function CatUpdateGenerator() {
   const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
 
   const selected = candidates.find((candidate) => candidate.key === selectedKey) || null;
+  const visibleCandidates = useMemo(
+    () => candidates.filter((candidate) => catUpdateCandidateMatchesSearch(candidate, candidateSearch)),
+    [candidateSearch, candidates],
+  );
 
   useEffect(() => {
-    if (selectedKey && candidates.some((candidate) => candidate.key === selectedKey)) return;
-    setSelectedKey(candidates[0]?.key || '');
+    if (!selectedKey || candidates.some((candidate) => candidate.key === selectedKey)) return;
+    setSelectedKey('');
   }, [candidates, selectedKey]);
 
   useEffect(() => () => {
@@ -239,15 +245,31 @@ export function CatUpdateGenerator() {
                   <p className="rounded-xl bg-red-50 p-4 text-sm text-red-800">Bookings could not be loaded. {bookingsError}</p>
                 ) : candidates.length ? (
                   <>
+                    <label className="block text-sm font-medium">Search customer or cat
+                      <span className="mt-1 flex h-12 items-center gap-2 rounded-xl border border-[#D9D1C8] bg-white px-3 focus-within:border-[#C46A3A] focus-within:ring-2 focus-within:ring-[#C46A3A]/15">
+                        <Search className="h-4 w-4 shrink-0 text-[#C46A3A]" />
+                        <input
+                          type="search"
+                          value={candidateSearch}
+                          onChange={(event) => setCandidateSearch(event.target.value)}
+                          placeholder="Type a customer or cat name…"
+                          className="min-w-0 flex-1 bg-transparent font-normal text-[#0A1128] outline-none"
+                        />
+                      </span>
+                    </label>
                     <label className="block text-sm font-medium">Cat and booking
                       <select className={`${fieldClass} h-12`} value={selectedKey} onChange={(event) => setSelectedKey(event.target.value)}>
-                        {candidates.map((candidate) => (
+                        <option value="">Choose a booked cat</option>
+                        {visibleCandidates.map((candidate) => (
                           <option key={candidate.key} value={candidate.key}>
                             {candidate.catName} — {candidate.customerName} — {candidate.stayStatus}
                           </option>
                         ))}
                       </select>
                     </label>
+                    {candidateSearch.trim() && visibleCandidates.length === 0 && (
+                      <p className="rounded-xl bg-[#F8F7F5] p-3 text-sm text-[#4E5871]">No booked cat matches that search.</p>
+                    )}
                     {selected && (
                       <dl className="grid gap-3 rounded-xl bg-[#F8F7F5] p-4 text-sm sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
                         <div><dt className="text-xs uppercase tracking-wide text-[#768098]">Owner</dt><dd className="mt-1 break-words font-semibold">{selected.customerName}</dd><dd className="break-all text-xs text-[#4E5871]">{selected.customerEmail || 'No email saved'}</dd></div>

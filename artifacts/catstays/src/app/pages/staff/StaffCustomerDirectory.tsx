@@ -6,7 +6,6 @@ import {
   Cat,
   Check,
   CheckCircle2,
-  FileUp,
   GitMerge,
   Plus,
   Search,
@@ -511,8 +510,10 @@ export function StaffCustomerDirectory({
         bookings,
         customer.customer_credit_ledger || [],
         { chargeTax: bookingSetup.chargeTax, taxRate: bookingSetup.taxRate },
+        customer.legacy_last_booking,
       ),
     })), [bookingSetup.chargeTax, bookingSetup.taxRate, bookings, customers, searchQuery]);
+  const visibleRows = rows.slice(0, 100);
 
   const closeAddCustomer = () => {
     if (saving) return;
@@ -549,28 +550,15 @@ export function StaffCustomerDirectory({
 
   return (
     <div className="space-y-5">
-      <Panel className="overflow-hidden bg-gradient-to-br from-white via-white to-[#FFF3E8]">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+      <Panel className="overflow-hidden bg-gradient-to-br from-white via-white to-[#FFF3E8] max-sm:border-0 max-sm:bg-none max-sm:bg-transparent max-sm:p-0 max-sm:shadow-none">
+        <div className="hidden flex-col gap-5 sm:flex lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-[#C46A3A]">Customer directory</p>
             <h3 className="mt-1 text-2xl font-semibold text-[#0A1128]">Every customer, cat, stay, and balance</h3>
             <p className="mt-1 max-w-2xl text-sm text-[#4E5871]">Search immediately by customer, ID, contact detail, or cat name.</p>
           </div>
-          <div className="grid gap-2 sm:grid-cols-3">
-            <Button type="button" onClick={() => setShowAddCustomer(true)} className="h-11 rounded-xl bg-[#C46A3A] text-white hover:bg-[#A85A30]">
-              <Plus className="mr-2 h-4 w-4" /> Add customer
-            </Button>
-            <Link to="/staff-dashboard/smart-import">
-              <Button type="button" variant="outline" className="h-11 w-full rounded-xl border-[#D8C8BA] bg-white">
-                <FileUp className="mr-2 h-4 w-4" /> Import / export
-              </Button>
-            </Link>
-            <Button type="button" variant="outline" onClick={() => setShowMergeCustomers(true)} disabled={customers.length < 2} className="h-11 rounded-xl border-[#0A1128] bg-[#0A1128] text-white hover:bg-[#19233D] hover:text-white">
-              <GitMerge className="mr-2 h-4 w-4" /> Merge customers
-            </Button>
-          </div>
         </div>
-        <label className="mt-5 flex items-center gap-3 rounded-xl border border-[#E8DED4] bg-white px-4 py-3 shadow-sm focus-within:border-[#C46A3A]">
+        <label className="flex items-center gap-3 rounded-xl border border-[#E8DED4] bg-white px-4 py-3 shadow-sm focus-within:border-[#C46A3A] sm:mt-5">
           <Search className="h-5 w-5 shrink-0 text-[#C46A3A]" />
           <span className="sr-only">Search customer directory</span>
           <input
@@ -585,6 +573,14 @@ export function StaffCustomerDirectory({
             </button>
           )}
         </label>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <Button type="button" onClick={() => setShowAddCustomer(true)} className="h-11 rounded-xl bg-[#C46A3A] text-white hover:bg-[#A85A30]">
+            <Plus className="mr-2 h-4 w-4" /> Add customer
+          </Button>
+          <Button type="button" variant="outline" onClick={() => setShowMergeCustomers(true)} disabled={customers.length < 2} className="h-11 rounded-xl border-[#0A1128] bg-[#0A1128] text-white hover:bg-[#19233D] hover:text-white">
+            <GitMerge className="mr-2 h-4 w-4" /> Merge customers
+          </Button>
+        </div>
       </Panel>
 
       <Panel>
@@ -606,18 +602,18 @@ export function StaffCustomerDirectory({
         ) : (
           <>
             <div className="space-y-3 lg:hidden">
-              {rows.map(({ customer, metrics }) => (
+              {visibleRows.map(({ customer, metrics }) => (
                 <article key={customer.id} className="rounded-2xl border border-[#E8DED4] bg-[#F8F7F5] p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <h4 className="font-semibold text-[#0A1128]">{customer.name}</h4>
-                      <p className="text-xs text-[#768098]">ID {customer.id.slice(0, 8)} · Joined {shortDate(customer.created_at)}</p>
+                      <p className="text-xs text-[#768098]">ID {customer.external_id || customer.id.slice(0, 8)} · Joined {shortDate(customer.created_at)}</p>
                     </div>
                     {metrics.outstanding > 0 && <Badge className="shrink-0 bg-[#F9E1D1] text-[#8A4E2B] hover:bg-[#F9E1D1]">Owing {money(metrics.outstanding)}</Badge>}
                   </div>
                   <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
                     <div><p className="text-xs font-medium uppercase tracking-wide text-[#768098]">Contact</p><a href={`mailto:${customer.email}`} className="break-all text-[#0A1128] hover:text-[#C46A3A]">{customer.email}</a><br />{customer.phone ? <a href={`tel:${customer.phone}`} className="text-[#0A1128] hover:text-[#C46A3A]">{customer.phone}</a> : <span className="text-[#9AA1B2]">No phone</span>}</div>
-                    <div><p className="text-xs font-medium uppercase tracking-wide text-[#768098]">Last booking</p>{metrics.lastBooking ? <Link to={`/staff-dashboard/bookings?booking=${metrics.lastBooking.id}`} className="text-[#0A1128] hover:text-[#C46A3A]">{shortDate(metrics.lastBooking.check_in)} · {metrics.lastBookingDays} {metrics.lastBookingDays === 1 ? 'day' : 'days'}</Link> : <span className="text-[#9AA1B2]">No bookings</span>}</div>
+                    <div><p className="text-xs font-medium uppercase tracking-wide text-[#768098]">Last booking</p>{metrics.lastBooking ? <Link to={`/staff-dashboard/bookings?booking=${metrics.lastBooking.id}`} className="text-[#0A1128] hover:text-[#C46A3A]">{shortDate(metrics.lastBooking.check_in)} · {metrics.lastBookingDays} {metrics.lastBookingDays === 1 ? 'day' : 'days'}</Link> : metrics.importedLastBooking ? <span className="text-[#0A1128]">{shortDate(metrics.importedLastBooking)} <span className="text-xs text-[#768098]">· imported</span></span> : <span className="text-[#9AA1B2]">No bookings</span>}</div>
                   </div>
                   <div className="mt-3 flex flex-wrap items-center gap-2">
                     {(customer.cats || []).map((cat) => <Badge key={cat.id} variant="outline" className="bg-white"><Cat className="mr-1 h-3 w-3" />{cat.name}</Badge>)}
@@ -639,13 +635,13 @@ export function StaffCustomerDirectory({
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map(({ customer, metrics }) => (
+                  {visibleRows.map(({ customer, metrics }) => (
                     <tr key={customer.id} className="group hover:bg-[#FFF8F2]">
-                      <td className="border-b border-[#EEE7DF] px-3 py-4 align-top"><p className="font-semibold text-[#0A1128]">{customer.name}</p><p className="mt-0.5 text-xs text-[#768098]">ID {customer.id.slice(0, 8)}</p></td>
+                      <td className="border-b border-[#EEE7DF] px-3 py-4 align-top"><p className="font-semibold text-[#0A1128]">{customer.name}</p><p className="mt-0.5 text-xs text-[#768098]">ID {customer.external_id || customer.id.slice(0, 8)}</p></td>
                       <td className="border-b border-[#EEE7DF] px-3 py-4 align-top"><a href={`mailto:${customer.email}`} className="block max-w-56 truncate text-[#0A1128] hover:text-[#C46A3A]">{customer.email}</a>{customer.phone ? <a href={`tel:${customer.phone}`} className="text-[#4E5871] hover:text-[#C46A3A]">{customer.phone}</a> : <span className="text-[#9AA1B2]">No phone</span>}</td>
                       <td className="border-b border-[#EEE7DF] px-3 py-4 align-top"><div className="flex max-w-52 flex-wrap gap-1">{(customer.cats || []).map((cat) => <Badge key={cat.id} variant="outline" className="bg-white"><Cat className="mr-1 h-3 w-3" />{cat.name}</Badge>)}{(customer.cats || []).length === 0 && <span className="text-[#9AA1B2]">—</span>}</div></td>
                       <td className="border-b border-[#EEE7DF] px-3 py-4 align-top whitespace-nowrap text-[#4E5871]">{shortDate(customer.created_at)}</td>
-                      <td className="border-b border-[#EEE7DF] px-3 py-4 align-top">{metrics.lastBooking ? <Link to={`/staff-dashboard/bookings?booking=${metrics.lastBooking.id}`} className="font-medium text-[#0A1128] hover:text-[#C46A3A]">{shortDate(metrics.lastBooking.check_in)}<span className="block text-xs font-normal text-[#768098]">{metrics.lastBookingDays} {metrics.lastBookingDays === 1 ? 'day' : 'days'}</span></Link> : <span className="text-[#9AA1B2]">No bookings</span>}</td>
+                      <td className="border-b border-[#EEE7DF] px-3 py-4 align-top">{metrics.lastBooking ? <Link to={`/staff-dashboard/bookings?booking=${metrics.lastBooking.id}`} className="font-medium text-[#0A1128] hover:text-[#C46A3A]">{shortDate(metrics.lastBooking.check_in)}<span className="block text-xs font-normal text-[#768098]">{metrics.lastBookingDays} {metrics.lastBookingDays === 1 ? 'day' : 'days'}</span></Link> : metrics.importedLastBooking ? <span className="font-medium text-[#0A1128]">{shortDate(metrics.importedLastBooking)}<span className="block text-xs font-normal text-[#768098]">Imported history</span></span> : <span className="text-[#9AA1B2]">No bookings</span>}</td>
                       <td className="border-b border-[#EEE7DF] px-3 py-4 align-top font-semibold"><span className={metrics.outstanding > 0 ? 'text-[#A14F2A]' : 'text-[#4E5871]'}>{money(metrics.outstanding)}</span></td>
                       <td className="border-b border-[#EEE7DF] px-3 py-4 align-top font-semibold"><span className={metrics.creditBalance > 0 ? 'text-[#32633B]' : 'text-[#4E5871]'}>{money(metrics.creditBalance)}</span></td>
                       <td className="border-b border-[#EEE7DF] px-3 py-4 align-top"><button type="button" onClick={() => setCustomerToDelete(customer)} className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-red-700 hover:text-red-800"><Trash2 className="h-3.5 w-3.5" />Delete mistaken record</button></td>
@@ -654,6 +650,11 @@ export function StaffCustomerDirectory({
                 </tbody>
               </table>
             </div>
+            {rows.length > visibleRows.length && (
+              <p className="mt-3 rounded-xl bg-[#F8F7F5] px-4 py-3 text-sm text-[#4E5871]">
+                Showing the first {visibleRows.length} of {rows.length} customers. Search by customer, ID, contact detail, or cat name to narrow the list instantly.
+              </p>
+            )}
           </>
         )}
       </Panel>

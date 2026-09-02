@@ -31,7 +31,7 @@ import {
   shiftBookingDates,
 } from '../../lib/staffRoomTimeline';
 
-const ROOM_COLUMN_WIDTH = 164;
+const ROOM_COLUMN_WIDTH = 88;
 const DAY_COLUMN_WIDTH = 108;
 const VISIBLE_DAY_COUNT = 21;
 
@@ -94,11 +94,19 @@ function formatCompactRange(booking: BookingWithDetails) {
   return `${start} – ${format(checkOut, 'd MMM')}`;
 }
 
+function compactRoomName(roomName: string, unitNumber: number) {
+  const normalized = roomName.toLowerCase();
+  if (normalized.includes('private')) return `Private ${unitNumber}`;
+  if (normalized.includes('indoor')) return `Indoor ${unitNumber}`;
+  if (normalized.includes('communal')) return `Communal ${unitNumber}`;
+  return `${roomName} ${unitNumber}`;
+}
+
 export function StaffRoomCalendar({ bookings, rooms, isLoading, moveBooking, splitBooking }: StaffRoomCalendarProps) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const today = localDateKey();
-  const [anchorDate, setAnchorDate] = useState(() => addDateKey(searchParams.get('date') || today, -1));
+  const [anchorDate, setAnchorDate] = useState(() => searchParams.get('date') || today);
   const [selected, setSelected] = useState<{
     booking: BookingWithDetails;
     roomId?: string;
@@ -133,7 +141,7 @@ export function StaffRoomCalendar({ bookings, rooms, isLoading, moveBooking, spl
       roomId: physicalRoom.roomId,
       roomUnitNumber: physicalRoom.unitNumber,
       room: physicalRoom.room,
-      name: physicalRoom.name,
+      name: compactRoomName(physicalRoom.room.name, physicalRoom.unitNumber),
       subtitle: `${physicalRoom.room.name} · up to ${physicalRoom.room.capacity || 1} cat${physicalRoom.room.capacity === 1 ? '' : 's'}`,
     })),
   ];
@@ -144,8 +152,6 @@ export function StaffRoomCalendar({ bookings, rooms, isLoading, moveBooking, spl
     setAnchorDate(date);
     timelineRef.current?.scrollTo({ left: 0, behavior: 'smooth' });
   };
-
-  const goToday = () => changeDate(addDateKey(today, -1));
 
   const startBooking = (room: RoomRecord, roomUnitNumber: number, dateKey: string) => {
     if (!room.is_active) return;
@@ -295,9 +301,9 @@ export function StaffRoomCalendar({ bookings, rooms, isLoading, moveBooking, spl
 
   return (
     <div className="min-w-0 space-y-4">
-      <section className="rounded-2xl border border-[#E8DED4] bg-white p-4 shadow-sm">
+      <section className="rounded-2xl border border-[#E8DED4] bg-white p-3 shadow-sm sm:p-4">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div>
+          <div className="hidden sm:block">
             <div className="flex items-center gap-2">
               <CalendarDays className="h-5 w-5 text-[#C46A3A]" />
               <h3 className="text-xl font-semibold text-[#0A1128]">Room booking calendar</h3>
@@ -306,9 +312,17 @@ export function StaffRoomCalendar({ bookings, rooms, isLoading, moveBooking, spl
               Click an empty day to make a booking. Click a booking for details. On a laptop, drag a booking to move the full stay to another available room or start date.
             </p>
           </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
-            <Button type="button" variant="outline" onClick={goToday}>Go to today</Button>
-            <div className="flex gap-2">
+          <div className="flex items-end gap-2">
+            <label className="min-w-0 flex-1 text-xs font-semibold uppercase tracking-wide text-[#4E5871]">
+              Start date
+              <input
+                type="date"
+                value={anchorDate}
+                onChange={(event) => changeDate(event.target.value)}
+                className="mt-1 block min-h-10 w-full rounded-lg border border-[#E8DED4] bg-white px-2 text-sm font-normal text-[#0A1128] outline-none focus:border-[#C46A3A] sm:px-3"
+              />
+            </label>
+            <div className="flex shrink-0 gap-2">
               <Button type="button" variant="outline" size="icon" aria-label="Show previous seven days" onClick={() => changeDate(addDateKey(anchorDate, -7))}>
                 <ChevronLeft className="h-5 w-5" />
               </Button>
@@ -316,18 +330,9 @@ export function StaffRoomCalendar({ bookings, rooms, isLoading, moveBooking, spl
                 <ChevronRight className="h-5 w-5" />
               </Button>
             </div>
-            <label className="text-xs font-semibold uppercase tracking-wide text-[#4E5871]">
-              Start date
-              <input
-                type="date"
-                value={anchorDate}
-                onChange={(event) => changeDate(event.target.value)}
-                className="mt-1 block min-h-10 rounded-lg border border-[#E8DED4] bg-white px-3 text-sm font-normal text-[#0A1128] outline-none focus:border-[#C46A3A]"
-              />
-            </label>
           </div>
         </div>
-        <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-[#4E5871]">
+        <div className="mt-4 hidden flex-wrap items-center gap-2 text-xs text-[#4E5871] sm:flex">
           <Badge className="bg-[#0A4C8B] text-white hover:bg-[#0A4C8B]">Confirmed</Badge>
           <Badge className="bg-[#C46A3A] text-white hover:bg-[#C46A3A]">Pending</Badge>
           <Badge className="bg-[#2D6A4F] text-white hover:bg-[#2D6A4F]">Checked in</Badge>
@@ -397,7 +402,7 @@ export function StaffRoomCalendar({ bookings, rooms, isLoading, moveBooking, spl
                 const laneCount = segments.reduce((highest, segment) => Math.max(highest, segment.lane + 1), 0);
                 const rowHeight = Math.max(66, (laneCount * 42) + 18);
                 return (
-                  <div key={row.key} className="relative border-b border-[#D8D2CB]" style={{ width: timelineWidth, height: rowHeight }}>
+                  <div key={row.key} className="relative border-b-2 border-[#C8BEB4]" style={{ width: timelineWidth, height: rowHeight }}>
                     <div className="absolute inset-y-0 flex" style={{ left: ROOM_COLUMN_WIDTH }}>
                       {days.map((dateKey) => {
                         const isToday = dateKey === today;
@@ -429,11 +434,11 @@ export function StaffRoomCalendar({ bookings, rooms, isLoading, moveBooking, spl
                     </div>
 
                     <div
-                      className={`sticky left-0 z-30 flex h-full shrink-0 flex-col justify-center border-r border-[#D8D2CB] px-3 shadow-[4px_0_8px_rgba(10,17,40,0.06)] ${row.room?.is_active === false ? 'bg-[#F3F1EE]' : row.roomId ? 'bg-white' : 'bg-amber-50'}`}
+                      className={`sticky left-0 z-30 flex h-full shrink-0 flex-col justify-center border-r border-[#D8D2CB] px-1.5 shadow-[4px_0_8px_rgba(10,17,40,0.06)] sm:px-3 ${row.room?.is_active === false ? 'bg-[#F3F1EE]' : row.roomId ? 'bg-white' : 'bg-amber-50'}`}
                       style={{ width: ROOM_COLUMN_WIDTH }}
                     >
-                      <span className="truncate text-sm font-semibold text-[#0A1128]">{row.name}</span>
-                      <span className="truncate text-xs text-[#4E5871]">{row.subtitle}</span>
+                      <span className="truncate text-xs font-semibold text-[#0A1128] sm:text-sm">{row.name}</span>
+                      <span className="hidden truncate text-xs text-[#4E5871] sm:block">{row.subtitle}</span>
                       {row.room?.is_active === false && <span className="mt-1 text-[11px] font-semibold uppercase text-[#8A4E2B]">Inactive</span>}
                     </div>
 
