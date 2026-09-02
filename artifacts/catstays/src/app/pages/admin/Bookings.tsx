@@ -153,7 +153,11 @@ export function AdminBookings() {
     updateBookingStatus,
     cancelBooking,
     deleteErroneousBooking,
-  } = useBookings();
+  } = useBookings({
+    // Booking creation and deep links retain the complete availability/history snapshot.
+    checkOutFrom: viewMode === 'upcoming' && !showCreateBooking && !isCreating && !requestedBookingId
+      ? format(startOfToday(), 'yyyy-MM-dd') : undefined,
+  });
   const { customers: rawCustomers, createCustomer, addCat } = useCustomers();
   const { rooms: rawRooms } = useRooms();
   const [customerSearch, setCustomerSearch] = useState('');
