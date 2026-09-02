@@ -33,7 +33,8 @@ create table if not exists public.legacy_source_files (
   headline_totals jsonb not null default '{}'::jsonb,
   archive_notes text,
   created_at timestamptz not null default timezone('utc', now()),
-  unique (import_run_id, report_type, source_file_name),
+  constraint legacy_source_files_run_type_name_unique
+    unique (import_run_id, report_type, source_file_name),
   unique (id, cattery_id),
   foreign key (import_run_id, cattery_id)
     references public.legacy_import_runs(id, cattery_id) on delete cascade
@@ -331,7 +332,7 @@ begin
     coalesce(headline_totals, '{}'::jsonb),
     archive_notes
   )
-  on conflict (import_run_id, report_type, source_file_name)
+  on conflict on constraint legacy_source_files_run_type_name_unique
   do update set
     source_sha256 = excluded.source_sha256,
     byte_size = excluded.byte_size,
@@ -460,7 +461,7 @@ begin
 
   update public.legacy_import_runs
   set status = new_status,
-      reconciliation = coalesce(reconciliation, '{}'::jsonb),
+      reconciliation = coalesce(catstays_set_legacy_import_status.reconciliation, '{}'::jsonb),
       completed_at = case
         when new_status in ('imported', 'failed', 'rolled_back')
           then timezone('utc', now())
