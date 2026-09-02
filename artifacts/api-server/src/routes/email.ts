@@ -331,6 +331,134 @@ router.post('/email/customer-message', async (req, res) => {
   }
 });
 
+router.post('/email/customer-reply', async (req, res) => {
+  const subject = String(req.body?.subject || '').trim();
+  const body = String(req.body?.body || '').replace(/\r\n/g, '\n').trim();
+  const bookingId = String(req.body?.bookingId || '').trim();
+  const user = await authenticatedUser(req);
+
+  if (!user || !subject || !body) {
+    res.status(400).json({ success: false, saved: false, error: 'Add a subject and message before sending.' });
+    return;
+  }
+  if (subject.length > 180 || body.length > 4000) {
+    res.status(400).json({ success: false, saved: false, error: 'Keep the subject under 180 characters and the message under 4,000 characters.' });
+    return;
+  }
+  if (!supabase) {
+    res.status(503).json({ success: false, saved: false, error: 'Client messaging is not configured on this server.' });
+    return;
+  }
+
+  try {
+    const { data: customer } = await supabase
+      .from('customers')
+      .select('id,cattery_id,name,email,phone')
+      .eq('user_id', user.id)
+      .limit(1)
+      .maybeSingle();
+    if (!customer) {
+      res.status(403).json({ success: false, saved: false, error: 'No customer record is linked to this login.' });
+      return;
+    }
+
+    const { data: cattery } = await supabase
+      .from('catteries')
+      .select('id,name,email')
+      .eq('id', customer.cattery_id)
+      .maybeSingle();
+    if (!cattery) {
+      res.status(404).json({ success: false, saved: false, error: 'The linked cattery could not be found.' });
+      return;
+    }
+
+    let resolvedBookingId: string | null = null;
+    if (bookingId) {
+      const { data: booking } = await supabase
+        .from('bookings')
+        .select('id')
+        .eq('id', bookingId)
+        .eq('cattery_id', customer.cattery_id)
+        .eq('customer_id', customer.id)
+        .maybeSingle();
+      if (!booking) {
+        res.status(400).json({ success: false, saved: false, error: 'That booking is not connected to this customer login.' });
+        return;
+      }
+      resolvedBookingId = booking.id;
+    }
+
+    const sentAt = new Date().toISOString();
+    const { data: message, error: messageError } = await supabase
+      .from('customer_messages')
+      .insert({
+        cattery_id: customer.cattery_id,
+        customer_id: customer.id,
+        booking_id: resolvedBookingId,
+        channel: 'portal',
+        direction: 'inbound',
+        subject,
+        body,
+        status: 'delivered',
+        sent_at: sentAt,
+        created_by: user.id,
+        metadata: { source: 'client_portal' },
+      })
+      .select('id')
+      .single();
+    if (messageError || !message) throw messageError || new Error('The client message was not returned after saving.');
+
+    let emailSent = false;
+    let providerMessageId: string | null = null;
+    let deliveryError = '';
+    if (cattery.email && /^\S+@\S+\.\S+$/.test(cattery.email)) {
+      const { data, error } = await resend.emails.send({
+        from: FROM_ADDRESS,
+        to: cattery.email,
+        replyTo: customer.email || undefined,
+        subject: `Client message from ${customer.name}: ${subject}`,
+        html: contactEnquiryHtml({
+          customerName: customer.name,
+          customerEmail: customer.email,
+          phone: customer.phone || undefined,
+          message: `${subject}\n\n${body}`,
+          catteryName: cattery.name,
+        }),
+      });
+      emailSent = !error;
+      providerMessageId = data?.id || null;
+      deliveryError = error?.message || '';
+      await supabase.from('customer_messages').update({
+        provider: 'resend',
+        provider_message_id: providerMessageId,
+        metadata: emailSent
+          ? { source: 'client_portal', email_sent_at: sentAt }
+          : { source: 'client_portal', email_failure: deliveryError },
+      }).eq('id', message.id);
+    }
+
+    void notifyCatteryStaff(customer.cattery_id, {
+      type: 'customer_message',
+      title: `Client message from ${customer.name}`,
+      body: subject,
+      url: `/staff-dashboard/messages?customer=${encodeURIComponent(customer.id)}`,
+      tag: `catstays-client-message-${message.id}`,
+      metadata: { messageId: message.id, customerId: customer.id, bookingId: resolvedBookingId },
+    });
+
+    res.json({
+      success: true,
+      saved: true,
+      messageId: message.id,
+      emailSent,
+      warning: deliveryError ? `The message is saved for staff, but the email alert was not sent. ${deliveryError}` : undefined,
+    });
+  } catch (error) {
+    console.error('[email] customer-reply exception:', error);
+    res.status(503).json({ success: false, saved: false, error: 'The message could not be saved. Refresh and try again.' });
+  }
+});
+
 router.post('/email/cat-update', async (req, res) => {
   const catteryId = String(req.body?.catteryId || '');
   const bookingId = String(req.body?.bookingId || '');
