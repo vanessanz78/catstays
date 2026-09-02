@@ -2,6 +2,7 @@
 begin;
 set local lock_timeout='1s';
 set local statement_timeout='8s';
+select set_config('request.jwt.claim.role','service_role',true);
 create temporary table sync_validation_results(test_name text,passed boolean);
 grant all on sync_validation_results to service_role;
 set local role service_role;
