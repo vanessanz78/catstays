@@ -11,6 +11,8 @@ import { useBookings } from '@/hooks/useBookings';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useRooms } from '@/hooks/useRooms';
 import { supabase } from '@/utils/supabase/client';
+import { fetchAllRows } from '@/app/lib/fetchAllRows';
+import { RevelationSyncStatus } from '../../components/RevelationSyncStatus';
 import {
   buildSmartImportPreview,
   type SmartImportKind,
@@ -198,12 +200,14 @@ export function SmartImport() {
     if (!cattery?.id) return;
     setExporting(nextKind);
     setMessage(null);
-    let query;
-    if (nextKind === 'customers') query = supabase.from('customers').select('name,email,phone,address,notes,created_at').eq('cattery_id', cattery.id).order('name');
-    else if (nextKind === 'cats') query = supabase.from('cats').select('name,breed,age,medical_notes,dietary_requirements,customer:customers(name,email)').eq('cattery_id', cattery.id).order('name');
-    else if (nextKind === 'rooms') query = supabase.from('rooms').select('name,type,description,price_per_night,capacity,amenities,is_active').eq('cattery_id', cattery.id).order('name');
-    else query = supabase.from('bookings').select('check_in,check_out,check_in_time,check_out_time,status,payment_status,total_amount,cat_names,notes,customer:customers(name,email),room:rooms(name)').eq('cattery_id', cattery.id).order('check_in');
-    const { data, error } = await query;
+    const columns = nextKind === 'customers' ? 'name,email,phone,address,notes,created_at'
+      : nextKind === 'cats' ? 'name,breed,age,medical_notes,dietary_requirements,customer:customers(name,email)'
+      : nextKind === 'rooms' ? 'name,type,description,price_per_night,capacity,amenities,is_active'
+      : 'check_in,check_out,check_in_time,check_out_time,status,payment_status,total_amount,cat_names,notes,customer:customers(name,email),room:rooms(name)';
+    // These four allowlisted export shapes differ; avoid a combinatorial typed select union.
+    const exportClient: any = supabase;
+    const { data, error } = await fetchAllRows<Record<string, any>>((from,to) => exportClient.from(nextKind)
+      .select(columns,{count:'exact'}).eq('cattery_id',cattery.id).order('id').range(from,to));
     if (error) {
       setMessage({ kind: 'error', text: `Export could not be created. ${error.message}` });
       setExporting(null);
@@ -261,6 +265,8 @@ export function SmartImport() {
               Move real customer, cat, room, and booking records into CatStays. Every CSV is checked and previewed before anything is saved.
             </p>
           </div>
+
+          <RevelationSyncStatus catteryId={cattery?.id} />
 
           {message && (
             <div className={`flex items-start gap-3 rounded-xl border p-4 text-sm ${message.kind === 'success' ? 'border-[#7DAF7B] bg-[#EDF6EC] text-[#2D5830]' : 'border-red-200 bg-red-50 text-red-700'}`}>

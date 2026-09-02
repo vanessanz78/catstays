@@ -3,9 +3,18 @@ import { supabase } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { bookingRoomUnitKeys, roomUnitHasConflict } from '@/app/lib/roomInventory';
 import { announceCatStaysBookingsChanged } from '@/app/lib/bookingAlerts';
+import { fetchAllRows } from '@/app/lib/fetchAllRows';
 
 export interface BookingWithDetails {
   id: string;
+  external_source?: string | null;
+  external_id?: string | null;
+  legacy_reference?: string | null;
+  legacy_customer_name?: string | null;
+  legacy_pet_names?: string | null;
+  legacy_run_name?: string | null;
+  legacy_monies_received?: number | string | null;
+  legacy_outstanding?: number | string | null;
   check_in: string;
   check_out: string;
   check_in_time: string | null;
@@ -83,7 +92,7 @@ export interface BookingWithDetails {
   }[];
 }
 
-export function useBookings() {
+export function useBookings(_options?: { allPages?: boolean }) {
   const { cattery, user } = useAuth();
   const [bookings, setBookings] = useState<BookingWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,7 +107,7 @@ export function useBookings() {
 
     setLoading(true);
     setError(null);
-    const { data, error } = await supabase
+    const { data, error } = await fetchAllRows<BookingWithDetails>((from, to) => supabase
       .from('bookings')
       .select(`
         *,
@@ -120,9 +129,11 @@ export function useBookings() {
         ),
         booking_adjustments(id, amount),
         payments(id, amount, status, type, payment_method, paid_on)
-      `)
+      `, { count: 'exact' })
       .eq('cattery_id', cattery.id)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .order('id')
+      .range(from, to));
 
     if (error) {
       setError(error.message);
