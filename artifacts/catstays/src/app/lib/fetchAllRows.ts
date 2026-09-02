@@ -99,3 +99,37 @@ export async function fetchRowsByIds<T extends { id: string }>(
     return { data: null, error: { message: error instanceof Error ? error.message : 'Unable to load complete booking details.' } };
   }
 }
+
+/** Read parent identities with a unique ascending cursor, never an increasing OFFSET. */
+export async function fetchAllRowsById<T extends { id: string }>(
+  page: (afterId: string | null, limit: number) => PromiseLike<PageResult<T>>,
+  count: () => PromiseLike<CountResult>,
+  pageSize = 500,
+) {
+  try {
+    if (!Number.isInteger(pageSize) || pageSize < 1) throw new Error('Invalid identity paging configuration.');
+    const counted = await count();
+    if (counted.error) return { data: null, error: counted.error };
+    const total = counted.count;
+    if (total == null || !Number.isInteger(total) || total < 0) throw new Error('A complete booking count is required.');
+    const rows: T[] = [];
+    let cursor: string | null = null;
+    while (rows.length < total) {
+      const result = await page(cursor, pageSize);
+      if (result.error) return { data: null, error: result.error };
+      if ((result.data?.length ?? 0) !== Math.min(pageSize, total - rows.length)) {
+        throw new Error('Records changed or booking identities were truncated. Please refresh.');
+      }
+      for (const row of result.data!) {
+        if (!row.id || (cursor !== null && row.id <= cursor)) {
+          throw new Error('Booking identities are not in a unique stable order. Please refresh.');
+        }
+        cursor = row.id;
+        rows.push(row);
+      }
+    }
+    return { data: rows, error: null };
+  } catch (error) {
+    return { data: null, error: { message: error instanceof Error ? error.message : 'Unable to load booking identities.' } };
+  }
+}

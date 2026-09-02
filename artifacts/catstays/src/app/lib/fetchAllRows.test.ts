@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { fetchAllRows, fetchRowsByIds } from './fetchAllRows.ts';
+import { fetchAllRows, fetchRowsByIds, fetchAllRowsById } from './fetchAllRows.ts';
 
 test('loads all records beyond default 1000 rows in a stable order', async () => {
   const data = Array.from({ length: 10040 }, (_, id) => ({ id }));
@@ -134,4 +134,29 @@ test('empty ID snapshot is valid and invalid batching is rejected',async()=>{
   assert.deepEqual(await fetchRowsByIds(async()=>({data:[],error:null}),async()=>{calls++;return{data:[],error:null};}),{data:[],error:null});
   assert.equal(calls,0);
   assert.ok((await fetchRowsByIds(async()=>({data:[],error:null}),async()=>({data:[],error:null}),{batchSize:0})).error);
+});
+
+test('cursor identities visit all rows once without offsets',async()=>{
+  const data=Array.from({length:8957},(_,i)=>({id:String(i).padStart(5,'0')}));
+  let calls=0;
+  const result=await fetchAllRowsById(async(after,limit)=>{
+    calls++;
+    const start=after===null?0:Number(after)+1;
+    return{data:data.slice(start,start+limit),error:null};
+  },async()=>({count:data.length,error:null}));
+  assert.equal(calls,18);assert.deepEqual(result,{data,error:null});
+});
+test('cursor identities reject truncation, repeated and unordered IDs',async()=>{
+  for(const data of [[{id:'a'}],[{id:'a'},{id:'a'}],[{id:'b'},{id:'a'}]]){
+    const result=await fetchAllRowsById(async()=>({data,error:null}),async()=>({count:2,error:null}));
+    assert.equal(result.data,null);assert.ok(result.error);
+  }
+});
+test('cursor count and page errors fail closed; zero count performs no page read',async()=>{
+  const error={message:'unavailable'};
+  assert.deepEqual(await fetchAllRowsById(async()=>({data:[],error:null}),async()=>({count:null,error})),{data:null,error});
+  assert.deepEqual(await fetchAllRowsById(async()=>({data:null,error}),async()=>({count:1,error:null})),{data:null,error});
+  let calls=0;
+  assert.deepEqual(await fetchAllRowsById(async()=>{calls++;return{data:[],error:null};},async()=>({count:0,error:null})),{data:[],error:null});
+  assert.equal(calls,0);
 });
