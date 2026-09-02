@@ -1,7 +1,7 @@
 // Run in Replit Shell only. Existing secrets never leave server-side memory.
 import {randomBytes} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
-import {readFileSync} from 'node:fs';
+import {readFileSync,mkdtempSync,writeFileSync,unlinkSync,rmdirSync} from 'node:fs';
 const project='iwyoezwqorddkmqnjbif';
 const tokenName='catstays_revelation_sync_trigger';
 const mode=process.argv[2];
@@ -26,8 +26,12 @@ try {
   if(mode==='configure'){
     const value=await trigger();
     if(/[\r\n]/.test(env.REVELATION_PETS_API_KEY))throw Error('Unexpected API key format');
-    const r=spawnSync('npx',['--yes','supabase','secrets','set','--project-ref',project,'--env-file','/dev/stdin'],{
-      input:`REVELATION_PETS_API_KEY=${env.REVELATION_PETS_API_KEY}\nREVELATION_SYNC_TRIGGER_TOKEN=${value}\n`,encoding:'utf8',timeout:120000});
+    const directory=mkdtempSync('/tmp/catstays-sync-secret-');
+    const file=`${directory}/worker.env`;let r;
+    try {
+      writeFileSync(file,`REVELATION_PETS_API_KEY=${env.REVELATION_PETS_API_KEY}\nREVELATION_SYNC_TRIGGER_TOKEN=${value}\n`,{mode:0o600});
+      r=spawnSync('npx',['--yes','supabase','secrets','set','--project-ref',project,'--env-file',file],{encoding:'utf8',timeout:120000});
+    } finally {unlinkSync(file);rmdirSync(directory);}
     if(r.status!==0)throw Error(`Edge secret configuration failed: ${String(r.stderr||r.error?.message||'').replaceAll(env.REVELATION_PETS_API_KEY,'[REDACTED]').replaceAll(value,'[REDACTED]').slice(0,800)}`);
     console.log(JSON.stringify({edge_secrets_configured:true,replit_source_secret_retained:true}));
   } else if(mode==='verify'||mode==='tick'){
