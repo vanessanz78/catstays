@@ -6,6 +6,10 @@ Working ref: `refine/revelation-workflow-gaps-20260902`
 
 Base `main`: `01c828f2e692a2e6b898a3f8f73d652fbae52597`
 
+Pull request: `#55`
+
+Merged `main`: `510c83f9fc3063a6f81964b93766619cb95244de`
+
 ## Evidence Reviewed
 
 - Vanessa's narrated booking workflow recording.
@@ -47,11 +51,10 @@ Use Replit Shell only. Never use Replit Agent.
 
 ## Remaining Release Workflow
 
-1. Complete authenticated local or development Runtime phone UAT for Today search, direct booking start, one-tap arrival/departure, Latest bookings, and the movement summary.
-2. Review and merge the refinement pull request into GitHub `main` and record the exact SHA.
-3. Review and apply the release-coupled customer-portal migration.
-4. Pull the exact merged SHA in CatStays Replit using Shell only, restart the configured Runtime, verify health, and publish.
-5. Complete live signed-in phone UAT without confirming, checking in, checking out, emailing, or otherwise changing any real booking unless it is an explicitly identified synthetic record.
+1. Review and apply the release-coupled customer-portal migration.
+2. Pull exact merged SHA `510c83f9fc3063a6f81964b93766619cb95244de` in CatStays Replit using Shell only, restart the configured Runtime, verify health, and publish.
+3. Complete live signed-in phone UAT for Today search, direct booking start, Latest bookings, and the movement summary.
+4. Test one-tap arrival/departure only on explicitly identified synthetic bookings; do not change a real customer booking.
 
 ## Rollback Boundary
 
