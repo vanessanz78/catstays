@@ -1247,6 +1247,12 @@ function ToolsSection({ section }: { section: StaffSection }) {
   if (section === 'settings') {
     const settingsTools = [
       {
+        path: '/staff-dashboard/settings/staff',
+        icon: Users,
+        title: 'Staff profiles',
+        description: 'Names, phone numbers, team roles, access and PWA notification setup.',
+      },
+      {
         path: '/staff-dashboard/settings/notifications',
         icon: BellRing,
         title: 'Phone notifications',
@@ -1511,6 +1517,7 @@ export function StaffDashboard() {
       </header>
 
       <main className="mx-auto max-w-7xl px-4 py-6">
+        {cattery?.website_settings?.bookingMode === 'test_only' && <p className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">Revelation Pets is the main booking system. CatStays website bookings are test-only until switchover.</p>}
         {section !== 'today' && (
           <div className={`mb-5 ${section === 'calendar' ? 'max-sm:hidden' : ''}`}>
             <p className={`text-xs font-semibold uppercase tracking-wide text-[#C46A3A] ${section === 'customers' ? 'max-sm:hidden' : ''}`}>{section === 'room-planner' ? 'Room planner' : 'Workspace'}</p>

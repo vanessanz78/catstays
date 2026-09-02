@@ -68,11 +68,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      // Links only owner-created invitations to the user's verified email.
+      await supabase.rpc('catstays_accept_staff_access');
       const { data: membership } = await supabase
         .from('staff_memberships')
         .select('cattery_id')
         .eq('user_id', userId)
         .eq('status', 'active')
+        .in('role', ['owner', 'manager', 'staff'])
         .limit(1)
         .maybeSingle();
       if (membership?.cattery_id) {

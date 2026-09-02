@@ -15,6 +15,7 @@ import {
 } from '@/app/lib/bookingPricing';
 import { bookingHoursSummary, bookingTimeSlotsForDate, formatBookingTime } from '@/app/lib/bookingSchedule';
 import { normalizeBookingSetup, normalizePublicBlackouts, stayOverlapsBlackout } from '@/app/lib/bookingSetup';
+import { useAuth } from '@/contexts/AuthContext';
 
 const STEPS = [
   { n: 1, label: 'Dates & Room', icon: Calendar },
@@ -32,6 +33,9 @@ export function BookingFlow() {
   const { tenantId } = useParams();
   const [searchParams] = useSearchParams();
   const { cattery, rooms, loading } = useTenantCattery(tenantId);
+  const { user, session, cattery: staffCattery, accountRole, loading: authLoading } = useAuth();
+  const testOnly = cattery?.website_settings?.bookingMode === 'test_only';
+  const canTest = staffCattery?.id === cattery?.id && ['owner', 'staff'].includes(accountRole || '');
   const publicSitePath = tenantId
     ? `/tenant/${tenantId}`
     : typeof window !== 'undefined' && window.location.pathname.startsWith('/site')
@@ -140,9 +144,10 @@ export function BookingFlow() {
     try {
       const res = await fetch('/api/bookings/request', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}) },
         body: JSON.stringify({
           catteryId: cattery.id,
+          testOnly,
           catteryName: cattery.name,
           catteryEmail: cattery.email,
           catteryPhone: cattery.phone,
@@ -173,13 +178,20 @@ export function BookingFlow() {
     }
   };
 
-  if (loading) {
+  if (loading || authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-cream">
         <Loader2 className="w-8 h-8 animate-spin text-sage" />
       </div>
     );
   }
+
+  if (testOnly && !canTest) return <main className="min-h-screen bg-cream p-6"><section className="mx-auto max-w-lg space-y-5 rounded-2xl bg-white p-6">
+    <h1 className="text-2xl font-serif font-bold text-forest">Online booking preview</h1>
+    <p>CatStays bookings are test-only while we prepare to switch. Revelation Pets remains our main booking system. Please contact the cattery to make or change a real booking.</p>
+    {cattery?.phone && <a href={`tel:${cattery.phone}`} className="block rounded-xl bg-forest p-3 text-center text-white">Call the cattery</a>}
+    <Link to={publicSitePath} className="block underline">Back to website</Link><Link to="/staff-login" className="block text-sm underline">Staff test sign-in</Link>
+  </section></main>;
 
   if (submitted) {
     const roomName = selectedRoom?.name || (rooms[0]?.name ?? 'Standard Room');
@@ -191,8 +203,8 @@ export function BookingFlow() {
               <div className="w-20 h-20 rounded-full bg-sage/20 flex items-center justify-center mx-auto mb-4">
                 <Check className="w-10 h-10 text-sage" />
               </div>
-              <h1 className="text-2xl font-serif font-semibold mb-2">Booking Request Received</h1>
-              <p className="text-cream/80">We'll confirm availability within 24 hours.</p>
+              <h1 className="text-2xl font-serif font-semibold mb-2">{testOnly ? 'Test booking received' : 'Booking Request Received'}</h1>
+              <p className="text-cream/80">{testOnly ? 'This is not a real reservation. Revelation Pets remains primary.' : "We'll confirm availability within 24 hours."}</p>
             </div>
             <CardContent className="p-8 space-y-4">
               <div className="bg-cream rounded-2xl p-5 space-y-2 text-sm">
@@ -249,6 +261,7 @@ export function BookingFlow() {
   return (
     <div className="min-h-screen bg-cream py-8 px-4">
       <div className="max-w-4xl mx-auto">
+        {testOnly && <div role="status" className="mb-5 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950"><strong>Staff test only.</strong> Revelation Pets is the main booking system. This does not create a real reservation. Use your verified staff email ({user?.email}) so test emails stay with you.</div>}
         {/* Header */}
         <div className="text-center mb-8">
           <Link to={publicSitePath} className="inline-flex items-center gap-1 text-forest/50 hover:text-forest text-sm mb-4">

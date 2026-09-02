@@ -12,6 +12,7 @@ import {
 import { createClient } from '@supabase/supabase-js';
 import { notifyCatteryStaff, notifyCustomer } from '../push/notifications.js';
 import { firstAvailablePhysicalRoom } from '../lib/physicalRoomInventory.js';
+import { checkParallelRunRequest } from '../lib/parallelRun.js';
 
 const supabaseUrl = process.env['VITE_SUPABASE_URL'];
 const supabaseServiceRoleKey = process.env['SUPABASE_SERVICE_ROLE_KEY'];
@@ -36,7 +37,7 @@ async function canManageCattery(userId: string, catteryId: string) {
   if (!supabase || !userId || !catteryId) return false;
   const [{ data: owner }, { data: staff }] = await Promise.all([
     supabase.from('catteries').select('id').eq('id', catteryId).eq('owner_id', userId).maybeSingle(),
-    supabase.from('staff_memberships').select('id').eq('cattery_id', catteryId).eq('user_id', userId).eq('status', 'active').maybeSingle(),
+    supabase.from('staff_memberships').select('id').eq('cattery_id', catteryId).eq('user_id', userId).eq('status', 'active').in('role', ['owner', 'manager', 'staff']).maybeSingle(),
   ]);
   return Boolean(owner?.id || staff?.id);
 }
@@ -609,7 +610,7 @@ router.post('/bookings/request', async (req, res) => {
 
     const { data: catteryRecord } = await supabase
       .from('catteries')
-      .select('id,name,email,phone')
+      .select('id,name,email,phone,website_settings')
       .eq('id', catteryId)
       .maybeSingle();
     if (!catteryRecord) {
@@ -619,6 +620,12 @@ router.post('/bookings/request', async (req, res) => {
     const catteryName = catteryRecord.name;
     const catteryEmail = catteryRecord.email;
     const catteryPhone = catteryRecord.phone;
+    const testOnly = catteryRecord.website_settings?.bookingMode === 'test_only';
+    const tester = testOnly ? await authenticatedUser(req) : null;
+    const testError = checkParallelRunRequest(catteryRecord.website_settings?.bookingMode,
+      Boolean(tester && await canManageCattery(tester.id, catteryId)), req.body?.testOnly,
+      tester?.email_confirmed_at ? tester.email : null, customerEmail);
+    if (testError) { res.status(403).json({ error: testError }); return; }
 
     // Save the request before sending emails so online bookings always have a dashboard destination.
     const amountStr = String(estimatedTotal || '').replace(/[^0-9.]/g, '');
@@ -693,7 +700,8 @@ router.post('/bookings/request', async (req, res) => {
       .limit(1)
       .maybeSingle();
 
-    let customerId = existingCustomer?.id || null;
+    // Tests must never update an existing real customer with a matching email.
+    let customerId = testOnly ? null : existingCustomer?.id || null;
     if (customerId) {
       await supabase.from('customers').update({
         name: customerName,
@@ -704,7 +712,7 @@ router.post('/bookings/request', async (req, res) => {
     } else {
       const { data: createdCustomer, error: customerError } = await supabase.from('customers').insert({
         cattery_id: catteryId,
-        name: customerName,
+        name: testOnly ? `[TEST] ${customerName}` : customerName,
         email: normalizedEmail,
         phone: phone || null,
       }).select('id,user_id').single();
@@ -728,8 +736,8 @@ router.post('/bookings/request', async (req, res) => {
       status: 'pending',
       payment_status: 'unpaid',
       total_amount: totalAmount,
-      notes: specialRequirements || null,
-      guest_name: customerName,
+      notes: testOnly ? `[CATSTAYS TEST ONLY — Revelation Pets remains primary]\n${specialRequirements || ''}` : specialRequirements || null,
+      guest_name: testOnly ? `[TEST] ${customerName}` : customerName,
       guest_email: customerEmail,
       guest_phone: phone || null,
       cat_names: catNamesStr,
@@ -745,7 +753,7 @@ router.post('/bookings/request', async (req, res) => {
     const bookingBody = `${customerName} requested ${catNamesStr || 'a cat stay'} from ${displayCheckIn || checkIn} to ${displayCheckOut || checkOut}.`;
     void notifyCatteryStaff(catteryId, {
       type: 'booking_request',
-      title: 'New booking request',
+      title: testOnly ? 'TEST booking request' : 'New booking request',
       body: bookingBody,
       url: `/staff-dashboard/bookings?booking=${encodeURIComponent(String(booking?.id || ''))}`,
       tag: `catstays-booking-${booking?.id || catteryId}`,
@@ -773,7 +781,7 @@ router.post('/bookings/request', async (req, res) => {
         from: FROM_ADDRESS,
         to: catteryEmail,
         replyTo: customerEmail,
-        subject: `New booking request from ${customerName}`,
+        subject: `${testOnly ? '[TEST ONLY] ' : ''}New booking request from ${customerName}`,
         html: bookingRequestOwnerHtml({
           catteryName, customerName, customerEmail, phone,
           catNames, checkIn: emailCheckIn, checkOut: emailCheckOut, days: stayDays,
@@ -783,7 +791,7 @@ router.post('/bookings/request', async (req, res) => {
       resend.emails.send({
         from: FROM_ADDRESS,
         to: customerEmail,
-        subject: `Your booking request at ${catteryName}`,
+        subject: `${testOnly ? '[TEST ONLY] ' : ''}Your booking request at ${catteryName}`,
         html: bookingRequestCustomerHtml({
           customerName, catteryName, catteryEmail, catteryPhone,
           catNames, checkIn: emailCheckIn, checkOut: emailCheckOut, days: stayDays,

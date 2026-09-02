@@ -28,6 +28,8 @@ import { AdminBookings } from "./pages/admin/Bookings";
 import { AdminCustomers } from "./pages/admin/Customers";
 import { AdminSettings } from "./pages/admin/Settings";
 import { NotificationSettings } from "./pages/admin/NotificationSettings";
+import { StaffProfiles } from "./pages/admin/StaffProfiles";
+import { StaffLogin } from "./pages/marketing/StaffLogin";
 import { SettingsDataImport } from "./pages/tenant/SettingsDataImport";
 import { AdminAccounting } from "./pages/admin/Accounting";
 import { AdminReports } from "./pages/admin/Reports";
@@ -303,6 +305,12 @@ export const router = createBrowserRouter([
     Component: NotificationSettings,
     ErrorBoundary: RootErrorBoundary,
   },
+  {
+    path: "/staff-dashboard/settings/staff",
+    Component: StaffProfiles,
+    ErrorBoundary: RootErrorBoundary,
+  },
+  { path: "/staff-login", Component: StaffLogin, ErrorBoundary: RootErrorBoundary },
   {
     path: "/admin/accounting",
     Component: AdminAccounting,
