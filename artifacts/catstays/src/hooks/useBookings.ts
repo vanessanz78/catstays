@@ -129,11 +129,18 @@ export function useBookings(_options?: { allPages?: boolean }) {
         ),
         booking_adjustments(id, amount),
         payments(id, amount, status, type, payment_method, paid_on)
-      `, { count: 'exact' })
+      `)
       .eq('cattery_id', cattery.id)
       .order('created_at', { ascending: false })
       .order('id')
-      .range(from, to));
+      .range(from, to), {
+        // Counting every nested page caused authenticated history requests to time out.
+        pageSize: 250,
+        concurrency: 2,
+        count: () => supabase.from('bookings')
+          .select('id', { count: 'exact', head: true })
+          .eq('cattery_id', cattery.id),
+      });
 
     if (error) {
       setError(error.message);
