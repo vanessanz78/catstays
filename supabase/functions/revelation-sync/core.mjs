@@ -86,7 +86,11 @@ export async function processTick(env, force=false, transport=clients(env)) {
         await archive(`${phase}-${range.from}-${range.to}.json`,rows);cp.source_pages++;
         if(phase==='customers') {
           for(let offset=0;offset<rows.length;offset+=100){
-            const chunk=rows.slice(offset,offset+100);if(!chunk.length)continue;
+            const batch=rows.slice(offset,offset+100);
+            for(const c of batch.filter(c=>!text(c.name)))await warn('api_customer_missing_name',String(c.id));
+            // The archived source remains intact. Never invent a customer name or
+            // overwrite a previously imported profile with an unusable blank.
+            const chunk=batch.filter(c=>text(c.name));if(!chunk.length)continue;
             if(chunk.some(c=>!/^\d+$/.test(String(c.id))))throw Error('Invalid source customer identity');
             const old=await query('customers',`external_source=eq.revelation_pets&external_id=in.(${chunk.map(c=>c.id).join(',')})`);
             const map=new Map(old.map(c=>[c.external_id,c]));
@@ -96,7 +100,9 @@ export async function processTick(env, force=false, transport=clients(env)) {
               created_at:o?.created_at||null,legacy_account_balance:b.legacy_account_balance??o?.legacy_account_balance??null,
               legacy_total_spent:b.legacy_total_spent??o?.legacy_total_spent??null,legacy_last_booking:b.legacy_last_booking??o?.legacy_last_booking??null,
               legacy_metadata:{api:c}};}));
-            const allPets=chunk.flatMap(c=>(c.pets||[]).map(p=>({...p,owner_external_id:String(c.id)})));
+            const sourcePets=chunk.flatMap(c=>(c.pets||[]).map(p=>({...p,owner_external_id:String(c.id)})));
+            for(const p of sourcePets.filter(p=>!text(p.name)))await warn('api_cat_missing_name',String(p.id));
+            const allPets=sourcePets.filter(p=>text(p.name));
             for(let catOffset=0;catOffset<allPets.length;catOffset+=100){
               const pets=allPets.slice(catOffset,catOffset+100);
               if(pets.some(p=>!/^\d+$/.test(String(p.id))))throw Error('Invalid source cat identity');
