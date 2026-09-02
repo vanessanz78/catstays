@@ -16,7 +16,7 @@ returns table (
 )
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 declare
   current_customer public.customers%rowtype;
@@ -75,7 +75,7 @@ create or replace function public.catstays_upsert_my_cat(
 returns uuid
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 declare
   current_customer public.customers%rowtype;
@@ -162,12 +162,12 @@ using (
   )
 );
 
+revoke all on function public.catstays_update_my_customer_profile(text, text, text, text) from public, anon;
+revoke all on function public.catstays_upsert_my_cat(uuid, text, text, text, text, text) from public, anon;
+
 grant execute on function public.catstays_update_my_customer_profile(text, text, text, text) to authenticated;
 grant execute on function public.catstays_upsert_my_cat(uuid, text, text, text, text, text) to authenticated;
 grant select on table public.customer_messages to authenticated;
-
-revoke all on function public.catstays_update_my_customer_profile(text, text, text, text) from anon;
-revoke all on function public.catstays_upsert_my_cat(uuid, text, text, text, text, text) from anon;
 
 comment on function public.catstays_update_my_customer_profile(text, text, text, text) is
   'Lets a signed-in customer update only the safe contact fields on their linked customer record.';

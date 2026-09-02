@@ -32,6 +32,7 @@ Deliver the founder-described, phone-first cattery operations workflow and compl
 - The daily-workflow refinement is merged through PR #55 at `510c83f9fc3063a6f81964b93766619cb95244de`; production publication remains gated by the customer-portal migration and combined live UAT.
 - The database migration for operational events, adjustments, credit ledger, payment metadata, customer-visible notes, and split-room segments is committed but must not be applied outside the reviewed release workflow.
 - The customer-directory migration for merge history and the atomic merge function is also committed but must not be applied outside the reviewed release workflow.
+- The unapplied customer-portal migration now revokes PostgreSQL's default `PUBLIC`/anonymous function execution before granting the two deliberately identity-scoped customer RPCs to `authenticated`, and uses an empty function search path to reduce object-resolution risk.
 - The frozen Open Home architecture is unchanged.
 
 ## Verification Required Before Completion
@@ -48,6 +49,7 @@ Deliver the founder-described, phone-first cattery operations workflow and compl
 - Existing booking totals are treated as GST-inclusive stored totals; adjustments are entered before GST and recompute the tax component.
 - Split-stay replacement is server-validated for staff access, physical room existence, capacity, continuous day coverage, and overlapping bookings.
 - Both migrations and the application code are release-coupled: deploy the schemas in timestamp order before starting the new application SHA.
+- Customer portal RPCs are intentionally `SECURITY DEFINER` because they write only the calling user's linked customer/cat records; they must retain explicit `auth.uid()` ownership checks, bounded inputs, an empty search path, and no `PUBLIC` or anonymous execute grant.
 - Customer merging is deliberately database-atomic and audited; do not replace it with a sequence of client-side updates.
 - Do not apply either migration, merge, publish, send a real customer email, or merge real customer accounts during code review.
 - Runtime UAT, not a successful build or merge, is the release truth.
