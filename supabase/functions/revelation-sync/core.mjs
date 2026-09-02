@@ -162,7 +162,7 @@ export async function processTick(env, force=false, transport=clients(env)) {
           legacy_run_name:[...new Set((d.overnights||[]).map(x=>x.run))].join(', '),created_at:old?.created_at||null,
           legacy_booking_type:old?.legacy_booking_type||null,legacy_source:old?.legacy_source||null,legacy_tax_amount:old?.legacy_tax_amount??null,
           legacy_belongs:old?.legacy_metadata?.belongs??null,legacy_pet_breed:old?.legacy_metadata?.pet_breed??null,legacy_xero:old?.legacy_metadata?.xero??null,
-          customer_match_method:old?.legacy_metadata?.customer_match_method||'api_unique_identity',customer_match_confidence:old?.legacy_metadata?.customer_match_confidence||'exact',
+          customer_match_method:old?.legacy_metadata?.customer_match_method||'api_unique_identity',customer_match_confidence:old?.legacy_metadata?.customer_match_confidence??1,
           possible_customer_external_ids:old?.legacy_metadata?.possible_customer_external_ids||[],
           cancellation_reason:old?.cancellation_reason||null,cancellation_note:old?.cancellation_note||null,
           source_record_checksum:await hash(JSON.stringify(d))}]);
