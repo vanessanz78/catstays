@@ -11,6 +11,8 @@ import { DashboardWebsiteEditor } from './pages/admin/WebsiteEditor';
 import { MarketingKit } from './pages/admin/MarketingKit';
 import { ClientPortalEntry } from './pages/customer/ClientPortalEntry';
 import { NotificationSettings } from './pages/admin/NotificationSettings';
+import { StaffProfiles } from './pages/admin/StaffProfiles';
+import { StaffLogin } from './pages/marketing/StaffLogin';
 import { PaymentIntegration } from './pages/admin/PaymentIntegration';
 import { AdminAccounting } from './pages/admin/Accounting';
 import { AdminReports } from './pages/admin/Reports';
@@ -118,6 +120,8 @@ export const subdomainRouter = createBrowserRouter([
   { path: '/staff-dashboard/website-editor', Component: DashboardWebsiteEditor },
   { path: '/staff-dashboard/marketing', Component: MarketingKit },
   { path: '/staff-dashboard/settings/notifications', Component: NotificationSettings },
+  { path: '/staff-dashboard/settings/staff', Component: StaffProfiles },
+  { path: '/staff-login', Component: StaffLogin },
   { path: '/client-portal', Component: ClientPortalEntry },
   { path: '/client-portal/bookings', Component: ClientPortalEntry },
   { path: '/client-portal/profile', Component: ClientPortalEntry },
