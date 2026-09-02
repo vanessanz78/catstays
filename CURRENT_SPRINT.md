@@ -9,8 +9,8 @@ Deliver the founder-described, phone-first cattery operations workflow and compl
 ## Source Of Truth
 
 - Repository: `vanessanz78/catstays`
-- Working ref: `refine/revelation-workflow-gaps-20260902`
-- Base `main`: `01c828f2e692a2e6b898a3f8f73d652fbae52597`
+- Working ref: `main`
+- Current `main`: `510c83f9fc3063a6f81964b93766619cb95244de`
 - Review and deployment environment: CatStays Replit
 - Operating-system entrypoint: `START_HERE.md` in `vanessanz78/codex-operating-system`
 
@@ -29,6 +29,7 @@ Deliver the founder-described, phone-first cattery operations workflow and compl
 - The customer portal release candidate replaces the read-only portal shell with live booking, cat, profile, photo-update, and conversation workspaces. Customer writes use narrowly scoped authenticated database functions, while customer amendment messages are saved in the shared staff conversation, create a staff alert, and send a cattery email alert.
 - A fresh founder walkthrough of the two core Revelation Pets workflows confirmed that CatStays should keep Today as the operating cockpit rather than rebuild the legacy product screen for screen. Today now adds live customer/cat lookup, direct start-booking shortcuts, one-tap check-in/check-out, the five most recently received bookings, explicit arrival/collection times on operational cards, and a seven-day In / Out / Day end summary.
 - The universal Today lookup routes a selected match to the filtered customer directory or opens New Booking with that customer already selected, preserving the existing availability-first CatStays booking flow and modern visual language.
+- The daily-workflow refinement is merged through PR #55 at `510c83f9fc3063a6f81964b93766619cb95244de`; production publication remains gated by the customer-portal migration and combined live UAT.
 - The database migration for operational events, adjustments, credit ledger, payment metadata, customer-visible notes, and split-room segments is committed but must not be applied outside the reviewed release workflow.
 - The customer-directory migration for merge history and the atomic merge function is also committed but must not be applied outside the reviewed release workflow.
 - The frozen Open Home architecture is unchanged.
@@ -39,9 +40,8 @@ Deliver the founder-described, phone-first cattery operations workflow and compl
 2. Pass the complete workspace type check and production build.
 3. Review the customer-portal Supabase migration before applying it to the CatStays project.
 4. Verify Today, New Booking, booking detail, payments, calendar, customer report, live search, and all customer-merge steps at phone and laptop widths, including `scrollWidth <= viewport width` for the page and intentional horizontal scrolling only inside the room timeline.
-5. Review and merge the draft pull request into GitHub `main`.
-6. Record the exact merged `main` SHA, apply the reviewed migration, pull that exact SHA into CatStays Replit, restart, republish, and confirm runtime health.
-7. Complete signed-in founder UAT on the published Deloraine tenant, including customer profile/cat edits, a customer amendment request, staff reply, a private cat update, customer email receipt, and portal visibility before calling the release complete.
+5. Review the exact merged `main` SHA, apply the reviewed migration, pull that exact SHA into CatStays Replit, restart, republish, and confirm runtime health.
+6. Complete signed-in founder UAT on the published Deloraine tenant, including the refined Today workflow, customer profile/cat edits, a customer amendment request, staff reply, a private cat update, customer email receipt, and portal visibility before calling the release complete.
 
 ## Risks And Guardrails
 
