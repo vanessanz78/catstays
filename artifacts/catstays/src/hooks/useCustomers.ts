@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { fetchAllRowsById, fetchRowsByIds } from '@/app/lib/fetchAllRows';
+import { fetchAllRowsById } from '@/app/lib/fetchAllRows';
 import { supabase } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -17,7 +17,6 @@ export interface CustomerWithCats {
   legacy_last_booking: string | null;
   legacy_account_balance: number | string | null;
   legacy_total_spent: number | string | null;
-  legacy_metadata: Record<string, unknown>;
   cats: {
     id: string;
     name: string;
@@ -65,23 +64,25 @@ export function useCustomers() {
 
     setLoading(true);
     setError(null);
-    const { data, error: pageError } = await fetchRowsByIds<CustomerWithCats>(
-      () => fetchAllRowsById<{ id: string }>((afterId, limit) => {
-        let query = supabase.from('customers').select('id').eq('cattery_id', cattery.id)
-          .order('id').limit(limit).abortSignal(controller.signal);
-        if (afterId) query = query.gt('id', afterId);
-        return query;
-      }, () => supabase.from('customers').select('id', { count: 'exact', head: true })
-        .eq('cattery_id', cattery.id).abortSignal(controller.signal)),
-      (ids) => supabase
+    // Cursor paging avoids both deep offsets and a second round of ID detail requests.
+    // Archive metadata stays in the database; the operational list does not consume it.
+    const { data, error: pageError } = await fetchAllRowsById<CustomerWithCats>(
+      (afterId, limit) => {
+        let query = supabase
         .from('customers')
         .select(`
-          *,
+          id, user_id, name, email, phone, address, notes, created_at,
+          external_source, external_id, legacy_last_booking, legacy_account_balance, legacy_total_spent,
           cats(id, name, breed, age, external_source, external_id),
           customer_credit_ledger(amount)
         `)
         .eq('cattery_id', cattery.id)
-        .in('id', ids).abortSignal(controller.signal) as unknown as PromiseLike<{ data: CustomerWithCats[] | null; error: { message: string } | null }>,
+        .order('id').limit(limit).abortSignal(controller.signal);
+        if (afterId) query = query.gt('id', afterId);
+        return query as unknown as PromiseLike<{ data: CustomerWithCats[] | null; error: { message: string } | null }>;
+      },
+      () => supabase.from('customers').select('id', { count: 'exact', head: true })
+        .eq('cattery_id', cattery.id).abortSignal(controller.signal),
     );
     if (generation !== requestGeneration.current) return;
 
