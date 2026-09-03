@@ -240,3 +240,15 @@ test('unchanged checksum must not skip an unpriced pending request',async()=>{
  f.job.checkpoint.scope='operational';f.job.checkpoint.checked_checksums={'100':await hash(JSON.stringify(f.detail))};
  await tick(f);assert.equal(f.calls.find(c=>c.path==='rpc/catstays_import_legacy_bookings').body.records[0].legacy_amount,230);
 });
+
+test('pending quote preserves existing receipt snapshots without creating payments',async()=>{
+ const f=unpricedFixture();Object.assign(f.existing,{total_amount:120,legacy_outstanding:70,legacy_monies_received:50,legacy_metadata:{_revelation_source:{total_amount:120}}});
+ await tick(f);
+ const r=f.calls.find(c=>c.path==='rpc/catstays_import_legacy_bookings').body.records[0];
+ assert.equal(r.legacy_amount,120);assert.equal(r.legacy_outstanding,70);assert.equal(r.legacy_monies_received,50);
+ assert.ok(!f.calls.some(c=>c.path==='rpc/catstays_import_legacy_payments'));
+});
+test('missing coverage for one cat is rejected even if another cat is present',()=>{
+ const q=quoteInput();q.assignments.push({...q.assignments[0],cat_external_id:'2',starts_on:'2026-10-01'});
+ assert.throws(()=>pendingAccommodationCost(q),/Gap/);
+});
