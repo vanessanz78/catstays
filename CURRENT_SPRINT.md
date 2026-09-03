@@ -1,6 +1,15 @@
 # Current Sprint
 
-Last updated: 2026-09-02
+Last updated: 2026-09-03
+
+## Focused Follow-up: Confirmation Payment Links
+
+- Deposit/full-balance booking confirmations now reuse the cattery Stripe checkout handler; confirmation-only emails remain unchanged.
+- Server-side booking ownership, saved recipient, completed payment ledger, tax-inclusive adjustments, and deposit settings determine the request. Client-supplied amounts cannot set the charge.
+- Failed balance reads or email sends must not report success. Failed email sends expire their checkout sessions. Existing payment status is preserved when requesting money.
+- Automated coverage includes deposit/full links, paid/part-paid balances, tax/adjustments/refunds, unauthorized/cancelled/disconnected requests, ledger failures, missing checkout URLs, and email failures. Tests mock all external services: no real charge or customer email.
+- No schema or Stripe credential changes. Release and authenticated UI verification are separate gates; actual customer receipt and a completed Stripe payment remain unverified until explicitly exercised.
+- Availability-first creation and split-room workflow review are deferred to the next task per Vanessa.
 
 ## Goal
 

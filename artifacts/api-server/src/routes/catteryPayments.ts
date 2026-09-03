@@ -1,10 +1,11 @@
-import { Router, type IRouter, type Request } from 'express';
+import { Router, type IRouter, type Request, type Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
+import { randomBytes } from 'node:crypto';
 import { resend, FROM_ADDRESS } from '../lib/resend.js';
-import { paymentRequestHtml } from '../lib/emailTemplates.js';
+import { paymentRequestHtml, bookingConfirmationHtml } from '../lib/emailTemplates.js';
 import { notifyCatteryStaff, notifyCustomer } from '../push/notifications.js';
-import { calculateConfiguredDeposit } from '../lib/catteryPaymentRules.js';
+import { calculatePaymentAmounts } from '../lib/catteryPaymentRules.js';
 
 const router: IRouter = Router();
 const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
@@ -213,11 +214,11 @@ router.post('/cattery-payments/test', async (req, res) => {
   }
 });
 
-router.post('/cattery-payments/request', async (req, res) => {
+export async function requestBookingPayment(req: Request, res: Response, confirmation = false) {
   if (!admin) { res.status(503).json({ error: 'Payment service is not configured' }); return; }
   const user = await authenticatedUser(req);
   const bookingId = String(req.body?.bookingId || '');
-  const choice = String(req.body?.choice || '') as PaymentChoice;
+  const choice = String((confirmation ? req.body?.paymentRequest : req.body?.choice) || '') as PaymentChoice;
   if (!user || !['deposit', 'full', 'both'].includes(choice)) {
     res.status(400).json({ error: 'Choose deposit, full payment, or both.' });
     return;
@@ -246,14 +247,21 @@ router.post('/cattery-payments/request', async (req, res) => {
     return;
   }
 
-  const total = Number(booking.total_amount || 0);
-  const { deposit } = calculateConfiguredDeposit(cattery.website_settings, total);
-  if (total <= 0 || ((choice === 'deposit' || choice === 'both') && deposit <= 0)) {
-    res.status(400).json({ error: 'The booking total or deposit rule is not configured.' });
+  const [payments, adjustments] = await Promise.all([
+    admin.from('payments').select('amount,status').eq('cattery_id', booking.cattery_id).eq('booking_id', booking.id),
+    admin.from('booking_adjustments').select('amount').eq('cattery_id', booking.cattery_id).eq('booking_id', booking.id),
+  ]);
+  if (payments.error || adjustments.error) {
+    res.status(503).json({ error: 'Could not verify the booking balance. No payment request was sent.' });
+    return;
+  }
+  const { total, deposit, outstanding } = calculatePaymentAmounts(cattery.website_settings, Number(booking.total_amount), payments.data || [], adjustments.data || []);
+  if (outstanding <= 0 || !Number.isFinite(outstanding) || ((choice === 'deposit' || choice === 'both') && deposit <= 0)) {
+    res.status(409).json({ error: 'No amount is due for this payment option. Choose confirmation only, or request the remaining balance.' });
     return;
   }
 
-  const kinds: Array<'deposit' | 'full'> = choice === 'both' && deposit < total
+  const kinds: Array<'deposit' | 'full'> = choice === 'both' && deposit < outstanding
     ? ['deposit', 'full']
     : [choice === 'deposit' ? 'deposit' : 'full'];
   const stripe = new Stripe(credentials.secretKey);
@@ -263,8 +271,9 @@ router.post('/cattery-payments/request', async (req, res) => {
 
   try {
     for (const kind of kinds) {
-      const amount = kind === 'deposit' ? deposit : total;
+      const amount = kind === 'deposit' ? deposit : outstanding;
       const session = await stripe.checkout.sessions.create({
+        integration_identifier: `catstays-booking-${Array.from(randomBytes(8), byte => String.fromCharCode(97 + byte % 26)).join('')}`,
         mode: 'payment',
         customer_email: customer.email,
         line_items: [{
@@ -297,6 +306,7 @@ router.post('/cattery-payments/request', async (req, res) => {
         expires_at: expiresAt,
       });
       createdSessions.push(session);
+      if (!session.url) throw new Error('Stripe did not return a payment link. Nothing was emailed.');
     }
 
     const requestRows = createdSessions.map((session, index) => {
@@ -306,7 +316,7 @@ router.post('/cattery-payments/request', async (req, res) => {
         booking_id: booking.id,
         customer_id: customer.id,
         request_type: kind,
-        amount: kind === 'deposit' ? deposit : total,
+        amount: kind === 'deposit' ? deposit : outstanding,
         provider_session_id: session.id,
         checkout_url: session.url,
         expires_at: new Date(expiresAt * 1000).toISOString(),
@@ -316,15 +326,30 @@ router.post('/cattery-payments/request', async (req, res) => {
     const { error: insertError } = await admin.from('payment_requests').insert(requestRows);
     if (insertError) throw insertError;
 
-    await admin.from('bookings').update({ payment_status: 'pending' }).eq('id', booking.id);
     const links = requestRows.map((row) => ({ type: row.request_type, amount: row.amount, url: String(row.checkout_url) }));
     const catNames = (booking.booking_cats || []).map((entry: any) => entry.cat?.name).filter(Boolean).join(', ');
-    const { error: emailError } = await resend.emails.send({
+    const { data: emailData, error: emailError } = await resend.emails.send({
       from: FROM_ADDRESS,
       to: customer.email,
+      ...(confirmation && cattery.email ? { cc: cattery.email } : {}),
       replyTo: cattery.email || undefined,
-      subject: `Payment options for your booking at ${cattery.name}`,
-      html: paymentRequestHtml({
+      subject: `${confirmation ? 'Booking confirmed' : 'Payment options for your booking'} at ${cattery.name}`,
+      html: confirmation ? bookingConfirmationHtml({
+        customerName: customer.name,
+        catteryName: cattery.name,
+        catName: catNames,
+        roomName: String(req.body.roomName || 'See booking details'),
+        checkIn: String(req.body.checkIn || booking.check_in),
+        checkOut: String(req.body.checkOut || booking.check_out),
+        totalAmount: `$${total.toFixed(2)}`,
+        deposit: choice === 'deposit' ? `$${deposit.toFixed(2)}` : undefined,
+        paymentRequest: choice === 'deposit' ? 'deposit' : 'full',
+        paymentLink: links[0],
+        customMessage: req.body.customMessage,
+        customerNote: req.body.customerNote,
+        terms: req.body.terms,
+        bookingRef: booking.id.slice(0, 8).toUpperCase(),
+      }) : paymentRequestHtml({
         customerName: customer.name,
         catteryName: cattery.name,
         bookingRef: booking.id.slice(0, 8).toUpperCase(),
@@ -333,6 +358,7 @@ router.post('/cattery-payments/request', async (req, res) => {
         links,
       }),
     });
+    if (emailError || !emailData?.id) throw new Error('The email provider could not send the payment request. Please try again.');
     void notifyCustomer(customer.id, booking.cattery_id, {
       type: 'payment_requested',
       title: 'Booking payment requested',
@@ -340,15 +366,20 @@ router.post('/cattery-payments/request', async (req, res) => {
       url: '/client-portal',
       tag: `catstays-payment-request-${booking.id}`,
     });
-    res.json({ success: true, links, emailSent: !emailError, emailError: emailError?.message });
+    res.json({ success: true, id: emailData.id, links, emailSent: true });
   } catch (error: any) {
     await Promise.all(createdSessions.map(async (session) => {
-      try { await stripe.checkout.sessions.expire(session.id); } catch { /* best effort cleanup */ }
+      try {
+        await stripe.checkout.sessions.expire(session.id);
+        await admin.from('payment_requests').update({ status: 'cancelled', updated_at: new Date().toISOString() }).eq('provider_session_id', session.id);
+      } catch { /* best effort cleanup */ }
     }));
     console.error('[cattery-payments/request]', error);
     res.status(500).json({ error: error?.message || 'Payment request could not be created.' });
   }
-});
+}
+
+router.post('/cattery-payments/request', (req, res) => requestBookingPayment(req, res));
 
 router.get('/cattery-payments/complete', async (req, res) => {
   if (!admin) { res.redirect('/client-portal?payment=error'); return; }
