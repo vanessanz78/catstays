@@ -208,6 +208,7 @@ export async function processTick(env, force=false, transport=clients(env)) {
         const status=cancelled?'cancelled':pending?'pending':old&&old.status!=='cancelled'&&old.status!=='pending'?old.status:'confirmed';
         let amount=Number(d.total_amount),outstanding=Number(d.outstanding_amount);
         if(!Number.isFinite(amount)||!Number.isFinite(outstanding))throw Error('Invalid source booking amount');
+        const sourceReceived=amount-outstanding;
         // Owner-approved pending quotes use CatStays rates only when source supplies no money.
         // Existing source snapshots remain archived unchanged; payment evidence remains zero.
         if(pending&&!cancelled&&amount===0&&outstanding===0&&!(d.payments||[]).length){
@@ -215,7 +216,7 @@ export async function processTick(env, force=false, transport=clients(env)) {
           if(Number(old?.total_amount)>0){
             // Keep the prior source baseline so audited merging preserves staff overrides.
             amount=Number(baseline?.total_amount??old.total_amount);
-            outstanding=amount; // No source receipts exist in this branch; never invent a payment.
+            outstanding=Number(old.legacy_outstanding??amount);
           } else if(!old||old.status==='pending'){
             const adjustments=old?await db('booking_adjustments?booking_id=eq.'+old.id+'&select=id&limit=1',undefined,'GET'):[];
             const payments=old?await query('payments','booking_id=eq.'+old.id,'id'):[];
@@ -254,7 +255,7 @@ export async function processTick(env, force=false, transport=clients(env)) {
           try {
             const otherBooking=oldPayments.some(p=>p.booking_id && p.booking_id!==saved.id);
             if(otherBooking)throw Error('Shared invoice requires review');
-            const extra=planPayments(d.payments,oldPayments,amount-outstanding);
+            const extra=planPayments(d.payments,oldPayments,sourceReceived);
             if(extra.length){const rows=await Promise.all(extra.map(async x=>({external_id:'api-'+await hash(`${invoice}:${x.signature}:${x.occurrence}`),
               booking_external_id:item.reference,customer_external_id:owner.external_id,paid_on:isoDate(x.row.date),amount:Number(x.row.amount),legacy_deleted:false,
               legacy_invoice_id:invoice,legacy_description:text(x.row.description),legacy_payment_type:text(x.row.payment_method),legacy_customer_name:d.customer_name})));
