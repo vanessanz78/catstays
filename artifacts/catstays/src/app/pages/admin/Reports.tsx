@@ -16,7 +16,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useBookings, type BookingWithDetails } from "@/hooks/useBookings";
 import { supabase } from "@/utils/supabase/client";
-import { fetchAllRows } from "@/app/lib/fetchAllRows";
+import { fetchAllRowsById } from "@/app/lib/fetchAllRows";
 import {
   DEPOSIT_STATUS_OPTIONS,
   depositReportStatus,
@@ -448,33 +448,21 @@ export function AdminReports() {
     }
     setLedgerLoading(true);
     setLedgerError("");
+    const readRows = <T extends { id: string }>(table: string, fields: string) =>
+      fetchAllRowsById<T>((afterId, limit) => {
+        let query = supabase.from(table).select(fields).eq('cattery_id', cattery.id).order('id').limit(limit);
+        if (afterId) query = query.gt('id', afterId);
+        return query.returns<T[]>();
+      }, () => supabase.from(table).select('id', { count: 'exact', head: true }).eq('cattery_id', cattery.id));
     const [paymentsResult, requestsResult, catsResult] = await Promise.all([
-      fetchAllRows((from, to) => supabase
-        .from("payments")
-        .select(
-          "id,booking_id,customer_id,amount,type,status,payment_method,paid_on,reference,created_at,customer:customers(name),legacy_invoice_id,external_source,external_id,legacy_description,legacy_payment_type,legacy_deleted", { count: 'exact' },
-        )
-        .eq("cattery_id", cattery.id)
-        .order("created_at", { ascending: false }).order('id').range(from, to)),
-      fetchAllRows<PaymentRequest>((from, to) => supabase
-        .from("payment_requests")
-        .select(
-          "id,booking_id,customer_id,request_type,amount,status,paid_at,created_at", { count: 'exact' },
-        )
-        .eq("cattery_id", cattery.id)
-        .order("created_at", { ascending: false }).order('id').range(from, to)),
-      fetchAllRows((from, to) => supabase
-        .from("cats")
-        .select(
-          "id,customer_id,name,breed,age,medical_notes,dietary_requirements,created_at,customer:customers(name,email)", { count: 'exact' },
-        )
-        .eq("cattery_id", cattery.id)
-        .order("name").order('id').range(from, to)),
+      readRows<PaymentRecord>('payments', 'id,booking_id,customer_id,amount,type,status,payment_method,paid_on,reference,created_at,customer:customers(name),legacy_invoice_id,external_source,external_id,legacy_description,legacy_payment_type,legacy_deleted'),
+      readRows<PaymentRequest>('payment_requests', 'id,booking_id,customer_id,request_type,amount,status,paid_at,created_at'),
+      readRows<CareCat>('cats', 'id,customer_id,name,breed,age,medical_notes,dietary_requirements,created_at,customer:customers(name,email)'),
     ]);
     const errors = [
-      paymentsResult.error?.message,
-      requestsResult.error?.message,
-      catsResult.error?.message,
+      paymentsResult.error && `Payments: ${paymentsResult.error.message}`,
+      requestsResult.error && `Payment requests: ${requestsResult.error.message}`,
+      catsResult.error && `Cat care: ${catsResult.error.message}`,
     ].filter(Boolean);
     setPayments((paymentsResult.data || []) as unknown as PaymentRecord[]);
     setRequests((requestsResult.data || []) as PaymentRequest[]);
