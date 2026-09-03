@@ -305,6 +305,19 @@ function PagePanel({ children }: { children: ReactNode }) {
   );
 }
 
+function TodayPanel({ title, count, children }: { title: string; count?: number; children: ReactNode }) {
+  return (
+    <details className="group self-start rounded-lg border border-[#E8DED4] bg-white p-5 shadow-sm">
+      <summary className="flex min-h-8 cursor-pointer list-none items-center gap-3 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C46A3A] [&::-webkit-details-marker]:hidden">
+        <h2 className="min-w-0 flex-1 text-xl font-semibold">{title}</h2>
+        {count !== undefined && <Badge className="shrink-0 rounded-full bg-[#F1E8DE] text-[#0A1128] hover:bg-[#F1E8DE]">{count}</Badge>}
+        <ChevronRight aria-hidden="true" className="h-5 w-5 shrink-0 text-[#C46A3A] transition-transform group-open:rotate-90" />
+      </summary>
+      <div className="mt-4">{children}</div>
+    </details>
+  );
+}
+
 function NewBookingDraft() {
   return (
     <PagePanel>
@@ -485,13 +498,7 @@ function TodaySection({
       {statusActionError && <p role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{statusActionError}</p>}
 
       <div className="mt-5 grid gap-5 lg:grid-cols-[1.35fr_0.65fr]">
-        <PagePanel>
-          <div className="mb-4 flex items-center justify-between gap-2">
-            <h2 className="text-xl font-semibold">Currently Occupied</h2>
-            <Badge className="shrink-0 rounded-full bg-[#7DAF7B]/20 text-[#2D5830] hover:bg-[#7DAF7B]/20">
-              {data.occupiedNow.length}
-            </Badge>
-          </div>
+        <TodayPanel title="Currently Occupied" count={data.occupiedNow.length}>
           {isLoading ? (
             <p className="rounded-lg bg-[#F8F7F5] p-5 text-sm text-[#4E5871]">Loading room status...</p>
           ) : data.occupiedNow.length > 0 ? (
@@ -507,35 +514,33 @@ function TodaySection({
               description="Once bookings are checked in, occupied rooms will appear here."
             />
           )}
-        </PagePanel>
+        </TodayPanel>
 
         <aside className="space-y-5">
-          <PagePanel>
-            <div className="flex items-center justify-between"><h2 className="text-xl font-semibold">Pending bookings</h2><Badge className="bg-[#F1E8DE] text-[#8A4E2B] hover:bg-[#F1E8DE]">{data.pending.length}</Badge></div>
+          <TodayPanel title="Pending bookings" count={data.pending.length}>
             <div className="mt-4 space-y-2">
               {data.pending.slice(0, 4).map((booking) => <BookingRow key={booking.id} booking={booking} actionLabel="Review" />)}
               {data.pending.length === 0 && <p className="rounded-lg bg-[#F8F7F5] p-4 text-sm text-[#4E5871]">No booking requests are waiting.</p>}
             </div>
-          </PagePanel>
+          </TodayPanel>
 
-          <PagePanel>
+          <TodayPanel title="Latest bookings" count={data.latestBookings.length}>
             <div className="flex items-center justify-between gap-3">
-              <div><h2 className="text-xl font-semibold">Latest bookings</h2><p className="text-xs text-[#4E5871]">Most recently received</p></div>
+              <p className="text-xs text-[#4E5871]">Most recently received</p>
               <Link to="/staff-dashboard/bookings" className="text-sm font-semibold text-[#C46A3A]">View all</Link>
             </div>
             <div className="mt-4 space-y-2">
               {data.latestBookings.map((booking) => <BookingRow key={booking.id} booking={booking} actionLabel="Open" />)}
               {data.latestBookings.length === 0 && <p className="rounded-lg bg-[#F8F7F5] p-4 text-sm text-[#4E5871]">No recent bookings yet.</p>}
             </div>
-          </PagePanel>
+          </TodayPanel>
 
-          {data.waitingList.length > 0 && <PagePanel>
-            <div className="flex items-center justify-between"><h2 className="text-xl font-semibold">Waiting list</h2><Badge variant="outline">{data.waitingList.length}</Badge></div>
+          {data.waitingList.length > 0 && <TodayPanel title="Waiting list" count={data.waitingList.length}>
             <div className="mt-4 space-y-2">{data.waitingList.map((booking) => <BookingRow key={booking.id} booking={booking} actionLabel="Open" />)}</div>
-          </PagePanel>}
+          </TodayPanel>}
 
-          <PagePanel>
-            <div className="flex items-center justify-between"><div><h2 className="text-xl font-semibold">7-day occupancy</h2><p className="text-xs text-[#4E5871]">Physical rooms in use</p></div><Link to={`/staff-dashboard/calendar?date=${selectedDate}`} className="text-sm font-semibold text-[#C46A3A]">Calendar</Link></div>
+          <TodayPanel title="7-day occupancy">
+            <div className="flex items-center justify-between"><p className="text-xs text-[#4E5871]">Physical rooms in use</p><Link to={`/staff-dashboard/calendar?date=${selectedDate}`} className="text-sm font-semibold text-[#C46A3A]">Calendar</Link></div>
             <div className="mt-4 grid grid-cols-7 gap-1">{data.occupancyWeek.map((day) => <div key={day.date} className="text-center"><div className="flex h-20 items-end overflow-hidden rounded-md bg-[#F1E8DE]"><div className="w-full bg-[#C46A3A]" style={{ height: `${Math.max(day.percentage, day.count ? 8 : 0)}%` }} /></div><span className="mt-1 block text-[10px] text-[#4E5871]">{new Date(`${day.date}T12:00:00`).toLocaleDateString(undefined, { weekday: 'narrow' })}</span><span className="block text-[10px] font-semibold">{day.count}</span></div>)}</div>
             <div className="mt-4 overflow-hidden rounded-lg border border-[#E8DED4]">
               <table className="w-full table-fixed text-center text-xs">
@@ -543,21 +548,19 @@ function TodaySection({
                 <tbody>{data.occupancyWeek.map((day) => <tr key={`${day.date}-summary`} className="border-t border-[#EEE7DF]"><td className="px-2 py-2 text-left font-medium">{new Date(`${day.date}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' })}</td><td className="px-1 py-2">{day.arrivals}</td><td className="px-1 py-2">{day.departures}</td><td className="px-1 py-2 font-semibold">{day.dayEnd}</td></tr>)}</tbody>
               </table>
             </div>
-          </PagePanel>
+          </TodayPanel>
 
-          <PagePanel>
-            <h2 className="text-xl font-semibold">Workspace</h2>
+          <TodayPanel title="Workspace">
             <div className="mt-4 space-y-3">
               <WorkspaceCard href="/staff-dashboard/bookings" icon={BookOpen} title="Bookings" description="All reservations" value={bookings.length} />
               <WorkspaceCard href="/staff-dashboard/customers" icon={Users} title="Customers" description="Contact details" value={customersLoading ? '—' : customers.length} />
               <WorkspaceCard href="/staff-dashboard/room-planner" icon={Cat} title="Rooms" description="Room planner" value={`${data.availableRooms} available`} />
             </div>
-          </PagePanel>
+          </TodayPanel>
 
-          <section className="rounded-lg border border-[#0A1128] bg-[#0A1128] p-5 text-white shadow-sm">
-            <p className="text-sm uppercase tracking-wide text-[#E9D7C8]">Website</p>
+          <TodayPanel title="Website">
             <h2 className="mt-2 text-xl font-semibold">{tenantHost}</h2>
-            <p className="mt-2 text-sm leading-6 text-white/70">
+            <p className="mt-2 text-sm leading-6 text-[#4E5871]">
               Public bookings connect back to this tenant dashboard only.
             </p>
             <Link to={catterySlug ? '/' : '/site'}>
@@ -565,7 +568,7 @@ function TodaySection({
                 View website
               </Button>
             </Link>
-          </section>
+          </TodayPanel>
         </aside>
       </div>
     </>
@@ -602,11 +605,7 @@ function BookingListPanel({
   const EmptyIcon = emptyIcon;
 
   return (
-    <PagePanel>
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-xl font-semibold">{title}</h2>
-        <Badge className="rounded-full bg-[#F1E8DE] text-[#0A1128] hover:bg-[#F1E8DE]">{count}</Badge>
-      </div>
+    <TodayPanel title={title} count={count}>
       {isLoading ? (
         <p className="rounded-lg bg-[#F8F7F5] p-5 text-sm text-[#4E5871]">{loadingLabel}</p>
       ) : bookings.length > 0 ? (
@@ -631,7 +630,7 @@ function BookingListPanel({
           <span className="sr-only">{emptyDescription}</span>
         </div>
       )}
-    </PagePanel>
+    </TodayPanel>
   );
 }
 

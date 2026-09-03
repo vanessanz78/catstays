@@ -1,6 +1,19 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { readFileSync } from 'node:fs';
 import { buildDashboardData, dailyBookingAction } from '../../lib/staffDashboard';
+
+test('Today detail panels start closed with native keyboard-accessible disclosure', () => {
+  const source = readFileSync(new URL('./StaffDashboard.tsx', import.meta.url), 'utf8');
+  const panel = source.slice(source.indexOf('function TodayPanel'), source.indexOf('function NewBookingDraft'));
+  assert.match(panel, /<details className=/);
+  assert.doesNotMatch(panel, /<details[^>]*\bopen[=\s>]/);
+  assert.match(panel, /<summary/);
+  assert.match(panel, /group-open:rotate-90/);
+  for (const title of ['Currently Occupied', 'Pending bookings', 'Latest bookings', '7-day occupancy', 'Workspace', 'Website']) {
+    assert.ok(source.includes(`<TodayPanel title="${title}"`));
+  }
+});
 
 function booking(overrides: Record<string, unknown>) {
   return {
