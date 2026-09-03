@@ -40,6 +40,40 @@ export function planPayments(incoming, existing, expectedReceived) {
   if(extra.some(p=>deleted.has(p.signature)))throw Error('Previously deleted payment needs export review; no reactivation');
   return extra;
 }
+
+/** Accommodation cost for a genuinely unpriced pending request; never a charge. */
+export function pendingAccommodationCost({start,end,assignments,rooms,settings}) {
+  const from=Date.parse(start+'T00:00:00Z'),to=Date.parse(end+'T00:00:00Z');
+  const days=(to-from)/86400000+1;
+  if(!Number.isInteger(days)||days<1||days>3660||!assignments.length)throw Error('Incomplete pending stay');
+  const config={...(settings?.bookingRules||{}),...settings};
+  const taxRate=config.chargeTax===false?0:Number(config.taxRate??15);
+  if(!Number.isFinite(taxRate)||taxRate<0||taxRate>100)throw Error('Invalid tax setting');
+  const rates=Array.isArray(config.pricingRates)?config.pricingRates:[];
+  const expectedCats=new Set(assignments.map(a=>a.cat_external_id));
+  let subtotal=0;
+  for(let day=from;day<=to;day+=86400000){
+    const date=new Date(day).toISOString().slice(0,10),groups=new Map(),cats=new Set();
+    for(const a of assignments.filter(a=>a.starts_on<=date&&a.ends_on>=date)){
+      if(cats.has(a.cat_external_id))throw Error('Overlapping cat stay');
+      cats.add(a.cat_external_id);
+      const key=a.room_id+':'+a.room_unit_number;
+      groups.set(key,[...(groups.get(key)||[]),a]);
+    }
+    if(!cats.size||cats.size!==expectedCats.size)throw Error('Gap in pending stay');
+    for(const group of groups.values()){
+      const room=rooms.find(r=>r.id===group[0].room_id);
+      const occupancy=rates.filter(r=>Number(r.numberOfCats)===group.length);
+      if(occupancy.length>1)throw Error('Ambiguous occupancy rate');
+      const daily=occupancy.length?Number(occupancy[0].price):Number(room?.price_per_night)*group.length;
+      if(!Number.isFinite(daily)||daily<=0)throw Error('Missing accommodation rate');
+      subtotal+=daily;
+    }
+  }
+  subtotal=Math.round(subtotal*100)/100;
+  return Math.round((subtotal+Math.round(subtotal*taxRate)/100)*100)/100;
+}
+
 export function clients(env) {
   const dbUrl=env.SUPABASE_URL,dbKey=env.SUPABASE_SERVICE_ROLE_KEY,key=env.REVELATION_PETS_API_KEY;
   if(!dbUrl||new URL(dbUrl).hostname!==`${PROJECT}.supabase.co`||!dbKey||!key)throw Error('Sync configuration mismatch');
@@ -139,7 +173,7 @@ export async function processTick(env, force=false, transport=clients(env)) {
         if(String(d.booking_id)!==item.reference)throw Error('Booking response identity mismatch');
         // Still read the complete live response: date, room, note, status and money changes cannot hide behind list fields.
         const checksum=await hash(JSON.stringify(d));
-        if(cp.scope==='operational'&&cp.checked_checksums?.[item.reference]===checksum){
+        if(cp.scope==='operational'&&cp.checked_checksums?.[item.reference]===checksum&&!(d.pending==='Yes'&&Number(d.total_amount)===0)){
           queue.shift();done++;cp.processed++;cp.unchanged=(cp.unchanged||0)+1;continue;
         }
         await archive(`booking-${item.id}.json`,[d]);
@@ -160,7 +194,7 @@ export async function processTick(env, force=false, transport=clients(env)) {
         if(!owner||!start||!end||end<start){await warn('api_booking_identity_or_dates',item.reference);queue.shift();done++;cp.processed++;continue;}
         const cats=await query('cats',`customer_id=eq.${owner.id}&external_source=eq.revelation_pets`);
         const selected=new Set(),assignments=[];let ambiguous=false;
-        const rooms=await query('rooms','is_active=eq.true','id,name,room_count');
+        const rooms=await query('rooms','is_active=eq.true','id,name,room_count,price_per_night');
         for(const line of d.overnights||[]){
           const whole=cats.filter(c=>text(c.name).toLowerCase()===text(line.pet).toLowerCase());
           const matches=whole.length===1?[whole]:text(line.pet).split(',').map(label=>cats.filter(c=>text(c.name).toLowerCase()===text(label).toLowerCase()));
@@ -172,8 +206,30 @@ export async function processTick(env, force=false, transport=clients(env)) {
         }
         const cancelled=d.cancelled==='Yes',pending=d.pending==='Yes';
         const status=cancelled?'cancelled':pending?'pending':old&&old.status!=='cancelled'&&old.status!=='pending'?old.status:'confirmed';
-        const amount=Number(d.total_amount),outstanding=Number(d.outstanding_amount);
+        let amount=Number(d.total_amount),outstanding=Number(d.outstanding_amount);
         if(!Number.isFinite(amount)||!Number.isFinite(outstanding))throw Error('Invalid source booking amount');
+        const sourceReceived=amount-outstanding;
+        // Owner-approved pending quotes use CatStays rates only when source supplies no money.
+        // Existing source snapshots remain archived unchanged; payment evidence remains zero.
+        if(pending&&!cancelled&&amount===0&&outstanding===0&&!(d.payments||[]).length){
+          const baseline=old?.legacy_metadata?._revelation_source;
+          if(Number(old?.total_amount)>0){
+            // Keep the prior source baseline so audited merging preserves staff overrides.
+            amount=Number(baseline?.total_amount??old.total_amount);
+            outstanding=Number(old.legacy_outstanding??amount);
+          } else if(!old||old.status==='pending'){
+            const adjustments=old?await db('booking_adjustments?booking_id=eq.'+old.id+'&select=id&limit=1',undefined,'GET'):[];
+            const payments=old?await query('payments','booking_id=eq.'+old.id,'id'):[];
+            const hasExtras=['daycares','appointments','other_charges'].some(k=>(d[k]||[]).length);
+            if(!ambiguous&&!adjustments.length&&!payments.length&&!hasExtras){
+              const cattery=await db('catteries?id=eq.'+TENANT+'&select=website_settings',undefined,'GET');
+              try {
+                amount=pendingAccommodationCost({start,end,assignments,rooms,settings:cattery[0]?.website_settings});
+                outstanding=amount;
+              } catch {await warn('api_pending_pricing_review',item.reference);}
+            } else await warn('api_pending_pricing_review',item.reference);
+          }
+        }
         await rpc('bookings',[{external_id:item.reference,customer_external_id:owner.external_id,legacy_reference:item.reference,
           legacy_customer_name:d.customer_name,legacy_pet_names:[...new Set((d.overnights||[]).map(x=>x.pet))].join(', '),
           check_in:start,check_out:end,check_in_time:sourceTime(d.boarding_arriving),check_out_time:sourceTime(d.boarding_departing),
@@ -199,7 +255,7 @@ export async function processTick(env, force=false, transport=clients(env)) {
           try {
             const otherBooking=oldPayments.some(p=>p.booking_id && p.booking_id!==saved.id);
             if(otherBooking)throw Error('Shared invoice requires review');
-            const extra=planPayments(d.payments,oldPayments,amount-outstanding);
+            const extra=planPayments(d.payments,oldPayments,sourceReceived);
             if(extra.length){const rows=await Promise.all(extra.map(async x=>({external_id:'api-'+await hash(`${invoice}:${x.signature}:${x.occurrence}`),
               booking_external_id:item.reference,customer_external_id:owner.external_id,paid_on:isoDate(x.row.date),amount:Number(x.row.amount),legacy_deleted:false,
               legacy_invoice_id:invoice,legacy_description:text(x.row.description),legacy_payment_type:text(x.row.payment_method),legacy_customer_name:d.customer_name})));
