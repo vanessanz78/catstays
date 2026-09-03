@@ -123,3 +123,43 @@ test('blank source customer names are archived and flagged without blocking vali
   assert.ok(f.calls.some(c=>c.body?.issue_type==='api_cat_missing_name'));
   assert.equal(f.calls.at(-1).body.next_phase,'bookings');
 });
+
+test('operational customer discovery advances to current range, not year 2000',async()=>{
+ const f=fixture('customers',{queue:[{from:'2026-08-27',to:'2026-09-04'}]});
+ f.job.checkpoint.scope='operational';f.job.checkpoint.bookings_from='2026-08-04';
+ await tick(f);assert.equal(f.calls.at(-1).body.next_queue[0].from,'2026-08-04');
+});
+test('fresh booking discovery includes newly created and pending references first',async()=>{
+ const f=fixture('bookings',{queue:[{from:'2026-08-04',to:'2036-12-31'}]});
+ f.sourceRows=[{id:1,booking_id:100,boarding_to_date:'10/09/2026'},{id:2,booking_id:101,boarding_to_date:'03/10/2026',pending:'Yes'},{id:3,booking_id:102,boarding_to_date:'28/09/2026'}];
+ await tick(f);assert.deepEqual(f.calls.at(-1).body.next_queue.map(x=>x.reference),['102','101','100']);
+});
+test('source pending status is retained and cancelled takes precedence',async()=>{
+ for(const [pending,cancelled,status] of [['Yes','No','pending'],['Yes','Yes','cancelled'],['No','No','confirmed']]){
+  const f=fixture();f.detail.pending=pending;f.detail.cancelled=cancelled;f.existing.status='pending';await tick(f);
+  assert.equal(f.calls.find(c=>c.path==='rpc/catstays_import_legacy_bookings').body.records[0].status,status);
+ }
+});
+test('expired manual window does not start a source detail request',async()=>{
+ const f=fixture();f.job.manual_until=new Date(Date.now()-1000).toISOString();let reads=0;
+ f.source=async()=>{reads++;return f.detail;};await tick(f);assert.equal(reads,0);assert.equal(f.calls.at(-1).body.next_queue.length,1);
+});
+test('operational missing owner uses exact source identity, not a guessed name',async()=>{
+ const f=fixture();f.job.checkpoint.scope='operational';let fetched=false;const original=f.db;
+ f.db=async(path,body)=>path.startsWith('customers?')&&!fetched?[]:original(path,body);
+ f.source=async(endpoint,params)=>{if(endpoint==='booking')return f.detail;assert.equal(params.keywords,f.owner.email);fetched=true;return [{id:2,name:f.owner.name,email:f.owner.email,pets:[{id:3,name:'Test Cat'}]}];};
+ await tick(f);assert.ok(f.calls.some(c=>c.path==='rpc/catstays_import_legacy_customers'));
+ assert.ok(f.calls.some(c=>c.path==='rpc/catstays_import_legacy_bookings'));
+});
+
+test('existing future booking detail changes reach the same external identity',async()=>{
+ const f=fixture();f.job.checkpoint.scope='operational';
+ Object.assign(f.detail,{boarding_from_date:'05/09/2026',boarding_to_date:'12/09/2026',boarding_arriving:'10:30 AM',boarding_departing:'4:00 PM',notes:'Changed collection instructions',total_amount:140,outstanding_amount:90});
+ f.detail.overnights[0]={pet:'Test Cat',run:'Private Room 2',from_date:'05/09/2026',to_date:'12/09/2026'};
+ Object.assign(f.existing,{check_in:'2026-09-05',check_out:'2026-09-12'});
+ await tick(f);
+ const row=f.calls.find(c=>c.path==='rpc/catstays_import_legacy_bookings').body.records[0];
+ assert.equal(row.external_id,'100');assert.equal(row.check_in,'2026-09-05');assert.equal(row.check_out,'2026-09-12');
+ assert.equal(row.notes,'Changed collection instructions');assert.equal(row.check_in_time,'10:30:00');assert.equal(row.legacy_outstanding,90);
+ assert.equal(f.calls.find(c=>c.path==='rpc/catstays_import_legacy_booking_relations').body.records[0].assignments[0].room_unit_number,2);
+});

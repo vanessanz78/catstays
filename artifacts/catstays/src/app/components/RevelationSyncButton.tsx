@@ -28,6 +28,10 @@ async function api(path:string, body?:object) {
   if (!response.ok) throw new Error(result.error || 'Unable to sync. Please try again.');
   return result;
 }
+function refreshBookings() {
+  window.dispatchEvent(new Event('catstays-sync-completed'));
+  window.dispatchEvent(new Event('catstays:bookings-changed'));
+}
 async function startSync() {
   if (state.busy) { update({message:'Sync is still running. We’ll confirm when it finishes.'}); return; }
   const current=++generation;
@@ -41,25 +45,26 @@ async function startSync() {
     limitTimer=setTimeout(()=>{
       if(current!==generation)return;
       generation++;clearTimeout(timer);
-      update({busy:false,error:false,message:'Sync paused to limit usage. Progress is saved—tap sync to continue.'});
+      refreshBookings();
+      update({busy:false,error:false,message:'Sync paused to limit usage. Imported changes are saved—tap sync to check again.'});
     },Math.max(0,until-Date.now()));
     const poll=async()=>{
       if(current!==generation)return;
       try {
         const progress=await api(`step/${encodeURIComponent(result.jobId)}`,{catteryId:tenant});
+        // A final in-flight batch can finish after the UI usage timer.
+        refreshBookings();
         if(current!==generation)return;
         if(progress.status==='completed') {
           clearTimeout(limitTimer);
           update({busy:false,error:false,message:syncSummaryText(progress.changes)});
-          window.dispatchEvent(new Event('catstays-sync-completed'));
         } else if(progress.status==='paused') {
           clearTimeout(limitTimer);
-          update({busy:false,error:false,message:'Sync paused to limit usage. Progress is saved—tap sync to continue.'});
-          window.dispatchEvent(new Event('catstays-sync-completed'));
+          update({busy:false,error:false,message:'Sync paused to limit usage. Imported changes are saved—tap sync to check again.'});
         } else if(progress.status==='failed') {
           clearTimeout(limitTimer);
           update({busy:false,error:true,message:'Sync couldn’t finish. Please try again.'});
-        } else { timer=setTimeout(()=>void poll(),5000); }
+        } else { timer=setTimeout(()=>void poll(),250); }
       } catch(failure) {
         clearTimeout(limitTimer);
         if(current===generation) update({busy:false,error:true,message:failure instanceof Error?failure.message:'Could not check sync progress. Please try again.'});

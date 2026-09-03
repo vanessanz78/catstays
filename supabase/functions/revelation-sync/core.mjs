@@ -78,13 +78,7 @@ export async function processTick(env, force=false, transport=clients(env)) {
     if(!prior.length)await db('legacy_reconciliation_issues',{cattery_id:TENANT,import_run_id:run,issue_type:type,severity:'warning',summary:'API information requires review; original response is preserved.',details:{reference:ref}});
     cp.warnings=(cp.warnings||0)+1;
   };
-  try {
-    if(phase==='customers'||phase==='bookings') {
-      const range=queue.shift(),rows=await source(phase,{from_date:apiDate(range.from),to_date:apiDate(range.to)});
-      if(rows.length>=1000){queue.unshift(...splitRange(range));}
-      else {
-        await archive(`${phase}-${range.from}-${range.to}.json`,rows);cp.source_pages++;
-        if(phase==='customers') {
+  const importCustomers=async(rows)=>{
           for(let offset=0;offset<rows.length;offset+=100){
             const batch=rows.slice(offset,offset+100);
             for(const c of batch.filter(c=>!text(c.name)))await warn('api_customer_missing_name',String(c.id));
@@ -112,6 +106,15 @@ export async function processTick(env, force=false, transport=clients(env)) {
                 age:b.age??o?.age??null,medical_notes:b.medical_notes??o?.medical_notes??null,dietary_requirements:b.dietary_requirements??o?.dietary_requirements??null,legacy_metadata:{api:p}};}));
             }
           }
+  };
+  try {
+    if(phase==='customers'||phase==='bookings') {
+      const range=queue.shift(),rows=await source(phase,{from_date:apiDate(range.from),to_date:apiDate(range.to)});
+      if(rows.length>=1000){queue.unshift(...splitRange(range));}
+      else {
+        await archive(`${phase}-${range.from}-${range.to}.json`,rows);cp.source_pages++;
+        if(phase==='customers') {
+          await importCustomers(rows);
         } else {
           const seen=new Map(cp.detail_queue.map(x=>[x.id,x]));
           for(const b of rows){if(!/^\d+$/.test(String(b.id))||!/^\d+$/.test(String(b.booking_id)))throw Error('Invalid source booking identity');let departure=null;try{departure=isoDate(b.boarding_to_date);}catch{}seen.set(String(b.id),{id:String(b.id),reference:String(b.booking_id),departure});}
@@ -119,11 +122,11 @@ export async function processTick(env, force=false, transport=clients(env)) {
         }
       }
       if(!queue.length){
-        if(phase==='customers'){phase='bookings';queue=[{from:'2000-01-01',to:`${Number(job.local_day.slice(0,4))+10}-12-31`}];}
+        if(phase==='customers'){phase='bookings';queue=[{from:cp.bookings_from||'2000-01-01',to:`${Number(job.local_day.slice(0,4))+10}-12-31`}];}
         else {phase='details';queue=cp.detail_queue.sort((a,b)=>Number(b.departure>=job.local_day)-Number(a.departure>=job.local_day)||b.reference.localeCompare(a.reference,undefined,{numeric:true}));delete cp.detail_queue;}
       }
     } else if(phase==='details') {
-      const deadline=Date.now()+45000;
+      const deadline=Math.min(Date.now()+(cp.scope==='operational'?10000:45000),job.manual_until?Date.parse(job.manual_until):Infinity);
       let done=0;
       // A short durable batch bounds runtime and keeps the provider request rate low.
       while(queue.length && done<40 && Date.now()<deadline){
@@ -132,7 +135,15 @@ export async function processTick(env, force=false, transport=clients(env)) {
         await archive(`booking-${item.id}.json`,[d]);
         const found=await query('bookings',`external_source=eq.revelation_pets&external_id=eq.${item.reference}`);
         const old=found[0];
-        const candidates=d.customer_email?await query('customers',`external_source=eq.revelation_pets&email=eq.${encodeURIComponent(d.customer_email)}`):[];
+        let candidates=d.customer_email?await query('customers',`external_source=eq.revelation_pets&email=eq.${encodeURIComponent(d.customer_email)}`):[];
+        if(cp.scope==='operational'&&candidates.length===0&&d.customer_email){
+          // A new booking may reference a customer outside the incremental update window.
+          const matches=await source('customers',{keywords:d.customer_email});
+          if(matches.length>=1000)throw Error('Customer search was capped; no identity guessed');
+          const exact=matches.filter(c=>text(c.email).toLowerCase()===text(d.customer_email).toLowerCase());
+          await archive('customer-lookup.json',exact);
+          if(exact.length===1){await importCustomers(exact);candidates=await query('customers',`external_source=eq.revelation_pets&email=eq.${encodeURIComponent(d.customer_email)}`);}
+        }
         let owner=candidates.length===1?candidates[0]:null;
         if(!owner && candidates.length===0 && old?.customer_id){const previous=await query('customers',`id=eq.${old.customer_id}`);if(previous[0]&&text(previous[0].name)===text(d.customer_name))owner=previous[0];}
         let start=null,end=null;try{start=isoDate(d.boarding_from_date);end=isoDate(d.boarding_to_date);}catch{}
