@@ -4,6 +4,7 @@ process.env.VITE_SUPABASE_URL = 'http://127.0.0.1:1';
 process.env.SUPABASE_SERVICE_ROLE_KEY = 'mock-only';
 let owner = true, staff = false, failed = false, alreadyRunning = false, calls = 0;
 let jobStatus='running', missingJob=false;
+let summaryFailures=0,summaryCalls=0;
 let until=new Date(Date.now()+300000).toISOString();
 mock.method(globalThis, 'fetch', async (input: any) => {
   const url = new URL(String(input));
@@ -12,7 +13,7 @@ mock.method(globalThis, 'fetch', async (input: any) => {
   if (url.pathname.endsWith('/catteries')) return Response.json(owner ? { id: 'tenant' } : null);
   if (url.pathname.endsWith('/staff_memberships')) return Response.json(staff ? { id: 'staff' } : null);
   if (url.pathname.endsWith('/legacy_sync_jobs')) return Response.json(missingJob?null:{id:'job',status:jobStatus,import_run_id:'run',manual_until:until,manual_after_change:42});
-  if(url.pathname.endsWith('/catstays_manual_sync_summary')) return failed?Response.json({message:'private failure'},{status:400}):Response.json({bookings:{added:1,updated:2}});
+  if(url.pathname.endsWith('/catstays_manual_sync_summary')) {summaryCalls++;if(summaryFailures>0){summaryFailures--;return Response.json({message:'temporary read failure'},{status:400});}return failed?Response.json({message:'private failure'},{status:400}):Response.json({bookings:{added:1,updated:2}});}
   calls++;
   return failed ? Response.json({ message: 'private database detail' }, { status: 400 }) : Response.json({ jobId: 'job', alreadyRunning });
 });
@@ -74,4 +75,12 @@ test('manual batches require authentication, a running job and an unexpired clic
  jobStatus='running';assert.equal((await step()).body.status,'running');assert.equal(batches,1);
  jobStatus='completed';assert.equal((await step()).body.status,'completed');assert.equal(batches,1);
  missingJob=true;assert.equal((await step()).code,404);assert.equal(batches,1);missingJob=false;
+});
+
+test('transient summary failure retries only the read, never the import',async()=>{
+ owner=true;staff=false;failed=false;missingJob=false;jobStatus='completed';
+ summaryFailures=1;summaryCalls=0;const before=calls;
+ assert.deepEqual((await result()).body,{status:'completed',changes:{bookings:{added:1,updated:2}}});
+ assert.equal(summaryCalls,2);assert.equal(calls,before);
+ summaryFailures=3;summaryCalls=0;assert.equal((await result()).code,503);assert.equal(summaryCalls,2);summaryFailures=0;
 });

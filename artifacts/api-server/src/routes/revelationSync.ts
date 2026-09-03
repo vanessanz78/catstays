@@ -38,7 +38,11 @@ export async function revelationSyncResult(req: Request, res: Response) {
   // Retire polling in already-open pre-release clients, which do not know "paused".
   if(status==='paused'&&req.method==='GET'){res.json({status:'failed'});return;}
   if (status !== 'completed' && status !== 'paused') { res.json({ status }); return; }
-  const summary = await admin.rpc('catstays_manual_sync_summary', { target_cattery_id:catteryId, target_run_id:job.import_run_id, after_change:job.manual_after_change });
+  const summaryArgs={ target_cattery_id:catteryId, target_run_id:job.import_run_id, after_change:job.manual_after_change };
+  let summary=await admin.rpc('catstays_manual_sync_summary',summaryArgs);
+  // A read-only retry recovers transient database failures after the final write batch.
+  // Never restart the import just to retrieve its completion summary.
+  if(summary.error)summary=await admin.rpc('catstays_manual_sync_summary',summaryArgs);
   if (summary.error) { res.status(503).json({ error: 'Sync finished, but its change summary is unavailable.' }); return; }
   res.json({ status, changes:summary.data });
 }
