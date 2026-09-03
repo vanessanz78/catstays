@@ -1,50 +1,77 @@
-import { useState } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { useEffect, useSyncExternalStore } from 'react';
+import { RefreshCw, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/utils/supabase/client';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
-import { Button } from './ui/button';
-import { RevelationSyncStatus } from './RevelationSyncStatus';
-
+import { syncSummaryText } from '../lib/syncSummary';
+const tenant = '7f6d029f-b727-4645-83be-db6ec56d1b46';
+let state = { busy:false, message:'', error:false };
+const listeners = new Set<() => void>();
+let generation = 0;
+let timer: ReturnType<typeof setTimeout> | undefined;
+let hideTimer: ReturnType<typeof setTimeout> | undefined;
+const subscribe = (listener:()=>void) => { listeners.add(listener); return () => { listeners.delete(listener); }; };
+const snapshot = () => state;
+function update(next:Partial<typeof state>) {
+  state={...state,...next}; listeners.forEach(listener=>listener());
+  if (next.message) { clearTimeout(hideTimer); hideTimer=setTimeout(()=>update({message:''}),12000); }
+}
+async function api(path:string, body?:object) {
+  const {data}=await supabase.auth.getSession();
+  if (!data.session) throw new Error('Sign in again to sync.');
+  const response=await fetch(`/api/revelation-sync/${path}`, {
+    method:body?'POST':'GET', headers:{Authorization:`Bearer ${data.session.access_token}`,'Content-Type':'application/json'},
+    ...(body?{body:JSON.stringify(body)}:{}),
+  });
+  const result=await response.json();
+  if (!response.ok) throw new Error(result.error || 'Unable to sync. Please try again.');
+  return result;
+}
+async function startSync() {
+  if (state.busy) { update({message:'Sync is still running. We’ll confirm when it finishes.'}); return; }
+  const current=++generation;
+  update({busy:true,error:false,message:'Syncing with Revelation Pets…'});
+  try {
+    const result=await api('request',{catteryId:tenant});
+    if(current!==generation)return;
+    if(!result.success || !result.jobId)throw new Error('Sync could not be started.');
+    const poll=async()=>{
+      if(current!==generation)return;
+      try {
+        const progress=await api(`result/${encodeURIComponent(result.jobId)}?catteryId=${tenant}`);
+        if(current!==generation)return;
+        if(progress.status==='completed') {
+          update({busy:false,error:false,message:syncSummaryText(progress.changes)});
+          window.dispatchEvent(new Event('catstays-sync-completed'));
+        } else if(progress.status==='failed') {
+          update({busy:false,error:true,message:'Sync couldn’t finish. Please try again.'});
+        } else { timer=setTimeout(()=>void poll(),15000); }
+      } catch(failure) {
+        if(current===generation) update({busy:false,error:true,message:failure instanceof Error?failure.message:'Could not check sync progress. Please try again.'});
+      }
+    };
+    void poll();
+  } catch(failure) {
+    if(current===generation)update({busy:false,error:true,message:failure instanceof Error?failure.message:'Unable to sync.'});
+  }
+}
 export function RevelationSyncButton() {
-  const { cattery } = useAuth();
-  const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
-  const [revision, setRevision] = useState(0);
-  if (cattery?.id !== '7f6d029f-b727-4645-83be-db6ec56d1b46') return null;
-  const sync = async () => {
-    setBusy(true); setError(''); setMessage('');
-    try {
-      const { data } = await supabase.auth.getSession();
-      if (!data.session) throw new Error('Sign in again to sync.');
-      const response = await fetch('/api/revelation-sync/request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.session.access_token}` },
-        body: JSON.stringify({ catteryId: cattery.id }),
-      });
-      const result = await response.json();
-      if (!response.ok || !result.success) throw new Error(result.error || 'Sync could not be queued.');
-      setMessage(result.alreadyRunning ? 'A sync is already running. Its progress is shown below.' : 'Sync queued. It starts in the background within about a minute. You can close this window.');
-      setRevision(value => value + 1);
-    } catch (failure) { setError(failure instanceof Error ? failure.message : 'Could not connect. Please try again.'); }
-    finally { setBusy(false); }
-  };
-  return <>
-    <button type="button" aria-label="Sync with Revelation Pets" title="Sync with Revelation Pets" onClick={() => setOpen(true)} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#C46A3A] hover:bg-[#C46A3A]/10 focus-visible:ring-2 focus-visible:ring-[#C46A3A]">
-      <RefreshCw className="h-4 w-4" />
-    </button>
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader><DialogTitle>Sync with Revelation Pets</DialogTitle><DialogDescription>Copy new bookings and changes into CatStays. Nothing is sent back to Revelation Pets and no customer messages are sent.</DialogDescription></DialogHeader>
-        <p className="text-sm">CatStays-only bookings are kept. Changes made in both systems are flagged for review, not silently overwritten. A full check can take several hours; current and future booking details are checked first.</p>
-        <Button disabled={busy} onClick={() => void sync()} className="w-full bg-[#C46A3A] text-white hover:bg-[#A85A30]"><RefreshCw className={`mr-2 h-4 w-4 ${busy ? 'animate-spin' : ''}`} />{busy ? 'Requesting sync…' : 'Sync now'}</Button>
-        {message && <p role="status" className="text-sm text-emerald-800">{message}</p>}
-        {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
-        <RevelationSyncStatus key={revision} catteryId={cattery.id} />
-        <Button variant="outline" onClick={() => window.location.reload()}>Reload dashboard data</Button>
-      </DialogContent>
-    </Dialog>
-  </>;
+  const {cattery}=useAuth();
+  const current=useSyncExternalStore(subscribe,snapshot);
+  if(cattery?.id!==tenant)return null;
+  return <button type="button" aria-label="Sync with Revelation Pets" aria-busy={current.busy} title="Sync with Revelation Pets" onClick={()=>void startSync()} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#C46A3A] hover:bg-[#C46A3A]/10 focus-visible:ring-2 focus-visible:ring-[#C46A3A]">
+    <RefreshCw className={`h-4 w-4 ${current.busy?'animate-spin':''}`} />
+  </button>;
+}
+// One toast host for mobile/desktop icons, kept alive across navigation.
+export function RevelationSyncToast() {
+  const {cattery}=useAuth();
+  const current=useSyncExternalStore(subscribe,snapshot);
+  useEffect(()=>{
+    if(cattery?.id!==tenant){generation++;clearTimeout(timer);clearTimeout(hideTimer);update({busy:false,message:'',error:false});}
+  },[cattery?.id]);
+  if(cattery?.id!==tenant||!current.message)return null;
+  return <div role={current.error?'alert':'status'} className={`fixed bottom-5 right-4 z-[100] flex max-w-[calc(100vw-2rem)] items-center gap-3 rounded-2xl border bg-white p-4 shadow-xl sm:max-w-md ${current.error?'border-red-200 text-red-800':'border-[#E8DED4] text-[#2d3e2f]'}`}>
+    <p className="text-sm font-medium">{current.message}</p>
+    <button aria-label="Dismiss sync message" onClick={()=>update({message:''})} className="shrink-0 p-1"><X className="h-4 w-4" /></button>
+  </div>;
 }

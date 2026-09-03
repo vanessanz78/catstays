@@ -1420,6 +1420,12 @@ export function StaffDashboard() {
     toggleActive,
   } = useRooms();
 
+  useEffect(() => {
+    const refresh = () => { void refetchBookings(); void refetchCustomers(); void refetchRooms(); };
+    window.addEventListener('catstays-sync-completed', refresh);
+    return () => window.removeEventListener('catstays-sync-completed', refresh);
+  }, [refetchBookings, refetchCustomers, refetchRooms]);
+
   const draftAccount = getDraftAccount();
   const isLoading = authLoading || bookingsLoading || roomsLoading;
   const showNewBooking = section === 'bookings' && new URLSearchParams(location.search).get('new') === 'true';
