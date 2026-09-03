@@ -1,5 +1,12 @@
 # Current Sprint
 
+## Booking review pricing refresh — 3 September 2026
+Working ref: `fix/booking-review-fresh-pricing`.
+- Founder confirmed Stephanie/Sam but the open panel retained an earlier zero total. Read-only verification now finds source and saved totals of 92, unpaid; live reopening shows Total 92 / Paid 0 / Owing 92.
+- Refresh the focused booking on explicit booking-change events, prefer it to older list data, update the open review without resetting notes/forms, and return saved totals from status confirmation. No polling or source sync is introduced.
+- Preserve authoritative amounts, discounts, payments and genuine zero totals; do not guess new charges. Separate founder choice requested for automatic pricing of unpriced source requests.
+- Tests/build, exact-SHA development and published UAT are pending. No source/customer/payment mutations performed for this repair.
+
 ## Operational manual sync repair — 3 September 2026
 - Confirmed Lauren Woon (9307) and Stephanie / Sam (9306, pending) absent from the frozen historical detail queue.
 - Each new button window discovers recent/current/future bookings afresh, with incremental customer updates and exact identity fallback. Historical queues remain paused and retained.
