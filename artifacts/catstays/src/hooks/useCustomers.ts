@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { fetchAllRowsById, fetchRowsByIds } from '@/app/lib/fetchAllRows';
 import { supabase } from '@/utils/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -48,8 +49,14 @@ export function useCustomers() {
   const [customers, setCustomers] = useState<CustomerWithCats[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const requestGeneration = useRef(0);
+  const activeRequest = useRef<AbortController | null>(null);
 
   const fetchCustomers = async () => {
+    const generation = ++requestGeneration.current;
+    activeRequest.current?.abort();
+    const controller = new AbortController();
+    activeRequest.current = controller;
     if (!cattery?.id) {
       setCustomers([]);
       setLoading(false);
@@ -57,12 +64,16 @@ export function useCustomers() {
     }
 
     setLoading(true);
-    const pageSize = 500;
-    const allCustomers: CustomerWithCats[] = [];
-    let from = 0;
-
-    while (true) {
-      const { data, error: pageError } = await supabase
+    setError(null);
+    const { data, error: pageError } = await fetchRowsByIds<CustomerWithCats>(
+      () => fetchAllRowsById<{ id: string }>((afterId, limit) => {
+        let query = supabase.from('customers').select('id').eq('cattery_id', cattery.id)
+          .order('id').limit(limit).abortSignal(controller.signal);
+        if (afterId) query = query.gt('id', afterId);
+        return query;
+      }, () => supabase.from('customers').select('id', { count: 'exact', head: true })
+        .eq('cattery_id', cattery.id).abortSignal(controller.signal)),
+      (ids) => supabase
         .from('customers')
         .select(`
           *,
@@ -70,9 +81,9 @@ export function useCustomers() {
           customer_credit_ledger(amount)
         `)
         .eq('cattery_id', cattery.id)
-        .order('created_at', { ascending: false })
-        .order('id')
-        .range(from, from + pageSize - 1);
+        .in('id', ids).abortSignal(controller.signal) as unknown as PromiseLike<{ data: CustomerWithCats[] | null; error: { message: string } | null }>,
+    );
+    if (generation !== requestGeneration.current) return;
 
       if (pageError) {
         setError(pageError.message);
@@ -80,19 +91,14 @@ export function useCustomers() {
         return;
       }
 
-      const page = (data as unknown as CustomerWithCats[]) || [];
-      allCustomers.push(...page);
-      if (page.length < pageSize) break;
-      from += pageSize;
-    }
-
     setError(null);
-    setCustomers(allCustomers);
+    setCustomers((data || []).sort((a, b) => b.created_at.localeCompare(a.created_at) || a.id.localeCompare(b.id)));
     setLoading(false);
   };
 
   useEffect(() => {
     fetchCustomers();
+    return () => { requestGeneration.current++; activeRequest.current?.abort(); };
   }, [cattery?.id]);
 
   const createCustomer = async (customer: {
