@@ -1619,6 +1619,9 @@ export function AdminBookings() {
 
         <Card className="rounded-3xl border-sage/10">
           <CardContent className="space-y-3 p-3">
+            <h2 className="text-center text-base font-semibold text-[#2d3e2f]">
+              <time dateTime={format(startOfToday(), 'yyyy-MM-dd')}>{format(startOfToday(), 'EEE d MMM yyyy').toUpperCase()}</time>
+            </h2>
             <div className="grid grid-cols-3 gap-1" aria-label="Booking views">
               {([
                 ['current', 'Current'],
@@ -1637,7 +1640,6 @@ export function AdminBookings() {
             </div>
             <Input aria-label="Search bookings" placeholder="Customer, cat or Revelation booking number"
               value={bookingSearch} onChange={event => setBookingSearch(event.target.value)} />
-            <p className="text-xs text-[#6b7a6d]">{bookingSearch.trim() ? 'Searching all dates, including older and cancelled bookings.' : viewMode === 'recent' ? 'Stays that ended in the last 30 days.' : viewMode === 'future' ? 'Arrivals after today.' : 'Stays overlapping today, excluding checked-out and cancelled bookings.'}</p>
           </CardContent>
         </Card>
 
