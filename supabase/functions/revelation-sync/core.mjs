@@ -123,7 +123,12 @@ export async function processTick(env, force=false, transport=clients(env)) {
       }
       if(!queue.length){
         if(phase==='customers'){phase='bookings';queue=[{from:cp.bookings_from||'2000-01-01',to:`${Number(job.local_day.slice(0,4))+10}-12-31`}];}
-        else {phase='details';queue=cp.detail_queue.sort((a,b)=>Number(b.departure>=job.local_day)-Number(a.departure>=job.local_day)||b.reference.localeCompare(a.reference,undefined,{numeric:true}));delete cp.detail_queue;}
+        else {phase='details';queue=cp.detail_queue.sort((a,b)=>Number(b.departure>=job.local_day)-Number(a.departure>=job.local_day)||b.reference.localeCompare(a.reference,undefined,{numeric:true}));delete cp.detail_queue;
+          if(cp.scope==='operational'){
+            cp.checked_checksums={};
+            for(let i=0;i<queue.length;i+=1000)Object.assign(cp.checked_checksums,await db('rpc/catstays_checked_source_bookings',{target_cattery_id:TENANT,booking_references:queue.slice(i,i+1000).map(x=>x.reference)}));
+          }
+        }
       }
     } else if(phase==='details') {
       const deadline=Math.min(Date.now()+(cp.scope==='operational'?10000:45000),job.manual_until?Date.parse(job.manual_until):Infinity);
@@ -132,6 +137,11 @@ export async function processTick(env, force=false, transport=clients(env)) {
       while(queue.length && done<40 && Date.now()<deadline){
         const item=queue[0],d=await source('booking',{id:item.id});
         if(String(d.booking_id)!==item.reference)throw Error('Booking response identity mismatch');
+        // Still read the complete live response: date, room, note, status and money changes cannot hide behind list fields.
+        const checksum=await hash(JSON.stringify(d));
+        if(cp.scope==='operational'&&cp.checked_checksums?.[item.reference]===checksum){
+          queue.shift();done++;cp.processed++;cp.unchanged=(cp.unchanged||0)+1;continue;
+        }
         await archive(`booking-${item.id}.json`,[d]);
         const found=await query('bookings',`external_source=eq.revelation_pets&external_id=eq.${item.reference}`);
         const old=found[0];

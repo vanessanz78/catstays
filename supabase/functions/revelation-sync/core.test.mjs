@@ -163,3 +163,22 @@ test('existing future booking detail changes reach the same external identity',a
  assert.equal(row.notes,'Changed collection instructions');assert.equal(row.check_in_time,'10:30:00');assert.equal(row.legacy_outstanding,90);
  assert.equal(f.calls.find(c=>c.path==='rpc/catstays_import_legacy_booking_relations').body.records[0].assignments[0].room_unit_number,2);
 });
+
+test('verified unchanged full response avoids repeat database imports',async()=>{
+ const f=fixture();f.job.checkpoint.scope='operational';
+ const {hash}=await import('./core.mjs');f.job.checkpoint.checked_checksums={'100':await hash(JSON.stringify(f.detail))};
+ const out=await tick(f);assert.equal(out.processed,1);
+ assert.ok(!f.calls.some(c=>c.path==='rpc/catstays_import_legacy_bookings'));
+ assert.ok(!f.calls.some(c=>c.path==='rpc/catstays_stage_legacy_source_file'));
+});
+test('a note-only change invalidates a verified snapshot',async()=>{
+ const f=fixture();f.job.checkpoint.scope='operational';
+ const {hash}=await import('./core.mjs');f.job.checkpoint.checked_checksums={'100':await hash(JSON.stringify(f.detail))};
+ f.detail.notes='New source note';await tick(f);
+ assert.equal(f.calls.find(c=>c.path==='rpc/catstays_import_legacy_bookings').body.records[0].notes,'New source note');
+});
+test('no verified snapshot always processes full relationships and payments',async()=>{
+ const f=fixture();f.job.checkpoint.scope='operational';f.job.checkpoint.checked_checksums={};await tick(f);
+ assert.ok(f.calls.some(c=>c.path==='rpc/catstays_import_legacy_booking_relations'));
+ assert.ok(f.calls.some(c=>c.path==='rpc/catstays_import_legacy_payments'));
+});
