@@ -21,9 +21,9 @@ async function authorizedCattery(req: Request, res: Response) {
 export async function requestRevelationSync(req: Request, res: Response) {
   const catteryId = await authorizedCattery(req, res);
   if (!catteryId || !admin) return;
-  const { data, error } = await admin.rpc('catstays_request_legacy_sync', { target_cattery_id: catteryId });
+  const { data, error } = await admin.rpc('catstays_request_operational_sync', { target_cattery_id: catteryId });
   if (error) {
-    res.status(409).json({ error: 'Sync could not be queued. Check the connection, or wait ten minutes after a recent request and try again.' });
+    res.status(409).json({ error: 'Sync could not be queued. The previous batch may still be finishing. Please try again shortly.' });
     return;
   }
   res.status(202).json({ success: true, ...data });

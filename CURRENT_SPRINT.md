@@ -1,5 +1,11 @@
 # Current Sprint
 
+## Operational manual sync repair — 3 September 2026
+- Confirmed Lauren Woon (9307) and Stephanie / Sam (9306, pending) absent from the frozen historical detail queue.
+- Each new button window discovers recent/current/future bookings afresh, with incremental customer updates and exact identity fallback. Historical queues remain paused and retained.
+- Refresh dashboard and bell after each bounded batch. Automatic sync stays disabled; no source writes, emails, or charges.
+- Verification pending: rollback-only SQL, worker/API tests, builds, exact-SHA Replit and signed-in live UAT. Booking ordering remains out of scope.
+
 ## Manual-only sync cost control — 3 September 2026
 - Owner withdrew automatic/nightly sync authorization. Disable the exact Revelation cron job; prevent automatic worker claims and remove background status polling.
 - Sync button authorizes up to five minutes of sequential, leased batches. Paused work retains its checkpoint and needs another explicit click. Existing imports and audit history are not deleted.

@@ -318,3 +318,7 @@ Impact:
 - The earliest original `created_at` remains the joined date.
 - One linked portal user survives by explicit/default choice; the other authentication user is not deleted.
 - Merge history remains private to authorized cattery staff and is retained independently of the removed customer row.
+
+
+## 2026-09-03 — Everyday sync is independent of historical reconciliation
+Manual operational snapshots replace resuming the frozen full-history queue for the dashboard button. Scan recent arrivals (30 days), existing earlier active/pending stays, and future arrivals through the existing ten-year horizon. Customer updates overlap the last completed operational start by one day; first run uses seven days plus exact-email fallback. Existing audited import/conflict/payment safeguards remain. Historical backlog is neither deleted nor declared complete. New windows re-discover records; concurrent clicks share one bounded window. No scheduler is enabled. Dashboard and bell refresh during the explicit request. Latest-booking ordering changes remain withdrawn.
