@@ -158,6 +158,12 @@ export function AdminBookings() {
     checkOutFrom: viewMode === 'upcoming' && !showCreateBooking && !isCreating && !requestedBookingId
       ? format(startOfToday(), 'yyyy-MM-dd') : undefined,
   });
+  // Opening one alert must not wait for thousands of historical stays.
+  // Keep the separate full snapshot for availability calculations.
+  const { bookings: requestedBookings, loading: requestedBookingLoading } = useBookings({
+    bookingId: requestedBookingId || undefined,
+    enabled: Boolean(requestedBookingId),
+  });
   const { customers: rawCustomers, createCustomer, addCat } = useCustomers();
   const { rooms: rawRooms } = useRooms();
   const [customerSearch, setCustomerSearch] = useState('');
@@ -222,7 +228,7 @@ export function AdminBookings() {
   }));
 
   // Map real Supabase bookings to UI shape
-  const bookings = rawBookings.map(b => {
+  const bookings = [...rawBookings, ...requestedBookings.filter(requested => !rawBookings.some(b => b.id === requested.id))].map(b => {
     const days = inclusiveStayDays(b.check_in, b.check_out);
     const linkedCatNames = (b.booking_cats ?? []).map(bc => bc.cat.name);
     const guestCatNames = b.cat_names
@@ -398,11 +404,11 @@ export function AdminBookings() {
   }, [customers, isCreating, requestedCustomerId, selectedCustomer]);
 
   useEffect(() => {
-    if (!requestedBookingId || bookingsLoading) return;
+    if (!requestedBookingId || requestedBookingLoading) return;
     if (selectedBooking?.id === requestedBookingId && showBookingDetails) return;
     const requestedBooking = bookings.find((booking) => booking.id === requestedBookingId);
     if (requestedBooking) handleViewBooking(requestedBooking);
-  }, [bookings, bookingsLoading, requestedBookingId, selectedBooking?.id, showBookingDetails]);
+  }, [bookings, requestedBookingLoading, requestedBookingId, selectedBooking?.id, showBookingDetails]);
 
   const handleBookingDetailsOpenChange = (open: boolean) => {
     setShowBookingDetails(open);

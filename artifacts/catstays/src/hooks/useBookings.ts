@@ -93,8 +93,10 @@ export interface BookingWithDetails {
   }[];
 }
 
-export function useBookings(options?: { allPages?: boolean; checkOutFrom?: string }) {
+export function useBookings(options?: { allPages?: boolean; checkOutFrom?: string; bookingId?: string; enabled?: boolean }) {
   const { checkOutFrom } = bookingReadScope(options);
+  const bookingId = options?.bookingId;
+  const enabled = options?.enabled !== false;
   const { cattery, user } = useAuth();
   const [bookings, setBookings] = useState<BookingWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
@@ -107,7 +109,7 @@ export function useBookings(options?: { allPages?: boolean; checkOutFrom?: strin
     activeRequest.current?.abort();
     const controller = new AbortController();
     activeRequest.current = controller;
-    if (!cattery?.id) {
+    if (!cattery?.id || !enabled) {
       setBookings([]);
       setLoading(false);
       return;
@@ -116,7 +118,7 @@ export function useBookings(options?: { allPages?: boolean; checkOutFrom?: strin
     setLoading(true);
     setError(null);
     const { data, error } = await fetchRowsByIds<BookingWithDetails>(
-      () => fetchAllRowsById<{ id: string }>((afterId, limit) => {
+      () => bookingId ? Promise.resolve({ data: [{ id: bookingId }], error: null }) : fetchAllRowsById<{ id: string }>((afterId, limit) => {
         let query = applyBookingReadScope(supabase.from('bookings').select('id')
           .eq('cattery_id', cattery.id), { checkOutFrom })
           .order('id').limit(limit).abortSignal(controller.signal);
@@ -128,7 +130,12 @@ export function useBookings(options?: { allPages?: boolean; checkOutFrom?: strin
       (ids) => supabase
       .from('bookings')
       .select(`
-        *,
+        id, external_source, external_id, legacy_reference, legacy_customer_name,
+        legacy_pet_names, legacy_run_name, legacy_monies_received, legacy_outstanding,
+        check_in, check_out, check_in_time, check_out_time, status, payment_status,
+        total_amount, notes, customer_note_visible, cancellation_reason, cancellation_note,
+        cancelled_at, cancellation_credit_amount, created_at, guest_name, guest_email,
+        guest_phone, cat_names, number_of_cats, room_arrangement, room_unit_number,
         customer:customers(id, name, email, phone),
         room:rooms(id, name, type, price_per_night),
         booking_cats(cat:cats(id, name, breed)),
@@ -149,7 +156,7 @@ export function useBookings(options?: { allPages?: boolean; checkOutFrom?: strin
         payments(id, amount, status, type, payment_method, paid_on)
       `)
       .eq('cattery_id', cattery.id)
-      .in('id', ids).abortSignal(controller.signal));
+      .in('id', ids).abortSignal(controller.signal).returns<BookingWithDetails[]>());
 
     if (generation !== requestGeneration.current) return;
 
@@ -164,7 +171,7 @@ export function useBookings(options?: { allPages?: boolean; checkOutFrom?: strin
   useEffect(() => {
     fetchBookings();
     return () => { requestGeneration.current++; activeRequest.current?.abort(); };
-  }, [cattery?.id, checkOutFrom]);
+  }, [cattery?.id, checkOutFrom, bookingId, enabled]);
 
   const createBooking = async (booking: {
     customer_id: string;
