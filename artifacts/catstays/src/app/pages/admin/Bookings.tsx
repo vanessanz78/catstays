@@ -1703,6 +1703,8 @@ export function AdminBookings() {
                     className={
                       booking.paymentStatus === 'paid' 
                         ? 'bg-sage/10 text-sage border-sage/20' 
+                        : ['partial', 'partially_paid', 'deposit_paid'].includes(booking.paymentStatus)
+                        ? 'border-[#D69E2E] bg-[#FDE68A] text-[#713F12] hover:bg-[#FDE68A] hover:text-[#713F12]'
                         : booking.paymentStatus === 'pending'
                         ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
                         : 'bg-rose/10 text-rose border-rose/20'
