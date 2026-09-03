@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { flushSync } from "react-dom";
 import {
   ArrowDown,
   ArrowUp,
@@ -32,6 +33,7 @@ import { NotificationBell } from "../../components/NotificationBell";
 import { RightMenu } from "../../components/RightMenu";
 import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "../../components/ui/select";
 
 type PaymentRecord = {
   id: string;
@@ -47,7 +49,7 @@ type PaymentRecord = {
   external_source: string | null;
   external_id: string | null;
   legacy_invoice_id: string | null;
-  legacy_customer_name?: string | null;
+  customer: { name: string } | null;
   legacy_description: string | null;
   legacy_payment_type: string | null;
   legacy_deleted: boolean;
@@ -433,6 +435,8 @@ export function AdminReports() {
     direction: "asc",
   });
   const [toolNotice, setToolNotice] = useState("");
+  const [page, setPage] = useState(0);
+  const [printing, setPrinting] = useState(false);
 
   const loadReportData = async () => {
     if (!cattery?.id) {
@@ -445,10 +449,10 @@ export function AdminReports() {
     setLedgerLoading(true);
     setLedgerError("");
     const [paymentsResult, requestsResult, catsResult] = await Promise.all([
-      fetchAllRows<PaymentRecord>((from, to) => supabase
+      fetchAllRows((from, to) => supabase
         .from("payments")
         .select(
-          "id,booking_id,customer_id,amount,type,status,payment_method,paid_on,reference,created_at,legacy_customer_name,legacy_invoice_id,external_source,external_id,legacy_description,legacy_payment_type,legacy_deleted", { count: 'exact' },
+          "id,booking_id,customer_id,amount,type,status,payment_method,paid_on,reference,created_at,customer:customers(name),legacy_invoice_id,external_source,external_id,legacy_description,legacy_payment_type,legacy_deleted", { count: 'exact' },
         )
         .eq("cattery_id", cattery.id)
         .order("created_at", { ascending: false }).order('id').range(from, to)),
@@ -472,7 +476,7 @@ export function AdminReports() {
       requestsResult.error?.message,
       catsResult.error?.message,
     ].filter(Boolean);
-    setPayments((paymentsResult.data || []) as PaymentRecord[]);
+    setPayments((paymentsResult.data || []) as unknown as PaymentRecord[]);
     setRequests((requestsResult.data || []) as PaymentRequest[]);
     setCareCats((catsResult.data || []) as unknown as CareCat[]);
     setLedgerError(errors.join(" "));
@@ -752,7 +756,7 @@ export function AdminReports() {
               booking: booking ? bookingReference(booking) : payment.legacy_invoice_id || '—',
               customer: booking
                 ? customerName(booking)
-                : customerById.get(payment.customer_id || "") || payment.legacy_customer_name || "Customer",
+                : payment.customer?.name || customerById.get(payment.customer_id || "") || "Customer",
               method: normaliseStatus(
                 payment.legacy_payment_type || payment.payment_method,
               ),
@@ -847,6 +851,11 @@ export function AdminReports() {
       : null;
   }, [activeReport, visibleRows]);
 
+  useEffect(() => { setPage(0); }, [activeKey, from, to, search, selectedStatuses, sort]);
+  const pageCount = Math.max(1, Math.ceil(visibleRows.length / 50));
+  const currentPage = Math.min(page, pageCount - 1);
+  const displayRows = printing ? visibleRows : visibleRows.slice(currentPage * 50, (currentPage + 1) * 50);
+
   const chooseReport = (key: ReportKey) => {
     const report =
       REPORTS.find((candidate) => candidate.key === key) || REPORTS[0];
@@ -860,7 +869,9 @@ export function AdminReports() {
     const oldTitle = document.title;
     document.title = `CatStays ${activeReport.label} report`;
     if (saveAsPdf) setToolNotice("In the print window, choose “Save as PDF”.");
+    flushSync(() => setPrinting(true));
     window.print();
+    setPrinting(false);
     window.setTimeout(() => {
       document.title = oldTitle;
     }, 500);
@@ -895,6 +906,7 @@ export function AdminReports() {
 
   const isLoading = bookingsLoading || ledgerLoading;
   const error = bookingsError || ledgerError;
+  const unavailable = ["training", "birthdays", "vaccine-expiry"].includes(activeKey);
 
   return (
     <div className="min-h-screen bg-[#F6F2EA] text-[#0A1128] lg:flex">
@@ -991,25 +1003,30 @@ export function AdminReports() {
                 <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#6B7A6D]">
                   Choose report
                 </span>
-                <select
+                <Select
                   value={activeKey}
-                  onChange={(event) =>
-                    chooseReport(event.target.value as ReportKey)
+                  onValueChange={(value) =>
+                    chooseReport(value as ReportKey)
                   }
-                  className="h-12 w-full rounded-xl border border-[#D8D1C8] bg-white px-3 font-semibold"
                 >
+                  <SelectTrigger aria-label="Choose report" className="h-12 w-full rounded-xl border-[#D8D1C8] bg-white font-semibold">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[min(24rem,60vh)] rounded-xl border-[#D8D1C8] bg-white text-[#0A1128] shadow-xl">
                   {GROUPS.map((group) => (
-                    <optgroup key={group} label={group}>
+                    <SelectGroup key={group}>
+                      <SelectLabel className="text-[#6B7A6D]">{group}</SelectLabel>
                       {REPORTS.filter((report) => report.group === group).map(
                         (report) => (
-                          <option key={report.key} value={report.key}>
+                          <SelectItem key={report.key} value={report.key} className="min-h-11 rounded-lg focus:bg-[#F6F2EA] focus:text-[#0A1128]">
                             {report.label}
-                          </option>
+                          </SelectItem>
                         ),
                       )}
-                    </optgroup>
+                    </SelectGroup>
                   ))}
-                </select>
+                  </SelectContent>
+                </Select>
               </label>
 
               <div className="report-no-print rounded-2xl border border-[#E8DED4] bg-white p-4 shadow-sm">
@@ -1135,6 +1152,7 @@ export function AdminReports() {
                     <div className="report-no-print flex flex-wrap gap-2">
                       <Button
                         onClick={() => printReport(false)}
+                        disabled={isLoading || !!error || unavailable}
                         variant="outline"
                         className="border-white/25 bg-white/10 text-white hover:bg-white/20 hover:text-white"
                       >
@@ -1143,6 +1161,7 @@ export function AdminReports() {
                       </Button>
                       <Button
                         onClick={() => printReport(true)}
+                        disabled={isLoading || !!error || unavailable}
                         variant="outline"
                         className="border-white/25 bg-white/10 text-white hover:bg-white/20 hover:text-white"
                       >
@@ -1151,7 +1170,7 @@ export function AdminReports() {
                       </Button>
                       <Button
                         onClick={exportExcel}
-                        disabled={visibleRows.length === 0}
+                        disabled={isLoading || !!error || visibleRows.length === 0}
                         className="bg-[#C46A3A] text-white hover:bg-[#A85A30]"
                       >
                         <FileSpreadsheet className="mr-2 h-4 w-4" />
@@ -1217,12 +1236,14 @@ export function AdminReports() {
                         </p>
                       </div>
                     </div>
+                  ) : error ? (
+                    <p className="p-6 text-red-700">This report is unavailable until its data loads successfully. Please refresh to retry.</p>
                   ) : visibleRows.length === 0 ? (
                     <div className="grid min-h-64 place-items-center p-8 text-center">
                       <div>
                         <CalendarDays className="mx-auto h-9 w-9 text-[#C46A3A]" />
                         <h4 className="mt-3 text-lg font-semibold">
-                          No records to show
+                          {unavailable ? "Report not yet connected" : "No records to show"}
                         </h4>
                         <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-[#4E5871]">
                           {activeReport.emptyMessage ||
@@ -1234,7 +1255,7 @@ export function AdminReports() {
                     </div>
                   ) : (
                     <>
-                      <div className="hidden overflow-x-auto md:block">
+                      <div className="hidden overflow-x-auto md:block print:block">
                         <table className="w-full min-w-max border-collapse">
                           <thead className="bg-[#F3EEE7]">
                             <tr>
@@ -1269,7 +1290,7 @@ export function AdminReports() {
                             </tr>
                           </thead>
                           <tbody>
-                            {visibleRows.map((row, index) => (
+                            {displayRows.map((row, index) => (
                               <tr
                                 key={row.id}
                                 className={
@@ -1307,15 +1328,17 @@ export function AdminReports() {
                             <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-[#6B7A6D]">
                               Sort by
                             </span>
-                            <select
+                            <Select
                               value={sort.key}
-                              onChange={(event) => setSort({ key: event.currentTarget.value, direction: "asc" })}
-                              className="h-11 w-full rounded-lg border border-[#D8D1C8] bg-white px-3 text-sm font-semibold"
+                              onValueChange={(key) => setSort({ key, direction: "asc" })}
                             >
+                              <SelectTrigger aria-label="Sort by" className="h-11 rounded-lg border-[#D8D1C8] bg-white"><SelectValue /></SelectTrigger>
+                              <SelectContent className="rounded-xl bg-white text-[#0A1128]">
                               {activeReport.columns.map((column) => (
-                                <option key={column.key} value={column.key}>{column.label}</option>
+                                <SelectItem key={column.key} value={column.key} className="min-h-11">{column.label}</SelectItem>
                               ))}
-                            </select>
+                              </SelectContent>
+                            </Select>
                           </label>
                           <Button
                             type="button"
@@ -1332,8 +1355,8 @@ export function AdminReports() {
                           </Button>
                         </div>
                       </div>
-                      <div className="divide-y divide-[#E8DED4] md:hidden">
-                        {visibleRows.map((row) => (
+                      <div className="divide-y divide-[#E8DED4] md:hidden print:hidden">
+                        {displayRows.map((row) => (
                           <article key={row.id} className="p-4">
                             <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
                               {activeReport.columns.map((column) => (
@@ -1363,6 +1386,11 @@ export function AdminReports() {
                             </dl>
                           </article>
                         ))}
+                      </div>
+                      <div className="report-no-print flex items-center justify-between gap-2 border-t border-[#E8DED4] p-4">
+                        <Button variant="outline" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Previous</Button>
+                        <span className="text-center text-xs">Page {currentPage + 1} of {pageCount}<br />Print and export include all {visibleRows.length} matching records.</span>
+                        <Button variant="outline" disabled={currentPage + 1 >= pageCount} onClick={() => setPage(currentPage + 1)}>Next</Button>
                       </div>
                     </>
                   )}
