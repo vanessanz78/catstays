@@ -334,6 +334,7 @@ function TodaySection({
   businessName,
   bookings,
   customers,
+  customersLoading,
   isLoading,
   rooms,
   tenantHost,
@@ -346,6 +347,7 @@ function TodaySection({
   businessName: string;
   bookings: Booking[];
   customers: Customer[];
+  customersLoading: boolean;
   isLoading: boolean;
   rooms: Room[];
   tenantHost: string;
@@ -396,7 +398,7 @@ function TodaySection({
           </label>
           {customerSearch.trim() && (
             <div className="absolute inset-x-0 z-20 mt-2 max-h-80 overflow-y-auto rounded-xl border border-[#E8DED4] bg-white p-1 shadow-xl">
-              {customerMatches.length > 0 ? customerMatches.map((customer) => (
+              {customersLoading ? <p className="px-3 py-4 text-sm text-[#4E5871]">Loading customers…</p> : customerMatches.length > 0 ? customerMatches.map((customer) => (
                 <div key={customer.id} className="flex items-stretch gap-1 rounded-lg hover:bg-[#FFF8F2]">
                   <Link
                     to={`/staff-dashboard/customers?search=${encodeURIComponent(customer.id)}`}
@@ -551,7 +553,7 @@ function TodaySection({
             <h2 className="text-xl font-semibold">Workspace</h2>
             <div className="mt-4 space-y-3">
               <WorkspaceCard href="/staff-dashboard/bookings" icon={BookOpen} title="Bookings" description="All reservations" value={bookings.length} />
-              <WorkspaceCard href="/staff-dashboard/customers" icon={Users} title="Customers" description="Contact details" value={customers.length} />
+              <WorkspaceCard href="/staff-dashboard/customers" icon={Users} title="Customers" description="Contact details" value={customersLoading ? '—' : customers.length} />
               <WorkspaceCard href="/staff-dashboard/room-planner" icon={Cat} title="Rooms" description="Room planner" value={`${data.availableRooms} available`} />
             </div>
           </PagePanel>
@@ -1378,6 +1380,9 @@ function getBookingPhysicalRoomNames(booking: Booking, room: Room) {
 // The earlier sparse/admin dashboard path is retired for signed-up tenant dashboards.
 export function StaffDashboard() {
   const location = useLocation();
+  const today = getLocalDateKey();
+  const [selectedDate, setSelectedDate] = useState(() => new URLSearchParams(location.search).get('date') || today);
+  const section = staffSectionFromPath(location.pathname);
   const { cattery, loading: authLoading } = useAuth();
   const {
     bookings,
@@ -1387,7 +1392,11 @@ export function StaffDashboard() {
     splitBooking,
     updateBookingStatus,
     refetch: refetchBookings,
-  } = useBookings();
+  } = useBookings({
+    // Today and room planning need overlapping/future stays, not all historical details.
+    checkOutFrom: section === 'today' || section === 'room-planner' ? selectedDate : undefined,
+    enabled: ['today', 'customers', 'calendar', 'room-planner', 'bookings'].includes(section),
+  });
   const {
     customers,
     loading: customersLoading,
@@ -1409,10 +1418,7 @@ export function StaffDashboard() {
   } = useRooms();
 
   const draftAccount = getDraftAccount();
-  const isLoading = authLoading || bookingsLoading || customersLoading || roomsLoading;
-  const today = getLocalDateKey();
-  const [selectedDate, setSelectedDate] = useState(() => new URLSearchParams(location.search).get('date') || today);
-  const section = staffSectionFromPath(location.pathname);
+  const isLoading = authLoading || bookingsLoading || roomsLoading;
   const showNewBooking = section === 'bookings' && new URLSearchParams(location.search).get('new') === 'true';
 
   const dashboardData = useMemo(() => buildDashboardData(bookings, rooms, selectedDate), [bookings, rooms, selectedDate]);
@@ -1536,6 +1542,7 @@ export function StaffDashboard() {
             businessName={businessName}
             bookings={bookings}
             customers={customers}
+            customersLoading={customersLoading}
             isLoading={isLoading}
             rooms={rooms}
             tenantHost={tenantHost}
@@ -1551,7 +1558,8 @@ export function StaffDashboard() {
           <StaffCustomerDirectory
             customers={customers}
             bookings={bookings}
-            isLoading={isLoading}
+            isLoading={authLoading || customersLoading}
+            bookingMetricsPending={bookingsLoading || Boolean(bookingsError)}
             createCustomer={createCustomer}
             addCat={addCat}
             mergeCustomers={mergeCustomers}
