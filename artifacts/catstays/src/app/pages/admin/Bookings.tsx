@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
@@ -83,6 +83,7 @@ export function AdminBookings() {
   const navigate = useNavigate();
   const isCreating = searchParams.get('new') === 'true';
   const requestedBookingId = searchParams.get('booking');
+  const openedBookingRequest = useRef<string | null>(null);
   const requestedCustomerId = searchParams.get('customer');
   const requestedCheckIn = searchParams.get('checkIn') || '';
   const requestedCheckOut = searchParams.get('checkOut') || requestedCheckIn;
@@ -404,10 +405,18 @@ export function AdminBookings() {
   }, [customers, isCreating, requestedCustomerId, selectedCustomer]);
 
   useEffect(() => {
-    if (!requestedBookingId || requestedBookingLoading) return;
+    if (!requestedBookingId) {
+      openedBookingRequest.current = null;
+      return;
+    }
+    if (requestedBookingLoading || openedBookingRequest.current === requestedBookingId) return;
     if (selectedBooking?.id === requestedBookingId && showBookingDetails) return;
     const requestedBooking = bookings.find((booking) => booking.id === requestedBookingId);
-    if (requestedBooking) handleViewBooking(requestedBooking);
+    if (requestedBooking) {
+      // Consume each deep link once; closing must not replay it before navigation settles.
+      openedBookingRequest.current = requestedBookingId;
+      handleViewBooking(requestedBooking);
+    }
   }, [bookings, requestedBookingLoading, requestedBookingId, selectedBooking?.id, showBookingDetails]);
 
   const handleBookingDetailsOpenChange = (open: boolean) => {
