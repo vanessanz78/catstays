@@ -182,11 +182,13 @@ function BookingRow({
   actionLabel,
   onAction,
   actionDisabled = false,
+  occupiedCard = false,
 }: {
   booking: Booking;
   actionLabel: string;
   onAction?: () => void;
   actionDisabled?: boolean;
+  occupiedCard?: boolean;
 }) {
   const { cattery } = useAuth();
   const bookingSetup = normalizeBookingSetup(cattery?.website_settings);
@@ -202,16 +204,21 @@ function BookingRow({
   const bookingHref = `/staff-dashboard/bookings?booking=${booking.id}`;
 
   return (
-    <article className="grid gap-3 rounded-lg bg-[#F8F7F5] p-4 transition hover:bg-[#F1E8DE] sm:grid-cols-[1fr_auto] sm:items-center">
+    <article className={`grid gap-3 rounded-lg bg-[#F8F7F5] p-4 transition hover:bg-[#F1E8DE] ${occupiedCard ? '' : 'sm:grid-cols-[1fr_auto] sm:items-center'}`}>
       <Link to={bookingHref} aria-label={`Open ${customerName} booking`} className="min-w-0 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C46A3A] focus-visible:ring-offset-2">
-        <p className="font-semibold text-[#0A1128]">{customerName}</p>
-        <div className="mt-1 flex flex-wrap gap-1">{catNames.split(',').map((name) => <Badge key={name.trim()} variant="outline" className="bg-white text-xs">🐱 {name.trim()}</Badge>)}</div>
-        <p className="mt-2 text-xs text-[#768098]">{roomName}</p>
-        <p className="mt-0.5 text-xs font-medium text-[#4E5871]">
+        <p className={`${occupiedCard ? 'text-lg' : ''} font-semibold text-[#0A1128]`}>{customerName}</p>
+        <div className="mt-1 flex flex-wrap gap-1">{catNames.split(',').map((name) => <Badge key={name.trim()} variant="outline" className={`bg-white ${occupiedCard ? 'text-sm' : 'text-xs'}`}>🐱 {name.trim()}</Badge>)}</div>
+        <p className={`mt-2 ${occupiedCard ? 'text-sm' : 'text-xs'} text-[#768098]`}>{roomName}</p>
+        {occupiedCard ? <div className="mt-1 space-y-1 text-[13px] font-medium text-[#4E5871]">
+          {[[booking.check_in, booking.check_in_time, 'Arrival'], [booking.check_out, booking.check_out_time, 'Departure']].map(([date, time, label]) => <p key={label} className="whitespace-nowrap" aria-label={`${label}: ${date} ${time || ''}`}>
+            <span className="mr-1 text-[#768098]">{label === 'Arrival' ? 'From' : 'To'}</span>
+            <time dateTime={date || undefined}>{new Date(`${date}T12:00:00`).toLocaleDateString('en-NZ', { weekday: 'short' }).toUpperCase()} {new Date(`${date}T12:00:00`).toLocaleDateString('en-NZ', { day: 'numeric', month: 'short' })}{time ? ` · ${formatBookingTime(time)}` : ''}</time>
+          </p>)}
+        </div> : <p className="mt-0.5 text-xs font-medium text-[#4E5871]">
           {formatDate(booking.check_in)} {booking.check_in_time ? formatBookingTime(booking.check_in_time) : ''}
           {' → '}
           {formatDate(booking.check_out)} {booking.check_out_time ? formatBookingTime(booking.check_out_time) : ''}
-        </p>
+        </p>}
       </Link>
       <div className="flex items-center gap-2 sm:justify-end">
         <Badge className="rounded-full bg-[#E9D7C8] text-[#8A4E2B] hover:bg-[#E9D7C8]">
@@ -479,12 +486,9 @@ function TodaySection({
 
       <div className="mt-5 grid gap-5 lg:grid-cols-[1.35fr_0.65fr]">
         <PagePanel>
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-semibold">Currently Occupied</h2>
-              <p className="text-sm text-[#4E5871]">Live room status for {businessName}</p>
-            </div>
-            <Badge className="rounded-full bg-[#7DAF7B]/20 text-[#2D5830] hover:bg-[#7DAF7B]/20">
+          <div className="mb-4 flex items-center justify-between gap-2">
+            <h2 className="text-xl font-semibold">Currently Occupied</h2>
+            <Badge className="shrink-0 rounded-full bg-[#7DAF7B]/20 text-[#2D5830] hover:bg-[#7DAF7B]/20">
               {data.occupiedNow.length}
             </Badge>
           </div>
@@ -493,7 +497,7 @@ function TodaySection({
           ) : data.occupiedNow.length > 0 ? (
             <div className="grid gap-3 md:grid-cols-2">
               {data.occupiedNow.map((booking) => (
-                <BookingRow key={booking.id} booking={booking} actionLabel="Open" />
+                <BookingRow key={booking.id} booking={booking} actionLabel="Open" occupiedCard />
               ))}
             </div>
           ) : (
