@@ -1,0 +1,40 @@
+import test, { mock } from 'node:test';
+import assert from 'node:assert/strict';
+process.env.VITE_SUPABASE_URL = 'http://127.0.0.1:1';
+process.env.SUPABASE_SERVICE_ROLE_KEY = 'mock-only';
+let owner = true, staff = false, failed = false, alreadyRunning = false, calls = 0;
+mock.method(globalThis, 'fetch', async (input: any) => {
+  const url = new URL(String(input));
+  assert.equal(url.origin, 'http://127.0.0.1:1');
+  if (url.pathname.endsWith('/user')) return Response.json({ id: 'user' });
+  if (url.pathname.endsWith('/catteries')) return Response.json(owner ? { id: 'tenant' } : null);
+  if (url.pathname.endsWith('/staff_memberships')) return Response.json(staff ? { id: 'staff' } : null);
+  calls++;
+  return failed ? Response.json({ message: 'private database detail' }, { status: 400 }) : Response.json({ jobId: 'job', alreadyRunning });
+});
+const { requestRevelationSync } = await import('./revelationSync.js');
+async function run(token = 'Bearer mock') {
+  const result = { code: 200, body: null as any };
+  await requestRevelationSync({ headers: { authorization: token }, body: { catteryId: '7f6d029f-b727-4645-83be-db6ec56d1b46' } } as any, { status(code: number) { result.code = code; return this; }, json(body: any) { result.body = body; } } as any);
+  return result;
+}
+test('signed-out and unrelated callers cannot queue work', async () => {
+  calls = 0;
+  assert.equal((await run('')).code, 401);
+  owner = false;
+  assert.equal((await run()).code, 403);
+  assert.equal(calls, 0);
+});
+test('owner and active staff can queue or join a running sync', async () => {
+  owner = true;
+  assert.deepEqual((await run()).body, { success: true, jobId: 'job', alreadyRunning: false });
+  owner = false; staff = true; alreadyRunning = true;
+  assert.equal((await run()).body.alreadyRunning, true);
+});
+test('queue failure is not success and does not leak database details', async () => {
+  failed = true;
+  const result = await run();
+  assert.equal(result.code, 409);
+  assert.equal(result.body.success, undefined);
+  assert.doesNotMatch(result.body.error, /private database detail/);
+});

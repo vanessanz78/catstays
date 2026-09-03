@@ -7,6 +7,7 @@ import websiteRouter from "./website";
 import pushRouter from "./push";
 import catteryPaymentsRouter from "./catteryPayments";
 import platformRouter from "./platform";
+import revelationSyncRouter from "./revelationSync";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(websiteRouter);
 router.use(pushRouter);
 router.use(catteryPaymentsRouter);
 router.use(platformRouter);
+router.use(revelationSyncRouter);
 
 export default router;
