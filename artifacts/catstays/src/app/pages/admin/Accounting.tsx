@@ -11,13 +11,10 @@ import {
   Plus,
   Receipt,
   RefreshCw,
-  Settings,
   Trash2,
-  WalletCards,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useBookings, type BookingWithDetails } from '@/hooks/useBookings';
-import { getCatteryPaymentStatus, type CatteryPaymentStatus } from '@/utils/catteryPayments';
 import { supabase } from '@/utils/supabase/client';
 import { NotificationBell } from '../../components/NotificationBell';
 import { RightMenu } from '../../components/RightMenu';
@@ -156,7 +153,6 @@ function MetricCard({ label, value, helper, tone = 'light' }: { label: string; v
 export function AdminAccounting() {
   const { cattery } = useAuth();
   const { bookings, loading: bookingsLoading, error: bookingsError, refetch: refetchBookings } = useBookings();
-  const [paymentStatus, setPaymentStatus] = useState<CatteryPaymentStatus>({ connected: false });
   const [payments, setPayments] = useState<Payment[]>([]);
   const [paymentRequests, setPaymentRequests] = useState<PaymentRequest[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -186,15 +182,11 @@ export function AdminAccounting() {
 
     setLoadingLedger(true);
     setLedgerError('');
-    const [statusResult, paymentsResult, requestsResult, expensesResult] = await Promise.allSettled([
-      getCatteryPaymentStatus(cattery.id),
+    const [paymentsResult, requestsResult, expensesResult] = await Promise.allSettled([
       supabase.from('payments').select('id,booking_id,amount,type,status,created_at').eq('cattery_id', cattery.id).order('created_at', { ascending: false }),
       supabase.from('payment_requests').select('id,booking_id,request_type,amount,status,expires_at,created_at').eq('cattery_id', cattery.id).order('created_at', { ascending: false }),
       supabase.from('expenses').select('id,cattery_id,description,amount,category,date,receipt_url,created_at').eq('cattery_id', cattery.id).order('date', { ascending: false }),
     ]);
-
-    if (statusResult.status === 'fulfilled') setPaymentStatus(statusResult.value);
-    else setPaymentStatus({ connected: false });
 
     const errors: string[] = [];
     if (paymentsResult.status === 'fulfilled') {
@@ -360,39 +352,6 @@ export function AdminAccounting() {
               Refresh
             </Button>
           </div>
-
-          <Card className={`border-2 ${paymentStatus.connected ? 'border-[#7DAF7B]' : 'border-[#C46A3A]'}`}>
-            <CardContent className="flex flex-col gap-5 p-5 md:flex-row md:items-center md:justify-between md:p-6">
-              <div className="flex items-start gap-4">
-                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-[#635BFF] text-white">
-                  <WalletCards className="h-6 w-6" />
-                </span>
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-xl font-semibold">Accept customer payments with Stripe</h3>
-                    <Badge className={paymentStatus.connected ? 'bg-[#7DAF7B] hover:bg-[#7DAF7B]' : 'bg-[#C46A3A] hover:bg-[#C46A3A]'}>
-                      {paymentStatus.connected ? `${paymentStatus.mode === 'live' ? 'Live' : 'Test'} connected` : 'Setup required'}
-                    </Badge>
-                  </div>
-                  <p className="mt-2 max-w-3xl text-sm leading-6 text-[#4E5871]">
-                    Each cattery connects its own Stripe keys in Payment Setup. Then open a confirmed booking and choose <strong>Request payment from customer</strong> to email secure deposit and full-payment options.
-                  </p>
-                </div>
-              </div>
-              <div className="flex shrink-0 flex-col gap-2 sm:flex-row md:flex-col">
-                <Link to="/staff-dashboard/payment">
-                  <Button className="w-full bg-[#635BFF] text-white hover:bg-[#0A2540]">
-                    <Settings className="mr-2 h-4 w-4" /> Payment Setup
-                  </Button>
-                </Link>
-                <Link to="/staff-dashboard/bookings">
-                  <Button variant="outline" className="w-full">
-                    Open Bookings <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
 
           {(ledgerError || bookingsError) && (
             <div className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700" role="alert">

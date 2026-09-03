@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, CalendarDays, CheckCircle2, Edit3, Loader2, Megaphone, PauseCircle, PlayCircle, Plus, Search, Tag } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Edit3, Loader2, Megaphone, PauseCircle, PlayCircle, Plus, Search } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/utils/supabase/client';
 import { effectivePromotionStatus, normalizePromotionCode, promotionMatchesQuery, promotionOffer, type CatteryPromotion } from '@/app/lib/marketingCampaigns';
@@ -140,8 +140,8 @@ export function AdminPromotions() {
             <Button onClick={openNew} className="bg-[#C46A3A] hover:bg-[#A85A30]"><Plus className="mr-2 h-4 w-4" />New promotion</Button>
           </div>
           {notice && <div className={`flex items-start gap-3 rounded-xl border p-4 text-sm ${notice.tone === 'success' ? 'border-[#7DAF7B] bg-[#EDF6EC] text-[#2D5830]' : 'border-red-200 bg-red-50 text-red-700'}`}>{notice.tone === 'success' ? <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" /> : <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />}<p>{notice.text}</p></div>}
-          <div className="grid gap-4 sm:grid-cols-3">
-            {[{ label: 'Active offers', value: activeCount, icon: Megaphone }, { label: 'Promotion uses', value: totalUses, icon: Tag }, { label: 'Saved offers', value: promotions.length, icon: CalendarDays }].map(({ label, value, icon: Icon }) => <Card key={label} className="border-[#E8DED4] bg-white"><CardContent className="flex items-center gap-4 p-5"><span className="grid h-11 w-11 place-items-center rounded-xl bg-[#C46A3A]/10"><Icon className="h-5 w-5 text-[#C46A3A]" /></span><span><span className="block text-2xl font-semibold">{value}</span><span className="text-sm text-[#4E5871]">{label}</span></span></CardContent></Card>)}
+          <div aria-label="Promotion summary" className="grid grid-cols-3 gap-2 sm:gap-4">
+            {[{ label: 'Active offers', value: activeCount }, { label: 'Promotion uses', value: totalUses }, { label: 'Saved offers', value: promotions.length }].map(({ label, value }) => <Card key={label} className="min-w-0 border-[#E8DED4] bg-white"><CardContent className="px-1 py-4 text-center sm:p-5"><span className="block break-words text-2xl font-semibold">{value}</span><span className="block text-xs leading-4 text-[#4E5871] sm:text-sm">{label}</span></CardContent></Card>)}
           </div>
           {editorOpen && <Card className="border-[#C46A3A]/30 bg-white shadow-md"><CardContent className="space-y-5 p-5 sm:p-6">
             <div className="flex items-start justify-between gap-4"><div><h3 className="text-xl font-semibold">{editingId ? 'Edit promotion' : 'Create promotion'}</h3><p className="mt-1 text-sm text-[#4E5871]">Use clear dates and terms so staff can quote the offer consistently.</p></div><Button variant="outline" onClick={() => setEditorOpen(false)}>Cancel</Button></div>
