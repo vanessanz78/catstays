@@ -6,6 +6,10 @@ Last updated: 2026-09-03
 
 ### Manual Revelation sync follow-up
 
+- 3 September UX correction: icon starts sync directly, with one app-level toast instead of a modal. Only completed jobs return audit-derived added/updated totals; metadata-only writes and repeated updates to one record do not inflate counts. Today refreshes on completion. Failed/pending work is never labelled completed.
+- Owner requested dismissal of historical review notices visible at 17:29:56 NZ time. Mark only those tenant-scoped existing notices ignored with a retained reason/history, not repaired. No booking or payment values are changed by dismissal. New warnings remain auditable in data tools, not in the icon toast.
+- Full-history worker latency remains a separate unresolved issue; this UI/summary change does not make manual sync instantaneous.
+
 - Requested: header sync action beside the public-website icon. Preserve Revelation as primary and all CatStays-only test bookings; no outgoing customer messages.
 - Current production status observed 3 September: completed API job at 04:48 NZ time, 8,957 booking details checked; 5,201 open reconciliation notices. Completion is not full reconciliation or every-field coverage.
 - Add authorized server request plus an audited manual job; preserve daily job history, serialize with the nightly worker, reuse an active job, and rate-limit fresh requests. Existing worker/import conflict rules stay unchanged.

@@ -3,6 +3,7 @@ import { router } from './routes';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { SubdomainProvider, isSubdomainOrCustomDomain } from '@/contexts/SubdomainContext';
 import { subdomainRouter } from './subdomainRouter';
+import { RevelationSyncToast } from './components/RevelationSyncButton';
 
 const onSubdomain = isSubdomainOrCustomDomain();
 
@@ -12,6 +13,7 @@ function App() {
       <AuthProvider>
         <SubdomainProvider>
           <RouterProvider router={subdomainRouter} />
+          <RevelationSyncToast />
         </SubdomainProvider>
       </AuthProvider>
     );
@@ -20,6 +22,7 @@ function App() {
   return (
     <AuthProvider>
       <RouterProvider router={router} />
+      <RevelationSyncToast />
     </AuthProvider>
   );
 }
