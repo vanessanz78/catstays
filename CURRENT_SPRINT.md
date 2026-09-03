@@ -1,5 +1,11 @@
 # Current Sprint
 
+## Manual-only sync cost control — 3 September 2026
+- Owner withdrew automatic/nightly sync authorization. Disable the exact Revelation cron job; prevent automatic worker claims and remove background status polling.
+- Sync button authorizes up to five minutes of sequential, leased batches. Paused work retains its checkpoint and needs another explicit click. Existing imports and audit history are not deleted.
+- Per-click summaries exclude earlier manual windows. Keep credentials server-side; no emails, source writes or payments.
+- Release checks: authenticated endpoint guards, expired windows, duplicate-click/lease protection, disabled cron, rollback-only DB tests, builds and live mobile UAT. Full-history scanning remains a separate performance limitation.
+
 Last updated: 2026-09-03
 
 ## Focused Follow-up: Confirmation Payment Links

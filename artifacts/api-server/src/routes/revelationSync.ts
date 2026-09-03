@@ -32,12 +32,33 @@ router.post('/revelation-sync/request', requestRevelationSync);
 export async function revelationSyncResult(req: Request, res: Response) {
   const catteryId = await authorizedCattery(req, res);
   if (!catteryId || !admin) return;
-  const { data: job, error } = await admin.from('legacy_sync_jobs').select('id,status,import_run_id').eq('cattery_id',catteryId).eq('id',String(req.params.jobId)).maybeSingle();
+  const { data: job, error } = await admin.from('legacy_sync_jobs').select('id,status,import_run_id,manual_until,manual_after_change').eq('cattery_id',catteryId).eq('id',String(req.params.jobId)).maybeSingle();
   if (error || !job) { res.status(404).json({ error: 'Sync progress could not be loaded.' }); return; }
-  if (job.status !== 'completed') { res.json({ status: job.status }); return; }
-  const summary = await admin.rpc('catstays_sync_change_summary', { target_cattery_id:catteryId, target_run_id:job.import_run_id });
+  const status=job.status==='running'&&(!job.manual_until||Date.parse(job.manual_until)<=Date.now())?'paused':job.status;
+  // Retire polling in already-open pre-release clients, which do not know "paused".
+  if(status==='paused'&&req.method==='GET'){res.json({status:'failed'});return;}
+  if (status !== 'completed' && status !== 'paused') { res.json({ status }); return; }
+  const summary = await admin.rpc('catstays_manual_sync_summary', { target_cattery_id:catteryId, target_run_id:job.import_run_id, after_change:job.manual_after_change });
   if (summary.error) { res.status(503).json({ error: 'Sync finished, but its change summary is unavailable.' }); return; }
-  res.json({ status:'completed', changes:summary.data });
+  res.json({ status, changes:summary.data });
 }
 router.get('/revelation-sync/result/:jobId', revelationSyncResult);
+async function runManualBatch() {
+  // Existing read-only importer, executed only by an authorized button-initiated POST.
+  // @ts-ignore Shared audited JavaScript worker also runs in the Edge runtime.
+  const {processTick}=await import('../../../../supabase/functions/revelation-sync/core.mjs');
+  await processTick({...process.env,SUPABASE_URL:url},true);
+}
+export async function revelationSyncStep(req:Request,res:Response,runBatch=runManualBatch) {
+  const catteryId=await authorizedCattery(req,res);
+  if(!catteryId||!admin)return;
+  if(catteryId!=='7f6d029f-b727-4645-83be-db6ec56d1b46'){res.status(403).json({error:'No sync worker for this cattery.'});return;}
+  const {data:job,error}=await admin.from('legacy_sync_jobs').select('id,status,manual_until').eq('cattery_id',catteryId).eq('id',String(req.params.jobId)).maybeSingle();
+  if(error||!job){res.status(404).json({error:'Sync could not be found.'});return;}
+  if(job.status==='running'&&job.manual_until&&Date.parse(job.manual_until)>Date.now()){
+    try{await runBatch();}catch{res.status(503).json({error:'Sync paused after a problem. Tap sync to try again.'});return;}
+  }
+  await revelationSyncResult(req,res);
+}
+router.post('/revelation-sync/step/:jobId',(req,res)=>revelationSyncStep(req,res));
 export default router;
