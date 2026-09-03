@@ -133,12 +133,10 @@ function formatDate(value: string) {
 }
 
 function formatDayLabel(dateKey: string) {
-  return new Date(`${dateKey}T12:00:00`).toLocaleDateString(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  const date = new Date(`${dateKey}T12:00:00`);
+  const day = date.getDate();
+  const suffix = day >= 11 && day <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[day % 10] || 'th';
+  return `${date.toLocaleDateString('en-NZ', { weekday: 'long' })}, ${day}${suffix} ${date.toLocaleDateString('en-NZ', { month: 'long' })} ${date.getFullYear()}`;
 }
 
 function shiftDateKey(dateKey: string, days: number) {
@@ -422,18 +420,12 @@ function TodaySection({
         </div>
 
         <div className="rounded-lg border border-[#E8DED4] bg-[#F8F7F5] p-3 sm:p-4">
-          <div className="flex items-center justify-between gap-3">
+          <h2 className="text-center text-sm font-semibold leading-snug sm:text-xl">{formatDayLabel(selectedDate)}</h2>
+          <div className="mt-2 flex items-center justify-between gap-3">
             <button type="button" onClick={() => onSelectedDateChange(shiftDateKey(selectedDate, -1))} aria-label="Previous day" className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#E8DED4] bg-white"><ChevronLeft className="h-5 w-5" /></button>
-            <div className="flex min-w-0 flex-1 items-center justify-center gap-3 text-center">
-              <CalendarDays className="h-5 w-5 shrink-0 text-[#0A1128]" />
-              <div className="min-w-0">
-                <h2 className="text-lg font-semibold leading-tight sm:text-xl">{selectedDate === getLocalDateKey() ? 'Today' : 'Daily overview'}</h2>
-                <p className="truncate text-xs text-[#4E5871] sm:text-sm">{formatDayLabel(selectedDate)}</p>
-              </div>
-            </div>
+            {selectedDate !== getLocalDateKey() && <button type="button" onClick={() => onSelectedDateChange(getLocalDateKey())} className="text-xs font-semibold text-[#C46A3A]">Return to today</button>}
             <button type="button" onClick={() => onSelectedDateChange(shiftDateKey(selectedDate, 1))} aria-label="Next day" className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#E8DED4] bg-white"><ChevronRight className="h-5 w-5" /></button>
           </div>
-          {selectedDate !== getLocalDateKey() && <button type="button" onClick={() => onSelectedDateChange(getLocalDateKey())} className="mx-auto mt-2 block text-xs font-semibold text-[#C46A3A]">Return to today</button>}
 
           <div className="mt-3 grid grid-cols-3 gap-2 sm:gap-3">
             <div className="min-w-0 rounded-lg bg-[#0A1128] p-3 text-center text-white shadow-sm sm:p-5">
@@ -444,9 +436,9 @@ function TodaySection({
               <p className="text-2xl font-semibold sm:text-3xl">{isLoading ? '-' : data.departuresToday.length}</p>
               <p className="truncate text-xs text-white/85 sm:text-sm">Departures</p>
             </div>
-            <Link to="/staff-dashboard/room-planner" className="min-w-0 rounded-lg bg-white p-3 text-center shadow-sm ring-1 ring-[#E8DED4] hover:bg-white sm:p-5">
-              <p className="truncate text-2xl font-semibold sm:text-3xl">{isLoading ? '-' : data.occupancyLabel}</p>
-              <p className="truncate text-xs text-[#4E5871] sm:text-sm">Occupied</p>
+            <Link to="/staff-dashboard/room-planner" className="min-w-0 rounded-lg bg-white px-1 py-3 text-center shadow-sm ring-1 ring-[#E8DED4] hover:bg-white sm:p-5">
+              <p className="break-words text-lg font-semibold tabular-nums leading-8 sm:text-3xl">{isLoading ? '-' : data.occupancyLabel}</p>
+              <p className="text-xs text-[#4E5871] sm:text-sm">Occupied</p>
             </Link>
           </div>
         </div>
