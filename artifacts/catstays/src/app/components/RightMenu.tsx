@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
+import { RevelationSyncButton } from './RevelationSyncButton';
 import {
   Menu,
   X,
@@ -159,6 +160,7 @@ export function RightMenu({ mode = 'button' }: { mode?: RightMenuMode }) {
                 <p className="truncate text-sm text-[#6b7a6d]">{businessName}</p>
               </div>
               {renderWebsiteLink()}
+              <RevelationSyncButton />
             </>
           )}
           <Button
@@ -213,6 +215,7 @@ export function RightMenu({ mode = 'button' }: { mode?: RightMenuMode }) {
             <p className="truncate text-sm" style={{ color: '#6b7a6d' }}>{businessName}</p>
           </div>
           {renderWebsiteLink(() => setIsOpen(false))}
+          <RevelationSyncButton />
           <Button
             onClick={() => setIsOpen(false)}
             variant="ghost"

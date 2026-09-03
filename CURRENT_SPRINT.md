@@ -4,6 +4,14 @@ Last updated: 2026-09-03
 
 ## Focused Follow-up: Confirmation Payment Links
 
+### Manual Revelation sync follow-up
+
+- Requested: header sync action beside the public-website icon. Preserve Revelation as primary and all CatStays-only test bookings; no outgoing customer messages.
+- Current production status observed 3 September: completed API job at 04:48 NZ time, 8,957 booking details checked; 5,201 open reconciliation notices. Completion is not full reconciliation or every-field coverage.
+- Add authorized server request plus an audited manual job; preserve daily job history, serialize with the nightly worker, reuse an active job, and rate-limit fresh requests. Existing worker/import conflict rules stay unchanged.
+- Migration generated through CLI, then ordered after pre-existing future-dated durable-sync migrations. Rehearse with rollback-only database tests before applying, and verify scheduler continuation before signing off the button.
+- Live payment testing remains paused by Vanessa. Booking creation/availability changes are not part of this follow-up.
+
 - Deposit/full-balance booking confirmations now reuse the cattery Stripe checkout handler; confirmation-only emails remain unchanged.
 - Server-side booking ownership, saved recipient, completed payment ledger, tax-inclusive adjustments, and deposit settings determine the request. Client-supplied amounts cannot set the charge.
 - Failed balance reads or email sends must not report success. Failed email sends expire their checkout sessions. Existing payment status is preserved when requesting money.

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { Link, useLocation } from 'react-router';
+import { RevelationSyncButton } from '../../components/RevelationSyncButton';
 import {
   BookOpen,
   BellRing,
@@ -1513,6 +1514,7 @@ export function StaffDashboard() {
                 >
                   <ExternalLink className="h-4 w-4" />
                 </Link>
+                <span className="lg:hidden"><RevelationSyncButton /></span>
               </div>
             </div>
           </div>
