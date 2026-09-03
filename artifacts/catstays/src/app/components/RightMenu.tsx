@@ -8,7 +8,6 @@ import {
   X,
   Home,
   Calendar,
-  LayoutGrid,
   BookOpen,
   Users,
   CreditCard,
@@ -22,9 +21,7 @@ import {
   Settings,
   ChevronRight,
   ChevronLeft,
-  Upload,
   Globe,
-  Crown,
   WandSparkles,
   type LucideIcon,
 } from 'lucide-react';
@@ -45,24 +42,20 @@ export const menuItems: MenuItem[] = [
   { path: '/staff-dashboard/calendar', icon: Calendar, label: 'Calendar', description: 'Room timeline' },
   { path: '/staff-dashboard/customers', icon: Users, label: 'Customers', description: 'Contact details' },
   { path: '/staff-dashboard/messages', icon: MessageSquare, label: 'Messages', description: 'Email & customer history' },
-  { path: '/staff-dashboard/cat-update-generator', icon: Camera, label: 'Cat Updates', description: 'Private photo updates' },
-  { path: '/staff-dashboard/smart-import', icon: Upload, label: 'Smart Import', description: 'Import & export CSV data' },
-  { path: '/staff-dashboard/accounting', icon: CreditCard, label: 'Accounting', description: 'Payments, expenses & GST' },
   { path: '/staff-dashboard/reports', icon: FileBarChart, label: 'Reports', description: 'Sort, filter, print & export' },
-  { path: '/staff-dashboard/payment', icon: CreditCard, label: 'Payment Setup', description: 'Stripe integration' },
-  { path: '/staff-dashboard/promotions', icon: Megaphone, label: 'Promotions', description: 'Offers & promo codes' },
+  { path: '/staff-dashboard/cat-update-generator', icon: Camera, label: 'Cat Updates', description: 'Private photo updates' },
   { path: '/staff-dashboard/social', icon: Share2, label: 'Social Media', description: 'Drafts, schedule & sharing' },
-  { path: '/staff-dashboard/booking-setup', icon: Settings, label: 'Booking Setup', description: 'Rules, times & deposits' },
   { path: '/staff-dashboard/marketing', icon: WandSparkles, label: 'Marketing Studio', description: 'Editable marketing materials' },
+  { path: '/staff-dashboard/promotions', icon: Megaphone, label: 'Promotions', description: 'Offers & promo codes' },
   { path: '/staff-dashboard/insights', icon: BarChart3, label: 'Insights', description: 'Trends and performance' },
-  { path: '/staff-dashboard/subscription', icon: Crown, label: 'Subscription', description: 'Manage your plan' },
+  { path: '/staff-dashboard/accounting', icon: CreditCard, label: 'Accounting', description: 'Payments, expenses & GST' },
   { path: '/staff-dashboard/settings', icon: Settings, label: 'Settings', description: 'Configure platform' },
-  { path: '/staff-dashboard/room-planner', icon: LayoutGrid, label: 'Room Planner', description: 'Visual room grid' },
   { path: '/staff-dashboard/website-editor', icon: Globe, label: 'Edit Website', description: 'Edit public website' },
 ];
 
 const primaryMenuItems = menuItems.slice(0, 6);
-const secondaryMenuItems = menuItems.slice(6, -2);
+const marketingMenuItems = menuItems.slice(6, 10);
+const financeMenuItems = menuItems.slice(10, 12);
 const bottomMenuItems = menuItems.slice(-2);
 
 export function RightMenu({ mode = 'button' }: { mode?: RightMenuMode }) {
@@ -128,7 +121,10 @@ export function RightMenu({ mode = 'button' }: { mode?: RightMenuMode }) {
     <>
       <div>{primaryMenuItems.map((item) => renderMenuItem(item, compact, onSelect))}</div>
       <div className="mt-3 border-t border-[#E8DED4] pt-3">
-        {secondaryMenuItems.map((item) => renderMenuItem(item, compact, onSelect))}
+        {marketingMenuItems.map((item) => renderMenuItem(item, compact, onSelect))}
+      </div>
+      <div className="mt-3 border-t border-[#E8DED4] pt-3">
+        {financeMenuItems.map((item) => renderMenuItem(item, compact, onSelect))}
       </div>
       <div className="mt-3 border-t border-[#E8DED4] pt-3">
         {bottomMenuItems.map((item) => renderMenuItem(item, compact, onSelect))}

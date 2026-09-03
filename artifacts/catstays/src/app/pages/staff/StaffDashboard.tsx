@@ -1263,6 +1263,12 @@ function ToolsSection({ section }: { section: StaffSection }) {
         description: 'Set open days, appointment times, deposits, pricing, and public booking rules.',
       },
       {
+        path: '/staff-dashboard/room-planner',
+        icon: Cat,
+        title: 'Room Planner',
+        description: 'Manage rooms, availability, and room pricing.',
+      },
+      {
         path: '/staff-dashboard/payment',
         icon: CreditCard,
         title: 'Customer payments',
