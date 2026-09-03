@@ -1,4 +1,5 @@
 import { Router, type IRouter, type Request } from 'express';
+import { requestBookingPayment } from './catteryPayments.js';
 import { resend, FROM_ADDRESS } from '../lib/resend';
 import {
   bookingConfirmationHtml,
@@ -52,6 +53,10 @@ function catUpdatePortalUrl(req: Request, slug: string | null, updateId: string)
 }
 
 router.post('/email/booking-confirmation', async (req, res) => {
+  if (req.body?.paymentRequest === 'deposit' || req.body?.paymentRequest === 'full') {
+    await requestBookingPayment(req, res, true);
+    return;
+  }
   const {
     customerName, customerEmail, catteryName, catName, roomName,
     checkIn, checkOut, nights, pricePerNight, subtotal, gst, totalAmount, deposit,

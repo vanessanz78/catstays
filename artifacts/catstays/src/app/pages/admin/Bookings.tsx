@@ -605,6 +605,7 @@ export function AdminBookings() {
       ? bookingSetup.depositAmount
       : Number(selectedBooking.total) * (bookingSetup.depositAmount / 100);
     const result = await sendBookingConfirmation({
+      bookingId: selectedBooking.id,
       catteryId: cattery.id,
       customerId: selectedBooking.customerId,
       customerName: selectedBooking.customerName,
@@ -1953,10 +1954,11 @@ export function AdminBookings() {
                   <p className="text-sm text-[#6b7a6d]">To {selectedBooking.customerEmail || 'customer email not saved'}</p>
                   <textarea value={confirmationMessage} onChange={(event) => setConfirmationMessage(event.target.value)} className="min-h-24 w-full rounded-xl border border-sage/20 p-3 text-sm" aria-label="Confirmation message" />
                   <div className="grid gap-2">
-                    {([['deposit', `Request deposit${bookingSetup.depositAmount ? ` (${bookingSetup.depositType === 'fixed' ? `$${bookingSetup.depositAmount}` : `${bookingSetup.depositAmount}%`})` : ''}`], ['full', 'Request total booking payment'], ['none', "Don't request payment"]] as const).map(([value, label]) => (
+                    {([['deposit', `Request deposit${bookingSetup.depositAmount ? ` (${bookingSetup.depositType === 'fixed' ? `$${bookingSetup.depositAmount}` : `${bookingSetup.depositAmount}%`})` : ''}`], ['full', 'Request remaining booking balance'], ['none', "Don't request payment"]] as const).map(([value, label]) => (
                       <label key={value} className="flex items-center gap-2 rounded-xl border border-sage/15 px-3 py-2 text-sm"><input type="radio" name="confirmation-payment" checked={confirmationPayment === value} onChange={() => setConfirmationPayment(value)} className="accent-[#C46A3A]" />{label}</label>
                     ))}
                   </div>
+                  {confirmationPayment !== 'none' && <p className="text-sm text-[#6b7a6d]">Includes a secure Stripe payment link. Payments already made are deducted.</p>}
                   <Button type="button" onClick={() => void handleSendConfirmation()} disabled={sendingConfirmation || !selectedBooking.customerEmail} className="w-full bg-[#C46A3A] text-white hover:bg-[#A85A30]"><Mail className="mr-2 h-4 w-4" />{sendingConfirmation ? 'Sending…' : 'Send to customer'}</Button>
                 </CardContent>
               </Card>}

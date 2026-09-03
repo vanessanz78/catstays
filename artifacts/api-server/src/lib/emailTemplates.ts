@@ -219,6 +219,7 @@ export function bookingConfirmationHtml(opts: {
   totalAmount?: string;
   deposit?: string;
   paymentRequest?: 'deposit' | 'full' | 'none';
+  paymentLink?: { amount: number; url: string };
   customMessage?: string;
   customerNote?: string;
   terms?: string;
@@ -254,12 +255,16 @@ export function bookingConfirmationHtml(opts: {
       ...(receiptRows.some((row) => row.value) ? [{ title: 'Receipt', rows: receiptRows, tone: 'success' as const }] : []),
       ...(opts.paymentRequest && opts.paymentRequest !== 'none' ? [{
         title: 'Payment requested',
-        html: `<p style="margin:0;font:14px/1.6 Arial,sans-serif;color:${colors.ink};">${opts.paymentRequest === 'deposit' ? `Please pay the ${escapeHtml(opts.deposit || 'booking deposit')} to secure this stay.` : 'Please pay the total booking amount.'}</p>`,
+        html: `<p style="margin:0;font:14px/1.6 Arial,sans-serif;color:${colors.ink};">${opts.paymentRequest === 'deposit' ? `Please pay the ${escapeHtml(opts.deposit || 'booking deposit')} to secure this stay.` : 'Please pay the remaining booking balance.'}${opts.paymentLink ? ' Use the secure Stripe button below. This link expires in 23 hours; contact the cattery if you need a new link.' : ''}</p>`,
         tone: 'warning' as const,
       }] : []),
       ...(opts.customerNote ? [{ title: 'Note from the cattery', html: `<p style="margin:0;font:14px/1.6 Arial,sans-serif;color:${colors.ink};">${textToHtml(opts.customerNote)}</p>` }] : []),
       ...(opts.terms ? [{ title: 'Terms and cancellation', html: `<p style="margin:0;font:13px/1.65 Arial,sans-serif;color:${colors.muted};">${textToHtml(opts.terms)}</p>` }] : []),
     ],
+    action: opts.paymentLink && opts.paymentRequest !== 'none' ? {
+      label: `Pay ${opts.paymentRequest === 'deposit' ? 'deposit' : 'remaining balance'} $${opts.paymentLink.amount.toFixed(2)}`,
+      href: opts.paymentLink.url,
+    } : undefined,
     footerNote: `Questions about this booking? Contact ${opts.catteryName} directly.`,
   });
 }

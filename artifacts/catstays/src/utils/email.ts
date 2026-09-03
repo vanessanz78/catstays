@@ -3,6 +3,7 @@ import { supabase } from '@/utils/supabase/client';
 const API_BASE = '/api';
 
 export interface BookingConfirmationPayload {
+  bookingId: string;
   catteryId: string;
   customerId: string;
   customerName: string;
