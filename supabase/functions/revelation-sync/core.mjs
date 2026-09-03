@@ -50,6 +50,7 @@ export function pendingAccommodationCost({start,end,assignments,rooms,settings})
   const taxRate=config.chargeTax===false?0:Number(config.taxRate??15);
   if(!Number.isFinite(taxRate)||taxRate<0||taxRate>100)throw Error('Invalid tax setting');
   const rates=Array.isArray(config.pricingRates)?config.pricingRates:[];
+  const expectedCats=new Set(assignments.map(a=>a.cat_external_id));
   let subtotal=0;
   for(let day=from;day<=to;day+=86400000){
     const date=new Date(day).toISOString().slice(0,10),groups=new Map(),cats=new Set();
@@ -59,7 +60,7 @@ export function pendingAccommodationCost({start,end,assignments,rooms,settings})
       const key=a.room_id+':'+a.room_unit_number;
       groups.set(key,[...(groups.get(key)||[]),a]);
     }
-    if(!cats.size)throw Error('Gap in pending stay');
+    if(!cats.size||cats.size!==expectedCats.size)throw Error('Gap in pending stay');
     for(const group of groups.values()){
       const room=rooms.find(r=>r.id===group[0].room_id);
       const occupancy=rates.filter(r=>Number(r.numberOfCats)===group.length);
@@ -214,7 +215,7 @@ export async function processTick(env, force=false, transport=clients(env)) {
           if(Number(old?.total_amount)>0){
             // Keep the prior source baseline so audited merging preserves staff overrides.
             amount=Number(baseline?.total_amount??old.total_amount);
-            outstanding=Number(old.legacy_outstanding??amount);
+            outstanding=amount; // No source receipts exist in this branch; never invent a payment.
           } else if(!old||old.status==='pending'){
             const adjustments=old?await db('booking_adjustments?booking_id=eq.'+old.id+'&select=id&limit=1',undefined,'GET'):[];
             const payments=old?await query('payments','booking_id=eq.'+old.id,'id'):[];
