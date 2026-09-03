@@ -36,6 +36,7 @@ type StaffCustomerDirectoryProps = {
   customers: Customer[];
   bookings: Booking[];
   isLoading: boolean;
+  bookingMetricsPending: boolean;
   createCustomer: ReturnType<typeof useCustomers>['createCustomer'];
   addCat: ReturnType<typeof useCustomers>['addCat'];
   mergeCustomers: ReturnType<typeof useCustomers>['mergeCustomers'];
@@ -480,6 +481,7 @@ export function StaffCustomerDirectory({
   customers,
   bookings,
   isLoading,
+  bookingMetricsPending,
   createCustomer,
   addCat,
   mergeCustomers,
@@ -502,7 +504,9 @@ export function StaffCustomerDirectory({
   }, [searchParams]);
 
   const rows = useMemo(() => customers
-    .filter((customer) => customerMatchesDirectorySearch(customer, searchQuery))
+    .filter((customer) => customerMatchesDirectorySearch(customer, searchQuery)), [customers, searchQuery]);
+  // Only calculate financial history for the displayed page, not all 3,500+ customers.
+  const visibleRows = useMemo(() => rows.slice(0, 100)
     .map((customer) => ({
       customer,
       metrics: customerDirectoryMetrics(
@@ -512,8 +516,7 @@ export function StaffCustomerDirectory({
         { chargeTax: bookingSetup.chargeTax, taxRate: bookingSetup.taxRate },
         customer.legacy_last_booking,
       ),
-    })), [bookingSetup.chargeTax, bookingSetup.taxRate, bookings, customers, searchQuery]);
-  const visibleRows = rows.slice(0, 100);
+    })), [bookingSetup.chargeTax, bookingSetup.taxRate, bookings, rows]);
 
   const closeAddCustomer = () => {
     if (saving) return;
@@ -609,11 +612,11 @@ export function StaffCustomerDirectory({
                       <h4 className="font-semibold text-[#0A1128]">{customer.name}</h4>
                       <p className="text-xs text-[#768098]">ID {customer.external_id || customer.id.slice(0, 8)} · Joined {shortDate(customer.created_at)}</p>
                     </div>
-                    {metrics.outstanding > 0 && <Badge className="shrink-0 bg-[#F9E1D1] text-[#8A4E2B] hover:bg-[#F9E1D1]">Owing {money(metrics.outstanding)}</Badge>}
+                    {!bookingMetricsPending && metrics.outstanding > 0 && <Badge className="shrink-0 bg-[#F9E1D1] text-[#8A4E2B] hover:bg-[#F9E1D1]">Owing {bookingMetricsPending ? "Loading history…" : money(metrics.outstanding)}</Badge>}
                   </div>
                   <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
                     <div><p className="text-xs font-medium uppercase tracking-wide text-[#768098]">Contact</p><a href={`mailto:${customer.email}`} className="break-all text-[#0A1128] hover:text-[#C46A3A]">{customer.email}</a><br />{customer.phone ? <a href={`tel:${customer.phone}`} className="text-[#0A1128] hover:text-[#C46A3A]">{customer.phone}</a> : <span className="text-[#9AA1B2]">No phone</span>}</div>
-                    <div><p className="text-xs font-medium uppercase tracking-wide text-[#768098]">Last booking</p>{metrics.lastBooking ? <Link to={`/staff-dashboard/bookings?booking=${metrics.lastBooking.id}`} className="text-[#0A1128] hover:text-[#C46A3A]">{shortDate(metrics.lastBooking.check_in)} · {metrics.lastBookingDays} {metrics.lastBookingDays === 1 ? 'day' : 'days'}</Link> : metrics.importedLastBooking ? <span className="text-[#0A1128]">{shortDate(metrics.importedLastBooking)} <span className="text-xs text-[#768098]">· imported</span></span> : <span className="text-[#9AA1B2]">No bookings</span>}</div>
+                    <div><p className="text-xs font-medium uppercase tracking-wide text-[#768098]">Last booking</p>{bookingMetricsPending ? <span className="text-[#768098]">Loading history…</span> : metrics.lastBooking ? <Link to={`/staff-dashboard/bookings?booking=${metrics.lastBooking.id}`} className="text-[#0A1128] hover:text-[#C46A3A]">{shortDate(metrics.lastBooking.check_in)} · {metrics.lastBookingDays} {metrics.lastBookingDays === 1 ? 'day' : 'days'}</Link> : metrics.importedLastBooking ? <span className="text-[#0A1128]">{shortDate(metrics.importedLastBooking)} <span className="text-xs text-[#768098]">· imported</span></span> : <span className="text-[#9AA1B2]">No bookings</span>}</div>
                   </div>
                   <div className="mt-3 flex flex-wrap items-center gap-2">
                     {(customer.cats || []).map((cat) => <Badge key={cat.id} variant="outline" className="bg-white"><Cat className="mr-1 h-3 w-3" />{cat.name}</Badge>)}
@@ -641,8 +644,8 @@ export function StaffCustomerDirectory({
                       <td className="border-b border-[#EEE7DF] px-3 py-4 align-top"><a href={`mailto:${customer.email}`} className="block max-w-56 truncate text-[#0A1128] hover:text-[#C46A3A]">{customer.email}</a>{customer.phone ? <a href={`tel:${customer.phone}`} className="text-[#4E5871] hover:text-[#C46A3A]">{customer.phone}</a> : <span className="text-[#9AA1B2]">No phone</span>}</td>
                       <td className="border-b border-[#EEE7DF] px-3 py-4 align-top"><div className="flex max-w-52 flex-wrap gap-1">{(customer.cats || []).map((cat) => <Badge key={cat.id} variant="outline" className="bg-white"><Cat className="mr-1 h-3 w-3" />{cat.name}</Badge>)}{(customer.cats || []).length === 0 && <span className="text-[#9AA1B2]">—</span>}</div></td>
                       <td className="border-b border-[#EEE7DF] px-3 py-4 align-top whitespace-nowrap text-[#4E5871]">{shortDate(customer.created_at)}</td>
-                      <td className="border-b border-[#EEE7DF] px-3 py-4 align-top">{metrics.lastBooking ? <Link to={`/staff-dashboard/bookings?booking=${metrics.lastBooking.id}`} className="font-medium text-[#0A1128] hover:text-[#C46A3A]">{shortDate(metrics.lastBooking.check_in)}<span className="block text-xs font-normal text-[#768098]">{metrics.lastBookingDays} {metrics.lastBookingDays === 1 ? 'day' : 'days'}</span></Link> : metrics.importedLastBooking ? <span className="font-medium text-[#0A1128]">{shortDate(metrics.importedLastBooking)}<span className="block text-xs font-normal text-[#768098]">Imported history</span></span> : <span className="text-[#9AA1B2]">No bookings</span>}</td>
-                      <td className="border-b border-[#EEE7DF] px-3 py-4 align-top font-semibold"><span className={metrics.outstanding > 0 ? 'text-[#A14F2A]' : 'text-[#4E5871]'}>{money(metrics.outstanding)}</span></td>
+                      <td className="border-b border-[#EEE7DF] px-3 py-4 align-top">{bookingMetricsPending ? <span className="text-[#768098]">Loading history…</span> : metrics.lastBooking ? <Link to={`/staff-dashboard/bookings?booking=${metrics.lastBooking.id}`} className="font-medium text-[#0A1128] hover:text-[#C46A3A]">{shortDate(metrics.lastBooking.check_in)}<span className="block text-xs font-normal text-[#768098]">{metrics.lastBookingDays} {metrics.lastBookingDays === 1 ? 'day' : 'days'}</span></Link> : metrics.importedLastBooking ? <span className="font-medium text-[#0A1128]">{shortDate(metrics.importedLastBooking)}<span className="block text-xs font-normal text-[#768098]">Imported history</span></span> : <span className="text-[#9AA1B2]">No bookings</span>}</td>
+                      <td className="border-b border-[#EEE7DF] px-3 py-4 align-top font-semibold"><span className={metrics.outstanding > 0 ? 'text-[#A14F2A]' : 'text-[#4E5871]'}>{bookingMetricsPending ? "Loading history…" : money(metrics.outstanding)}</span></td>
                       <td className="border-b border-[#EEE7DF] px-3 py-4 align-top font-semibold"><span className={metrics.creditBalance > 0 ? 'text-[#32633B]' : 'text-[#4E5871]'}>{money(metrics.creditBalance)}</span></td>
                       <td className="border-b border-[#EEE7DF] px-3 py-4 align-top"><button type="button" onClick={() => setCustomerToDelete(customer)} className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-red-700 hover:text-red-800"><Trash2 className="h-3.5 w-3.5" />Delete mistaken record</button></td>
                     </tr>

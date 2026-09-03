@@ -154,12 +154,12 @@ export function AdminBookings() {
     cancelBooking,
     deleteErroneousBooking,
   } = useBookings({
-    // Booking creation and deep links retain the complete availability/history snapshot.
-    checkOutFrom: viewMode === 'upcoming' && !showCreateBooking && !isCreating && !requestedBookingId
+    // Creation needs complete availability. Deep links load their own record below.
+    checkOutFrom: viewMode === 'upcoming' && !showCreateBooking && !isCreating
       ? format(startOfToday(), 'yyyy-MM-dd') : undefined,
   });
   // Opening one alert must not wait for thousands of historical stays.
-  // Keep the separate full snapshot for availability calculations.
+  // Keep the main list scoped unless creation or history actually needs all stays.
   const { bookings: requestedBookings, loading: requestedBookingLoading } = useBookings({
     bookingId: requestedBookingId || undefined,
     enabled: Boolean(requestedBookingId),
