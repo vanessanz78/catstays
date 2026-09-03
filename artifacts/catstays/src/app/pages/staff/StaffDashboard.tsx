@@ -136,7 +136,7 @@ function formatDayLabel(dateKey: string) {
   const date = new Date(`${dateKey}T12:00:00`);
   const day = date.getDate();
   const suffix = day >= 11 && day <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[day % 10] || 'th';
-  return `${date.toLocaleDateString('en-NZ', { weekday: 'short' }).toUpperCase()} ${day}${suffix} ${date.toLocaleDateString('en-NZ', { month: 'long' })} ${date.getFullYear()}`;
+  return `${day}${suffix} ${date.toLocaleDateString('en-NZ', { month: 'long' })} ${date.getFullYear()}`;
 }
 
 function shiftDateKey(dateKey: string, days: number) {
@@ -444,7 +444,7 @@ function TodaySection({
               <p className="truncate text-xs text-white/85 sm:text-sm">Departures</p>
             </div>
             <Link to="/staff-dashboard/room-planner" className="min-w-0 rounded-lg bg-white px-1 py-3 text-center shadow-sm ring-1 ring-[#E8DED4] hover:bg-white sm:p-5">
-              <p className="break-words text-lg font-semibold tabular-nums leading-8 sm:text-3xl">{isLoading ? '-' : data.occupancyLabel}</p>
+              <p className="break-words text-lg font-semibold tabular-nums leading-8 sm:text-3xl">{isLoading ? '-' : data.occupiedRoomKeys.length}</p>
               <p className="text-xs text-[#4E5871] sm:text-sm">Occupied</p>
             </Link>
           </div>
