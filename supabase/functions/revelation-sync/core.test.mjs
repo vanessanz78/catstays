@@ -151,3 +151,15 @@ test('operational missing owner uses exact source identity, not a guessed name',
  await tick(f);assert.ok(f.calls.some(c=>c.path==='rpc/catstays_import_legacy_customers'));
  assert.ok(f.calls.some(c=>c.path==='rpc/catstays_import_legacy_bookings'));
 });
+
+test('existing future booking detail changes reach the same external identity',async()=>{
+ const f=fixture();f.job.checkpoint.scope='operational';
+ Object.assign(f.detail,{boarding_from_date:'05/09/2026',boarding_to_date:'12/09/2026',boarding_arriving:'10:30 AM',boarding_departing:'4:00 PM',notes:'Changed collection instructions',total_amount:140,outstanding_amount:90});
+ f.detail.overnights[0]={pet:'Test Cat',run:'Private Room 2',from_date:'05/09/2026',to_date:'12/09/2026'};
+ Object.assign(f.existing,{check_in:'2026-09-05',check_out:'2026-09-12'});
+ await tick(f);
+ const row=f.calls.find(c=>c.path==='rpc/catstays_import_legacy_bookings').body.records[0];
+ assert.equal(row.external_id,'100');assert.equal(row.check_in,'2026-09-05');assert.equal(row.check_out,'2026-09-12');
+ assert.equal(row.notes,'Changed collection instructions');assert.equal(row.check_in_time,'10:30:00');assert.equal(row.legacy_outstanding,90);
+ assert.equal(f.calls.find(c=>c.path==='rpc/catstays_import_legacy_booking_relations').body.records[0].assignments[0].room_unit_number,2);
+});
