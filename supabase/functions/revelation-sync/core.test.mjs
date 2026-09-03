@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {isoDate,sourceTime,splitRange,planPayments,processTick,clients,PROJECT} from './core.mjs';
+import {isoDate,sourceTime,splitRange,planPayments,processTick,clients,PROJECT,pendingAccommodationCost} from './core.mjs';
 
 test('dates preserve NZ calendar days and reject invalid dates',()=>{
   assert.equal(isoDate('02/09/2026'),'2026-09-02');assert.equal(isoDate(null),null);
@@ -181,4 +181,62 @@ test('no verified snapshot always processes full relationships and payments',asy
  const f=fixture();f.job.checkpoint.scope='operational';f.job.checkpoint.checked_checksums={};await tick(f);
  assert.ok(f.calls.some(c=>c.path==='rpc/catstays_import_legacy_booking_relations'));
  assert.ok(f.calls.some(c=>c.path==='rpc/catstays_import_legacy_payments'));
+});
+
+const quoteInput=()=>({start:'2026-09-30',end:'2026-10-03',
+ assignments:[{cat_external_id:'1',room_id:'room',room_unit_number:15,starts_on:'2026-09-30',ends_on:'2026-10-03'}],
+ rooms:[{id:'room',price_per_night:20}],settings:{pricingRates:[{numberOfCats:'1',price:'20'}],chargeTax:true,taxRate:'15'}});
+test('pending price includes both dates and GST before confirmation',()=>{
+ assert.equal(pendingAccommodationCost(quoteInput()),92);
+});
+test('pending shared room uses its occupancy rate; separate rooms price independently',()=>{
+ const q=quoteInput();q.assignments.push({...q.assignments[0],cat_external_id:'2'});
+ q.settings.pricingRates.push({numberOfCats:'2',price:'35'});
+ assert.equal(pendingAccommodationCost(q),161);
+ q.assignments[1].room_unit_number=16;
+ assert.equal(pendingAccommodationCost(q),184);
+});
+test('pending same-day and tax-free stays work; missing rates and overlaps fail closed',()=>{
+ const q=quoteInput();q.end=q.start;q.settings.chargeTax=false;assert.equal(pendingAccommodationCost(q),20);
+ q.settings.pricingRates=[];q.rooms=[];assert.throws(()=>pendingAccommodationCost(q));
+ const overlap=quoteInput();overlap.assignments.push({...overlap.assignments[0]});
+ assert.throws(()=>pendingAccommodationCost(overlap));
+});
+function unpricedFixture(){
+ const f=fixture();f.existing.status='pending';f.existing.total_amount=0;
+ Object.assign(f.detail,{pending:'Yes',total_amount:0,outstanding_amount:0,payments:[]});
+ const db=f.db;f.db=async(path,body)=>{
+  if(path.startsWith('catteries?'))return [{website_settings:{pricingRates:[{numberOfCats:1,price:20}],chargeTax:true,taxRate:15}}];
+  if(path.startsWith('booking_adjustments?'))return [];
+  return db(path,body);
+ };return f;
+}
+test('zero source pending imports persist a cost while remaining pending and unpaid',async()=>{
+ const f=unpricedFixture();await tick(f);
+ const r=f.calls.find(c=>c.path==='rpc/catstays_import_legacy_bookings').body.records[0];
+ assert.equal(r.legacy_amount,230);assert.equal(r.legacy_outstanding,230);assert.equal(r.legacy_monies_received,0);
+ assert.equal(r.status,'pending');assert.equal(r.payment_status,'unpaid');
+ assert.ok(!f.calls.some(c=>c.path==='rpc/catstays_import_legacy_payments'));
+ const archived=f.calls.find(c=>c.path==='rpc/catstays_stage_legacy_source_records').body.records[0].raw_record;
+ assert.equal(archived.total_amount,0);
+});
+test('an existing pending quote is preserved on repeated zero-source sync',async()=>{
+ const f=unpricedFixture();Object.assign(f.existing,{total_amount:120,legacy_outstanding:120,legacy_metadata:{_revelation_source:{total_amount:120}}});await tick(f);
+ const r=f.calls.find(c=>c.path==='rpc/catstays_import_legacy_bookings').body.records[0];
+ assert.equal(r.legacy_amount,120);
+});
+test('existing adjustments and payments prevent inferred repricing',async()=>{
+ for(const type of ['adjustment','payment']){
+  const f=unpricedFixture(),db=f.db;
+  f.db=async(p,b)=>type==='adjustment'&&p.startsWith('booking_adjustments?')?[{id:'keep'}]:db(p,b);
+  if(type==='payment')f.payments=[pay()];
+  await tick(f);
+  assert.equal(f.calls.find(c=>c.path==='rpc/catstays_import_legacy_bookings').body.records[0].legacy_amount,0);
+  assert.ok(f.calls.some(c=>c.body?.issue_type==='api_pending_pricing_review'));
+ }
+});
+test('unchanged checksum must not skip an unpriced pending request',async()=>{
+ const f=unpricedFixture();const {hash}=await import('./core.mjs');
+ f.job.checkpoint.scope='operational';f.job.checkpoint.checked_checksums={'100':await hash(JSON.stringify(f.detail))};
+ await tick(f);assert.equal(f.calls.find(c=>c.path==='rpc/catstays_import_legacy_bookings').body.records[0].legacy_amount,230);
 });
