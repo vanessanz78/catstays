@@ -363,7 +363,7 @@ export function StaffRoomCalendar({ bookings, rooms, isLoading, moveBooking, spl
           <Link to="/staff-dashboard/room-planner"><Button className="mt-4 bg-[#C46A3A] text-white hover:bg-[#A85A30]">Open Room Planner</Button></Link>
         </div>
       ) : (
-        <section className="min-w-0 overflow-hidden rounded-2xl border border-[#D8D2CB] bg-white shadow-sm" aria-label="Scrollable room booking calendar">
+        <section className="relative isolate z-0 min-w-0 overflow-hidden rounded-2xl border border-[#D8D2CB] bg-white shadow-sm" aria-label="Scrollable room booking calendar">
           <div ref={timelineRef} className="max-w-full overflow-x-auto overscroll-x-contain" tabIndex={0}>
             <div style={{ width: timelineWidth }}>
               <div className="sticky top-0 z-40 flex h-[74px] border-b border-[#D8D2CB] bg-white">
