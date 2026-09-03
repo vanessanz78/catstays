@@ -171,7 +171,13 @@ export function useBookings(options?: BookingReadScope & { allPages?: boolean; b
 
   useEffect(() => {
     fetchBookings();
-    return () => { requestGeneration.current++; activeRequest.current?.abort(); };
+    const refresh = () => { void fetchBookings(); };
+    window.addEventListener('catstays:bookings-changed', refresh);
+    return () => {
+      window.removeEventListener('catstays:bookings-changed', refresh);
+      requestGeneration.current++;
+      activeRequest.current?.abort();
+    };
   }, [cattery?.id, checkOutFrom, checkOutThrough, checkInFrom, checkInThrough, bookingId, enabled]);
 
   const createBooking = async (booking: {
@@ -243,11 +249,13 @@ export function useBookings(options?: BookingReadScope & { allPages?: boolean; b
   const updateBookingStatus = async (id: string, status: string) => {
     if (!cattery?.id) return { error: 'No cattery found' };
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('bookings')
       .update({ status })
       .eq('id', id)
-      .eq('cattery_id', cattery.id);
+      .eq('cattery_id', cattery.id)
+      .select('id, status, total_amount, payment_status')
+      .single();
     if (!error) {
       await supabase.from('booking_events').insert({
         cattery_id: cattery.id,
@@ -260,7 +268,7 @@ export function useBookings(options?: BookingReadScope & { allPages?: boolean; b
       await fetchBookings();
       announceCatStaysBookingsChanged();
     }
-    return { error };
+    return { data, error };
   };
 
   const updatePaymentStatus = async (id: string, payment_status: string) => {

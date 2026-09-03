@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/card';
@@ -77,7 +77,7 @@ import {
   type PaymentMethod,
   type PaymentPurpose,
 } from '../../lib/bookingOperations';
-import { bookingReviewCatStays } from '../../lib/bookingReview';
+import { bookingReviewCatStays, refreshBookingReview, mergeBookingReviewRecords } from '../../lib/bookingReview';
 
 export function AdminBookings() {
   const [searchParams] = useSearchParams();
@@ -163,8 +163,8 @@ export function AdminBookings() {
   // Opening one alert must not wait for thousands of historical stays.
   // Keep the main list scoped unless creation or history actually needs all stays.
   const { bookings: requestedBookings, loading: requestedBookingLoading } = useBookings({
-    bookingId: requestedBookingId || undefined,
-    enabled: Boolean(requestedBookingId),
+    bookingId: requestedBookingId || selectedBooking?.id || undefined,
+    enabled: Boolean(requestedBookingId || (showBookingDetails && selectedBooking?.id)),
   });
   const { customers: rawCustomers, createCustomer, addCat } = useCustomers();
   const { rooms: rawRooms } = useRooms();
@@ -230,7 +230,7 @@ export function AdminBookings() {
   }));
 
   // Map real Supabase bookings to UI shape
-  const bookings = [...rawBookings, ...requestedBookings.filter(requested => !rawBookings.some(b => b.id === requested.id))].map(b => {
+  const bookings = useMemo(() => mergeBookingReviewRecords(rawBookings, requestedBookings).map(b => {
     const days = inclusiveStayDays(b.check_in, b.check_out);
     const linkedCatNames = (b.booking_cats ?? []).map(bc => bc.cat.name);
     const guestCatNames = b.cat_names
@@ -276,7 +276,13 @@ export function AdminBookings() {
         roomType: assignment.room.type,
       })),
     };
-  });
+  }), [rawBookings, requestedBookings]);
+
+  useEffect(() => {
+    if (!showBookingDetails) return;
+    const fresh = bookings.find(booking => booking.id === selectedBooking?.id);
+    setSelectedBooking((current: any) => refreshBookingReview(current, fresh));
+  }, [bookings, selectedBooking?.id, showBookingDetails]);
 
   const availableRoomOptions = roomOptions.filter((room) => (
     !checkIn
@@ -578,14 +584,16 @@ export function AdminBookings() {
     setPaymentActionMessage('');
     const wasAlreadyConfirmed = selectedBooking.status === 'confirmed';
     if (!wasAlreadyConfirmed) {
-      const { error } = await updateBookingStatus(selectedBooking.id, 'confirmed');
+      const { data, error } = await updateBookingStatus(selectedBooking.id, 'confirmed');
       if (error) {
         setBookingActionError(typeof error === 'string' ? error : error.message || 'Booking could not be confirmed.');
         setConfirmingBooking(false);
         return;
       }
 
-      setSelectedBooking((current: any) => ({ ...current, status: 'confirmed' }));
+      setSelectedBooking((current: any) => current?.id === data?.id ? {
+        ...current, status: data.status, total: Number(data.total_amount || 0), paymentStatus: data.payment_status,
+      } : current);
     }
     setConfirmingBooking(false);
   };

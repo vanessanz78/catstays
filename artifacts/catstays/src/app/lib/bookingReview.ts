@@ -50,3 +50,18 @@ export function bookingReviewCatStays(
     };
   });
 }
+
+/** Refresh the open review without reopening it or replacing another booking. */
+export function refreshBookingReview<T extends { id: string }>(
+  current: T | null,
+  refreshed: T | undefined,
+): T | null {
+  if (!current || !refreshed || current.id !== refreshed.id) return current;
+  return refreshed;
+}
+
+/** A focused booking read takes precedence over an older list snapshot. */
+export function mergeBookingReviewRecords<T extends { id: string }>(list: T[], focused: T[]): T[] {
+  const focusedIds = new Set(focused.map(record => record.id));
+  return [...list.filter(record => !focusedIds.has(record.id)), ...focused];
+}
