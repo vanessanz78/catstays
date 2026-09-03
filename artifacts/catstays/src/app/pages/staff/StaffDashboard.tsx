@@ -135,8 +135,7 @@ function formatDate(value: string) {
 function formatDayLabel(dateKey: string) {
   const date = new Date(`${dateKey}T12:00:00`);
   const day = date.getDate();
-  const suffix = day >= 11 && day <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[day % 10] || 'th';
-  return `${day}${suffix} ${date.toLocaleDateString('en-NZ', { month: 'long' })} ${date.getFullYear()}`;
+  return `${date.toLocaleDateString('en-GB', { weekday: 'short' }).toUpperCase()} ${day} ${date.toLocaleDateString('en-US', { month: 'short' })} ${date.getFullYear()}`;
 }
 
 function shiftDateKey(dateKey: string, days: number) {
@@ -442,7 +441,9 @@ function TodaySection({
         <div className="rounded-lg border border-[#E8DED4] bg-[#F8F7F5] p-3 sm:p-4">
           <div className="flex items-center justify-between gap-1 sm:gap-3">
             <button type="button" onClick={() => onSelectedDateChange(shiftDateKey(selectedDate, -1))} aria-label="Previous day" className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#E8DED4] bg-white"><ChevronLeft className="h-5 w-5" /></button>
-            <h2 className="min-w-0 flex-1 text-center text-xs font-semibold leading-snug sm:text-lg">{formatDayLabel(selectedDate)}</h2>
+            <h2 className="min-w-0 flex-1 text-center font-semibold leading-snug [container-type:inline-size]">
+              <span className="block whitespace-nowrap text-[clamp(12px,8cqi,24px)]">{formatDayLabel(selectedDate)}</span>
+            </h2>
             <button type="button" onClick={() => onSelectedDateChange(shiftDateKey(selectedDate, 1))} aria-label="Next day" className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[#E8DED4] bg-white"><ChevronRight className="h-5 w-5" /></button>
           </div>
           {selectedDate !== getLocalDateKey() && <button type="button" onClick={() => onSelectedDateChange(getLocalDateKey())} className="mx-auto mt-2 block text-xs font-semibold text-[#C46A3A]">Return to today</button>}
