@@ -1,5 +1,12 @@
 # Current Sprint
 
+## Pending requests carry accommodation costs — 3 September 2026
+Working ref: `fix/pending-booking-costs`.
+- Owner approved pricing unpriced pending requests from saved CatStays accommodation rates before approval. This is the stay cost, not an additional fee or payment charge.
+- Preserve existing quoted amounts, local adjustments, payments and archived source responses. Manual import remains manual; confirmation does not charge or send messages.
+- Implement and verify source-zero pending import pricing using inclusive care days, physical room sharing and configured GST. Missing or ambiguous pricing must be flagged rather than invented. Existing website/staff booking pricing remains unchanged.
+- Tests, build, exact-SHA release and UAT pending.
+
 ## Booking review pricing refresh — 3 September 2026
 Working ref: `fix/booking-review-fresh-pricing`.
 - Founder confirmed Stephanie/Sam but the open panel retained an earlier zero total. Read-only verification now finds source and saved totals of 92, unpaid; live reopening shows Total 92 / Paid 0 / Owing 92.
