@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { bookingRoomUnitKeys, roomUnitHasConflict } from '@/app/lib/roomInventory';
 import { announceCatStaysBookingsChanged } from '@/app/lib/bookingAlerts';
 import { fetchAllRowsById, fetchRowsByIds } from '@/app/lib/fetchAllRows';
-import { applyBookingReadScope, bookingReadScope } from '@/app/lib/bookingReadScope';
+import { applyBookingReadScope, bookingReadScope, type BookingReadScope } from '@/app/lib/bookingReadScope';
 
 export interface BookingWithDetails {
   id: string;
@@ -93,8 +93,9 @@ export interface BookingWithDetails {
   }[];
 }
 
-export function useBookings(options?: { allPages?: boolean; checkOutFrom?: string; bookingId?: string; enabled?: boolean }) {
-  const { checkOutFrom } = bookingReadScope(options);
+export function useBookings(options?: BookingReadScope & { allPages?: boolean; bookingId?: string; enabled?: boolean }) {
+  const { checkOutFrom, checkOutThrough, checkInFrom, checkInThrough } = bookingReadScope(options);
+  const scope = { checkOutFrom, checkOutThrough, checkInFrom, checkInThrough };
   const bookingId = options?.bookingId;
   const enabled = options?.enabled !== false;
   const { cattery, user } = useAuth();
@@ -120,13 +121,13 @@ export function useBookings(options?: { allPages?: boolean; checkOutFrom?: strin
     const { data, error } = await fetchRowsByIds<BookingWithDetails>(
       () => bookingId ? Promise.resolve({ data: [{ id: bookingId }], error: null }) : fetchAllRowsById<{ id: string }>((afterId, limit) => {
         let query = applyBookingReadScope(supabase.from('bookings').select('id')
-          .eq('cattery_id', cattery.id), { checkOutFrom })
+          .eq('cattery_id', cattery.id), scope)
           .order('id').limit(limit).abortSignal(controller.signal);
         if (afterId) query = query.gt('id', afterId);
         return query;
       }, () => applyBookingReadScope(supabase.from('bookings')
         .select('id', { count: 'exact', head: true })
-        .eq('cattery_id', cattery.id), { checkOutFrom }).abortSignal(controller.signal)),
+        .eq('cattery_id', cattery.id), scope).abortSignal(controller.signal)),
       (ids) => supabase
       .from('bookings')
       .select(`
@@ -171,7 +172,7 @@ export function useBookings(options?: { allPages?: boolean; checkOutFrom?: strin
   useEffect(() => {
     fetchBookings();
     return () => { requestGeneration.current++; activeRequest.current?.abort(); };
-  }, [cattery?.id, checkOutFrom, bookingId, enabled]);
+  }, [cattery?.id, checkOutFrom, checkOutThrough, checkInFrom, checkInThrough, bookingId, enabled]);
 
   const createBooking = async (booking: {
     customer_id: string;

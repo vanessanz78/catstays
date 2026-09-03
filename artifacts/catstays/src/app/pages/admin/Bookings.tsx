@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from '../../components/ui/dialog';
 import { useBookings } from '@/hooks/useBookings';
+import { bookingListScope, matchesBookingListView, type BookingListView } from '@/app/lib/bookingReadScope';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useRooms } from '@/hooks/useRooms';
 import { useAuth } from '@/contexts/AuthContext';
@@ -92,7 +93,7 @@ export function AdminBookings() {
   const [showCreateBooking, setShowCreateBooking] = useState(isCreating);
   
   // Filter and sort state
-  const [viewMode, setViewMode] = useState<'upcoming' | 'latest' | 'all'>('upcoming');
+  const [viewMode, setViewMode] = useState<BookingListView>('current');
   const [sortField, setSortField] = useState<'arrival' | 'departure' | 'received'>('arrival');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [bookingSearch, setBookingSearch] = useState('');
@@ -155,9 +156,9 @@ export function AdminBookings() {
     cancelBooking,
     deleteErroneousBooking,
   } = useBookings({
-    // Creation needs complete availability. Deep links load their own record below.
-    checkOutFrom: viewMode === 'upcoming' && !showCreateBooking && !isCreating
-      ? format(startOfToday(), 'yyyy-MM-dd') : undefined,
+    // Apply operational date ranges before loading nested details. Creation and search retain history.
+    ...(!showCreateBooking && !isCreating
+      ? bookingListScope(viewMode, format(startOfToday(), 'yyyy-MM-dd'), bookingSearch) : {}),
   });
   // Opening one alert must not wait for thousands of historical stays.
   // Keep the main list scoped unless creation or history actually needs all stays.
@@ -299,20 +300,7 @@ export function AdminBookings() {
   // Filter bookings based on view mode
   const getFilteredBookings = () => {
     const now = new Date();
-    let filtered = bookings;
-    
-    if (viewMode === 'latest') {
-      // Show bookings received in the last 7 days
-      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      filtered = bookings.filter(booking => 
-        new Date(booking.receivedDate) >= sevenDaysAgo
-      );
-    }
-    
-    if (viewMode === 'upcoming') {
-      const today = format(now, 'yyyy-MM-dd');
-      filtered = filtered.filter(booking => booking.status !== 'cancelled' && booking.checkOut >= today);
-    }
+    let filtered = bookings.filter(booking => matchesBookingListView(booking, viewMode, format(now, 'yyyy-MM-dd'), bookingSearch));
     const search = bookingSearch.trim().toLowerCase();
     if (search) {
       filtered = filtered.filter(booking => [
@@ -1633,12 +1621,12 @@ export function AdminBookings() {
           <CardContent className="space-y-3 p-3">
             <div className="grid grid-cols-3 gap-1" aria-label="Booking views">
               {([
-                ['upcoming', 'Current & future'],
-                ['latest', 'Recent'],
-                ['all', 'All history'],
+                ['current', 'Current'],
+                ['recent', 'Recent'],
+                ['future', 'Future'],
               ] as const).map(([mode, label]) => (
                 <Button key={mode}
-                  onClick={() => { setViewMode(mode); setSortField(mode === 'upcoming' ? 'arrival' : 'received'); setSortDirection(mode === 'upcoming' ? 'asc' : 'desc'); }}
+                  onClick={() => { setViewMode(mode); setBookingSearch(''); setSortField(mode === 'recent' ? 'departure' : 'arrival'); setSortDirection(mode === 'recent' ? 'desc' : 'asc'); }}
                   aria-pressed={viewMode === mode}
                   variant={viewMode === mode ? 'default' : 'ghost'}
                   className="min-w-0 rounded-xl px-1 text-xs sm:text-sm"
@@ -1649,6 +1637,7 @@ export function AdminBookings() {
             </div>
             <Input aria-label="Search bookings" placeholder="Customer, cat or Revelation booking number"
               value={bookingSearch} onChange={event => setBookingSearch(event.target.value)} />
+            <p className="text-xs text-[#6b7a6d]">{bookingSearch.trim() ? 'Searching all dates, including older and cancelled bookings.' : viewMode === 'recent' ? 'Stays that ended in the last 30 days.' : viewMode === 'future' ? 'Arrivals after today.' : 'Stays overlapping today, excluding checked-out and cancelled bookings.'}</p>
           </CardContent>
         </Card>
 
@@ -1770,10 +1759,10 @@ export function AdminBookings() {
             <CardContent className="p-12 text-center">
               <Calendar className="w-16 h-16 text-sage/30 mx-auto mb-4" />
               <h3 className="text-lg font-semibold mb-2" style={{ color: '#2d3e2f' }}>
-                {bookingSearch ? 'No matching bookings' : viewMode === 'upcoming' ? 'No current or future bookings' : viewMode === 'latest' ? 'No recent bookings' : 'No bookings yet'}
+                {bookingSearch ? 'No matching bookings' : viewMode === 'current' ? 'No current bookings' : viewMode === 'recent' ? 'No recent bookings' : 'No future bookings'}
               </h3>
               <p className="text-sm mb-6" style={{ color: '#6b7a6d' }}>
-                {bookingSearch ? 'Try another customer, cat or booking number.' : viewMode === 'upcoming' ? 'Older and cancelled bookings are available under All history.' : viewMode === 'latest' ? 'No bookings received in the last 7 days' : 'Create your first booking to get started'}
+                {bookingSearch ? 'Try another customer, cat or booking number.' : viewMode === 'current' ? 'No stays overlap today. Choose Future to see upcoming arrivals.' : viewMode === 'recent' ? 'No stays ended in the last 30 days. Search to find older bookings.' : 'No stays arriving after today.'}
               </p>
               <Link to="?new=true">
                 <Button className="rounded-xl text-white" style={{ backgroundColor: '#C46A3A' }}>
