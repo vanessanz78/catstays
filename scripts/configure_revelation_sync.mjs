@@ -45,9 +45,7 @@ try {
     const result=await r.json();if(!r.ok)throw Error(`Sync worker failed (${r.status})`);
     console.log(JSON.stringify(result));
   } else if(mode==='activate'){
-    await trigger();
-    await sql(readFileSync('supabase/operations/activate_revelation_sync.sql','utf8'));
-    console.log(JSON.stringify({nightly_sync_activated:true,timezone:'Pacific/Auckland',start:'00:01'}));
+    throw Error('Automatic sync was disabled by the owner. Use the dashboard sync button.');
   } else if(mode==='status') {
     const rows=await sql("select id,status,phase,local_day,checkpoint,jsonb_array_length(queue) as remaining,last_error from public.legacy_sync_jobs where cattery_id='7f6d029f-b727-4645-83be-db6ec56d1b46' order by created_at desc limit 1",[],true);
     // Do not print queued source records or the full checkpoint's pending detail queue.
