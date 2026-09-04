@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /dashboard/
+Disallow: /staff-dashboard/
+Disallow: /client-portal/
+Disallow: /customer/
+Disallow: /platform/
+Disallow: /builder/
+Disallow: /onboarding/
+
+Sitemap: https://catstays.app/sitemap.xml

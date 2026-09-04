@@ -13,6 +13,7 @@ import { CatstaysTemplateSite } from '../onboarding/CatstaysTemplateSite';
 import { isOriginalTemplate, normalizePreviewTemplateId } from '../../lib/previewTemplates';
 import { sourcePreviewProxyUrl, sourcePreviewUrlFromData, sourceRebuildHtmlFromData } from '../../lib/sourceRebuildPreview';
 import { normalizeTenantFeatures } from '@/app/lib/tenantFeatures';
+import { breadcrumbSchema, localBusinessSchema, useSeoMetadata } from '@/app/lib/seo';
 
 const DEFAULT_HERO = 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080';
 const ABOUT_IMG = 'https://images.unsplash.com/photo-1573865526739-10c1dd7aa736?w=1200&q=80';
@@ -73,6 +74,18 @@ export function TenantHome() {
   const base = tenantId ? `/tenant/${tenantId}` : '/site';
   const ws = (cattery?.website_settings as Record<string, any>) ?? {};
   const tenantFeatures = normalizeTenantFeatures(ws);
+  const localBusiness = cattery ? localBusinessSchema(cattery, base) : null;
+  useSeoMetadata({
+    title: cattery ? `${cattery.name} | Cat Boarding & Cattery Stays` : 'Cat Boarding & Cattery Stays',
+    description: cattery
+      ? (ws.metaDescription || `${cattery.name} provides caring cat boarding, comfortable accommodation, and simple online booking${cattery.city ? ` in ${cattery.city}` : ''}.`)
+      : 'Find caring cat boarding, comfortable accommodation, and simple online booking with CatStays.',
+    path: base,
+    schemas: [
+      ...(localBusiness ? [localBusiness] : []),
+      breadcrumbSchema([{ name: cattery?.name || 'Cat boarding', path: base }]),
+    ],
+  });
 
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
