@@ -1,4 +1,4 @@
-modules = ["nodejs-24", "postgresql-16"]
+modules = ["nodejs-24", "postgresql-16", "python-base-3.13"]
 
 [[artifacts]]
 id = "artifacts/api-server"
@@ -39,3 +39,4 @@ STRIPE_PUBLIC_KEY = "pk_live_51TE1rTB3RIUlHBEr7mKyoXvhRRZX8kfO7cUc8f5f8CJLPXVFwJ
 
 [nix]
 channel = "stable-25_05"
+packages = ["freetype", "gumbo", "harfbuzz", "jbig2dec", "libjpeg_turbo", "mupdf", "openjpeg", "swig", "xcbuild"]
