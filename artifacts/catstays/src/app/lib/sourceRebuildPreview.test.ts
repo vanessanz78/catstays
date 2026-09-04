@@ -30,3 +30,21 @@ test('leaves unrelated source HTML unchanged', () => {
 
   assert.equal(normalizePublishedSourceHtml(html), html);
 });
+
+test('routes the source website header to the client portal', () => {
+  const html = '<header><a href="/booking">Book Now</a><a href="#rooms">Rooms</a></header><main><a href="/booking">Book Now</a></main>';
+
+  assert.equal(
+    normalizePublishedSourceHtml(html),
+    '<header><a href="/client-portal">Client Login</a><a href="#rooms">Rooms</a></header><main><a href="/booking">Book Now</a></main>',
+  );
+});
+
+test('keeps only staff login in the source website footer', () => {
+  const html = '<footer><a href="/client-portal">Client Login</a><a href="/staff-dashboard">Host Login</a></footer>';
+
+  assert.equal(
+    normalizePublishedSourceHtml(html),
+    '<footer><a href="/staff-login">Staff Login</a></footer>',
+  );
+});

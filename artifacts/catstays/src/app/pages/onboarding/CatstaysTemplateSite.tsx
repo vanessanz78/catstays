@@ -221,8 +221,8 @@ function TemplateHeader({
             </a>
           ))}
         </nav>
-        <a href="#booking" onClick={onPreviewAnchorClick} className={`catstays-mobile-full shrink-0 rounded-md px-5 py-3 text-center text-xs font-bold uppercase tracking-[0.1em] ${dark ? 'bg-white text-[#0A1128]' : 'bg-[#0A1128] text-white'}`}>
-          Book Now
+        <a href="/client-portal" onClick={onPreviewAnchorClick} className={`catstays-mobile-full shrink-0 rounded-md px-5 py-3 text-center text-xs font-bold uppercase tracking-[0.1em] ${dark ? 'bg-white text-[#0A1128]' : 'bg-[#0A1128] text-white'}`}>
+          Client Login
         </a>
       </div>
     </header>
@@ -1631,13 +1631,9 @@ function TemplateFooter({
           <h4 className="mb-4 text-xs font-bold uppercase tracking-[0.16em]">Hours</h4>
           <p className="text-sm leading-7">{content.footer.hours}</p>
           <div className="mt-6 flex flex-col gap-2">
-            <a href="/client-portal" onClick={embedded ? (event) => event.preventDefault() : undefined} className={`inline-flex items-center justify-center gap-2 rounded-md border px-4 py-3 text-sm font-semibold ${dark ? 'border-white/20 text-white/80 hover:border-white/45 hover:text-white' : 'border-[#222]/10 text-[#222] hover:border-[#222]/30'}`}>
-              <Users className="h-4 w-4" />
-              Client Login
-            </a>
-            <a href="/login" onClick={embedded ? (event) => event.preventDefault() : undefined} className={`inline-flex items-center justify-center gap-2 rounded-md border px-4 py-3 text-sm font-semibold ${dark ? 'border-white/20 text-white/80 hover:border-white/45 hover:text-white' : 'border-[#222]/10 text-[#222] hover:border-[#222]/30'}`}>
+            <a href="/staff-login" onClick={embedded ? (event) => event.preventDefault() : undefined} className={`inline-flex items-center justify-center gap-2 rounded-md border px-4 py-3 text-sm font-semibold ${dark ? 'border-white/20 text-white/80 hover:border-white/45 hover:text-white' : 'border-[#222]/10 text-[#222] hover:border-[#222]/30'}`}>
               <LogIn className="h-4 w-4" />
-              Host Login
+              Staff Login
             </a>
           </div>
         </div>
