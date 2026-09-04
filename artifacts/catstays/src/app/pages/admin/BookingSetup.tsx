@@ -12,6 +12,8 @@ import {
   Trash2,
   Warehouse,
   Mail,
+  Scissors,
+  ShieldCheck,
   SlidersHorizontal,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -28,6 +30,7 @@ import {
 } from '@/app/lib/bookingSetup';
 import { bookingHoursSummary } from '@/app/lib/bookingSchedule';
 import { PAYMENT_METHOD_LABELS, type PaymentMethod } from '@/app/lib/bookingOperations';
+import { normalizeTenantFeatures, type TenantFeatureSettings } from '@/app/lib/tenantFeatures';
 import { NotificationBell } from '../../components/NotificationBell';
 import { RightMenu } from '../../components/RightMenu';
 import { Button } from '../../components/ui/button';
@@ -77,6 +80,7 @@ export function BookingSetup() {
   const [values, setValues] = useState<BookingSetupValues>(() => normalizeBookingSetup(null));
   const [blackouts, setBlackouts] = useState<BookingBlackout[]>([]);
   const [storedBlackoutIds, setStoredBlackoutIds] = useState<string[]>([]);
+  const [features, setFeatures] = useState<TenantFeatureSettings>(() => normalizeTenantFeatures(null));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<{ tone: 'success' | 'error'; text: string } | null>(null);
@@ -88,6 +92,7 @@ export function BookingSetup() {
     }
 
     setValues(normalizeBookingSetup(cattery.website_settings));
+    setFeatures(normalizeTenantFeatures(cattery.website_settings));
     setLoading(true);
     void supabase
       .from('availability_rules')
@@ -207,6 +212,7 @@ export function BookingSetup() {
       .update({
         website_settings: {
           ...existingSettings,
+          ...features,
           ...savedRules,
           bookingRules: { ...existingNested, ...savedRules },
         },
@@ -221,7 +227,7 @@ export function BookingSetup() {
 
     setStoredBlackoutIds(blackouts.map((blackout) => blackout.id));
     await refreshCattery();
-    setNotice({ tone: 'success', text: 'Booking setup saved. Staff booking times, public booking times, blackout dates, and payment deposits now use these rules.' });
+    setNotice({ tone: 'success', text: 'Booking setup saved. Booking rules and customer-facing care features now use these settings.' });
     setSaving(false);
   };
 
@@ -318,6 +324,23 @@ export function BookingSetup() {
                     <Link to="/staff-dashboard/room-planner" className="inline-flex h-11 items-center justify-center rounded-xl border border-[#C46A3A] px-4 text-sm font-semibold text-[#A8562E] hover:bg-[#F8F1EC]">Manage room prices</Link>
                   </CardContent>
                 </Card>
+
+              <Card className="border-[#E8DED4] bg-white">
+                <CardContent className="space-y-5 p-5 sm:p-6">
+                  <div className="flex items-start gap-3">
+                    <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#C46A3A]/10"><SlidersHorizontal className="h-5 w-5 text-[#C46A3A]" /></span>
+                    <div><h3 className="text-xl font-semibold">Customer-facing care features</h3><p className="mt-1 text-sm text-[#4E5871]">Choose which optional services and offers appear on your website and booking forms.</p></div>
+                  </div>
+                  <label className="flex items-start gap-3 rounded-xl border border-[#D9D1C8] bg-[#F8F1EC] p-4 text-sm">
+                    <input type="checkbox" checked={features.petcoverOfferEnabled} onChange={(event) => setFeatures((current) => ({ ...current, petcoverOfferEnabled: event.target.checked }))} className="mt-0.5 h-5 w-5 accent-[#C46A3A]" />
+                    <span><strong className="block flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-[#C46A3A]" />Petcover four-week introductory offer</strong><span className="mt-1 block text-[#4E5871]">Show the cautious offer wording and collect eligible cat details during online and staff bookings. CatStays does not activate cover.</span></span>
+                  </label>
+                  <label className="flex items-start gap-3 rounded-xl border border-[#D9D1C8] bg-white p-4 text-sm">
+                    <input type="checkbox" checked={features.groomingEnabled} onChange={(event) => setFeatures((current) => ({ ...current, groomingEnabled: event.target.checked }))} className="mt-0.5 h-5 w-5 accent-[#C46A3A]" />
+                    <span><strong className="block flex items-center gap-2"><Scissors className="h-4 w-4 text-[#C46A3A]" />Grooming appointments</strong><span className="mt-1 block text-[#4E5871]">Reserve this setting for the upcoming grooming workflow. Turning it on now does not create appointments or invoices yet.</span></span>
+                  </label>
+                </CardContent>
+              </Card>
 
                 <Card className="border-[#E8DED4] bg-white">
                   <CardContent className="space-y-5 p-5 sm:p-6">

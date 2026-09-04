@@ -103,6 +103,12 @@ export function MarketingHome() {
               >
                 Pricing
               </button>
+              <button
+                onClick={() => scrollToSection('petcover')}
+                className="text-forest/70 hover:text-forest transition-colors font-medium"
+              >
+                Petcover
+              </button>
               <Link
                 to="/demo/deloraine"
                 onClick={() => window.setTimeout(() => window.scrollTo({ top: 0, left: 0, behavior: 'auto' }), 0)}
@@ -209,6 +215,20 @@ export function MarketingHome() {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="petcover" className="bg-[#0A1128] px-4 py-20 text-white">
+        <div className="mx-auto grid max-w-7xl gap-10 md:grid-cols-[0.8fr_1.2fr] md:items-center">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#F5C08A]">A thoughtful extra for cat families</p>
+            <h2 className="mt-4 text-4xl font-serif font-semibold md:text-5xl">Introduce your cattery to Petcover</h2>
+          </div>
+          <div className="space-y-5 text-base leading-8 text-white/80">
+            <p>CatStays can help participating catteries introduce eligible first-time kittens and cats under 12 months to Petcover’s four-week introductory offer.</p>
+            <p>We capture the requested details in the booking workflow and give your team a clear manual follow-up list. Petcover decides eligibility and confirms any policy or cover; CatStays does not sell insurance or activate cover.</p>
+            <p className="text-sm text-white/60">Offer wording, declarations and waiting-period information should be confirmed with Petcover before customer launch.</p>
           </div>
         </div>
       </section>

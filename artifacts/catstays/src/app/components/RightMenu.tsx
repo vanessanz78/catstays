@@ -4,6 +4,7 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { RevelationSyncButton } from './RevelationSyncButton';
+import { normalizeTenantFeatures } from '@/app/lib/tenantFeatures';
 import {
   Menu,
   X,
@@ -67,6 +68,8 @@ export function RightMenu({ mode = 'button' }: { mode?: RightMenuMode }) {
   const location = useLocation();
   const { cattery } = useAuth();
   const businessName = cattery?.name || 'Your cattery';
+  const tenantFeatures = normalizeTenantFeatures(cattery?.website_settings);
+  const visibleItem = (item: MenuItem) => item.path !== '/staff-dashboard/insurance' || tenantFeatures.petcoverOfferEnabled;
 
   const isActivePath = (path: string) =>
     path === '/staff-dashboard'
@@ -122,15 +125,15 @@ export function RightMenu({ mode = 'button' }: { mode?: RightMenuMode }) {
 
   const renderMenuGroups = (compact = false, onSelect?: () => void) => (
     <>
-      <div>{primaryMenuItems.map((item) => renderMenuItem(item, compact, onSelect))}</div>
+      <div>{primaryMenuItems.filter(visibleItem).map((item) => renderMenuItem(item, compact, onSelect))}</div>
       <div className="mt-3 border-t border-[#E8DED4] pt-3">
-        {marketingMenuItems.map((item) => renderMenuItem(item, compact, onSelect))}
+        {marketingMenuItems.filter(visibleItem).map((item) => renderMenuItem(item, compact, onSelect))}
       </div>
       <div className="mt-3 border-t border-[#E8DED4] pt-3">
-        {financeMenuItems.map((item) => renderMenuItem(item, compact, onSelect))}
+        {financeMenuItems.filter(visibleItem).map((item) => renderMenuItem(item, compact, onSelect))}
       </div>
       <div className="mt-3 border-t border-[#E8DED4] pt-3">
-        {bottomMenuItems.map((item) => renderMenuItem(item, compact, onSelect))}
+        {bottomMenuItems.filter(visibleItem).map((item) => renderMenuItem(item, compact, onSelect))}
       </div>
     </>
   );

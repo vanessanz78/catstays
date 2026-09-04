@@ -15,6 +15,7 @@ import {
 } from '@/app/lib/bookingPricing';
 import { bookingHoursSummary, bookingTimeSlotsForDate, formatBookingTime } from '@/app/lib/bookingSchedule';
 import { normalizeBookingSetup, normalizePublicBlackouts, stayOverlapsBlackout } from '@/app/lib/bookingSetup';
+import { normalizeTenantFeatures } from '@/app/lib/tenantFeatures';
 import { useAuth } from '@/contexts/AuthContext';
 import { PetcoverIntakeFields } from '../../components/PetcoverIntakeFields';
 import { defaultPetcoverCatIntake, petcoverIntakeComplete, type PetcoverCatIntake } from '../../lib/petcover';
@@ -97,6 +98,7 @@ export function BookingFlow() {
   const dailyRate = selectedRoom?.price_per_night ?? (rooms[0]?.price_per_night ?? 20);
   const discountPct = longStayDiscountPercent(days);
   const bookingSettings = normalizeBookingSetup(cattery?.website_settings);
+  const tenantFeatures = normalizeTenantFeatures(cattery?.website_settings);
   const publicBlackouts = normalizePublicBlackouts(cattery?.website_settings);
   const arrivalTimeSlots = bookingTimeSlotsForDate(cattery?.website_settings, formData.arrivalDate);
   const departureTimeSlots = bookingTimeSlotsForDate(cattery?.website_settings, formData.departureDate);
@@ -117,7 +119,7 @@ export function BookingFlow() {
   const canProceed = (() => {
     if (step === 1) return formData.arrivalDate && formData.departureDate && days > 0 && visitTimesComplete && !blackoutConflict && Boolean(selectedRoom);
     if (step === 2) return formData.ownerName.trim() && formData.email.trim() && formData.phone.trim();
-    if (step === 3) return formData.catNames.every(n => n.trim()) && formData.petcoverCats.every(petcoverIntakeComplete);
+    if (step === 3) return formData.catNames.every(n => n.trim()) && (!tenantFeatures.petcoverOfferEnabled || formData.petcoverCats.every(petcoverIntakeComplete));
     return true;
   })();
 
@@ -130,7 +132,7 @@ export function BookingFlow() {
     formData.email.trim() &&
     formData.phone.trim() &&
     formData.catNames.every(name => name.trim()) &&
-    formData.petcoverCats.every(petcoverIntakeComplete),
+    (!tenantFeatures.petcoverOfferEnabled || formData.petcoverCats.every(petcoverIntakeComplete)),
   );
 
   const handleSubmit = async () => {
@@ -171,9 +173,11 @@ export function BookingFlow() {
           roomId: selectedRoom.id,
           estimatedTotal,
           specialRequirements: formData.specialRequirements,
-          petcoverApplications: formData.petcoverCats
-            .map((intake, index) => ({ ...intake, catName: formData.catNames[index], breed: formData.catBreeds[index] }))
-            .filter((intake) => intake.requested),
+          petcoverApplications: tenantFeatures.petcoverOfferEnabled
+            ? formData.petcoverCats
+              .map((intake, index) => ({ ...intake, catName: formData.catNames[index], breed: formData.catBreeds[index] }))
+              .filter((intake) => intake.requested)
+            : [],
         }),
       });
       const data = await res.json();
@@ -464,7 +468,7 @@ export function BookingFlow() {
                             <Input placeholder="Domestic Shorthair" value={formData.catBreeds[i]} onChange={e => updateCatBreed(i, e.target.value)} className="rounded-xl border-sage/20" />
                           </div>
                         </div>
-                        <PetcoverIntakeFields
+                        {tenantFeatures.petcoverOfferEnabled ? <PetcoverIntakeFields
                           value={formData.petcoverCats[i]}
                           onChange={(updates) => setFormData((current) => ({
                             ...current,
@@ -472,7 +476,7 @@ export function BookingFlow() {
                           }))}
                           referenceDate={formData.arrivalDate}
                           idPrefix={`public-petcover-${i}`}
-                        />
+                        /> : null}
                       </div>
                     ))}
                     <div className="space-y-2">

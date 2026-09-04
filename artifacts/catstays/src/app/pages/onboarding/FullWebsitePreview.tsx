@@ -130,6 +130,7 @@ export function FullWebsitePreview({
   const [showDashboard, setShowDashboard] = useState<'staff' | 'client' | null>(null);
   const previewMode = controlledMode ?? internalPreviewMode;
   const deviceType = controlledDevice ?? internalDeviceType;
+  const petcoverOfferEnabled = data.websiteSettings?.petcoverOfferEnabled === true;
 
   const setPreviewMode = (mode: 'website' | 'dashboard' | 'client') => {
     if (!controlledMode) setInternalPreviewMode(mode);
@@ -162,6 +163,7 @@ export function FullWebsitePreview({
           sourceUrl={sourcePreviewUrl}
           title={`${data.businessName || 'Imported cattery'} website preview`}
           fillHeight={fillHeight}
+          petcoverOfferEnabled={petcoverOfferEnabled}
         />
       );
     }
@@ -596,11 +598,13 @@ function SourceWebsitePreview({
   sourceUrl,
   title,
   fillHeight,
+  petcoverOfferEnabled,
 }: {
   data: FullWebsitePreviewProps['data'];
   sourceUrl: string;
   title: string;
   fillHeight: boolean;
+  petcoverOfferEnabled: boolean;
 }) {
   const heightStyle = fillHeight
     ? { height: '100%' }
@@ -630,6 +634,20 @@ function SourceWebsitePreview({
         sandbox="allow-forms allow-popups allow-popups-to-escape-sandbox allow-scripts"
         scrolling="auto"
       />
+      {petcoverOfferEnabled && (
+        <section className="bg-[#0A1128] px-6 py-14 text-white">
+          <div className="mx-auto grid max-w-6xl gap-6 md:grid-cols-[0.8fr_1.2fr] md:items-center">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#F5C08A]">A little extra reassurance</p>
+              <h2 className="mt-3 text-3xl font-serif">Petcover introductory offer</h2>
+            </div>
+            <div className="space-y-3 text-sm leading-7 text-white/80">
+              <p>Eligible first-time kittens and cats under 12 months may be considered for Petcover’s four-week introductory offer when you book with us.</p>
+              <p>Eligibility and activation are confirmed by Petcover. CatStays and the cattery do not activate cover.</p>
+            </div>
+          </div>
+        </section>
+      )}
     </div>
   );
 }

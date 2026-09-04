@@ -370,6 +370,7 @@ function FocusTemplate({
           </>
         )}
         <LocationSection content={content} />
+        <PetcoverOfferSection content={content} />
         <VirtualTourSection content={content} />
         <ContactFormSection content={content} catteryId={catteryId} embedded={embedded} onPreviewContactAction={onPreviewContactAction} />
       </main>
@@ -455,6 +456,7 @@ function EditorialTemplate({
           </>
         )}
         <LocationSection content={content} />
+        <PetcoverOfferSection content={content} />
         <VirtualTourSection content={content} />
         <ContactFormSection content={content} catteryId={catteryId} embedded={embedded} onPreviewContactAction={onPreviewContactAction} />
       </main>
@@ -522,6 +524,7 @@ function ShowcaseTemplate({
           </>
         )}
         <LocationSection content={content} />
+        <PetcoverOfferSection content={content} />
         <VirtualTourSection content={content} />
         <ContactFormSection content={content} catteryId={catteryId} embedded={embedded} onPreviewContactAction={onPreviewContactAction} />
       </main>
@@ -547,6 +550,26 @@ function SourceSectionsFlow({ content }: { content: TemplateContent }) {
       {!hasGallerySection && content.gallery.length ? <GalleryStrip content={content} /> : null}
       {content.testimonials.length && !sections.some((section) => section.role === 'testimonials') ? <ReviewsSection content={content} /> : null}
     </>
+  );
+}
+
+function PetcoverOfferSection({ content }: { content: TemplateContent }) {
+  if (!content.petcoverOfferEnabled) return null;
+
+  return (
+    <section id="petcover" className="scroll-mt-28 bg-[#0A1128] px-6 py-16 text-white">
+      <div className="mx-auto grid max-w-[1180px] gap-8 md:grid-cols-[0.8fr_1.2fr] md:items-center">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#F5C08A]">A little extra reassurance</p>
+          <h2 className="mt-3 text-3xl leading-tight md:text-5xl">Petcover introductory offer</h2>
+        </div>
+        <div className="space-y-4 text-sm leading-7 text-white/80">
+          <p>Eligible first-time kittens and cats under 12 months may be considered for Petcover’s four-week introductory offer when you book with us.</p>
+          <p>We can capture the details needed for a manual application during booking. Eligibility, declarations, waiting periods and activation are confirmed by Petcover—not by CatStays or the cattery.</p>
+          <a href="#booking" className="inline-flex rounded-md bg-white px-5 py-3 text-xs font-bold uppercase tracking-[0.1em] text-[#0A1128]">Ask about the offer</a>
+        </div>
+      </div>
+    </section>
   );
 }
 

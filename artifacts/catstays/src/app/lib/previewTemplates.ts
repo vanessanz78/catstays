@@ -91,6 +91,7 @@ export interface PreviewImportRecord {
 }
 
 export interface CatstaysTemplateContent {
+  petcoverOfferEnabled: boolean;
   business: {
     name: string;
     tagline: string;
@@ -559,6 +560,7 @@ function contentFromSourceTruth(model: WebsiteUnderstandingModel, data: Record<s
   ].filter(Boolean).join(' | ');
 
   return {
+    petcoverOfferEnabled: data.petcoverOfferEnabled === true,
     business: {
       name: businessName,
       tagline: stringFrom(data.tagline, model.identity.tagline, model.identity.location),
@@ -892,6 +894,7 @@ export function buildCatstaysTemplateContent(data: Record<string, any>): Catstay
   });
 
   return {
+    petcoverOfferEnabled: data.petcoverOfferEnabled === true,
     business: {
       name: businessName,
       tagline: stringFrom(data.tagline, 'Luxury holiday retreat for cats'),

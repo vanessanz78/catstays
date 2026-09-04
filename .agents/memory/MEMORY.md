@@ -1,1 +1,2 @@
 - [Petcover manual workflow](petcover-manual-workflow.md) — capture and track the application, but never imply cover is active before Petcover confirms it.
+- [Supabase management migrations](supabase-management-migrations.md) — use the project SQL endpoint when restricted CLI login roles block migration commands.

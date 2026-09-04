@@ -12,6 +12,7 @@ import { sendContactEnquiry } from '@/utils/email';
 import { CatstaysTemplateSite } from '../onboarding/CatstaysTemplateSite';
 import { isOriginalTemplate, normalizePreviewTemplateId } from '../../lib/previewTemplates';
 import { sourcePreviewProxyUrl, sourcePreviewUrlFromData, sourceRebuildHtmlFromData } from '../../lib/sourceRebuildPreview';
+import { normalizeTenantFeatures } from '@/app/lib/tenantFeatures';
 
 const DEFAULT_HERO = 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080';
 const ABOUT_IMG = 'https://images.unsplash.com/photo-1573865526739-10c1dd7aa736?w=1200&q=80';
@@ -71,6 +72,7 @@ export function TenantHome() {
   const { cattery, rooms, loading } = useTenantCattery(tenantId);
   const base = tenantId ? `/tenant/${tenantId}` : '/site';
   const ws = (cattery?.website_settings as Record<string, any>) ?? {};
+  const tenantFeatures = normalizeTenantFeatures(ws);
 
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
@@ -154,7 +156,7 @@ export function TenantHome() {
               </div>
             </button>
             <div className="hidden md:flex items-center gap-6">
-              {['hero', 'about', 'rooms', 'contact'].map(s => (
+              {['hero', 'about', 'rooms', ...(tenantFeatures.petcoverOfferEnabled ? ['petcover'] : []), 'contact'].map(s => (
                 <button key={s} onClick={() => scrollToSection(s)} className="text-forest/70 hover:text-forest transition-colors capitalize">{s === 'hero' ? 'Home' : s.charAt(0).toUpperCase() + s.slice(1)}</button>
               ))}
               <div className="h-4 w-px bg-sage/20" />
@@ -232,6 +234,22 @@ export function TenantHome() {
           </Card>
         </div>
       </section>
+
+      {tenantFeatures.petcoverOfferEnabled && (
+        <section id="petcover" className="bg-forest px-4 py-16 text-cream">
+          <div className="mx-auto grid max-w-6xl gap-8 md:grid-cols-[0.8fr_1.2fr] md:items-center">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sage-light">A little extra reassurance</p>
+              <h2 className="mt-3 text-3xl font-serif font-semibold md:text-5xl">Petcover introductory offer</h2>
+            </div>
+            <div className="space-y-4 text-sm leading-7 text-cream/80">
+              <p>Eligible first-time kittens and cats under 12 months may be considered for Petcover’s four-week introductory offer when you book with us.</p>
+              <p>We can capture the details needed for a manual application during booking. Eligibility, declarations, waiting periods and activation are confirmed by Petcover—not by CatStays or the cattery.</p>
+              <Link to={`${base}/booking-flow`} className="inline-flex rounded-xl bg-white px-5 py-3 text-sm font-semibold text-forest">Ask about the offer</Link>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Rooms */}
       <section id="rooms" className="py-20 bg-white">

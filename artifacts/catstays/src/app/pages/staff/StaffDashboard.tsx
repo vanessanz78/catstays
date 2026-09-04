@@ -53,6 +53,7 @@ import { normalizeBookingSetup } from '../../lib/bookingSetup';
 import { customerMatchesDirectorySearch } from '../../lib/customerDirectory';
 import { formatBookingTime } from '../../lib/bookingSchedule';
 import { buildDashboardData, dailyBookingAction } from '../../lib/staffDashboard';
+import { normalizeTenantFeatures } from '../../lib/tenantFeatures';
 
 const ROOT_DOMAIN = 'catstays.app';
 
@@ -1391,6 +1392,7 @@ export function StaffDashboard() {
   const [selectedDate, setSelectedDate] = useState(() => new URLSearchParams(location.search).get('date') || today);
   const section = staffSectionFromPath(location.pathname);
   const { cattery, loading: authLoading } = useAuth();
+  const tenantFeatures = normalizeTenantFeatures(cattery?.website_settings);
   const {
     bookings,
     loading: bookingsLoading,
@@ -1589,7 +1591,7 @@ export function StaffDashboard() {
             splitBooking={splitBooking}
           />
         )}
-        {section === 'insurance' && <PetcoverInsurance />}
+        {section === 'insurance' && tenantFeatures.petcoverOfferEnabled && <PetcoverInsurance />}
         {section === 'room-planner' && (
           <RoomPlannerSection
             rooms={rooms}

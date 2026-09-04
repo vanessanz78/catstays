@@ -81,6 +81,7 @@ import { bookingReviewCatStays, refreshBookingReview, mergeBookingReviewRecords 
 import { PetcoverIntakeFields } from '../../components/PetcoverIntakeFields';
 import { defaultPetcoverCatIntake, petcoverEligibility, petcoverIntakeComplete, type PetcoverCatIntake } from '../../lib/petcover';
 import { usePetcoverApplications } from '@/hooks/usePetcoverApplications';
+import { normalizeTenantFeatures } from '../../lib/tenantFeatures';
 
 export function AdminBookings() {
   const [searchParams] = useSearchParams();
@@ -150,6 +151,7 @@ export function AdminBookings() {
   const [closingBooking, setClosingBooking] = useState(false);
 
   const { cattery } = useAuth();
+  const tenantFeatures = normalizeTenantFeatures(cattery?.website_settings);
   const {
     bookings: rawBookings,
     loading: bookingsLoading,
@@ -546,7 +548,7 @@ export function AdminBookings() {
       || cats.length === 0 || !primaryRoom
       || assignedRooms.some((assignment) => !assignment.room_id || !assignment.room_unit_number)
     ) return;
-    if (cats.some((cat) => !petcoverIntakeComplete(getPetcoverIntake(cat)))) {
+    if (tenantFeatures.petcoverOfferEnabled && cats.some((cat) => !petcoverIntakeComplete(getPetcoverIntake(cat)))) {
       setBookingError('Complete the Petcover details and declarations, or untick the offer, before saving this booking.');
       return;
     }
@@ -573,23 +575,25 @@ export function AdminBookings() {
         room_id: String(assignment.room_id),
         room_unit_number: Number(assignment.room_unit_number),
       })),
-      petcover_applications: cats
-        .map((cat) => {
-          const intake = getPetcoverIntake(cat);
-          const eligibility = petcoverEligibility(intake.dateOfBirth, checkIn);
-          return intake.requested ? {
-            cat_id: cat.id,
-            cat_date_of_birth: intake.dateOfBirth || null,
-            cat_sex: intake.sex,
-            acquisition_type: intake.acquisitionType,
-            purchase_price: intake.purchasePrice ? Number(intake.purchasePrice) : null,
-            microchip_number: intake.microchipNumber.trim() || null,
-            declarations: intake.declarations,
-            status: eligibility.eligible ? 'ready_to_submit' : 'ineligible',
-            eligibility_reason: eligibility.reason,
-          } : null;
-        })
-        .filter(Boolean),
+      petcover_applications: tenantFeatures.petcoverOfferEnabled
+        ? cats
+          .map((cat) => {
+            const intake = getPetcoverIntake(cat);
+            const eligibility = petcoverEligibility(intake.dateOfBirth, checkIn);
+            return intake.requested ? {
+              cat_id: cat.id,
+              cat_date_of_birth: intake.dateOfBirth || null,
+              cat_sex: intake.sex,
+              acquisition_type: intake.acquisitionType,
+              purchase_price: intake.purchasePrice ? Number(intake.purchasePrice) : null,
+              microchip_number: intake.microchipNumber.trim() || null,
+              declarations: intake.declarations,
+              status: eligibility.eligible ? 'ready_to_submit' : 'ineligible',
+              eligibility_reason: eligibility.reason,
+            } : null;
+          })
+          .filter(Boolean)
+        : [],
     });
 
     if (error) {
@@ -1454,7 +1458,7 @@ export function AdminBookings() {
                     />
                   </div>
 
-                  <div className="space-y-3">
+                  {tenantFeatures.petcoverOfferEnabled ? <div className="space-y-3">
                     <div>
                       <p className="text-sm font-semibold" style={{ color: '#2d3e2f' }}>Petcover introductory offer</p>
                       <p className="mt-1 text-xs leading-5" style={{ color: '#6b7a6d' }}>Capture one record per eligible cat. Staff enter these details manually into Petcover; saving the booking does not activate cover.</p>
@@ -1469,7 +1473,7 @@ export function AdminBookings() {
                         compact
                       />
                     ))}
-                  </div>
+                  </div> : null}
 
                   <div className="rounded-xl border border-sage/15 bg-white p-4">
                     <p className="text-sm font-semibold" style={{ color: '#2d3e2f' }}>Payment status</p>

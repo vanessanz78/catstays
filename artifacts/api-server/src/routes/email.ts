@@ -655,6 +655,7 @@ router.post('/bookings/request', async (req, res) => {
     const catteryEmail = catteryRecord.email;
     const catteryPhone = catteryRecord.phone;
     const testOnly = catteryRecord.website_settings?.bookingMode === 'test_only';
+    const petcoverOfferEnabled = catteryRecord.website_settings?.petcoverOfferEnabled === true;
     const tester = testOnly ? await authenticatedUser(req) : null;
     const testError = checkParallelRunRequest(catteryRecord.website_settings?.bookingMode,
       Boolean(tester && await canManageCattery(tester.id, catteryId)), req.body?.testOnly,
@@ -678,7 +679,7 @@ router.post('/bookings/request', async (req, res) => {
 
     const catNamesStr = Array.isArray(catNames) ? catNames.join(', ') : String(catNames || '');
     const numCats = Array.isArray(catNames) ? catNames.length : 1;
-    const requestedPetcoverApplications = Array.isArray(petcoverApplications)
+    const requestedPetcoverApplications = petcoverOfferEnabled && Array.isArray(petcoverApplications)
       ? petcoverApplications.filter((application: any) => application?.requested)
       : [];
 
