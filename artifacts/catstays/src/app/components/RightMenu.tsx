@@ -24,6 +24,7 @@ import {
   ChevronLeft,
   Globe,
   WandSparkles,
+  ShieldCheck,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -43,8 +44,9 @@ export const menuItems: MenuItem[] = [
   { path: '/staff-dashboard/calendar', icon: Calendar, label: 'Calendar', description: 'Room timeline' },
   { path: '/staff-dashboard/customers', icon: Users, label: 'Customers', description: 'Contact details' },
   { path: '/staff-dashboard/messages', icon: MessageSquare, label: 'Messages', description: 'Email & customer history' },
-  { path: '/staff-dashboard/reports', icon: FileBarChart, label: 'Reports', description: 'Sort, filter, print & export' },
   { path: '/staff-dashboard/cat-update-generator', icon: Camera, label: 'Cat Updates', description: 'Private photo updates' },
+  { path: '/staff-dashboard/insurance', icon: ShieldCheck, label: 'Insurance', description: 'Petcover records' },
+  { path: '/staff-dashboard/reports', icon: FileBarChart, label: 'Reports', description: 'Sort, filter, print & export' },
   { path: '/staff-dashboard/social', icon: Share2, label: 'Social Media', description: 'Drafts, schedule & sharing' },
   { path: '/staff-dashboard/marketing', icon: WandSparkles, label: 'Marketing Studio', description: 'Editable marketing materials' },
   { path: '/staff-dashboard/promotions', icon: Megaphone, label: 'Promotions', description: 'Offers & promo codes' },
@@ -56,7 +58,7 @@ export const menuItems: MenuItem[] = [
 
 const primaryMenuItems = menuItems.slice(0, 6);
 const marketingMenuItems = menuItems.slice(6, 10);
-const financeMenuItems = menuItems.slice(10, 12);
+const financeMenuItems = menuItems.slice(10, 13);
 const bottomMenuItems = menuItems.slice(-2);
 
 export function RightMenu({ mode = 'button' }: { mode?: RightMenuMode }) {

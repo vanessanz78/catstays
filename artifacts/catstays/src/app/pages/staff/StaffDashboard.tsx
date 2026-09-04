@@ -42,6 +42,7 @@ import { NotificationBell } from '../../components/NotificationBell';
 import { StaffInsights } from './StaffInsights';
 import { StaffRoomCalendar } from './StaffRoomCalendar';
 import { StaffCustomerDirectory } from './StaffCustomerDirectory';
+import { PetcoverInsurance } from './PetcoverInsurance';
 import { StaffSubscription } from './StaffSubscription';
 import {
   bookingRoomUnitKeys,
@@ -60,6 +61,7 @@ type StaffSection =
   | 'bookings'
   | 'customers'
   | 'calendar'
+  | 'insurance'
   | 'room-planner'
   | 'smart-import'
   | 'smart-data-import'
@@ -84,6 +86,7 @@ const sectionMeta: Record<StaffSection, { title: string; subtitle: string }> = {
   bookings: { title: 'Bookings', subtitle: 'All reservations for this cattery' },
   customers: { title: 'Customers', subtitle: 'Customer details, cats, stays, balances, and credits' },
   calendar: { title: 'Calendar', subtitle: 'Room availability and draggable stays' },
+  insurance: { title: 'Insurance', subtitle: 'Petcover introductory offer records and manual submission tracking' },
   'room-planner': { title: 'Room Planner & Pricing', subtitle: 'Rooms, availability, and rate setup' },
   'smart-import': { title: 'Smart Import', subtitle: 'Bring in existing cattery data' },
   'smart-data-import': { title: 'Smart Data Import', subtitle: 'Import tools for tenant-owned records' },
@@ -152,6 +155,7 @@ function staffSectionFromPath(pathname: string): StaffSection {
   if (section === 'bookings') return 'bookings';
   if (section === 'customers') return 'customers';
   if (section === 'calendar') return 'calendar';
+  if (section === 'insurance') return 'insurance';
   if (section === 'room-planner') return 'room-planner';
   if (section === 'smart-import') return 'smart-import';
   if (section === 'smart-data-import') return 'smart-data-import';
@@ -1585,6 +1589,7 @@ export function StaffDashboard() {
             splitBooking={splitBooking}
           />
         )}
+        {section === 'insurance' && <PetcoverInsurance />}
         {section === 'room-planner' && (
           <RoomPlannerSection
             rooms={rooms}

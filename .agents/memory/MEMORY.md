@@ -1,0 +1,1 @@
+- [Petcover manual workflow](petcover-manual-workflow.md) — capture and track the application, but never imply cover is active before Petcover confirms it.

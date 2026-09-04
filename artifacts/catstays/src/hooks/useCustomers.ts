@@ -22,6 +22,11 @@ export interface CustomerWithCats {
     name: string;
     breed: string | null;
     age: string | null;
+    date_of_birth: string | null;
+    sex: 'female' | 'male' | 'unknown' | null;
+    acquisition_type: 'purchased' | 'rescued' | 'unknown' | null;
+    purchase_price: number | string | null;
+    microchip_number: string | null;
     external_source: string | null;
     external_id: string | null;
   }[];
@@ -73,7 +78,7 @@ export function useCustomers() {
         .select(`
           id, user_id, name, email, phone, address, notes, created_at,
           external_source, external_id, legacy_last_booking, legacy_account_balance, legacy_total_spent,
-          cats(id, name, breed, age, external_source, external_id),
+          cats(id, name, breed, age, date_of_birth, sex, acquisition_type, purchase_price, microchip_number, external_source, external_id),
           customer_credit_ledger(amount)
         `)
         .eq('cattery_id', cattery.id)

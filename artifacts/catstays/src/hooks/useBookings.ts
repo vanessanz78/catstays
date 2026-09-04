@@ -195,10 +195,21 @@ export function useBookings(options?: BookingReadScope & { allPages?: boolean; b
     notes?: string;
     cat_ids?: string[];
     room_assignments?: Array<{ cat_id: string; room_id: string; room_unit_number: number }>;
+    petcover_applications?: Array<{
+      cat_id: string;
+      cat_date_of_birth: string | null;
+      cat_sex: string;
+      acquisition_type: string;
+      purchase_price: number | null;
+      microchip_number: string | null;
+      declarations: Record<string, boolean>;
+      status: string;
+      eligibility_reason: string;
+    }>;
   }) => {
     if (!cattery?.id) return { error: 'No cattery found' };
 
-    const { cat_ids = [], room_assignments = [], ...bookingRow } = booking;
+    const { cat_ids = [], room_assignments = [], petcover_applications = [], ...bookingRow } = booking;
 
     const { data, error } = await supabase
       .from('bookings')
@@ -228,6 +239,21 @@ export function useBookings(options?: BookingReadScope & { allPages?: boolean; b
       if (roomsError) {
         await supabase.from('bookings').delete().eq('id', data.id);
         return { data: null, error: roomsError };
+      }
+    }
+
+    if (!error && data && petcover_applications.length > 0) {
+      const { error: insuranceError } = await supabase
+        .from('petcover_applications')
+        .insert(petcover_applications.map((application) => ({
+          ...application,
+          cattery_id: cattery.id,
+          booking_id: data.id,
+          customer_id: booking.customer_id,
+        })));
+      if (insuranceError) {
+        await supabase.from('bookings').delete().eq('id', data.id);
+        return { data: null, error: insuranceError };
       }
     }
 

@@ -96,6 +96,7 @@ const tenantStaffDashboardPaths = [
   "/staff-dashboard",
   "/staff-dashboard/customers",
   "/staff-dashboard/calendar",
+  "/staff-dashboard/insurance",
   "/staff-dashboard/room-planner",
   "/staff-dashboard/insights",
   "/staff-dashboard/settings",

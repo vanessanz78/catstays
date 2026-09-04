@@ -78,6 +78,9 @@ import {
   type PaymentPurpose,
 } from '../../lib/bookingOperations';
 import { bookingReviewCatStays, refreshBookingReview, mergeBookingReviewRecords } from '../../lib/bookingReview';
+import { PetcoverIntakeFields } from '../../components/PetcoverIntakeFields';
+import { defaultPetcoverCatIntake, petcoverEligibility, petcoverIntakeComplete, type PetcoverCatIntake } from '../../lib/petcover';
+import { usePetcoverApplications } from '@/hooks/usePetcoverApplications';
 
 export function AdminBookings() {
   const [searchParams] = useSearchParams();
@@ -116,6 +119,7 @@ export function AdminBookings() {
   const [roomArrangement, setRoomArrangement] = useState<'shared' | 'separate'>('shared');
   const [roomAssignments, setRoomAssignments] = useState<Record<string, any>>({});
   const [specialRequirements, setSpecialRequirements] = useState('');
+  const [petcoverByCatId, setPetcoverByCatId] = useState<Record<string, PetcoverCatIntake>>({});
   const [paymentStatus, setPaymentStatus] = useState('unpaid');
   const [showAddCustomer, setShowAddCustomer] = useState(false);
   const [newCustomer, setNewCustomer] = useState({ name: '', email: '', phone: '', catName: '' });
@@ -168,6 +172,7 @@ export function AdminBookings() {
   });
   const { customers: rawCustomers, createCustomer, addCat } = useCustomers();
   const { rooms: rawRooms } = useRooms();
+  const { applications: petcoverApplications } = usePetcoverApplications();
   const [customerSearch, setCustomerSearch] = useState('');
 
   const bookingSettings = cattery?.website_settings ?? {};
@@ -177,6 +182,10 @@ export function AdminBookings() {
     selectedBooking?.customerId || null,
     Number(selectedBooking?.total || 0),
     { chargeTax: bookingSetup.chargeTax, taxRate: bookingSetup.taxRate },
+  );
+  const selectedPetcoverApplications = useMemo(
+    () => petcoverApplications.filter((application) => application.booking_id === selectedBooking?.id),
+    [petcoverApplications, selectedBooking?.id],
   );
 
   useEffect(() => {
@@ -440,6 +449,15 @@ export function AdminBookings() {
     return inclusiveStayDays(checkIn, checkOut);
   };
 
+  const getPetcoverIntake = (cat: any) => petcoverByCatId[cat.id] || defaultPetcoverCatIntake(cat);
+
+  const updatePetcoverIntake = (cat: any, updates: Partial<PetcoverCatIntake>) => {
+    setPetcoverByCatId((current) => ({
+      ...current,
+      [cat.id]: { ...getPetcoverIntake(cat), ...updates },
+    }));
+  };
+
   const openDateRangePicker = () => {
     setDraftDateRange(checkIn
       ? { from: parseISO(checkIn), to: checkOut ? parseISO(checkOut) : undefined }
@@ -528,6 +546,10 @@ export function AdminBookings() {
       || cats.length === 0 || !primaryRoom
       || assignedRooms.some((assignment) => !assignment.room_id || !assignment.room_unit_number)
     ) return;
+    if (cats.some((cat) => !petcoverIntakeComplete(getPetcoverIntake(cat)))) {
+      setBookingError('Complete the Petcover details and declarations, or untick the offer, before saving this booking.');
+      return;
+    }
 
     setCreatingBooking(true);
     setBookingError('');
@@ -551,6 +573,23 @@ export function AdminBookings() {
         room_id: String(assignment.room_id),
         room_unit_number: Number(assignment.room_unit_number),
       })),
+      petcover_applications: cats
+        .map((cat) => {
+          const intake = getPetcoverIntake(cat);
+          const eligibility = petcoverEligibility(intake.dateOfBirth, checkIn);
+          return intake.requested ? {
+            cat_id: cat.id,
+            cat_date_of_birth: intake.dateOfBirth || null,
+            cat_sex: intake.sex,
+            acquisition_type: intake.acquisitionType,
+            purchase_price: intake.purchasePrice ? Number(intake.purchasePrice) : null,
+            microchip_number: intake.microchipNumber.trim() || null,
+            declarations: intake.declarations,
+            status: eligibility.eligible ? 'ready_to_submit' : 'ineligible',
+            eligibility_reason: eligibility.reason,
+          } : null;
+        })
+        .filter(Boolean),
     });
 
     if (error) {
@@ -1415,6 +1454,23 @@ export function AdminBookings() {
                     />
                   </div>
 
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-sm font-semibold" style={{ color: '#2d3e2f' }}>Petcover introductory offer</p>
+                      <p className="mt-1 text-xs leading-5" style={{ color: '#6b7a6d' }}>Capture one record per eligible cat. Staff enter these details manually into Petcover; saving the booking does not activate cover.</p>
+                    </div>
+                    {cats.map((cat) => (
+                      <PetcoverIntakeFields
+                        key={cat.id}
+                        value={getPetcoverIntake(cat)}
+                        onChange={(updates) => updatePetcoverIntake(cat, updates)}
+                        referenceDate={checkIn}
+                        idPrefix={`staff-petcover-${cat.id}`}
+                        compact
+                      />
+                    ))}
+                  </div>
+
                   <div className="rounded-xl border border-sage/15 bg-white p-4">
                     <p className="text-sm font-semibold" style={{ color: '#2d3e2f' }}>Payment status</p>
                     <Badge className="mt-2 border-rose/20 bg-rose/10 text-rose">Unpaid</Badge>
@@ -1915,6 +1971,23 @@ export function AdminBookings() {
                   </div>
                 </CardContent>
               </Card>
+
+              {selectedPetcoverApplications.length > 0 && (
+                <Card className="rounded-2xl border-[#F0C9B2] bg-[#FFF8F2]">
+                  <CardContent className="space-y-3 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div><p className="text-xs font-semibold uppercase tracking-wide text-[#C46A3A]">Petcover</p><h3 className="font-semibold text-[#2d3e2f]">Introductory offer captured</h3></div>
+                      <Link to="/staff-dashboard/insurance" className="text-sm font-semibold text-[#A8562E] hover:underline">Open Insurance</Link>
+                    </div>
+                    {selectedPetcoverApplications.map((application) => (
+                      <div key={application.id} className="rounded-xl border border-[#F0C9B2] bg-white p-3 text-sm">
+                        <div className="flex flex-wrap items-center justify-between gap-2"><strong>{application.cat?.name || 'Cat'}</strong><Badge variant="outline" className="border-amber-200 bg-amber-50 text-amber-800">{application.status.replaceAll('_', ' ')}</Badge></div>
+                        <p className="mt-1 text-xs text-[#6b7a6d]">{application.eligibility_reason || 'Eligibility review required'} · {application.microchip_number || 'Microchip not recorded'}</p>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
 
               <Card className="rounded-2xl border-sage/10">
                 <CardContent className="space-y-3 p-4">

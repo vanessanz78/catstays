@@ -43,6 +43,35 @@ async function canManageCattery(userId: string, catteryId: string) {
   return Boolean(owner?.id || staff?.id);
 }
 
+function petcoverEligibility(dateOfBirth: string, referenceDate: string) {
+  const dob = new Date(`${dateOfBirth}T12:00:00`);
+  const reference = new Date(`${referenceDate}T12:00:00`);
+  if (!dateOfBirth || Number.isNaN(dob.getTime()) || Number.isNaN(reference.getTime())) {
+    return { eligible: false, reason: 'Enter a valid date of birth.' };
+  }
+  let ageInMonths = (reference.getFullYear() - dob.getFullYear()) * 12 + reference.getMonth() - dob.getMonth();
+  if (reference.getDate() < dob.getDate()) ageInMonths -= 1;
+  if (ageInMonths < 0) return { eligible: false, reason: 'Date of birth cannot be in the future.' };
+  if (ageInMonths >= 12) return { eligible: false, reason: 'The introductory offer is for cats under 12 months at check-in.' };
+  return { eligible: true, reason: 'Under 12 months at check-in.' };
+}
+
+const petcoverDeclarationKeys = [
+  'vaccinationsCurrent',
+  'noPreExistingConditions',
+  'noCurrentIllnessOrInjury',
+  'noMedication',
+  'noExistingCover',
+  'informationAccurate',
+  'ownerNotified',
+  'dutyOfDisclosure',
+] as const;
+
+function hasPetcoverDeclarations(value: unknown) {
+  if (!value || typeof value !== 'object') return false;
+  return petcoverDeclarationKeys.every((key) => (value as Record<string, unknown>)[key] === true);
+}
+
 function catUpdatePortalUrl(req: Request, slug: string | null, updateId: string) {
   const requestOrigin = String(req.headers.origin || '').replace(/\/$/, '');
   const origin = /^https:\/\/(?:[a-z0-9-]+\.)?catstays\.app$/i.test(requestOrigin)
@@ -599,7 +628,7 @@ router.post('/bookings/request', async (req, res) => {
     catteryId,
     customerName, customerEmail, phone,
     catNames, checkIn, checkOut, checkInTime, checkOutTime, displayCheckIn, displayCheckOut, days, nights,
-    roomName, roomId, estimatedTotal, specialRequirements,
+    roomName, roomId, estimatedTotal, specialRequirements, petcoverApplications,
   } = req.body;
 
   if (!catteryId || !customerName || !customerEmail || !catNames || !checkIn || !checkOut) {
@@ -649,6 +678,31 @@ router.post('/bookings/request', async (req, res) => {
 
     const catNamesStr = Array.isArray(catNames) ? catNames.join(', ') : String(catNames || '');
     const numCats = Array.isArray(catNames) ? catNames.length : 1;
+    const requestedPetcoverApplications = Array.isArray(petcoverApplications)
+      ? petcoverApplications.filter((application: any) => application?.requested)
+      : [];
+
+    for (const application of requestedPetcoverApplications) {
+      const eligibility = petcoverEligibility(String(application.dateOfBirth || ''), checkIn);
+      const validAcquisition = ['purchased', 'rescued', 'unknown'].includes(application.acquisitionType);
+      const validSex = ['female', 'male', 'unknown'].includes(application.sex);
+      const purchasePriceValid = application.acquisitionType !== 'purchased'
+        || (application.purchasePrice !== '' && Number.isFinite(Number(application.purchasePrice)) && Number(application.purchasePrice) >= 0);
+      if (
+        !application.catName
+        || !eligibility.eligible
+        || !validAcquisition
+        || application.acquisitionType === 'unknown'
+        || !validSex
+        || application.sex === 'unknown'
+        || !String(application.microchipNumber || '').trim()
+        || !purchasePriceValid
+        || !hasPetcoverDeclarations(application.declarations)
+      ) {
+        res.status(400).json({ error: 'Complete the Petcover eligibility details and declarations for each selected cat.' });
+        return;
+      }
+    }
 
     if (!resolvedRoomId) {
       res.status(409).json({ error: 'That accommodation option is no longer available. Please choose a room again.' });
@@ -753,6 +807,96 @@ router.post('/bookings/request', async (req, res) => {
       console.error('[bookings/request] DB insert failed:', bookingError);
       res.status(500).json({ error: 'Booking could not be saved. Please contact the cattery directly.' });
       return;
+    }
+
+    const requestedByCatName = new Map(
+      requestedPetcoverApplications.map((application: any) => [String(application.catName).trim().toLowerCase(), application]),
+    );
+    const resolvedCatIds: string[] = [];
+    for (const rawName of (Array.isArray(catNames) ? catNames : [catNames])) {
+      const name = String(rawName || '').trim();
+      if (!name) continue;
+      const application = requestedByCatName.get(name.toLowerCase());
+      const catFields = application ? {
+        date_of_birth: application.dateOfBirth || null,
+        sex: application.sex || null,
+        acquisition_type: application.acquisitionType || null,
+        purchase_price: application.purchasePrice === '' ? null : Number(application.purchasePrice),
+        microchip_number: String(application.microchipNumber || '').trim() || null,
+      } : {};
+      const { data: existingCat } = await supabase
+        .from('cats')
+        .select('id')
+        .eq('customer_id', customerId)
+        .ilike('name', name)
+        .limit(1)
+        .maybeSingle();
+      let catId = existingCat?.id;
+      if (catId) {
+        if (application) {
+          await supabase.from('cats').update(catFields).eq('id', catId).eq('cattery_id', catteryId);
+        }
+      } else {
+        const { data: createdCat, error: catError } = await supabase.from('cats').insert({
+          cattery_id: catteryId,
+          customer_id: customerId,
+          name,
+          breed: application?.breed || null,
+          ...catFields,
+        }).select('id').single();
+        if (catError || !createdCat) {
+          console.error('[bookings/request] cat record failed:', catError?.message);
+          await supabase.from('bookings').delete().eq('id', booking.id);
+          res.status(500).json({ error: 'Booking could not be saved. Please contact the cattery directly.' });
+          return;
+        }
+        catId = createdCat.id;
+      }
+      if (catId) resolvedCatIds.push(catId);
+    }
+
+    if (resolvedCatIds.length > 0) {
+      const { error: bookingCatsError } = await supabase.from('booking_cats').insert(
+        resolvedCatIds.map((catId) => ({ booking_id: booking.id, cat_id: catId })),
+      );
+      if (bookingCatsError) {
+        console.error('[bookings/request] booking cat link failed:', bookingCatsError.message);
+        await supabase.from('bookings').delete().eq('id', booking.id);
+        res.status(500).json({ error: 'Booking could not be saved. Please contact the cattery directly.' });
+        return;
+      }
+    }
+
+    if (requestedPetcoverApplications.length > 0) {
+      const catIdByName = new Map(
+        (Array.isArray(catNames) ? catNames : [catNames]).map((name: unknown, index: number) => [
+          String(name || '').trim().toLowerCase(),
+          resolvedCatIds[index],
+        ]),
+      );
+      const { error: insuranceError } = await supabase.from('petcover_applications').insert(
+        requestedPetcoverApplications.map((application: any) => ({
+          cattery_id: catteryId,
+          booking_id: booking.id,
+          customer_id: customerId,
+          cat_id: catIdByName.get(String(application.catName).trim().toLowerCase()),
+          offer_code: 'petcover_intro_4_week',
+          status: 'ready_to_submit',
+          eligibility_reason: petcoverEligibility(String(application.dateOfBirth), checkIn).reason,
+          cat_date_of_birth: application.dateOfBirth,
+          cat_sex: application.sex,
+          acquisition_type: application.acquisitionType,
+          purchase_price: application.purchasePrice === '' ? null : Number(application.purchasePrice),
+          microchip_number: String(application.microchipNumber).trim(),
+          declarations: application.declarations,
+        })),
+      );
+      if (insuranceError) {
+        console.error('[bookings/request] Petcover record failed:', insuranceError.message);
+        await supabase.from('bookings').delete().eq('id', booking.id);
+        res.status(500).json({ error: 'Booking could not be saved. Please contact the cattery directly.' });
+        return;
+      }
     }
 
     const bookingBody = `${customerName} requested ${catNamesStr || 'a cat stay'} from ${displayCheckIn || checkIn} to ${displayCheckOut || checkOut}.`;
