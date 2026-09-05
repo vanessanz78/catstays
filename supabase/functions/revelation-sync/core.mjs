@@ -185,7 +185,11 @@ export async function processTick(env, force=false, transport=clients(env)) {
         // Still read the complete live response: date, room, note, status and money changes cannot hide behind list fields.
         const checksum=await hash(JSON.stringify(d));
         const priorChecksum=changesOnly?cp.observed_checksums?.[item.reference]:cp.checked_checksums?.[item.reference];
-        if(incremental&&priorChecksum===checksum&&!(d.pending==='Yes'&&Number(d.total_amount)===0)){
+        // The older operational workflow may still price a previously unpriced
+        // pending request. Changes-only is stricter: an identical response is
+        // never reopened, including an earlier warning or zero-value request.
+        const operationalPricingException=cp.scope==='operational'&&d.pending==='Yes'&&Number(d.total_amount)===0;
+        if(incremental&&priorChecksum===checksum&&!operationalPricingException){
           queue.shift();done++;cp.processed++;cp.unchanged=(cp.unchanged||0)+1;continue;
         }
         await archive(`booking-${item.id}.json`,[d]);
