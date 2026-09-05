@@ -840,6 +840,7 @@ router.post('/bookings/request', async (req, res) => {
       customer_id: customerId,
       room_id: resolvedRoomId,
       room_unit_number: resolvedRoomUnitNumber,
+      room_arrangement: resolvedRoomAllocation?.usesOneRoomPerCat ? 'separate' : 'shared',
       check_in: checkIn,
       check_out: checkOut,
       check_in_time: checkInTime || null,

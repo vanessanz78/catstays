@@ -22,5 +22,6 @@ test('public communal bookings write one physical-room assignment per cat', () =
   assert.match(requestRoute, /resolvedRoomAllocation\?\.usesOneRoomPerCat/);
   assert.match(requestRoute, /from\('booking_cat_rooms'\)\.insert/);
   assert.match(requestRoute, /room_unit_number: resolvedRoomAllocation\.unitNumbers\[index\]/);
+  assert.match(requestRoute, /room_arrangement: resolvedRoomAllocation\?\.usesOneRoomPerCat \? 'separate' : 'shared'/);
   assert.match(requestRoute, /status: waitlistRequested \? 'waitlist' : 'pending'/);
 });

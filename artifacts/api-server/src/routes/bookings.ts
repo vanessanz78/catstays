@@ -320,6 +320,7 @@ router.post('/bookings/waitlist/:bookingId/slot', async (req: Request, res: Resp
     const { data: slotted, error: updateError } = await admin.from('bookings').update({
       status: 'pending',
       room_unit_number: allocation.unitNumbers[0],
+      room_arrangement: allocation.usesOneRoomPerCat ? 'separate' : 'shared',
       waitlist_available_at: null,
       waitlist_alert_claimed_at: null,
       waitlist_alert_email_sent_at: null,
