@@ -22,7 +22,8 @@ Working ref: `fix/deloraine-live-changes-only-sync-20260905`.
 ## Verification and release
 
 - Run `pnpm test:live-booking-sync`, the full workspace typecheck/build, database rollback rehearsal, and Supabase advisors.
-- Merge reviewed work to GitHub `main`, verify its exact SHA, and deploy the coupled changes-only migration and Revelation Edge Function from that SHA. Keep `bookingMode=test_only` during this schema-first step.
+- Merge reviewed work to GitHub `main`, verify its exact SHA, and deploy the compatible Revelation Edge Function from that SHA. Keep `bookingMode=test_only` and the existing sync job functions during this step.
 - In Replit Shell, update to that exact `main` SHA and restart the canonical development process. Do not use Replit Agent.
-- Development UAT: public booking, staff New Booking, optional Petcover intake, manual sync summary, and confirmation that no prior queue resumed.
-- Publish the safe application SHA, run `supabase/operations/enable_deloraine_live_bookings.sql`, then repeat the public and authenticated production UAT. The first completed post-release nightly `changes_only` job remains a separate proof gate.
+- Development UAT while still in `test_only`: public booking validation and navigation, staff New Booking, and optional Petcover intake. Do not press the sync button until the changes-only migration is applied.
+- Publish the safe application SHA and confirm that exact SHA is serving production. Only then apply the changes-only migration so every active worker understands its scope; confirm no prior queue resumed.
+- Run `supabase/operations/enable_deloraine_live_bookings.sql`, then complete public and authenticated production UAT, including the manual sync summary. The first completed post-release nightly `changes_only` job remains a separate proof gate.
