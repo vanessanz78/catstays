@@ -526,7 +526,7 @@ export function AdminReports() {
 
   const rows = useMemo<ReportRow[]>(() => {
     const activeBookings = bookings.filter(
-      (booking) => booking.status !== "cancelled",
+      (booking) => booking.status !== "cancelled" && booking.status !== "waitlist",
     );
     const bookingRows = (
       dateField: "check_in" | "check_out",

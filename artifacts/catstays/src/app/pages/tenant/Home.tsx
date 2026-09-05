@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useParams, useNavigate } from 'react-router';
+import { Link, useParams } from 'react-router';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
@@ -69,7 +69,6 @@ function PublishedOriginalWebsite({ data }: { data: Record<string, any> }) {
 
 export function TenantHome() {
   const { tenantId } = useParams();
-  const navigate = useNavigate();
   const { cattery, rooms, loading } = useTenantCattery(tenantId);
   const base = tenantId ? `/tenant/${tenantId}` : '/site';
   const ws = (cattery?.website_settings as Record<string, any>) ?? {};
@@ -87,8 +86,6 @@ export function TenantHome() {
     ],
   });
 
-  const [checkIn, setCheckIn] = useState('');
-  const [checkOut, setCheckOut] = useState('');
   const [contactName, setContactName] = useState('');
   const [contactEmail, setContactEmail] = useState('');
   const [contactPhone, setContactPhone] = useState('');
@@ -212,37 +209,20 @@ export function TenantHome() {
         </div>
       </section>
 
-      {/* Availability Check */}
+      {/* Booking start */}
       <section className="relative -mt-16 pb-16">
         <div className="max-w-5xl mx-auto px-4">
           <Card className="shadow-2xl border-sage/10 rounded-3xl overflow-hidden">
-            <CardContent className="p-8">
-              <h3 className="text-2xl font-serif font-semibold text-forest mb-6">Check Availability</h3>
-              <div className="grid md:grid-cols-4 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-forest/70 mb-2 block">Check-in</label>
-                  <Input type="date" value={checkIn} onChange={e => setCheckIn(e.target.value)} className="rounded-xl border-sage/20" />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-forest/70 mb-2 block">Check-out</label>
-                  <Input type="date" value={checkOut} onChange={e => setCheckOut(e.target.value)} className="rounded-xl border-sage/20" />
-                </div>
-                <div>
-                  <label className="text-sm font-medium text-forest/70 mb-2 block">Cats</label>
-                  <select className="w-full rounded-xl border border-sage/20 p-2 bg-white">
-                    <option>1 cat</option><option>2 cats</option><option>3 cats</option>
-                  </select>
-                </div>
-                <div className="flex items-end">
-                  <Button
-                    onClick={() => navigate(`${base}/booking-flow${checkIn ? `?checkIn=${checkIn}&checkOut=${checkOut}` : ''}`)}
-                    className="w-full bg-sage hover:bg-sage-dark text-white rounded-xl shadow-md"
-                  >
-                    <Calendar className="w-4 h-4 mr-2" />
-                    Book Now
-                  </Button>
-                </div>
+            <CardContent className="flex flex-col gap-5 p-8 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h3 className="text-2xl font-serif font-semibold text-forest">Book a Cat Stay</h3>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-forest/65">Start with your contact details, then add each cat. We will check live room availability after you choose the stay dates.</p>
               </div>
+              <Link to={`${base}/booking-flow`} className="shrink-0">
+                <Button className="w-full bg-sage hover:bg-sage-dark text-white rounded-xl shadow-md md:w-auto">
+                  <Calendar className="w-4 h-4 mr-2" />Start Booking
+                </Button>
+              </Link>
             </CardContent>
           </Card>
         </div>
@@ -257,7 +237,7 @@ export function TenantHome() {
             </div>
             <div className="space-y-4 text-sm leading-7 text-cream/80">
               <p>Eligible first-time kittens and cats under 12 months may be considered for Petcover’s four-week introductory offer when you book with us.</p>
-              <p>We can capture the details needed for a manual application during booking. Eligibility, declarations, waiting periods and activation are confirmed by Petcover—not by CatStays or the cattery.</p>
+              <p>CatStays collects the details for cattery staff to enter manually.</p>
               <Link to={`${base}/booking-flow`} className="inline-flex rounded-xl bg-white px-5 py-3 text-sm font-semibold text-forest">Ask about the offer</Link>
             </div>
           </div>

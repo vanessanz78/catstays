@@ -161,6 +161,7 @@ export function AdminBookings() {
     updateBookingStatus,
     cancelBooking,
     deleteErroneousBooking,
+    slotWaitlistBooking,
   } = useBookings({
     // Apply operational date ranges before loading nested details. Creation and search retain history.
     ...(!showCreateBooking && !isCreating
@@ -638,6 +639,24 @@ export function AdminBookings() {
         ...current, status: data.status, total: Number(data.total_amount || 0), paymentStatus: data.payment_status,
       } : current);
     }
+    setConfirmingBooking(false);
+  };
+
+  const handleSlotWaitlistBooking = async () => {
+    if (!selectedBooking) return;
+    setConfirmingBooking(true);
+    setBookingActionError('');
+    setOperationMessage('');
+    const { data, error } = await slotWaitlistBooking(selectedBooking.id);
+    if (error) {
+      setBookingActionError(typeof error === 'string' ? error : error.message || 'The waitlist request could not be slotted.');
+      setConfirmingBooking(false);
+      return;
+    }
+    setSelectedBooking((current: any) => current ? { ...current, status: data?.status || 'pending' } : current);
+    setOperationMessage(data?.availability === 'split'
+      ? `Slotted into a continuous room plan with ${data.roomMoves} room move${data.roomMoves === 1 ? '' : 's'}. Review and confirm the booking when ready.`
+      : 'Slotted into an available room. Review and confirm the booking when ready.');
     setConfirmingBooking(false);
   };
 
@@ -1995,10 +2014,16 @@ export function AdminBookings() {
 
               <Card className="rounded-2xl border-sage/10">
                 <CardContent className="space-y-3 p-4">
-                  <p className="text-sm font-semibold text-[#2d3e2f]">Review this booking</p>
+                  <p className="text-sm font-semibold text-[#2d3e2f]">{selectedBooking.status === 'waitlist' ? 'Waitlist action' : 'Review this booking'}</p>
+                  {selectedBooking.status === 'waitlist' && <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">This customer is waiting for {selectedBooking.roomNumber || 'their preferred room'}. Slotting rechecks live capacity and creates the whole-stay or continuous split-room plan; it does not confirm the booking.</p>}
                   <div className={selectedBooking.status === 'confirmed' || selectedBooking.status === 'cancelled' ? 'grid' : 'grid grid-cols-2 gap-3'}>
                     <Button variant="outline" className="min-h-12 rounded-xl border-sage/20" onClick={() => handleBookingDetailsOpenChange(false)}>Close</Button>
-                    {selectedBooking.status !== 'confirmed' && selectedBooking.status !== 'cancelled' && (
+                    {selectedBooking.status === 'waitlist' ? (
+                      <Button type="button" disabled={confirmingBooking} onClick={() => void handleSlotWaitlistBooking()} className="min-h-12 rounded-xl bg-[#C46A3A] text-white hover:bg-[#A85A30] disabled:bg-sage/50">
+                        <Home className="mr-2 h-4 w-4" />
+                        {confirmingBooking ? 'Rechecking…' : 'Slot into room'}
+                      </Button>
+                    ) : selectedBooking.status !== 'confirmed' && selectedBooking.status !== 'cancelled' && (
                       <Button type="button" disabled={confirmingBooking} onClick={() => void handleConfirmSelectedBooking()} className="min-h-12 rounded-xl bg-[#7DAF7B] text-white hover:bg-[#699967] disabled:bg-sage/50">
                         <Check className="mr-2 h-4 w-4" />
                         {confirmingBooking ? 'Working…' : 'Confirm booking'}
@@ -2033,7 +2058,7 @@ export function AdminBookings() {
                 </Card>
               )}
 
-              {selectedBooking.status !== 'cancelled' && <Card className="rounded-2xl border-sage/10">
+              {selectedBooking.status !== 'cancelled' && selectedBooking.status !== 'waitlist' && <Card className="rounded-2xl border-sage/10">
                 <CardContent className="space-y-4 p-4">
                   <div className="flex items-center gap-2"><Mail className="h-5 w-5 text-sage" /><h3 className="font-semibold text-[#2d3e2f]">Send booking confirmation</h3></div>
                   <p className="text-sm text-[#6b7a6d]">To {selectedBooking.customerEmail || 'customer email not saved'}</p>

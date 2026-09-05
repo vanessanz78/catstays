@@ -86,16 +86,7 @@ export function CatstaysTemplateSite({
       return;
     }
 
-    const bookingSection = event.currentTarget.closest('[data-booking-strip]');
-    const dateInputs = Array.from(bookingSection?.querySelectorAll('input[type="date"]') ?? []) as HTMLInputElement[];
-    const catsSelect = bookingSection?.querySelector('select[name="cats"]') as HTMLSelectElement | null;
-    const params = new URLSearchParams();
-
-    if (dateInputs[0]?.value) params.set('checkIn', dateInputs[0].value);
-    if (dateInputs[1]?.value) params.set('checkOut', dateInputs[1].value);
-    if (catsSelect?.value) params.set('cats', catsSelect.value);
-
-    window.location.href = `${liveBookingPath()}${params.toString() ? `?${params.toString()}` : ''}`;
+    window.location.href = liveBookingPath();
   };
 
   const handlePreviewBookingInteraction = () => {
@@ -326,29 +317,11 @@ function FocusTemplate({
         </section>
 
         <section id="booking" className="relative z-10 mx-auto w-full max-w-[1400px] scroll-mt-28 px-6 md:-mt-16">
-          <div data-booking-strip className="catstays-booking-strip grid gap-5 rounded-md border border-[#222]/15 bg-white/95 p-6 shadow-xl md:grid-cols-[1.4fr_1fr_1fr_0.85fr_1fr] md:items-end md:p-8">
+          <div data-booking-strip className="catstays-booking-strip grid gap-5 rounded-md border border-[#222]/15 bg-white/95 p-6 shadow-xl md:grid-cols-[1fr_auto] md:items-center md:p-8">
             <div>
               <h3 className="text-3xl leading-tight">Book your cat's stay</h3>
-              <p className="mt-3 text-sm leading-6 text-[#555]">{content.booking.text}</p>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-[#555]">Start with your details, then add each cat. Live room availability appears after you choose your dates and times.</p>
             </div>
-            {['Check-in', 'Check-out'].map((label) => (
-              <label key={label} className="block">
-                <span className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em]">
-                  <CalendarCheck className="h-4 w-4 text-[#8c5b32]" />
-                  {label}
-                </span>
-                <input name={label === 'Check-in' ? 'checkIn' : 'checkOut'} type="date" onFocus={onPreviewBookingInteraction} className="h-[58px] w-full rounded-md border border-[#222]/15 bg-white px-4 font-sans text-sm text-[#222]" />
-              </label>
-            ))}
-            <label className="block">
-              <span className="mb-2 block text-xs font-bold uppercase tracking-[0.12em]">Cats</span>
-              <select name="cats" onFocus={onPreviewBookingInteraction} onChange={onPreviewBookingInteraction} defaultValue="1" className="h-[58px] w-full rounded-md border border-[#222]/15 bg-white px-4 font-sans text-sm text-[#222]">
-                <option value="1">1 cat</option>
-                <option value="2">2 cats</option>
-                <option value="3">3 cats</option>
-                <option value="4">4 cats</option>
-              </select>
-            </label>
             <button type="button" onClick={onPreviewBookingAction} className="flex h-[58px] items-center justify-center rounded-md bg-[#0A1128] px-5 text-center text-xs font-bold uppercase tracking-[0.1em] text-white">
               {content.booking.primaryCta}
             </button>
@@ -565,7 +538,7 @@ function PetcoverOfferSection({ content }: { content: TemplateContent }) {
         </div>
         <div className="space-y-4 text-sm leading-7 text-white/80">
           <p>Eligible first-time kittens and cats under 12 months may be considered for Petcover’s four-week introductory offer when you book with us.</p>
-          <p>We can capture the details needed for a manual application during booking. Eligibility, declarations, waiting periods and activation are confirmed by Petcover—not by CatStays or the cattery.</p>
+          <p>CatStays collects the details for cattery staff to enter manually.</p>
           <a href="#booking" className="inline-flex rounded-md bg-white px-5 py-3 text-xs font-bold uppercase tracking-[0.1em] text-[#0A1128]">Ask about the offer</a>
         </div>
       </div>
@@ -902,29 +875,11 @@ function ConversionBanner({
 }) {
   return (
     <section id="booking" className="scroll-mt-28 bg-[#0A1128] px-6 py-12 text-white">
-      <div data-booking-strip className="catstays-booking-strip mx-auto grid w-full max-w-[1400px] gap-5 md:grid-cols-[1.35fr_1fr_1fr_0.85fr_1fr] md:items-end">
+      <div data-booking-strip className="catstays-booking-strip mx-auto grid w-full max-w-[1400px] gap-5 md:grid-cols-[1fr_auto] md:items-center">
         <div>
           <h2 className="text-3xl leading-tight">Book your cat's stay</h2>
-          <p className="mt-2 text-sm text-white/80">{content.booking.bannerText}</p>
+          <p className="mt-2 max-w-2xl text-sm text-white/80">Start with your details, then add each cat. Live room availability appears after you choose your dates and times.</p>
         </div>
-        {['Check-in', 'Check-out'].map((label) => (
-          <label key={label} className="block">
-            <span className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.12em] text-white/80">
-              <CalendarCheck className="h-4 w-4" />
-              {label}
-            </span>
-            <input name={label === 'Check-in' ? 'checkIn' : 'checkOut'} type="date" onFocus={onPreviewBookingInteraction} className="h-[58px] w-full rounded-md border border-white/20 bg-white px-4 font-sans text-sm text-[#222]" />
-          </label>
-        ))}
-        <label className="block">
-          <span className="mb-2 block text-xs font-bold uppercase tracking-[0.12em] text-white/80">Cats</span>
-          <select name="cats" onFocus={onPreviewBookingInteraction} onChange={onPreviewBookingInteraction} defaultValue="1" className="h-[58px] w-full rounded-md border border-white/20 bg-white px-4 font-sans text-sm text-[#222]">
-            <option value="1">1 cat</option>
-            <option value="2">2 cats</option>
-            <option value="3">3 cats</option>
-            <option value="4">4 cats</option>
-          </select>
-        </label>
         <button type="button" onClick={onPreviewBookingAction} className="flex h-[58px] items-center justify-center rounded-md border border-white/60 px-7 text-xs font-bold uppercase tracking-[0.1em] text-white">
           {content.booking.primaryCta}
         </button>

@@ -12,8 +12,9 @@ import {
 } from '../lib/emailTemplates';
 import { createClient } from '@supabase/supabase-js';
 import { notifyCatteryStaff, notifyCustomer } from '../push/notifications.js';
-import { firstAvailablePhysicalRoom } from '../lib/physicalRoomInventory.js';
+import { planPhysicalRoomStay } from '../lib/physicalRoomInventory.js';
 import { checkParallelRunRequest } from '../lib/parallelRun.js';
+import { refreshAvailableWaitlists } from './bookings.js';
 
 const supabaseUrl = process.env['VITE_SUPABASE_URL'];
 const supabaseServiceRoleKey = process.env['SUPABASE_SERVICE_ROLE_KEY'];
@@ -52,8 +53,8 @@ function petcoverEligibility(dateOfBirth: string, referenceDate: string) {
   let ageInMonths = (reference.getFullYear() - dob.getFullYear()) * 12 + reference.getMonth() - dob.getMonth();
   if (reference.getDate() < dob.getDate()) ageInMonths -= 1;
   if (ageInMonths < 0) return { eligible: false, reason: 'Date of birth cannot be in the future.' };
-  if (ageInMonths >= 12) return { eligible: false, reason: 'The introductory offer is for cats under 12 months at check-in.' };
-  return { eligible: true, reason: 'Under 12 months at check-in.' };
+  if (ageInMonths >= 12) return { eligible: false, reason: 'The introductory offer is for cats under 12 months.' };
+  return { eligible: true, reason: 'Under 12 months.' };
 }
 
 const petcoverDeclarationKeys = [
@@ -70,6 +71,14 @@ const petcoverDeclarationKeys = [
 function hasPetcoverDeclarations(value: unknown) {
   if (!value || typeof value !== 'object') return false;
   return petcoverDeclarationKeys.every((key) => (value as Record<string, unknown>)[key] === true);
+}
+
+function validBookingDateRange(checkIn: unknown, checkOut: unknown) {
+  const start = String(checkIn || '');
+  const end = String(checkOut || '');
+  return /^\d{4}-\d{2}-\d{2}$/.test(start)
+    && /^\d{4}-\d{2}-\d{2}$/.test(end)
+    && end >= start;
 }
 
 function catUpdatePortalUrl(req: Request, slug: string | null, updateId: string) {
@@ -628,11 +637,15 @@ router.post('/bookings/request', async (req, res) => {
     catteryId,
     customerName, customerEmail, phone,
     catNames, checkIn, checkOut, checkInTime, checkOutTime, displayCheckIn, displayCheckOut, days, nights,
-    roomName, roomId, estimatedTotal, specialRequirements, petcoverApplications,
+    roomName, roomId, estimatedTotal, specialRequirements, petcoverApplications, requestKind,
   } = req.body;
 
   if (!catteryId || !customerName || !customerEmail || !catNames || !checkIn || !checkOut) {
     res.status(400).json({ error: 'Missing required fields' });
+    return;
+  }
+  if (!validBookingDateRange(checkIn, checkOut)) {
+    res.status(400).json({ error: 'Choose valid arrival and departure dates.' });
     return;
   }
 
@@ -687,6 +700,7 @@ router.post('/bookings/request', async (req, res) => {
     }
     const catNamesStr = normalizedCatNames.join(', ');
     const numCats = normalizedCatNames.length;
+    const waitlistRequested = requestKind === 'waitlist';
     const requestedPetcoverApplications = petcoverOfferEnabled && Array.isArray(petcoverApplications)
       ? petcoverApplications.filter((application: any) => application?.requested)
       : [];
@@ -709,7 +723,6 @@ router.post('/bookings/request', async (req, res) => {
         || application.acquisitionType === 'unknown'
         || !validSex
         || application.sex === 'unknown'
-        || !String(application.microchipNumber || '').trim()
         || !purchasePriceValid
         || !hasPetcoverDeclarations(application.declarations)
       ) {
@@ -742,7 +755,7 @@ router.post('/bookings/request', async (req, res) => {
 
     const { data: overlappingBookings, error: availabilityError } = await supabase
       .from('bookings')
-      .select('id,room_id,room_unit_number,check_in,check_out,status,booking_cat_rooms(room_id,room_unit_number)')
+      .select('id,room_id,room_unit_number,check_in,check_out,status,booking_cat_rooms(room_id,room_unit_number),booking_room_segments(room_id,room_unit_number,starts_on,ends_on)')
       .eq('cattery_id', catteryId)
       .neq('status', 'cancelled')
       .lte('check_in', checkOut)
@@ -752,17 +765,23 @@ router.post('/bookings/request', async (req, res) => {
       res.status(503).json({ error: 'Availability could not be checked. Please try again.' });
       return;
     }
-    const resolvedRoomUnitNumber = firstAvailablePhysicalRoom(
+    const resolvedRoomPlan = planPhysicalRoomStay(
       resolvedRoomId,
       Number(resolvedRoom.room_count),
       overlappingBookings || [],
       checkIn,
       checkOut,
     );
-    if (!resolvedRoomUnitNumber) {
-      res.status(409).json({ error: `${resolvedRoom.name} is fully booked for those dates. Please choose another option or different dates.` });
+    if (waitlistRequested && resolvedRoomPlan) {
+      res.status(409).json({ error: `${resolvedRoom.name} has just become available. Please choose it as a booking instead of joining the waitlist.`, refreshAvailability: true });
       return;
     }
+    if (!waitlistRequested && !resolvedRoomPlan) {
+      res.status(409).json({ error: `${resolvedRoom.name} is fully booked for those dates. You can join the waitlist or choose another option.`, waitlistAvailable: true });
+      return;
+    }
+    const resolvedRoomUnitNumber = waitlistRequested ? null : resolvedRoomPlan?.[0]?.unitNumber || null;
+    const storedRequestKind = waitlistRequested ? 'waitlist' : (resolvedRoomPlan?.length || 0) > 1 ? 'split' : 'booking';
 
     const normalizedEmail = String(customerEmail).trim().toLowerCase();
     const { data: existingCustomer } = requester && !testOnly
@@ -821,7 +840,7 @@ router.post('/bookings/request', async (req, res) => {
       check_out: checkOut,
       check_in_time: checkInTime || null,
       check_out_time: checkOutTime || null,
-      status: 'pending',
+      status: waitlistRequested ? 'waitlist' : 'pending',
       payment_status: 'unpaid',
       total_amount: totalAmount,
       notes: testOnly ? `[CATSTAYS TEST ONLY — Revelation Pets remains primary]\n${specialRequirements || ''}` : specialRequirements || null,
@@ -837,6 +856,26 @@ router.post('/bookings/request', async (req, res) => {
       await rollbackBookingRequest();
       res.status(500).json({ error: 'Booking could not be saved. Please contact the cattery directly.' });
       return;
+    }
+
+    if (!waitlistRequested && resolvedRoomPlan && resolvedRoomPlan.length > 1) {
+      const { error: segmentError } = await supabase.from('booking_room_segments').insert(
+        resolvedRoomPlan.map((segment) => ({
+          cattery_id: catteryId,
+          booking_id: booking.id,
+          room_id: segment.roomId,
+          room_unit_number: segment.unitNumber,
+          starts_on: segment.startsOn,
+          ends_on: segment.endsOn,
+          created_by: requester?.id || null,
+        })),
+      );
+      if (segmentError) {
+        console.error('[bookings/request] split-room plan failed:', segmentError.message);
+        await rollbackBookingRequest(booking.id);
+        res.status(409).json({ error: 'That split-room plan is no longer available. Please refresh and try again.' });
+        return;
+      }
     }
 
     const requestedByCatName = new Map(
@@ -916,7 +955,7 @@ router.post('/bookings/request', async (req, res) => {
           cat_sex: application.sex,
           acquisition_type: application.acquisitionType,
           purchase_price: application.purchasePrice === '' ? null : Number(application.purchasePrice),
-          microchip_number: String(application.microchipNumber).trim(),
+          microchip_number: String(application.microchipNumber || '').trim() || null,
           declarations: application.declarations,
         })),
       );
@@ -928,10 +967,12 @@ router.post('/bookings/request', async (req, res) => {
       }
     }
 
-    const bookingBody = `${customerName} requested ${catNamesStr || 'a cat stay'} from ${displayCheckIn || checkIn} to ${displayCheckOut || checkOut}.`;
+    const bookingBody = waitlistRequested
+      ? `${customerName} joined the waitlist for ${catNamesStr || 'a cat stay'} from ${displayCheckIn || checkIn} to ${displayCheckOut || checkOut}.`
+      : `${customerName} requested ${catNamesStr || 'a cat stay'} from ${displayCheckIn || checkIn} to ${displayCheckOut || checkOut}.`;
     void notifyCatteryStaff(catteryId, {
-      type: 'booking_request',
-      title: testOnly ? 'TEST booking request' : 'New booking request',
+      type: waitlistRequested ? 'waitlist_request' : 'booking_request',
+      title: testOnly ? `TEST ${waitlistRequested ? 'waitlist' : 'booking'} request` : waitlistRequested ? 'New waitlist request' : 'New booking request',
       body: bookingBody,
       url: `/staff-dashboard/bookings?booking=${encodeURIComponent(String(booking?.id || ''))}`,
       tag: `catstays-booking-${booking?.id || catteryId}`,
@@ -942,9 +983,9 @@ router.post('/bookings/request', async (req, res) => {
 
     if (customerId) {
       void notifyCustomer(customerId, catteryId, {
-        type: 'booking_received',
-        title: 'Booking received',
-        body: `${catteryName} received your request for ${catNamesStr || 'your cat'}.`,
+        type: waitlistRequested ? 'waitlist_received' : 'booking_received',
+        title: waitlistRequested ? 'Waitlist request received' : 'Booking received',
+        body: `${catteryName} received your ${waitlistRequested ? 'waitlist' : 'booking'} request for ${catNamesStr || 'your cat'}.`,
         url: '/client-portal',
         tag: `catstays-booking-received-${booking?.id || customerId}`,
         metadata: { bookingId: booking?.id },
@@ -959,21 +1000,21 @@ router.post('/bookings/request', async (req, res) => {
         from: FROM_ADDRESS,
         to: catteryEmail,
         replyTo: customerEmail,
-        subject: `${testOnly ? '[TEST ONLY] ' : ''}New booking request from ${customerName}`,
+        subject: `${testOnly ? '[TEST ONLY] ' : ''}${waitlistRequested ? 'New waitlist request' : 'New booking request'} from ${customerName}`,
         html: bookingRequestOwnerHtml({
           catteryName, customerName, customerEmail, phone,
           catNames, checkIn: emailCheckIn, checkOut: emailCheckOut, days: stayDays,
-          roomName, estimatedTotal, specialRequirements,
+          roomName, estimatedTotal, specialRequirements, requestKind: storedRequestKind,
         }),
       }) : Promise.resolve({ data: null, error: new Error('Cattery email is not configured') }),
       resend.emails.send({
         from: FROM_ADDRESS,
         to: customerEmail,
-        subject: `${testOnly ? '[TEST ONLY] ' : ''}Your booking request at ${catteryName}`,
+        subject: `${testOnly ? '[TEST ONLY] ' : ''}Your ${waitlistRequested ? 'waitlist' : 'booking'} request at ${catteryName}`,
         html: bookingRequestCustomerHtml({
           customerName, catteryName, catteryEmail, catteryPhone,
           catNames, checkIn: emailCheckIn, checkOut: emailCheckOut, days: stayDays,
-          roomName, estimatedTotal,
+          roomName, estimatedTotal, requestKind: storedRequestKind,
         }),
       }),
     ]);
@@ -985,8 +1026,9 @@ router.post('/bookings/request', async (req, res) => {
       console.error('[bookings/request] customer email error:', customerResult.error);
     }
 
-    console.log('[bookings/request] saved pending booking to DB for cattery', catteryId);
-    res.json({ success: true, bookingStored: true, ownerEmailId: ownerResult.data?.id, customerEmailId: customerResult.data?.id });
+    console.log(`[bookings/request] saved ${waitlistRequested ? 'waitlist' : 'pending booking'} to DB for cattery`, catteryId);
+    void refreshAvailableWaitlists();
+    res.json({ success: true, bookingStored: true, status: waitlistRequested ? 'waitlist' : 'pending', requestKind: storedRequestKind, ownerEmailId: ownerResult.data?.id, customerEmailId: customerResult.data?.id });
   } catch (err) {
     console.error('[bookings/request] exception:', err);
     res.status(500).json({ error: 'Failed to send booking request' });

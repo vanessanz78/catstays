@@ -1,5 +1,6 @@
 import { Router, type IRouter, type Request, type Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
+import { refreshAvailableWaitlists } from './bookings.js';
 const router: IRouter = Router();
 const url = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
@@ -44,6 +45,7 @@ export async function revelationSyncResult(req: Request, res: Response) {
   // Never restart the import just to retrieve its completion summary.
   if(summary.error)summary=await admin.rpc('catstays_manual_sync_summary',summaryArgs);
   if (summary.error) { res.status(503).json({ error: 'Sync finished, but its change summary is unavailable.' }); return; }
+  void refreshAvailableWaitlists();
   res.json({ status, changes:summary.data });
 }
 router.get('/revelation-sync/result/:jobId', revelationSyncResult);

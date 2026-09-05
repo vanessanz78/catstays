@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
-import { Calendar, Check, ArrowLeft, Cat, User, ClipboardList, SendHorizonal, Loader2, Home, Clock3 } from 'lucide-react';
+import { Calendar, Check, ArrowLeft, Cat, User, ClipboardList, SendHorizonal, Loader2, Home, Clock3, ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
 import { parseISO, format } from 'date-fns';
 import { Button } from '../../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
@@ -18,14 +18,22 @@ import { normalizeBookingSetup, normalizePublicBlackouts, stayOverlapsBlackout }
 import { normalizeTenantFeatures } from '@/app/lib/tenantFeatures';
 import { useAuth } from '@/contexts/AuthContext';
 import { PetcoverIntakeFields } from '../../components/PetcoverIntakeFields';
-import { defaultPetcoverCatIntake, petcoverIntakeComplete, type PetcoverCatIntake } from '../../lib/petcover';
+import { defaultPetcoverCatIntake, petcoverEligibility, petcoverIntakeComplete, type PetcoverCatIntake } from '../../lib/petcover';
 
 const STEPS = [
-  { n: 1, label: 'Dates & Room', icon: Calendar },
-  { n: 2, label: 'Your Details', icon: User },
-  { n: 3, label: 'Your Cats', icon: Cat },
+  { n: 1, label: 'Your Details', icon: User },
+  { n: 2, label: 'Your Cats', icon: Cat },
+  { n: 3, label: 'Dates & Room', icon: Calendar },
   { n: 4, label: 'Review & Submit', icon: ClipboardList },
 ];
+
+type RoomAvailability = {
+  roomId: string;
+  availability: 'whole' | 'split' | 'waitlist' | 'not_suitable';
+  roomMoves: number;
+};
+
+type RequestKind = 'booking' | 'split' | 'waitlist';
 
 function parseCatsParam(value: string | null) {
   const count = Number.parseInt(value || '1', 10);
@@ -45,13 +53,20 @@ export function BookingFlow() {
       ? '/site'
       : '/';
   const initialCatCount = parseCatsParam(searchParams.get('cats'));
+  const today = format(new Date(), 'yyyy-MM-dd');
 
   const [step, setStep] = useState(1);
   const [submitted, setSubmitted] = useState(false);
+  const [submittedKind, setSubmittedKind] = useState<RequestKind>('booking');
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [activeCatIndex, setActiveCatIndex] = useState(0);
+  const [availability, setAvailability] = useState<RoomAvailability[]>([]);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState('');
 
   const [selectedRoom, setSelectedRoom] = useState<TenantRoom | null>(null);
+  const [requestKind, setRequestKind] = useState<RequestKind | null>(null);
   const [formData, setFormData] = useState({
     arrivalDate: searchParams.get('checkIn') || '',
     departureDate: searchParams.get('checkOut') || '',
@@ -82,20 +97,39 @@ export function BookingFlow() {
     setFormData(prev => ({ ...prev, catBreeds: breeds }));
   };
 
-  const handleCatCountChange = (n: number) => {
-    if (selectedRoom && selectedRoom.capacity < n) setSelectedRoom(null);
+  const addCat = () => {
+    if (formData.numberOfCats >= 4) return;
+    const nextCount = formData.numberOfCats + 1;
+    setSelectedRoom(null);
+    setRequestKind(null);
     setFormData(prev => ({
       ...prev,
-      numberOfCats: n,
-      catNames: Array(n).fill('').map((_, i) => prev.catNames[i] || ''),
-      catBreeds: Array(n).fill('').map((_, i) => prev.catBreeds[i] || ''),
-      petcoverCats: Array(n).fill(null as never).map((_, i) => prev.petcoverCats[i] || defaultPetcoverCatIntake()),
+      numberOfCats: nextCount,
+      catNames: [...prev.catNames, ''],
+      catBreeds: [...prev.catBreeds, ''],
+      petcoverCats: [...prev.petcoverCats, defaultPetcoverCatIntake()],
     }));
+    setActiveCatIndex(nextCount - 1);
+  };
+
+  const removeCat = (index: number) => {
+    if (formData.numberOfCats <= 1) return;
+    const nextCount = formData.numberOfCats - 1;
+    setSelectedRoom(null);
+    setRequestKind(null);
+    setFormData((prev) => ({
+      ...prev,
+      numberOfCats: nextCount,
+      catNames: prev.catNames.filter((_, itemIndex) => itemIndex !== index),
+      catBreeds: prev.catBreeds.filter((_, itemIndex) => itemIndex !== index),
+      petcoverCats: prev.petcoverCats.filter((_, itemIndex) => itemIndex !== index),
+    }));
+    setActiveCatIndex(Math.max(0, Math.min(index - 1, nextCount - 1)));
   };
 
   // The cattery charges for every calendar day in care, including arrival and departure.
   const days = inclusiveStayDays(formData.arrivalDate, formData.departureDate);
-  const dailyRate = selectedRoom?.price_per_night ?? (rooms[0]?.price_per_night ?? 20);
+  const dailyRate = selectedRoom?.price_per_night ?? 0;
   const discountPct = longStayDiscountPercent(days);
   const bookingSettings = normalizeBookingSetup(cattery?.website_settings);
   const tenantFeatures = normalizeTenantFeatures(cattery?.website_settings);
@@ -105,6 +139,9 @@ export function BookingFlow() {
   const hoursSummary = bookingHoursSummary(cattery?.website_settings);
   const blackoutConflict = stayOverlapsBlackout(publicBlackouts, formData.arrivalDate, formData.departureDate);
   const visitTimesComplete = bookingSettings.openByAppointmentOnly || Boolean(formData.arrivalTime && formData.departureTime);
+  const petcoverSelectionsEligible = formData.petcoverCats.every((intake) => (
+    !intake.requested || petcoverEligibility(intake.dateOfBirth, formData.arrivalDate || new Date()).eligible
+  ));
   const { beforeDiscount, discount, subtotal, gst, total } = calculateBookingEstimate({
     dailyRate,
     days,
@@ -116,10 +153,40 @@ export function BookingFlow() {
     try { return format(parseISO(d), 'd MMM yyyy'); } catch { return d; }
   };
 
+  useEffect(() => {
+    setSelectedRoom(null);
+    setRequestKind(null);
+    setAvailability([]);
+    setAvailabilityError('');
+    if (!cattery?.id || !formData.arrivalDate || !formData.departureDate || days <= 0 || blackoutConflict) return;
+    const controller = new AbortController();
+    setAvailabilityLoading(true);
+    const params = new URLSearchParams({
+      catteryId: cattery.id,
+      checkIn: formData.arrivalDate,
+      checkOut: formData.departureDate,
+      cats: String(formData.numberOfCats),
+    });
+    fetch(`/api/bookings/availability?${params.toString()}`, { signal: controller.signal })
+      .then(async (response) => {
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || 'Availability could not be checked.');
+        setAvailability(Array.isArray(payload.availability) ? payload.availability : []);
+      })
+      .catch((error) => {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        setAvailabilityError(error instanceof Error ? error.message : 'Availability could not be checked.');
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setAvailabilityLoading(false);
+      });
+    return () => controller.abort();
+  }, [blackoutConflict, cattery?.id, days, formData.arrivalDate, formData.departureDate, formData.numberOfCats]);
+
   const canProceed = (() => {
-    if (step === 1) return formData.arrivalDate && formData.departureDate && days > 0 && visitTimesComplete && !blackoutConflict && Boolean(selectedRoom);
-    if (step === 2) return formData.ownerName.trim() && formData.email.trim() && formData.phone.trim();
-    if (step === 3) return formData.catNames.every(n => n.trim()) && (!tenantFeatures.petcoverOfferEnabled || formData.petcoverCats.every(petcoverIntakeComplete));
+    if (step === 1) return formData.ownerName.trim() && formData.email.trim() && formData.phone.trim();
+    if (step === 2) return formData.catNames.every(n => n.trim()) && (!tenantFeatures.petcoverOfferEnabled || formData.petcoverCats.every(petcoverIntakeComplete));
+    if (step === 3) return formData.arrivalDate && formData.departureDate && days > 0 && visitTimesComplete && !blackoutConflict && petcoverSelectionsEligible && Boolean(selectedRoom) && Boolean(requestKind);
     return true;
   })();
 
@@ -128,11 +195,12 @@ export function BookingFlow() {
     visitTimesComplete &&
     !blackoutConflict &&
     Boolean(selectedRoom) &&
+    Boolean(requestKind) &&
     formData.ownerName.trim() &&
     formData.email.trim() &&
     formData.phone.trim() &&
     formData.catNames.every(name => name.trim()) &&
-    (!tenantFeatures.petcoverOfferEnabled || formData.petcoverCats.every(petcoverIntakeComplete)),
+    (!tenantFeatures.petcoverOfferEnabled || (formData.petcoverCats.every(petcoverIntakeComplete) && petcoverSelectionsEligible)),
   );
 
   const handleSubmit = async () => {
@@ -173,6 +241,7 @@ export function BookingFlow() {
           roomId: selectedRoom.id,
           estimatedTotal,
           specialRequirements: formData.specialRequirements,
+          requestKind,
           petcoverApplications: tenantFeatures.petcoverOfferEnabled
             ? formData.petcoverCats
               .map((intake, index) => ({ ...intake, catName: formData.catNames[index], breed: formData.catBreeds[index] }))
@@ -182,6 +251,7 @@ export function BookingFlow() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to send request');
+      setSubmittedKind(data.requestKind || requestKind || 'booking');
       setSubmitted(true);
     } catch (err: any) {
       setSubmitError(err.message || 'Something went wrong. Please try again or call us directly.');
@@ -215,8 +285,8 @@ export function BookingFlow() {
               <div className="w-20 h-20 rounded-full bg-sage/20 flex items-center justify-center mx-auto mb-4">
                 <Check className="w-10 h-10 text-sage" />
               </div>
-              <h1 className="text-2xl font-serif font-semibold mb-2">{testOnly ? 'Test booking received' : 'Booking Request Received'}</h1>
-              <p className="text-cream/80">{testOnly ? 'This is not a real reservation. Revelation Pets remains primary.' : "We'll confirm availability within 24 hours."}</p>
+              <h1 className="text-2xl font-serif font-semibold mb-2">{testOnly ? 'Test booking received' : submittedKind === 'waitlist' ? 'Waitlist Request Received' : 'Booking Request Received'}</h1>
+              <p className="text-cream/80">{testOnly ? 'This is not a real reservation. Revelation Pets remains primary.' : submittedKind === 'waitlist' ? "We'll contact you if a suitable space becomes available." : "We'll confirm your booking within 24 hours."}</p>
             </div>
             <CardContent className="p-8 space-y-4">
               <div className="bg-cream rounded-2xl p-5 space-y-2 text-sm">
@@ -225,8 +295,8 @@ export function BookingFlow() {
                   <span className="font-medium text-forest">{formData.catNames.join(', ')}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-forest/60">Room</span>
-                  <span className="font-medium text-forest">{roomName}</span>
+                  <span className="text-forest/60">{submittedKind === 'waitlist' ? 'Preferred room' : 'Room'}</span>
+                  <span className="font-medium text-forest">{roomName}{submittedKind === 'split' ? ' (room move during stay)' : ''}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-forest/60">Check-in</span>
@@ -247,7 +317,9 @@ export function BookingFlow() {
               </div>
 
               <div className="bg-sage/10 rounded-2xl p-4 text-sm text-forest/70">
-                <p>Thanks — we've received your request. We'll contact you within 24 hours to confirm availability and explain the next steps. Your stay is confirmed once we send your confirmation.</p>
+                <p>{submittedKind === 'waitlist'
+                  ? "Thanks — you're on the waitlist. We'll contact you if a suitable space becomes available. This is not yet a confirmed booking."
+                  : "Thanks — we've received your request. We'll contact you within 24 hours to confirm the next steps. Your stay is confirmed once we send your confirmation."}</p>
               </div>
 
               <div className="flex gap-3">
@@ -312,22 +384,117 @@ export function BookingFlow() {
           {/* Main form */}
           <div className="md:col-span-2">
             <Card className="border-sage/10 shadow-lg rounded-3xl overflow-hidden">
-              {/* Step 1: Dates & Room */}
+              {/* Step 1: Your Details */}
               {step === 1 && (
                 <>
                   <CardHeader>
-                    <CardTitle className="font-serif text-forest">Dates & Accommodation</CardTitle>
-                    <CardDescription>When will your cat be staying?</CardDescription>
+                    <CardTitle className="font-serif text-forest">Your Details</CardTitle>
+                    <CardDescription>Who should we contact about this booking?</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="ownerName">Full Name *</Label>
+                      <Input id="ownerName" value={formData.ownerName} onChange={e => updateField('ownerName', e.target.value)} className="rounded-xl border-sage/20" required />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email Address *</Label>
+                      <Input id="email" type="email" value={formData.email} onChange={e => updateField('email', e.target.value)} className="rounded-xl border-sage/20" required />
+                      <p className="text-xs text-forest/50">Your booking confirmation will be sent here</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Phone Number *</Label>
+                      <Input id="phone" type="tel" value={formData.phone} onChange={e => updateField('phone', e.target.value)} className="rounded-xl border-sage/20" required />
+                    </div>
+                  </CardContent>
+                </>
+              )}
+
+              {/* Step 2: Cat Information */}
+              {step === 2 && (
+                <>
+                  <CardHeader>
+                    <CardTitle className="font-serif text-forest">Your Cat{formData.numberOfCats > 1 ? 's' : ''}</CardTitle>
+                    <CardDescription>Add each cat who will be staying</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {Array.from({ length: formData.numberOfCats }).map((_, i) => {
+                      const expanded = activeCatIndex === i;
+                      const catComplete = Boolean(formData.catNames[i]?.trim())
+                        && (!tenantFeatures.petcoverOfferEnabled || petcoverIntakeComplete(formData.petcoverCats[i]));
+                      return (
+                        <div key={i} className={`rounded-2xl border ${expanded ? 'border-sage/40 bg-sage/5' : 'border-sage/20 bg-white'}`}>
+                          <div className="flex items-center gap-2 p-3">
+                            <button type="button" aria-expanded={expanded} onClick={() => setActiveCatIndex(i)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sage/10 text-sm font-semibold text-sage">{i + 1}</div>
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate font-medium text-forest">{formData.catNames[i]?.trim() || `Cat ${i + 1}`}</p>
+                                {!expanded && <p className="text-xs text-forest/50">{catComplete ? 'Details saved' : 'Details need finishing'}</p>}
+                              </div>
+                              {expanded ? <ChevronUp className="h-5 w-5 shrink-0 text-sage" /> : <ChevronDown className="h-5 w-5 shrink-0 text-sage" />}
+                            </button>
+                            {formData.numberOfCats > 1 && (
+                              <button type="button" aria-label={`Remove ${formData.catNames[i] || `cat ${i + 1}`}`} onClick={() => removeCat(i)} className="rounded-lg p-2 text-forest/40 hover:bg-white hover:text-red-600">
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
+                          </div>
+                          {expanded && (
+                            <div className="space-y-4 border-t border-sage/15 p-4">
+                              <div className="grid gap-3 md:grid-cols-2">
+                                <div className="space-y-1.5">
+                                  <Label htmlFor={`cat-name-${i}`}>Name *</Label>
+                                  <Input id={`cat-name-${i}`} placeholder="Whiskers" value={formData.catNames[i]} onChange={e => updateCatName(i, e.target.value)} className="rounded-xl border-sage/20" required />
+                                </div>
+                                <div className="space-y-1.5">
+                                  <Label htmlFor={`cat-breed-${i}`}>Breed (optional)</Label>
+                                  <Input id={`cat-breed-${i}`} placeholder="Domestic Shorthair" value={formData.catBreeds[i]} onChange={e => updateCatBreed(i, e.target.value)} className="rounded-xl border-sage/20" />
+                                </div>
+                              </div>
+                              {tenantFeatures.petcoverOfferEnabled ? <PetcoverIntakeFields
+                                value={formData.petcoverCats[i]}
+                                onChange={(updates) => setFormData((current) => ({
+                                  ...current,
+                                  petcoverCats: current.petcoverCats.map((intake, index) => index === i ? { ...intake, ...updates } : intake),
+                                }))}
+                                referenceDate={formData.arrivalDate}
+                                idPrefix={`public-petcover-${i}`}
+                              /> : null}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {formData.numberOfCats < 4 && (
+                      <Button type="button" variant="outline" onClick={addCat} className="w-full rounded-xl border-dashed border-sage/40 text-sage">
+                        <Plus className="mr-2 h-4 w-4" />Add another cat
+                      </Button>
+                    )}
+
+                    <div className="space-y-2">
+                      <Label htmlFor="special">Special Requirements or Medical Notes</Label>
+                      <Textarea id="special" placeholder="Dietary requirements, medications, allergies, behavioural notes..." value={formData.specialRequirements} onChange={e => updateField('specialRequirements', e.target.value)} rows={3} className="rounded-xl border-sage/20" />
+                    </div>
+                  </CardContent>
+                </>
+              )}
+
+              {/* Step 3: Dates & Room */}
+              {step === 3 && (
+                <>
+                  <CardHeader>
+                    <CardTitle className="font-serif text-forest">Dates, Times & Room</CardTitle>
+                    <CardDescription>Choose the stay for {formData.catNames.filter(Boolean).join(', ')}</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-5">
                     <div className="grid md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Check-in Date</Label>
-                        <Input type="date" value={formData.arrivalDate} onChange={e => setFormData((current) => ({ ...current, arrivalDate: e.target.value, arrivalTime: '' }))} min={new Date().toISOString().split('T')[0]} className="rounded-xl border-sage/20" />
+                        <Input type="date" value={formData.arrivalDate} onChange={e => setFormData((current) => ({ ...current, arrivalDate: e.target.value, arrivalTime: '' }))} min={today} className="rounded-xl border-sage/20" />
                       </div>
                       <div className="space-y-2">
                         <Label>Check-out Date</Label>
-                        <Input type="date" value={formData.departureDate} onChange={e => setFormData((current) => ({ ...current, departureDate: e.target.value, departureTime: '' }))} min={formData.arrivalDate || new Date().toISOString().split('T')[0]} className="rounded-xl border-sage/20" />
+                        <Input type="date" value={formData.departureDate} onChange={e => setFormData((current) => ({ ...current, departureDate: e.target.value, departureTime: '' }))} min={formData.arrivalDate || today} className="rounded-xl border-sage/20" />
                       </div>
                     </div>
 
@@ -362,6 +529,7 @@ export function BookingFlow() {
                     )}
 
                     {blackoutConflict && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">The cattery is closed during part of this stay. Please choose different dates.</p>}
+                    {!petcoverSelectionsEligible && <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">The selected dates place at least one Petcover cat outside the under-12-month introductory offer. Go back to update the Petcover selection or choose earlier dates.</p>}
 
                     {days > 0 && (
                       <div className="bg-sage/10 rounded-xl p-3 text-sm flex items-start gap-2 text-sage-dark">
@@ -374,115 +542,48 @@ export function BookingFlow() {
                       </div>
                     )}
 
-                    <div className="space-y-2">
-                      <Label>Number of Cats</Label>
-                      <div className="flex gap-2">
-                        {[1, 2, 3, 4].map(n => (
-                          <button key={n} type="button" onClick={() => handleCatCountChange(n)} className={`flex-1 py-2 rounded-xl border text-sm font-medium transition-all ${formData.numberOfCats === n ? 'bg-sage text-white border-sage' : 'border-sage/20 text-forest hover:border-sage/50'}`}>
-                            {n} {n === 1 ? 'Cat' : 'Cats'}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+                    {availabilityLoading && <div role="status" className="flex items-center gap-2 rounded-xl bg-white p-4 text-sm text-forest/60"><Loader2 className="h-4 w-4 animate-spin text-sage" />Checking live room availability…</div>}
+                    {availabilityError && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{availabilityError}</p>}
 
-                    {rooms.length > 0 && (
+                    {rooms.length > 0 && availability.length > 0 && (
                       <div className="space-y-2">
-                        <Label>Choose a Room</Label>
+                        <Label>Choose a room</Label>
                         <div className="space-y-2">
                           {rooms.map(room => {
-                            const fitsSelectedCats = room.capacity >= formData.numberOfCats;
+                            const roomAvailability = availability.find((item) => item.roomId === room.id);
+                            const isSuitable = roomAvailability?.availability !== 'not_suitable';
+                            const availableKind: RequestKind | null = roomAvailability?.availability === 'whole'
+                              ? 'booking'
+                              : roomAvailability?.availability === 'split'
+                                ? 'split'
+                                : roomAvailability?.availability === 'waitlist'
+                                  ? 'waitlist'
+                                  : null;
+                            const selected = selectedRoom?.id === room.id && requestKind === availableKind;
                             return (
-                            <button key={room.id} type="button" disabled={!fitsSelectedCats} onClick={() => setSelectedRoom(room)} className={`w-full text-left p-4 rounded-xl border transition-all disabled:cursor-not-allowed disabled:opacity-55 ${selectedRoom?.id === room.id ? 'border-sage bg-sage/5 shadow-sm' : 'border-sage/20 enabled:hover:border-sage/40'}`}>
+                            <button key={room.id} type="button" disabled={!isSuitable || !availableKind} onClick={() => { setSelectedRoom(room); setRequestKind(availableKind); }} className={`w-full text-left p-4 rounded-xl border transition-all disabled:cursor-not-allowed disabled:opacity-55 ${selected ? 'border-sage bg-sage/5 shadow-sm' : roomAvailability?.availability === 'waitlist' ? 'border-amber-200 bg-amber-50/40 hover:border-amber-300' : 'border-sage/20 enabled:hover:border-sage/40'}`}>
                               <div className="flex items-center justify-between">
                                 <div>
                                   <div className="font-medium text-forest">{room.name}</div>
                                   {room.description && <div className="text-sm text-forest/60 mt-0.5">{room.description}</div>}
                                   <div className="text-sm text-forest/50 mt-0.5">Up to {room.capacity} cat{room.capacity > 1 ? 's' : ''}</div>
-                                  {!fitsSelectedCats && <div className="mt-1 text-sm font-medium text-amber-700">Not suitable for {formData.numberOfCats} cats sharing one room</div>}
+                                  {roomAvailability?.availability === 'whole' && <div className="mt-1 text-sm font-medium text-emerald-700">Available for the whole stay</div>}
+                                  {roomAvailability?.availability === 'split' && <div className="mt-1 text-sm font-medium text-sage">Available with {roomAvailability.roomMoves} room move{roomAvailability.roomMoves === 1 ? '' : 's'} during the stay</div>}
+                                  {roomAvailability?.availability === 'waitlist' && <div className="mt-1 text-sm font-medium text-amber-800">Fully booked for these dates · join the waitlist</div>}
+                                  {roomAvailability?.availability === 'not_suitable' && <div className="mt-1 text-sm font-medium text-amber-700">Not suitable for {formData.numberOfCats} cats sharing one room</div>}
                                 </div>
                                 <div className="text-right flex-shrink-0 ml-4">
                                   <div className="font-semibold text-sage">${room.price_per_night}/cat/day</div>
-                                  {selectedRoom?.id === room.id && <Check className="w-4 h-4 text-sage ml-auto mt-1" />}
+                                  {selected && <Check className="w-4 h-4 text-sage ml-auto mt-1" />}
                                 </div>
                               </div>
                             </button>
                           )})}
                         </div>
-                        {!rooms.some((room) => room.capacity >= formData.numberOfCats) && (
-                          <p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                            No single room can take this many cats. Please contact the cattery to arrange separate rooms.
-                          </p>
-                        )}
+                        {requestKind === 'split' && <p className="rounded-xl border border-sage/20 bg-sage/10 p-3 text-sm text-forest/70">The stay remains one booking. Staff will allocate a continuous plan across available physical rooms.</p>}
+                        {requestKind === 'waitlist' && <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">This sends a waitlist request, not a confirmed booking. CatStays will alert the cattery by phone and email when suitable capacity becomes available.</p>}
                       </div>
                     )}
-                  </CardContent>
-                </>
-              )}
-
-              {/* Step 2: Your Details */}
-              {step === 2 && (
-                <>
-                  <CardHeader>
-                    <CardTitle className="font-serif text-forest">Your Details</CardTitle>
-                    <CardDescription>Contact information for this booking</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="ownerName">Full Name *</Label>
-                      <Input id="ownerName" value={formData.ownerName} onChange={e => updateField('ownerName', e.target.value)} className="rounded-xl border-sage/20" required />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="email">Email Address *</Label>
-                      <Input id="email" type="email" value={formData.email} onChange={e => updateField('email', e.target.value)} className="rounded-xl border-sage/20" required />
-                      <p className="text-xs text-forest/50">Your booking confirmation will be sent here</p>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="phone">Phone Number *</Label>
-                      <Input id="phone" type="tel" value={formData.phone} onChange={e => updateField('phone', e.target.value)} className="rounded-xl border-sage/20" required />
-                    </div>
-                  </CardContent>
-                </>
-              )}
-
-              {/* Step 3: Cat Information */}
-              {step === 3 && (
-                <>
-                  <CardHeader>
-                    <CardTitle className="font-serif text-forest">Cat Information</CardTitle>
-                    <CardDescription>Tell us about your cat{formData.numberOfCats > 1 ? 's' : ''}</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-5">
-                    {Array.from({ length: formData.numberOfCats }).map((_, i) => (
-                      <div key={i} className="border border-sage/20 rounded-2xl p-4 space-y-3">
-                        <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-full bg-sage/10 flex items-center justify-center text-sm font-semibold text-sage">{i + 1}</div>
-                          <span className="font-medium text-forest">Cat {i + 1}</span>
-                        </div>
-                        <div className="grid md:grid-cols-2 gap-3">
-                          <div className="space-y-1.5">
-                            <Label>Name *</Label>
-                            <Input placeholder="Whiskers" value={formData.catNames[i]} onChange={e => updateCatName(i, e.target.value)} className="rounded-xl border-sage/20" required />
-                          </div>
-                          <div className="space-y-1.5">
-                            <Label>Breed (optional)</Label>
-                            <Input placeholder="Domestic Shorthair" value={formData.catBreeds[i]} onChange={e => updateCatBreed(i, e.target.value)} className="rounded-xl border-sage/20" />
-                          </div>
-                        </div>
-                        {tenantFeatures.petcoverOfferEnabled ? <PetcoverIntakeFields
-                          value={formData.petcoverCats[i]}
-                          onChange={(updates) => setFormData((current) => ({
-                            ...current,
-                            petcoverCats: current.petcoverCats.map((intake, index) => index === i ? { ...intake, ...updates } : intake),
-                          }))}
-                          referenceDate={formData.arrivalDate}
-                          idPrefix={`public-petcover-${i}`}
-                        /> : null}
-                      </div>
-                    ))}
-                    <div className="space-y-2">
-                      <Label htmlFor="special">Special Requirements or Medical Notes</Label>
-                      <Textarea id="special" placeholder="Dietary requirements, medications, allergies, behavioural notes..." value={formData.specialRequirements} onChange={e => updateField('specialRequirements', e.target.value)} rows={3} className="rounded-xl border-sage/20" />
-                    </div>
                   </CardContent>
                 </>
               )}
@@ -499,8 +600,8 @@ export function BookingFlow() {
                       <h4 className="font-semibold text-forest mb-2">Stay Details</h4>
                       <div className="space-y-2">
                         <div className="flex justify-between">
-                          <span className="text-forest/60">Room</span>
-                          <span className="font-medium text-forest">{selectedRoom?.name || rooms[0]?.name || 'Any available'}</span>
+                          <span className="text-forest/60">{requestKind === 'waitlist' ? 'Preferred room' : 'Room'}</span>
+                          <span className="font-medium text-forest">{selectedRoom?.name || 'Not selected yet'}{requestKind === 'split' ? ' (room move during stay)' : ''}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-forest/60">Check-in</span>
@@ -528,8 +629,10 @@ export function BookingFlow() {
                       <div className="flex justify-between"><span className="text-forest/60">Phone</span><span className="text-forest">{formData.phone || 'Not entered yet'}</span></div>
                     </div>
 
-                    <div className="bg-sage/10 rounded-2xl p-4 text-sm text-forest/70">
-                      <p><strong className="text-forest">How this works:</strong> Send your booking request and we'll contact you within 24 hours to confirm availability and explain the next steps. Your stay is confirmed once we send your confirmation.</p>
+                    <div className={`${requestKind === 'waitlist' ? 'border border-amber-200 bg-amber-50 text-amber-900' : 'bg-sage/10 text-forest/70'} rounded-2xl p-4 text-sm`}>
+                      <p><strong className="text-forest">How this works:</strong> {requestKind === 'waitlist'
+                        ? "Send this waitlist request and we'll contact you if suitable capacity becomes available. This is not yet a confirmed booking."
+                        : "Send your booking request and we'll contact you within 24 hours to confirm the next steps. Your stay is confirmed once we send your confirmation."}</p>
                     </div>
 
                     {submitError && (
@@ -567,7 +670,7 @@ export function BookingFlow() {
                       {submitting ? (
                         <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Sending Request…</>
                       ) : (
-                        <><SendHorizonal className="w-4 h-4 mr-2" />Submit Booking Request</>
+                        <><SendHorizonal className="w-4 h-4 mr-2" />{requestKind === 'waitlist' ? 'Join Waitlist' : 'Submit Booking Request'}</>
                       )}
                     </Button>
                   )}
@@ -583,7 +686,7 @@ export function BookingFlow() {
                 <CardTitle className="text-lg font-serif text-forest">Price Estimate</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {days > 0 ? (
+                {days > 0 && selectedRoom ? (
                   <>
                     <div className="space-y-2 text-sm">
                       <div className="text-forest/70">
@@ -615,7 +718,7 @@ export function BookingFlow() {
 
                   </>
                 ) : (
-                  <p className="text-sm text-forest/50 text-center py-4">Select dates to see pricing</p>
+                  <p className="text-sm text-forest/50 text-center py-4">Choose dates and a room to see pricing</p>
                 )}
 
                 <div className="space-y-2 text-sm">

@@ -92,7 +92,7 @@ export function buildRoomSegments(
 ): TimelineSegment[] {
   const segments = bookings
     .flatMap((booking) => {
-      if (booking.status === 'cancelled') return [];
+      if (booking.status === 'cancelled' || booking.status === 'waitlist') return [];
       const splitSegments = booking.booking_room_segments || [];
       if (splitSegments.length > 0) {
         return splitSegments.flatMap((segment) => {

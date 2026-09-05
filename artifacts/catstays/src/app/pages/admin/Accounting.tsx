@@ -225,7 +225,7 @@ export function AdminAccounting() {
   const filteredPayments = useMemo(() => payments.filter((payment) => withinRange(payment.created_at)), [payments, range]);
   const filteredRequests = useMemo(() => paymentRequests.filter((request) => withinRange(request.created_at)), [paymentRequests, range]);
   const filteredExpenses = useMemo(() => expenses.filter((expense) => withinRange(expense.date)), [expenses, range]);
-  const filteredBookings = useMemo(() => bookings.filter((booking) => booking.status !== 'cancelled' && withinRange(booking.created_at)), [bookings, range]);
+  const filteredBookings = useMemo(() => bookings.filter((booking) => booking.status !== 'cancelled' && booking.status !== 'waitlist' && withinRange(booking.created_at)), [bookings, range]);
 
   const paidByBooking = useMemo(() => {
     const totals = new Map<string, number>();

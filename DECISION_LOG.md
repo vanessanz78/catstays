@@ -1,6 +1,24 @@
 # Decision Log
 
-Last updated: 2026-09-02
+Last updated: 2026-09-05
+
+## 2026-09-05 - Public Bookings Start With People And Cats
+
+Working ref: `feat/booking-flow-details-cats-waitlist-20260905`.
+
+Decision: The public booking journey starts with contact details and cat profiles, then asks for dates and live accommodation availability. Cat cards are the single source of the cat count. If one physical room cannot cover every care day, CatStays may allocate a continuous stay across no more than three physical rooms of the chosen accommodation type. If no continuous plan exists, the customer may submit a waitlist request.
+
+Reason: Customers understand a details-first booking form more naturally than an availability-first workflow. Staff phone bookings keep their faster calendar and availability tools separately. Busy-period requests must be retained without pretending they reserve capacity or are confirmed stays.
+
+Impact:
+
+- Public steps are Your Details, Your Cats, Dates & Room, and Review & Submit.
+- Adding another cat collapses the current cat card and opens the new one; later steps do not ask for a second cat count.
+- Petcover date of birth is required with a best-estimate note, microchip is optional, and Accept all selects every declaration.
+- The API—not the browser—rechecks room type, per-room cat capacity, whole-stay availability, split-room continuity, and waitlist eligibility before saving.
+- Waitlist rows use `status = 'waitlist'`, keep the preferred accommodation type, have no physical room number, and are excluded from inventory, occupancy, operational calendars, revenue, and accounting.
+- A newly available waitlist space creates a staff CatStays/native notification and owner email with a direct link. Slotting is an authenticated staff action, rechecks capacity, assigns the whole or split plan, and changes the request to pending rather than confirmed.
+- Manual and nightly Revelation changes-only completion both trigger the same idempotent waitlist availability refresh. The prior changes-only/history boundaries remain unchanged.
 
 ## 2026-09-02 - Adopt The Legacy Workflow, Keep An Independent CatStays Product
 

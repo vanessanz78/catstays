@@ -99,7 +99,7 @@ router.get('/platform/overview', async (req, res) => {
       customersCount: customerCounts[cattery.id] || 0,
       activeRoomsCount: activeRooms[cattery.id] || 0,
       pendingBookingsCount: catteryBookings.filter((booking) => booking.status === 'pending').length,
-      upcomingBookingsCount: catteryBookings.filter((booking) => booking.status !== 'cancelled' && booking.check_in >= today).length,
+      upcomingBookingsCount: catteryBookings.filter((booking) => booking.status !== 'cancelled' && booking.status !== 'waitlist' && booking.check_in >= today).length,
       websiteAvailable: hasPublicWebsiteAddress(cattery),
       published: Boolean(cattery.current_published_version_id),
       payment: payment ? {

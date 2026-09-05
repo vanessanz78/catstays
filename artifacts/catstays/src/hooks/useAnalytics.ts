@@ -123,7 +123,7 @@ export function useAnalytics() {
       const totalCapacity = rooms.reduce((sum, room) => (
         sum + (Number(room.capacity) || 0) * Math.max(1, Number(room.room_count) || 1)
       ), 0);
-      const activeBookings = bookings.filter((booking) => booking.status !== 'cancelled');
+      const activeBookings = bookings.filter((booking) => booking.status !== 'cancelled' && booking.status !== 'waitlist');
 
       const weeklyBookings = activeBookings.filter((booking) => stayOverlaps(booking, weekStart, weekEnd));
       const weeklyRevenue = weeklyBookings.reduce((sum, booking) => sum + bookingAmount(booking), 0);

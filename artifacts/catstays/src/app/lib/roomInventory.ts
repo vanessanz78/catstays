@@ -155,6 +155,7 @@ export function roomUnitHasConflict(
   return bookings.some((booking) => (
     booking.id !== ignoredBookingId
     && booking.status !== 'cancelled'
+    && booking.status !== 'waitlist'
     && ((booking.booking_room_segments || []).length > 0
       ? (booking.booking_room_segments || []).some((segment) => (
           segment.room?.id === roomId

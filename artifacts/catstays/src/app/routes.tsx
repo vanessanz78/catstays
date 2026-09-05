@@ -62,7 +62,6 @@ import { RoomManagement } from "./pages/rooms/RoomManagement";
 import { TenantHome } from "./pages/tenant/Home";
 import { TenantAbout } from "./pages/tenant/About";
 import { TenantRooms } from "./pages/tenant/Rooms";
-import { TenantBooking } from "./pages/tenant/Booking";
 import { BookingFlow } from "./pages/tenant/BookingFlow";
 import { TenantContact } from "./pages/tenant/Contact";
 import { TenantBlog } from "./pages/tenant/Blog";
@@ -510,7 +509,7 @@ export const router = createBrowserRouter([
   },
   {
     path: "/site/booking",
-    Component: TenantBooking,
+    Component: BookingFlow,
     ErrorBoundary: RootErrorBoundary,
   },
   {
@@ -552,7 +551,7 @@ export const router = createBrowserRouter([
   },
   {
     path: "/tenant/:tenantId/booking",
-    Component: TenantBooking,
+    Component: BookingFlow,
     ErrorBoundary: RootErrorBoundary,
   },
   {

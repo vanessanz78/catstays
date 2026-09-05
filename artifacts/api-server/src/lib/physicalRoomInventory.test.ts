@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { firstAvailablePhysicalRoom, type PhysicalRoomBooking } from './physicalRoomInventory';
+import { firstAvailablePhysicalRoom, planPhysicalRoomStay, type PhysicalRoomBooking } from './physicalRoomInventory';
 
 const bookings: PhysicalRoomBooking[] = [
   {
@@ -30,4 +30,55 @@ test('reuses the first physical room when dates do not overlap', () => {
 
 test('returns no room when every physical room is occupied', () => {
   assert.equal(firstAvailablePhysicalRoom('private', 2, bookings, '2026-09-04', '2026-09-05'), null);
+});
+
+test('finds a continuous stay with one room move when no unit is free for the whole stay', () => {
+  const splitBookings: PhysicalRoomBooking[] = [
+    { id: 'one', room_id: 'private', room_unit_number: 1, check_in: '2026-12-24', check_out: '2026-12-26', status: 'confirmed' },
+    { id: 'two', room_id: 'private', room_unit_number: 2, check_in: '2026-12-27', check_out: '2026-12-30', status: 'confirmed' },
+  ];
+
+  assert.deepEqual(planPhysicalRoomStay('private', 2, splitBookings, '2026-12-24', '2026-12-30'), [
+    { roomId: 'private', unitNumber: 2, startsOn: '2026-12-24', endsOn: '2026-12-26' },
+    { roomId: 'private', unitNumber: 1, startsOn: '2026-12-27', endsOn: '2026-12-30' },
+  ]);
+});
+
+test('honours existing split segments without blocking the primary room for the whole stay', () => {
+  const splitBooking: PhysicalRoomBooking = {
+    id: 'split',
+    room_id: 'private',
+    room_unit_number: 1,
+    check_in: '2026-12-20',
+    check_out: '2026-12-24',
+    status: 'confirmed',
+    booking_room_segments: [
+      { room_id: 'private', room_unit_number: 1, starts_on: '2026-12-20', ends_on: '2026-12-21' },
+      { room_id: 'private', room_unit_number: 2, starts_on: '2026-12-22', ends_on: '2026-12-24' },
+    ],
+  };
+
+  assert.equal(firstAvailablePhysicalRoom('private', 2, [splitBooking], '2026-12-22', '2026-12-24'), 1);
+});
+
+test('waitlist entries never reserve inventory', () => {
+  const waitlist: PhysicalRoomBooking = {
+    id: 'waitlist',
+    room_id: 'private',
+    room_unit_number: 1,
+    check_in: '2026-12-24',
+    check_out: '2026-12-30',
+    status: 'waitlist',
+  };
+  assert.equal(firstAvailablePhysicalRoom('private', 1, [waitlist], '2026-12-24', '2026-12-30'), 1);
+});
+
+test('returns no plan when continuous coverage would need more than three room segments', () => {
+  const alternating: PhysicalRoomBooking[] = [
+    { id: 'one-a', room_id: 'private', room_unit_number: 1, check_in: '2026-12-20', check_out: '2026-12-20', status: 'confirmed' },
+    { id: 'two-a', room_id: 'private', room_unit_number: 2, check_in: '2026-12-21', check_out: '2026-12-21', status: 'confirmed' },
+    { id: 'one-b', room_id: 'private', room_unit_number: 1, check_in: '2026-12-22', check_out: '2026-12-22', status: 'confirmed' },
+    { id: 'two-b', room_id: 'private', room_unit_number: 2, check_in: '2026-12-23', check_out: '2026-12-23', status: 'confirmed' },
+  ];
+  assert.equal(planPhysicalRoomStay('private', 2, alternating, '2026-12-20', '2026-12-23'), null);
 });

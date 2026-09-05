@@ -10,7 +10,6 @@ function completeIntake() {
     dateOfBirth: '2026-01-01',
     sex: 'female' as const,
     acquisitionType: 'rescued' as const,
-    microchipNumber: '985000000000001',
     declarations: Object.fromEntries(
       Object.keys(intake.declarations).map((key) => [key, true]),
     ) as typeof intake.declarations,
@@ -26,4 +25,8 @@ test('Petcover requires explicit sex and acquisition details', () => {
   assert.equal(petcoverIntakeComplete(complete), true);
   assert.equal(petcoverIntakeComplete({ ...complete, sex: 'unknown' }), false);
   assert.equal(petcoverIntakeComplete({ ...complete, acquisitionType: 'unknown' }), false);
+});
+
+test('Petcover accepts a missing microchip number when the required details are complete', () => {
+  assert.equal(petcoverIntakeComplete(completeIntake()), true);
 });

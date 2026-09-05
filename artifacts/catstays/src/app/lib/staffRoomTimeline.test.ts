@@ -78,15 +78,17 @@ test('room segments clip to the visible window and stack overlaps into lanes', (
   ]);
 });
 
-test('conflict detection ignores cancelled and currently dragged bookings', () => {
+test('conflict detection ignores cancelled, waitlist, and currently dragged bookings', () => {
   const bookings = [
     booking({ id: 'existing' }),
     booking({ id: 'cancelled', status: 'cancelled' }),
+    booking({ id: 'waitlist', status: 'waitlist', room_unit_number: 2 }),
   ];
   assert.equal(roomHasBookingConflict(bookings, 'room-1', 1, '2026-09-03', '2026-09-04'), true);
   assert.equal(roomHasBookingConflict(bookings, 'room-1', 2, '2026-09-03', '2026-09-04'), false);
   assert.equal(roomHasBookingConflict(bookings, 'room-1', 1, '2026-09-04', '2026-09-05'), false);
   assert.equal(roomHasBookingConflict(bookings, 'room-1', 1, '2026-09-01', '2026-09-03', 'existing'), false);
+  assert.deepEqual(buildRoomSegments(bookings, 'room-1', 2, '2026-09-01', '2026-09-07'), []);
 });
 
 test('split stays render on each room only for that room segment', () => {

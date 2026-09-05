@@ -1,5 +1,16 @@
 # Current Sprint
 
+## Public details-first booking, split rooms, and waitlist alerts — 5 September 2026
+
+Working ref: `feat/booking-flow-details-cats-waitlist-20260905`.
+
+- Reorder the public journey to Your Details → Your Cats → Dates & Room → Review & Submit. The number of cats comes only from the cat cards; adding a cat collapses the current card and opens the new one.
+- Keep Petcover optional. For a selected offer, date of birth is required with “Best estimate is fine”, microchip is optional, the public activation disclaimer is removed, and one Accept all control selects every declaration.
+- Check physical-room availability only after dates and cats are known. Offer a whole-stay room when possible, a continuous plan across no more than three physical rooms of the selected accommodation type when needed, or a waitlist request when no continuous plan exists.
+- Waitlist requests never consume room capacity, booking revenue, occupancy, or room-calendar space. When capacity becomes available, alert staff through CatStays/native phone notification and owner email; staff must deliberately slot the request, which rechecks capacity and leaves the booking pending for normal review.
+- Refresh waitlist availability after relevant CatStays booking changes and after both completed manual and nightly Revelation changes-only syncs. Preserve the existing rule that sync never revisits unchanged historical records.
+- Release-coupled migration: `supabase/migrations/20260905070812_booking_waitlist_availability_alerts.sql`. Required gates are focused tests, full typecheck/build, migration review/rehearsal, GitHub PR/main merge, exact-SHA Replit Shell sync, development UAT, migration application, publish, and production desktop/phone UAT. Do not use Replit Agent and do not run `git clean`.
+
 ## Pending requests carry accommodation costs — 3 September 2026
 Working ref: `fix/pending-booking-costs`.
 - Owner approved pricing unpriced pending requests from saved CatStays accommodation rates before approval. This is the stay cost, not an additional fee or payment charge.
