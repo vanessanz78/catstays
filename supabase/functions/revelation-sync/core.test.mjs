@@ -193,6 +193,14 @@ test('changes-only sync does not revisit an unchanged previously observed warnin
  assert.ok(!f.calls.some(c=>c.path==='rpc/catstays_stage_legacy_source_file'));
  assert.ok(!f.calls.some(c=>c.body?.issue_type));
 });
+test('changes-only sync does not reopen an unchanged zero-value pending request',async()=>{
+ const f=unpricedFixture();f.job.checkpoint.scope='changes_only';
+ const {hash}=await import('./core.mjs');f.job.checkpoint.observed_checksums={'100':await hash(JSON.stringify(f.detail))};
+ await tick(f);
+ assert.ok(!f.calls.some(c=>c.path==='rpc/catstays_import_legacy_bookings'));
+ assert.ok(!f.calls.some(c=>c.path==='rpc/catstays_stage_legacy_source_file'));
+ assert.ok(!f.calls.some(c=>c.body?.issue_type));
+});
 test('a note-only change invalidates a verified snapshot',async()=>{
  const f=fixture();f.job.checkpoint.scope='operational';
  const {hash}=await import('./core.mjs');f.job.checkpoint.checked_checksums={'100':await hash(JSON.stringify(f.detail))};
