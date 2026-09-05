@@ -47,6 +47,13 @@ Working ref: `fix/booking-review-fresh-pricing`.
 
 Last updated: 2026-09-05
 
+## Deloraine Petcover website links — 5 September 2026
+
+- Link the Petcover brand name in the booking intake to Petcover New Zealand's cat-insurance page and offer the supplied 21-page four-week trial policy as a direct PDF download.
+- Show the new four-week free-trial promotion only on Deloraine Cattery's tenant website. Include both the Petcover website and policy-download actions, with eligibility and policy terms stated clearly.
+- Preserve the supplied PDF byte-for-byte. No database, insurance activation, eligibility, booking, notification, or Revelation sync behavior changes are part of this follow-up.
+- Required gates: focused public-booking tests, CatStays typecheck/build, reviewed GitHub merge, exact-tree Replit Shell sync, development UAT, publish, and production UAT of both links and Deloraine-only scoping.
+
 ## Deloraine live booking and changes-only Revelation sync — 5 September 2026
 
 Working ref: `fix/deloraine-live-changes-only-sync-20260905`.
