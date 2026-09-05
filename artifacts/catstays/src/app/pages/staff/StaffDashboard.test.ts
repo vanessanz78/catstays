@@ -3,13 +3,21 @@ import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { buildDashboardData, dailyBookingAction } from '../../lib/staffDashboard';
 
-test('Today detail panels start closed with native keyboard-accessible disclosure', () => {
+test('Today detail panels expand full-width on laptops and stay collapsible on smaller screens', () => {
   const source = readFileSync(new URL('./StaffDashboard.tsx', import.meta.url), 'utf8');
   const panel = source.slice(source.indexOf('function TodayPanel'), source.indexOf('function NewBookingDraft'));
-  assert.match(panel, /<details className=/);
-  assert.doesNotMatch(panel, /<details[^>]*\bopen[=\s>]/);
+  assert.match(panel, /<details/);
+  assert.match(panel, /matchMedia\('\(min-width: 1024px\)'\)/);
+  assert.match(panel, /open=\{desktopExpanded \|\| mobileExpanded\}/);
+  assert.match(panel, /if \(!desktopExpanded\) setMobileExpanded/);
   assert.match(panel, /<summary/);
+  assert.match(panel, /tabIndex=\{desktopExpanded \? -1 : 0\}/);
+  assert.match(panel, /if \(desktopExpanded\) event\.preventDefault\(\)/);
+  assert.match(panel, /lg:pointer-events-none lg:cursor-default/);
   assert.match(panel, /group-open:rotate-90/);
+  assert.match(panel, /lg:hidden/);
+  assert.match(source, /<div className="mt-5 space-y-5">/);
+  assert.doesNotMatch(source, /lg:grid-cols-\[1\.35fr_0\.65fr\]/);
   for (const title of ['Currently Occupied', 'Pending bookings', 'Latest bookings', '7-day occupancy', 'Workspace', 'Website']) {
     assert.ok(source.includes(`<TodayPanel title="${title}"`));
   }
