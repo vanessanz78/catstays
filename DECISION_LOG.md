@@ -338,5 +338,6 @@ Impact:
 - A previously warned record is reconsidered only when its complete Revelation response changes.
 - Historical and earlier operational queues stay paused and auditable; they are not deleted or marked complete.
 - Nightly and button-triggered jobs share the same `changes_only` scope and source protections.
+- Release the compatible worker and application while the site remains `test_only`, then apply the changes-only migration only after the safe application SHA is serving production. This prevents an older runtime from claiming a new-scope job with legacy behavior.
 - The live-booking data activation is a separate reviewed operation run only after the safe public-booking application SHA is serving production, avoiding an unsafe schema-first cutover window.
 - Anonymous users cannot read the Petcover application table; staff access remains RLS-scoped to their cattery.
