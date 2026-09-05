@@ -104,8 +104,16 @@ export function CatstaysTemplateSite({
   };
 
   const handlePreviewAnchorClick = (event: MouseEvent<HTMLAnchorElement>) => {
-    if (!embedded) return;
     const href = event.currentTarget.getAttribute('href') || '';
+
+    if (!embedded) {
+      if (href === '#booking') {
+        event.preventDefault();
+        window.location.href = liveBookingPath();
+      }
+      return;
+    }
+
     if (!href.startsWith('#') || href.length < 2) return;
 
     const didScroll = scrollInsidePreview(event.currentTarget, href);
