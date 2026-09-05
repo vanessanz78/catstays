@@ -36,7 +36,7 @@ Working ref: `fix/deloraine-live-changes-only-sync-20260905`.
 - The Revelation button and nightly schedule must both run the same changes-only workflow. Customer discovery uses the documented last-updated date filter with a one-day boundary overlap; booking discovery starts today and looks forward.
 - Full booking responses are checksum-compared. Previously observed unchanged bookings, including records with an earlier unresolved warning, are skipped without another import or reconciliation attempt. A changed response is processed normally.
 - Historical and earlier operational queues remain retained for audit but paused. This release must not resume, delete, complete, or repair them.
-- Required gates: focused tests, complete typecheck/build, reviewed migration, GitHub PR/main merge, exact-SHA Replit Shell sync, development UAT, publish the safe API, then activate live booking with the reviewed operation and complete production UAT of public booking, staff phone booking, Petcover, manual sync, and nightly status.
+- Required gates: focused tests, complete typecheck/build, reviewed migration, GitHub PR/main merge, deploy the compatible Revelation worker, exact-SHA Replit Shell sync, development UAT while `test_only`, publish the safe API, apply the changes-only migration, then activate live booking with the reviewed operation and complete production UAT of public booking, staff phone booking, Petcover, manual sync, and nightly status. Do not press the sync button between the application update and migration.
 
 ## Focused Follow-up: Confirmation Payment Links
 
