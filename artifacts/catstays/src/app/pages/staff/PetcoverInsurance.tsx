@@ -138,7 +138,7 @@ export function PetcoverInsurance() {
           </div>
           <div className="flex items-center gap-3 rounded-2xl bg-[#0A1128] p-4 text-white"><ShieldCheck className="h-7 w-7 text-[#F4B183]" /><div><p className="text-2xl font-semibold">{readyCount}</p><p className="text-xs text-white/70">ready to submit</p></div></div>
         </div>
-        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm leading-5 text-amber-900">Offer and waiting-period wording must follow Petcover’s approved material. The record currently uses “under 12 months at check-in” and does not claim active cover.</div>
+        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm leading-5 text-amber-900">Offer and waiting-period wording must follow Petcover’s approved material. CatStays collects the details for staff to enter manually.</div>
       </section>
 
       <section className="rounded-2xl border border-[#E8DED4] bg-white p-4 shadow-sm sm:p-5">

@@ -643,7 +643,7 @@ function BookingListPanel({
 }
 
 function BookingsSection({ bookings, isLoading, showNewBooking }: { bookings: Booking[]; isLoading: boolean; showNewBooking: boolean }) {
-  const activeBookings = bookings.filter((booking) => booking.status !== 'cancelled');
+  const activeBookings = bookings.filter((booking) => booking.status !== 'cancelled' && booking.status !== 'waitlist');
   const pending = bookings.filter((booking) => booking.status === 'pending');
 
   return (

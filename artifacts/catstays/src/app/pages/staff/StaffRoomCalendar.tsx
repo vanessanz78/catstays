@@ -126,7 +126,7 @@ export function StaffRoomCalendar({ bookings, rooms, isLoading, moveBooking, spl
   const firstDate = days[0];
   const lastDate = days[days.length - 1];
   const activeBookings = useMemo(
-    () => bookings.filter((booking) => booking.status !== 'cancelled'),
+    () => bookings.filter((booking) => booking.status !== 'cancelled' && booking.status !== 'waitlist'),
     [bookings],
   );
   const hasUnassigned = activeBookings.some(bookingNeedsRoomUnit);

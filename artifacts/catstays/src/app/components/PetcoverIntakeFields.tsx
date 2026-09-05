@@ -23,6 +23,12 @@ export function PetcoverIntakeFields({
   const eligibility = petcoverEligibility(value.dateOfBirth, referenceDate || undefined);
   const updateDeclaration = (key: keyof PetcoverCatIntake['declarations'], checked: boolean) =>
     onChange({ declarations: { ...value.declarations, [key]: checked } });
+  const declarationsAccepted = PETCOVER_DECLARATION_LABELS.every(({ key }) => value.declarations[key]);
+  const setAllDeclarations = (checked: boolean) => onChange({
+    declarations: Object.fromEntries(
+      PETCOVER_DECLARATION_LABELS.map(({ key }) => [key, checked]),
+    ) as PetcoverCatIntake['declarations'],
+  });
 
   return (
     <div className={`space-y-4 rounded-2xl border ${value.requested ? 'border-[#F0C9B2] bg-[#FFF8F2]' : 'border-[#E8DED4] bg-white'} p-4`}>
@@ -35,7 +41,7 @@ export function PetcoverIntakeFields({
         />
         <span>
           <span className="flex items-center gap-2 font-semibold text-[#0A1128]"><ShieldCheck className="h-4 w-4 text-[#C46A3A]" />Offer the 4-week Petcover introductory cover</span>
-          <span className="mt-1 block text-xs leading-5 text-[#4E5871]">For a first-time Petcover offer for cats under 12 months. CatStays collects the details for staff to enter manually; this does not activate a policy.</span>
+          <span className="mt-1 block text-xs leading-5 text-[#4E5871]">For a first-time Petcover offer for cats under 12 months. CatStays collects the details for staff to enter manually.</span>
         </span>
       </label>
 
@@ -44,6 +50,7 @@ export function PetcoverIntakeFields({
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="text-sm font-semibold text-[#0A1128]">Date of birth *
               <Input id={`${idPrefix}-dob`} type="date" value={value.dateOfBirth} onChange={(event) => onChange({ dateOfBirth: event.target.value })} className="mt-1.5 bg-white font-normal" />
+              <span className="mt-1 block text-xs font-normal text-[#4E5871]">Best estimate is fine.</span>
             </label>
             <label className="text-sm font-semibold text-[#0A1128]">Sex *
               <select id={`${idPrefix}-sex`} value={value.sex} onChange={(event) => onChange({ sex: event.target.value as PetcoverCatIntake['sex'] })} className="mt-1.5 h-10 w-full rounded-md border border-[#E8DED4] bg-white px-3 text-sm font-normal">
@@ -58,19 +65,23 @@ export function PetcoverIntakeFields({
             <label className="text-sm font-semibold text-[#0A1128]">Purchase price {value.acquisitionType === 'purchased' ? '*' : '(if applicable)'}
               <Input type="number" min="0" step="0.01" inputMode="decimal" value={value.purchasePrice} onChange={(event) => onChange({ purchasePrice: event.target.value })} placeholder="NZD" className="mt-1.5 bg-white font-normal" />
             </label>
-            <label className={`${compact ? '' : 'sm:col-span-2'} text-sm font-semibold text-[#0A1128]`}>Microchip number *
+            <label className={`${compact ? '' : 'sm:col-span-2'} text-sm font-semibold text-[#0A1128]`}>Microchip number (optional)
               <Input id={`${idPrefix}-microchip`} value={value.microchipNumber} onChange={(event) => onChange({ microchipNumber: event.target.value })} placeholder="Enter the microchip number" className="mt-1.5 bg-white font-normal" />
             </label>
           </div>
 
           <p className={`rounded-xl border p-3 text-sm ${eligibility.eligible ? 'border-green-200 bg-green-50 text-green-800' : 'border-amber-200 bg-amber-50 text-amber-900'}`}>
             <strong>{eligibility.eligible ? 'Eligibility check: under 12 months' : 'Eligibility needs review'}</strong>
-            <span className="ml-1">{eligibility.reason} Checked against the booking check-in date.</span>
+            <span className="ml-1">{eligibility.reason}</span>
           </p>
 
           <fieldset className="space-y-2">
             <legend className="text-sm font-semibold text-[#0A1128]">Declarations</legend>
             <p className="text-xs leading-5 text-[#4E5871]">These confirmations are saved with the record for staff follow-up and manual portal entry.</p>
+            <label className="flex items-start gap-2 rounded-xl border border-[#F0C9B2] bg-white p-3 text-sm font-semibold text-[#0A1128]">
+              <input type="checkbox" checked={declarationsAccepted} onChange={(event) => setAllDeclarations(event.target.checked)} className="mt-0.5 h-4 w-4 accent-[#C46A3A]" />
+              <span>Accept all</span>
+            </label>
             {PETCOVER_DECLARATION_LABELS.map(({ key, label }) => (
               <label key={key} className="flex items-start gap-2 text-sm text-[#0A1128]">
                 <input type="checkbox" checked={value.declarations[key]} onChange={(event) => updateDeclaration(key, event.target.checked)} className="mt-0.5 h-4 w-4 accent-[#C46A3A]" />

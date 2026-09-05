@@ -93,12 +93,19 @@ export interface BookingWithDetails {
   }[];
 }
 
+function triggerWaitlistRefresh() {
+  void fetch('/api/bookings/waitlist/refresh', { method: 'POST' }).catch(() => {
+    // Booking writes remain complete if the background availability alert check
+    // is temporarily unavailable; the next room change or sync retries it.
+  });
+}
+
 export function useBookings(options?: BookingReadScope & { allPages?: boolean; bookingId?: string; enabled?: boolean }) {
   const { checkOutFrom, checkOutThrough, checkInFrom, checkInThrough } = bookingReadScope(options);
   const scope = { checkOutFrom, checkOutThrough, checkInFrom, checkInThrough };
   const bookingId = options?.bookingId;
   const enabled = options?.enabled !== false;
-  const { cattery, user } = useAuth();
+  const { cattery, user, session } = useAuth();
   const [bookings, setBookings] = useState<BookingWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -268,6 +275,7 @@ export function useBookings(options?: BookingReadScope & { allPages?: boolean; b
       });
       await fetchBookings();
       announceCatStaysBookingsChanged();
+      triggerWaitlistRefresh();
     }
     return { data, error };
   };
@@ -293,6 +301,7 @@ export function useBookings(options?: BookingReadScope & { allPages?: boolean; b
       });
       await fetchBookings();
       announceCatStaysBookingsChanged();
+      triggerWaitlistRefresh();
     }
     return { data, error };
   };
@@ -324,6 +333,7 @@ export function useBookings(options?: BookingReadScope & { allPages?: boolean; b
     if (!error) {
       await fetchBookings();
       announceCatStaysBookingsChanged();
+      triggerWaitlistRefresh();
     }
     return { data, error };
   };
@@ -336,6 +346,7 @@ export function useBookings(options?: BookingReadScope & { allPages?: boolean; b
     if (!error) {
       await fetchBookings();
       announceCatStaysBookingsChanged();
+      triggerWaitlistRefresh();
     }
     return { data, error };
   };
@@ -399,7 +410,7 @@ export function useBookings(options?: BookingReadScope & { allPages?: boolean; b
       `)
       .eq('cattery_id', cattery.id)
       .neq('id', id)
-      .neq('status', 'cancelled')
+      .not('status', 'in', '(cancelled,waitlist)')
       .lte('check_in', move.checkOut)
       .gte('check_out', move.checkIn);
     if (overlapError) return { error: overlapError };
@@ -470,6 +481,7 @@ export function useBookings(options?: BookingReadScope & { allPages?: boolean; b
       created_by: user?.id || null,
     });
     await fetchBookings();
+    triggerWaitlistRefresh();
     return { error: null };
   };
 
@@ -504,8 +516,33 @@ export function useBookings(options?: BookingReadScope & { allPages?: boolean; b
       target_booking_id: id,
       new_segments: segments,
     });
-    if (!error) await fetchBookings();
+    if (!error) {
+      await fetchBookings();
+      triggerWaitlistRefresh();
+    }
     return { error };
+  };
+
+  const slotWaitlistBooking = async (id: string) => {
+    if (!cattery?.id || !session?.access_token) return { error: 'Sign in to slot this waitlist request.' };
+    try {
+      const response = await fetch(`/api/bookings/waitlist/${encodeURIComponent(id)}/slot`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ catteryId: cattery.id }),
+      });
+      const payload = await response.json();
+      if (!response.ok) return { data: null, error: payload.error || 'The waitlist request could not be slotted.' };
+      await fetchBookings();
+      announceCatStaysBookingsChanged();
+      triggerWaitlistRefresh();
+      return { data: payload, error: null };
+    } catch (error) {
+      return { data: null, error: error instanceof Error ? error.message : 'The waitlist request could not be slotted.' };
+    }
   };
 
   return {
@@ -519,6 +556,7 @@ export function useBookings(options?: BookingReadScope & { allPages?: boolean; b
     deleteErroneousBooking,
     moveBooking,
     splitBooking,
+    slotWaitlistBooking,
     refetch: fetchBookings,
   };
 }

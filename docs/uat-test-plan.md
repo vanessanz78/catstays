@@ -1,6 +1,6 @@
 # UAT Test Plan
 
-Last reviewed: 2026-06-12
+Last reviewed: 2026-09-05
 
 ## Purpose
 
@@ -101,19 +101,24 @@ Test:
 
 - Open the public cattery website.
 - Start a booking.
-- Choose dates.
-- Choose a room.
-- Enter customer details.
-- Enter cat details.
+- Confirm the visible order is Your Details → Your Cats → Dates & Room → Review & Submit.
+- Enter customer details first.
+- Add one cat, then add a second cat; confirm the first card collapses and the new card opens.
+- Confirm there is no separate number-of-cats control after the cat cards.
+- Select Petcover and confirm date of birth is required with “Best estimate is fine”, microchip is optional, and Accept all selects every declaration.
+- Choose dates and times.
+- Confirm live room results distinguish whole-stay availability, continuous split availability, waitlist, and rooms that cannot hold the selected cats.
 - Review booking summary.
-- Submit booking request.
-- Confirmation message appears.
-- Owner dashboard shows or can receive the request.
-- Customer and owner email behaviour is noted.
+- In a safe development fixture, submit each of whole, split, and waitlist requests; confirm waitlist copy never claims a confirmed booking.
+- Confirm split segments cover every booking day once and the staff calendar shows the booking only in the assigned physical room for each segment.
+- Confirm a waitlist request has no physical room number and does not block another booking, room calendar, occupancy, reports, or accounting.
+- Release a suitable space and verify one direct-linked staff inbox alert, one native phone notification, and one owner email saying a space is available and asking whether to slot the person in.
+- Use Slot into room; confirm capacity is checked again, the whole/split assignment is saved, and status becomes pending rather than confirmed.
+- Repeat the availability refresh without another capacity transition; confirm no duplicate alert is created.
 
 Pass condition:
 
-- A customer can submit a booking request and the cattery owner can act on it.
+- A customer can submit an accurately labelled booking or waitlist request, physical inventory remains truthful, and the cattery owner receives and can act on the first availability transition.
 
 ## Pass 6: Customer Portal
 

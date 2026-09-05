@@ -56,6 +56,12 @@ test('room-unit occupancy distinguishes rooms of the same type', () => {
   assert.equal(firstAvailableRoomUnit(privateRoom, [booking], '2026-09-02', '2026-09-04')?.unitNumber, 2);
 });
 
+test('waitlist requests never reserve a physical room', () => {
+  const waitlist = { ...booking, id: 'waitlist-1', status: 'waitlist' };
+  assert.equal(roomUnitHasConflict([waitlist], 'private', 1, '2026-09-01', '2026-09-03'), false);
+  assert.equal(firstAvailableRoomUnit(privateRoom, [waitlist], '2026-09-01', '2026-09-03')?.unitNumber, 1);
+});
+
 test('legacy bookings without a physical room number remain visibly unassigned', () => {
   assert.equal(bookingNeedsRoomUnit({ ...booking, room_unit_number: null }), true);
 });

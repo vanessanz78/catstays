@@ -68,8 +68,8 @@ export function petcoverEligibility(dateOfBirth: string, referenceDate: string |
   let ageInMonths = (reference.getFullYear() - dob.getFullYear()) * 12 + reference.getMonth() - dob.getMonth();
   if (reference.getDate() < dob.getDate()) ageInMonths -= 1;
   if (ageInMonths < 0) return { eligible: false, reason: 'Date of birth cannot be in the future.' };
-  if (ageInMonths >= 12) return { eligible: false, reason: 'The introductory offer is for cats under 12 months at check-in.' };
-  return { eligible: true, reason: 'Under 12 months at check-in.' };
+  if (ageInMonths >= 12) return { eligible: false, reason: 'The introductory offer is for cats under 12 months.' };
+  return { eligible: true, reason: 'Under 12 months.' };
 }
 
 export function petcoverDeclarationsComplete(declarations: PetcoverDeclarations) {
@@ -83,7 +83,6 @@ export function petcoverIntakeComplete(intake: PetcoverCatIntake) {
     && intake.sex !== 'unknown'
     && intake.acquisitionType !== 'unknown'
     && (intake.acquisitionType !== 'purchased' || intake.purchasePrice.trim())
-    && intake.microchipNumber.trim()
     && petcoverDeclarationsComplete(intake.declarations),
   );
 }

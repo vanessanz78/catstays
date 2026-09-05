@@ -379,14 +379,19 @@ export function bookingRequestOwnerHtml(opts: {
   roomName: string;
   estimatedTotal: string;
   specialRequirements?: string;
+  requestKind?: 'booking' | 'split' | 'waitlist';
 }) {
+  const isWaitlist = opts.requestKind === 'waitlist';
+  const roomValue = opts.requestKind === 'split' ? `${opts.roomName} (continuous stay with a room move)` : opts.roomName;
   return catstaysEmailLayout({
-    title: 'New booking request',
+    title: isWaitlist ? 'New waitlist request' : 'New booking request',
     preheader: `${opts.customerName} requested ${plural(opts.days, 'day')} at ${opts.catteryName}.`,
-    eyebrow: 'Booking request',
-    badge: 'Review request',
+    eyebrow: isWaitlist ? 'Waitlist request' : 'Booking request',
+    badge: isWaitlist ? 'Waitlist' : 'Review request',
     catteryName: opts.catteryName,
-    intro: `${opts.customerName} wants to book ${catNamesText(opts.catNames)} for ${plural(opts.days, 'day')}.`,
+    intro: isWaitlist
+      ? `${opts.customerName} wants to join the waitlist for ${catNamesText(opts.catNames)} for ${plural(opts.days, 'day')}.`
+      : `${opts.customerName} wants to book ${catNamesText(opts.catNames)} for ${plural(opts.days, 'day')}.`,
     cards: [
       {
         title: 'Stay details',
@@ -395,7 +400,7 @@ export function bookingRequestOwnerHtml(opts: {
           { label: 'Check-in', value: opts.checkIn },
           { label: 'Check-out', value: opts.checkOut },
           { label: 'Duration', value: `${plural(opts.days, 'day')} (includes arrival and departure)` },
-          { label: 'Room', value: opts.roomName },
+          { label: isWaitlist ? 'Preferred room' : 'Room', value: roomValue },
           { label: 'Estimated total', value: opts.estimatedTotal },
         ],
       },
@@ -414,7 +419,9 @@ export function bookingRequestOwnerHtml(opts: {
       }] : []),
     ],
     action: { label: 'Reply to customer', href: `mailto:${opts.customerEmail}` },
-    footerNote: 'Confirm availability in your CatStays dashboard, then send the customer their final booking confirmation.',
+    footerNote: isWaitlist
+      ? 'CatStays will alert staff if suitable room capacity becomes available. The customer is not booked until staff slot and confirm the stay.'
+      : 'Confirm availability in your CatStays dashboard, then send the customer their final booking confirmation.',
   });
 }
 
@@ -429,14 +436,19 @@ export function bookingRequestCustomerHtml(opts: {
   days: number;
   roomName: string;
   estimatedTotal: string;
+  requestKind?: 'booking' | 'split' | 'waitlist';
 }) {
+  const isWaitlist = opts.requestKind === 'waitlist';
+  const roomValue = opts.requestKind === 'split' ? `${opts.roomName} (continuous stay with a room move)` : opts.roomName;
   return catstaysEmailLayout({
     title: `Thanks, ${firstName(opts.customerName)}`,
-    preheader: `${opts.catteryName} received your booking request.`,
-    eyebrow: 'Request received',
-    badge: 'Request received',
+    preheader: `${opts.catteryName} received your ${isWaitlist ? 'waitlist' : 'booking'} request.`,
+    eyebrow: isWaitlist ? 'Waitlist request received' : 'Request received',
+    badge: isWaitlist ? 'Waitlist' : 'Request received',
     catteryName: opts.catteryName,
-    intro: `Your booking request has been received. ${opts.catteryName} will review availability and contact you to confirm your cat's stay.`,
+    intro: isWaitlist
+      ? `Your waitlist request has been received. ${opts.catteryName} will contact you if suitable room capacity becomes available. This is not yet a confirmed booking.`
+      : `Your booking request has been received. ${opts.catteryName} will review availability and contact you to confirm your cat's stay.`,
     cards: [
       {
         title: 'Requested stay',
@@ -445,7 +457,7 @@ export function bookingRequestCustomerHtml(opts: {
           { label: 'Check-in', value: opts.checkIn },
           { label: 'Check-out', value: opts.checkOut },
           { label: 'Duration', value: `${plural(opts.days, 'day')} (includes arrival and departure)` },
-          { label: 'Room', value: opts.roomName },
+          { label: isWaitlist ? 'Preferred room' : 'Room', value: roomValue },
           { label: 'Estimated total', value: opts.estimatedTotal },
         ],
       },
@@ -457,7 +469,41 @@ export function bookingRequestCustomerHtml(opts: {
         ],
       },
     ],
-    footerNote: `${opts.catteryName} will be in touch to confirm availability and next steps.`,
+    footerNote: isWaitlist
+      ? `${opts.catteryName} will contact you if a suitable space becomes available.`
+      : `${opts.catteryName} will be in touch to confirm availability and next steps.`,
+  });
+}
+
+export function waitlistAvailabilityOwnerHtml(opts: {
+  catteryName: string;
+  customerName: string;
+  catNames: string[];
+  checkIn: string;
+  checkOut: string;
+  roomName: string;
+  bookingUrl: string;
+}) {
+  return catstaysEmailLayout({
+    title: 'A waitlist space is available',
+    preheader: `A suitable space is available for ${opts.customerName}.`,
+    eyebrow: 'Waitlist availability',
+    badge: 'Action available',
+    catteryName: opts.catteryName,
+    intro: `Hey, a space has become available for ${opts.customerName}. Do you want to slot this person in?`,
+    cards: [{
+      title: 'Waitlist request',
+      rows: [
+        { label: 'Customer', value: opts.customerName },
+        { label: 'Cats', value: catNamesText(opts.catNames) },
+        { label: 'Check-in', value: opts.checkIn },
+        { label: 'Check-out', value: opts.checkOut },
+        { label: 'Preferred room', value: opts.roomName },
+      ],
+      tone: 'success',
+    }],
+    action: { label: 'Review and slot booking', href: opts.bookingUrl },
+    footerNote: 'The room is not reserved until you open the request and slot it into the available room plan.',
   });
 }
 

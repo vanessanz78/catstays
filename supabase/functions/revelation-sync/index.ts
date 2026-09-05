@@ -7,6 +7,9 @@ Deno.serve(async (request: Request) => {
   }
   try {
     const result = await processTick(env);
+    if (result?.phase === 'complete') {
+      await fetch('https://catstays.app/api/bookings/waitlist/refresh', { method: 'POST' }).catch(() => undefined);
+    }
     return Response.json(result);
   } catch(error) {
     // Never return provider URLs, secrets or customer payloads to the scheduler.
