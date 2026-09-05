@@ -35,8 +35,10 @@ begin
      return null;
    end if;
  else
-   -- Cron checks every minute but must not create today's job before 00:01 local time.
-   if force_start or local_now::time < '00:01'::time then return null; end if;
+   -- Cron checks every minute, but only the first ten minutes after 00:01
+   -- local time may create the day's scheduled job. This also prevents a
+   -- daytime activation from starting an extra run immediately.
+   if force_start or local_now::time < '00:01'::time or local_now::time >= '00:11'::time then return null; end if;
    if exists(
      select 1 from public.legacy_sync_jobs
      where cattery_id=tenant and request_kind='scheduled' and local_day=local_now::date
@@ -110,7 +112,7 @@ begin
  ) then
    raise exception 'Source connection is not enabled';
  end if;
- select cron.jobid into job_id from cron.job where jobname='catstays-revelation-nightly';
+ select jobid into job_id from cron.job where jobname='catstays-revelation-nightly';
  if job_id is null then
    perform cron.schedule('catstays-revelation-nightly','* * * * *',$job$
      select net.http_post(
