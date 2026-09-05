@@ -80,8 +80,8 @@ export function petcoverIntakeComplete(intake: PetcoverCatIntake) {
   if (!intake.requested) return true;
   return Boolean(
     intake.dateOfBirth
-    && intake.sex
-    && intake.acquisitionType
+    && intake.sex !== 'unknown'
+    && intake.acquisitionType !== 'unknown'
     && (intake.acquisitionType !== 'purchased' || intake.purchasePrice.trim())
     && intake.microchipNumber.trim()
     && petcoverDeclarationsComplete(intake.declarations),

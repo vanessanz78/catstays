@@ -322,3 +322,22 @@ Impact:
 
 ## 2026-09-03 — Everyday sync is independent of historical reconciliation
 Manual operational snapshots replace resuming the frozen full-history queue for the dashboard button. Scan recent arrivals (30 days), existing earlier active/pending stays, and future arrivals through the existing ten-year horizon. Customer updates overlap the last completed operational start by one day; first run uses seven days plus exact-email fallback. Existing audited import/conflict/payment safeguards remain. Historical backlog is neither deleted nor declared complete. New windows re-discover records; concurrent clicks share one bounded window. No scheduler is enabled. Dashboard and bell refresh during the explicit request. Latest-booking ordering changes remain withdrawn.
+
+## 2026-09-05 — Deloraine is live and Revelation synchronization is changes-only
+
+Working ref: `fix/deloraine-live-changes-only-sync-20260905`.
+
+Decision: End Deloraine's `test_only` parallel-run restriction. CatStays accepts real public website booking requests and staff-entered phone bookings, with Petcover intake available in both flows. Keep both nightly Revelation synchronization and the staff sync button, but make both start fresh changes-only snapshots.
+
+Reason: The booking pause was a temporary pet-regulation decision, not the desired operating model. The founder wants CatStays to take bookings now and does not want routine synchronization to resume or repair old untouched history.
+
+Impact:
+
+- Customer reads use Revelation's last-updated date filter with only a one-day boundary overlap.
+- Booking discovery begins today and looks forward. Complete responses are compared with the last observed checksum, and unchanged responses cause no import, archive, or reconciliation work.
+- A previously warned record is reconsidered only when its complete Revelation response changes.
+- Historical and earlier operational queues stay paused and auditable; they are not deleted or marked complete.
+- Nightly and button-triggered jobs share the same `changes_only` scope and source protections.
+- Release the compatible worker and application while the site remains `test_only`, then apply the changes-only migration only after the safe application SHA is serving production. This prevents an older runtime from claiming a new-scope job with legacy behavior.
+- The live-booking data activation is a separate reviewed operation run only after the safe public-booking application SHA is serving production, avoiding an unsafe schema-first cutover window.
+- Anonymous users cannot read the Petcover application table; staff access remains RLS-scoped to their cattery.
