@@ -32,6 +32,13 @@ test('customer request email stays customer-facing', () => {
   assert.doesNotMatch(html, /7 nights/);
 });
 
+test('customer split-room email describes the selected accommodation without internal room moves', () => {
+  const html = bookingRequestCustomerHtml({ ...booking, requestKind: 'split' });
+
+  assert.match(html, /Private Suite/);
+  assert.doesNotMatch(html, /room move/i);
+});
+
 test('waitlist request email clearly says the stay is not confirmed', () => {
   const html = bookingRequestCustomerHtml({ ...booking, requestKind: 'waitlist' });
   assert.match(html, /waitlist request has been received/i);

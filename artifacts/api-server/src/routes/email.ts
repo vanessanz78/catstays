@@ -12,7 +12,7 @@ import {
 } from '../lib/emailTemplates';
 import { createClient } from '@supabase/supabase-js';
 import { notifyCatteryStaff, notifyCustomer } from '../push/notifications.js';
-import { planPhysicalRoomStay } from '../lib/physicalRoomInventory.js';
+import { accommodationCanHoldCats, planAccommodationStay } from '../lib/physicalRoomInventory.js';
 import { checkParallelRunRequest } from '../lib/parallelRun.js';
 import { refreshAvailableWaitlists } from './bookings.js';
 
@@ -700,6 +700,10 @@ router.post('/bookings/request', async (req, res) => {
     }
     const catNamesStr = normalizedCatNames.join(', ');
     const numCats = normalizedCatNames.length;
+    if (numCats > 25) {
+      res.status(400).json({ error: 'Online booking requests can include up to 25 cats.' });
+      return;
+    }
     const waitlistRequested = requestKind === 'waitlist';
     const requestedPetcoverApplications = petcoverOfferEnabled && Array.isArray(petcoverApplications)
       ? petcoverApplications.filter((application: any) => application?.requested)
@@ -746,9 +750,9 @@ router.post('/bookings/request', async (req, res) => {
       res.status(409).json({ error: 'That accommodation option is no longer available. Please choose a room again.' });
       return;
     }
-    if (Number(resolvedRoom.capacity) < numCats) {
+    if (!accommodationCanHoldCats(resolvedRoom, numCats)) {
       res.status(409).json({
-        error: `${resolvedRoom.name} can hold ${resolvedRoom.capacity} cat${resolvedRoom.capacity === 1 ? '' : 's'} per room. Please choose another option.`,
+        error: `${resolvedRoom.name} cannot accommodate that number of cats. Please choose another option.`,
       });
       return;
     }
@@ -765,23 +769,23 @@ router.post('/bookings/request', async (req, res) => {
       res.status(503).json({ error: 'Availability could not be checked. Please try again.' });
       return;
     }
-    const resolvedRoomPlan = planPhysicalRoomStay(
-      resolvedRoomId,
-      Number(resolvedRoom.room_count),
+    const resolvedRoomAllocation = planAccommodationStay(
+      resolvedRoom,
+      numCats,
       overlappingBookings || [],
       checkIn,
       checkOut,
     );
-    if (waitlistRequested && resolvedRoomPlan) {
+    if (waitlistRequested && resolvedRoomAllocation) {
       res.status(409).json({ error: `${resolvedRoom.name} has just become available. Please choose it as a booking instead of joining the waitlist.`, refreshAvailability: true });
       return;
     }
-    if (!waitlistRequested && !resolvedRoomPlan) {
+    if (!waitlistRequested && !resolvedRoomAllocation) {
       res.status(409).json({ error: `${resolvedRoom.name} is fully booked for those dates. You can join the waitlist or choose another option.`, waitlistAvailable: true });
       return;
     }
-    const resolvedRoomUnitNumber = waitlistRequested ? null : resolvedRoomPlan?.[0]?.unitNumber || null;
-    const storedRequestKind = waitlistRequested ? 'waitlist' : (resolvedRoomPlan?.length || 0) > 1 ? 'split' : 'booking';
+    const resolvedRoomUnitNumber = waitlistRequested ? null : resolvedRoomAllocation?.unitNumbers[0] || null;
+    const storedRequestKind = waitlistRequested ? 'waitlist' : (resolvedRoomAllocation?.roomMoves || 0) > 0 ? 'split' : 'booking';
 
     const normalizedEmail = String(customerEmail).trim().toLowerCase();
     const { data: existingCustomer } = requester && !testOnly
@@ -858,9 +862,9 @@ router.post('/bookings/request', async (req, res) => {
       return;
     }
 
-    if (!waitlistRequested && resolvedRoomPlan && resolvedRoomPlan.length > 1) {
+    if (!waitlistRequested && resolvedRoomAllocation && resolvedRoomAllocation.roomMoves > 0) {
       const { error: segmentError } = await supabase.from('booking_room_segments').insert(
-        resolvedRoomPlan.map((segment) => ({
+        resolvedRoomAllocation.segments.map((segment) => ({
           cattery_id: catteryId,
           booking_id: booking.id,
           room_id: segment.roomId,
@@ -934,6 +938,29 @@ router.post('/bookings/request', async (req, res) => {
         console.error('[bookings/request] booking cat link failed:', bookingCatsError.message);
         await rollbackBookingRequest(booking.id);
         res.status(500).json({ error: 'Booking could not be saved. Please contact the cattery directly.' });
+        return;
+      }
+    }
+
+    if (!waitlistRequested && resolvedRoomAllocation?.usesOneRoomPerCat) {
+      if (resolvedCats.length !== numCats || resolvedRoomAllocation.unitNumbers.length !== numCats) {
+        console.error('[bookings/request] communal room assignment count mismatch');
+        await rollbackBookingRequest(booking.id);
+        res.status(409).json({ error: 'The communal rooms could not be assigned to every cat. Please refresh and try again.' });
+        return;
+      }
+      const { error: roomAssignmentsError } = await supabase.from('booking_cat_rooms').insert(
+        resolvedCats.map(({ id }, index) => ({
+          booking_id: booking.id,
+          cat_id: id,
+          room_id: resolvedRoomId,
+          room_unit_number: resolvedRoomAllocation.unitNumbers[index],
+        })),
+      );
+      if (roomAssignmentsError) {
+        console.error('[bookings/request] communal room assignments failed:', roomAssignmentsError.message);
+        await rollbackBookingRequest(booking.id);
+        res.status(409).json({ error: 'The communal rooms are no longer available. Please refresh and try again.' });
         return;
       }
     }

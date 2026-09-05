@@ -439,7 +439,6 @@ export function bookingRequestCustomerHtml(opts: {
   requestKind?: 'booking' | 'split' | 'waitlist';
 }) {
   const isWaitlist = opts.requestKind === 'waitlist';
-  const roomValue = opts.requestKind === 'split' ? `${opts.roomName} (continuous stay with a room move)` : opts.roomName;
   return catstaysEmailLayout({
     title: `Thanks, ${firstName(opts.customerName)}`,
     preheader: `${opts.catteryName} received your ${isWaitlist ? 'waitlist' : 'booking'} request.`,
@@ -457,7 +456,7 @@ export function bookingRequestCustomerHtml(opts: {
           { label: 'Check-in', value: opts.checkIn },
           { label: 'Check-out', value: opts.checkOut },
           { label: 'Duration', value: `${plural(opts.days, 'day')} (includes arrival and departure)` },
-          { label: isWaitlist ? 'Preferred room' : 'Room', value: roomValue },
+          { label: isWaitlist ? 'Preferred room' : 'Room', value: opts.roomName },
           { label: 'Estimated total', value: opts.estimatedTotal },
         ],
       },

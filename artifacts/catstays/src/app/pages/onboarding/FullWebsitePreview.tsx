@@ -643,7 +643,6 @@ function SourceWebsitePreview({
             </div>
             <div className="space-y-3 text-sm leading-7 text-white/80">
               <p>Eligible first-time kittens and cats under 12 months may be considered for Petcover’s four-week introductory offer when you book with us.</p>
-              <p>CatStays collects the details for cattery staff to enter manually.</p>
             </div>
           </div>
         </section>

@@ -11,6 +11,7 @@
     "test:auth-boundaries": "pnpm --filter @workspace/api-server exec tsx --test ../catstays/src/app/lib/authBoundary.test.ts",
     "test:live-booking-sync": "node --test supabase/functions/revelation-sync/core.test.mjs && pnpm --filter @workspace/api-server exec tsx --test src/lib/parallelRun.test.ts ../catstays/src/app/lib/petcover.test.ts",
     "test:staff-booking-operations": "pnpm --filter @workspace/api-server exec tsx --test ../catstays/src/app/lib/bookingAlerts.test.ts ../catstays/src/app/lib/bookingReview.test.ts ../catstays/src/app/lib/bookingSetup.test.ts ../catstays/src/app/lib/bookingOperations.test.ts ../catstays/src/app/lib/bookingPricing.test.ts ../catstays/src/app/lib/bookingSchedule.test.ts ../catstays/src/app/lib/customerDirectory.test.ts ../catstays/src/app/lib/roomInventory.test.ts ../catstays/src/app/lib/staffReports.test.ts ../catstays/src/app/lib/staffRoomTimeline.test.ts ../catstays/src/app/pages/staff/StaffDashboard.test.ts",
+    "test:public-booking-flow": "pnpm --filter @workspace/api-server exec tsx --test src/lib/physicalRoomInventory.test.ts src/lib/bookingRequestEmails.test.ts src/routes/bookingRequestWorkflow.test.ts ../catstays/src/app/components/PetcoverIntakeFields.test.ts ../catstays/src/app/pages/tenant/BookingFlow.test.ts ../catstays/src/app/pages/staff/StaffDashboard.test.ts",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
   },

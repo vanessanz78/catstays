@@ -237,7 +237,6 @@ export function TenantHome() {
             </div>
             <div className="space-y-4 text-sm leading-7 text-cream/80">
               <p>Eligible first-time kittens and cats under 12 months may be considered for Petcover’s four-week introductory offer when you book with us.</p>
-              <p>CatStays collects the details for cattery staff to enter manually.</p>
               <Link to={`${base}/booking-flow`} className="inline-flex rounded-xl bg-white px-5 py-3 text-sm font-semibold text-forest">Ask about the offer</Link>
             </div>
           </div>

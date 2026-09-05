@@ -35,9 +35,28 @@ type RoomAvailability = {
 
 type RequestKind = 'booking' | 'split' | 'waitlist';
 
+const MAX_PUBLIC_CATS = 25;
+
+function roomIsCommunal(room: TenantRoom) {
+  return `${room.name} ${room.type}`.toLowerCase().includes('communal');
+}
+
+function customerRoomDescription(room: TenantRoom) {
+  return roomIsCommunal(room)
+    ? `A shared communal facility with ${room.room_count} individual rooms.`
+    : room.description;
+}
+
+function customerRoomCapacity(room: TenantRoom, numberOfCats: number) {
+  if (roomIsCommunal(room)) {
+    return `${numberOfCats} individual room${numberOfCats === 1 ? '' : 's'} for ${numberOfCats} cat${numberOfCats === 1 ? '' : 's'}`;
+  }
+  return `Up to ${room.capacity} cat${room.capacity === 1 ? '' : 's'} in one room`;
+}
+
 function parseCatsParam(value: string | null) {
   const count = Number.parseInt(value || '1', 10);
-  return Number.isFinite(count) ? Math.min(Math.max(count, 1), 4) : 1;
+  return Number.isFinite(count) ? Math.min(Math.max(count, 1), MAX_PUBLIC_CATS) : 1;
 }
 
 export function BookingFlow() {
@@ -98,7 +117,7 @@ export function BookingFlow() {
   };
 
   const addCat = () => {
-    if (formData.numberOfCats >= 4) return;
+    if (formData.numberOfCats >= MAX_PUBLIC_CATS) return;
     const nextCount = formData.numberOfCats + 1;
     setSelectedRoom(null);
     setRequestKind(null);
@@ -296,7 +315,7 @@ export function BookingFlow() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-forest/60">{submittedKind === 'waitlist' ? 'Preferred room' : 'Room'}</span>
-                  <span className="font-medium text-forest">{roomName}{submittedKind === 'split' ? ' (room move during stay)' : ''}</span>
+                  <span className="font-medium text-forest">{roomName}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-forest/60">Check-in</span>
@@ -465,7 +484,7 @@ export function BookingFlow() {
                       );
                     })}
 
-                    {formData.numberOfCats < 4 && (
+                    {formData.numberOfCats < MAX_PUBLIC_CATS && (
                       <Button type="button" variant="outline" onClick={addCat} className="w-full rounded-xl border-dashed border-sage/40 text-sage">
                         <Plus className="mr-2 h-4 w-4" />Add another cat
                       </Button>
@@ -556,32 +575,61 @@ export function BookingFlow() {
                               ? 'booking'
                               : roomAvailability?.availability === 'split'
                                 ? 'split'
-                                : roomAvailability?.availability === 'waitlist'
-                                  ? 'waitlist'
-                                  : null;
+                                : null;
+                            const isWaitlist = roomAvailability?.availability === 'waitlist';
+                            const description = customerRoomDescription(room);
+                            const capacity = customerRoomCapacity(room, formData.numberOfCats);
                             const selected = selectedRoom?.id === room.id && requestKind === availableKind;
-                            return (
-                            <button key={room.id} type="button" disabled={!isSuitable || !availableKind} onClick={() => { setSelectedRoom(room); setRequestKind(availableKind); }} className={`w-full text-left p-4 rounded-xl border transition-all disabled:cursor-not-allowed disabled:opacity-55 ${selected ? 'border-sage bg-sage/5 shadow-sm' : roomAvailability?.availability === 'waitlist' ? 'border-amber-200 bg-amber-50/40 hover:border-amber-300' : 'border-sage/20 enabled:hover:border-sage/40'}`}>
+                            const waitlistSelected = selectedRoom?.id === room.id && requestKind === 'waitlist';
+                            const roomDetails = (
                               <div className="flex items-center justify-between">
                                 <div>
                                   <div className="font-medium text-forest">{room.name}</div>
-                                  {room.description && <div className="text-sm text-forest/60 mt-0.5">{room.description}</div>}
-                                  <div className="text-sm text-forest/50 mt-0.5">Up to {room.capacity} cat{room.capacity > 1 ? 's' : ''}</div>
-                                  {roomAvailability?.availability === 'whole' && <div className="mt-1 text-sm font-medium text-emerald-700">Available for the whole stay</div>}
-                                  {roomAvailability?.availability === 'split' && <div className="mt-1 text-sm font-medium text-sage">Available with {roomAvailability.roomMoves} room move{roomAvailability.roomMoves === 1 ? '' : 's'} during the stay</div>}
-                                  {roomAvailability?.availability === 'waitlist' && <div className="mt-1 text-sm font-medium text-amber-800">Fully booked for these dates · join the waitlist</div>}
-                                  {roomAvailability?.availability === 'not_suitable' && <div className="mt-1 text-sm font-medium text-amber-700">Not suitable for {formData.numberOfCats} cats sharing one room</div>}
+                                  {description && <div className="mt-0.5 text-sm text-forest/60">{description}</div>}
+                                  <div className="mt-0.5 text-sm text-forest/50">{capacity}</div>
+                                  {(roomAvailability?.availability === 'whole' || roomAvailability?.availability === 'split') && <div className="mt-1 text-sm font-medium text-emerald-700">Available for the whole stay</div>}
+                                  {isWaitlist && <div className="mt-1 text-sm font-medium text-amber-800">Fully booked for these dates</div>}
+                                  {roomAvailability?.availability === 'not_suitable' && <div className="mt-1 text-sm font-medium text-amber-700">Not available for this number of cats</div>}
                                 </div>
-                                <div className="text-right flex-shrink-0 ml-4">
+                                <div className="ml-4 flex-shrink-0 text-right">
                                   <div className="font-semibold text-sage">${room.price_per_night}/cat/day</div>
-                                  {selected && <Check className="w-4 h-4 text-sage ml-auto mt-1" />}
+                                  {(selected || waitlistSelected) && <Check className="ml-auto mt-1 h-4 w-4 text-sage" />}
                                 </div>
                               </div>
-                            </button>
-                          )})}
+                            );
+                            if (isWaitlist) {
+                              return (
+                                <div key={room.id} className={`w-full rounded-xl border p-4 text-left transition-all ${waitlistSelected ? 'border-amber-400 bg-amber-50 shadow-sm' : 'border-amber-200 bg-amber-50/40'}`}>
+                                  {roomDetails}
+                                  <label className="mt-4 flex cursor-pointer items-start gap-2 border-t border-amber-200 pt-4 text-sm font-medium text-forest">
+                                    <input
+                                      type="checkbox"
+                                      checked={waitlistSelected}
+                                      onChange={(event) => {
+                                        if (event.target.checked) {
+                                          setSelectedRoom(room);
+                                          setRequestKind('waitlist');
+                                        } else if (waitlistSelected) {
+                                          setSelectedRoom(null);
+                                          setRequestKind(null);
+                                        }
+                                      }}
+                                      className="mt-0.5 h-4 w-4 accent-[#C46A3A]"
+                                    />
+                                    <span>Would you like to be added to the waitlist?</span>
+                                  </label>
+                                  {waitlistSelected && <p className="mt-2 pl-6 text-sm text-amber-900">We'll notify you as soon as a suitable room becomes available.</p>}
+                                </div>
+                              );
+                            }
+                            return (
+                              <button key={room.id} type="button" disabled={!isSuitable || !availableKind} onClick={() => { setSelectedRoom(room); setRequestKind(availableKind); }} className={`w-full rounded-xl border p-4 text-left transition-all disabled:cursor-not-allowed disabled:opacity-55 ${selected ? 'border-sage bg-sage/5 shadow-sm' : 'border-sage/20 enabled:hover:border-sage/40'}`}>
+                                {roomDetails}
+                              </button>
+                            );
+                          })}
                         </div>
-                        {requestKind === 'split' && <p className="rounded-xl border border-sage/20 bg-sage/10 p-3 text-sm text-forest/70">The stay remains one booking. Staff will allocate a continuous plan across available physical rooms.</p>}
-                        {requestKind === 'waitlist' && <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">This sends a waitlist request, not a confirmed booking. CatStays will alert the cattery by phone and email when suitable capacity becomes available.</p>}
+                        {requestKind === 'waitlist' && <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">This sends a waitlist request, not a confirmed booking. We'll notify you as soon as a suitable room becomes available.</p>}
                       </div>
                     )}
                   </CardContent>
@@ -601,7 +649,7 @@ export function BookingFlow() {
                       <div className="space-y-2">
                         <div className="flex justify-between">
                           <span className="text-forest/60">{requestKind === 'waitlist' ? 'Preferred room' : 'Room'}</span>
-                          <span className="font-medium text-forest">{selectedRoom?.name || 'Not selected yet'}{requestKind === 'split' ? ' (room move during stay)' : ''}</span>
+                          <span className="font-medium text-forest">{selectedRoom?.name || 'Not selected yet'}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-forest/60">Check-in</span>
