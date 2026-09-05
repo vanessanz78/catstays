@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
+import { isStaffRole, staffLoginDestination } from '../../lib/authBoundary';
 
 export function StaffLogin() {
   const { accountRole, loading: authLoading, signIn, signOut } = useAuth();
@@ -14,8 +15,9 @@ export function StaffLogin() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!authLoading && (accountRole === 'owner' || accountRole === 'staff')) {
-      navigate('/staff-dashboard', { replace: true });
+    const destination = staffLoginDestination(accountRole);
+    if (!authLoading && destination) {
+      navigate(destination, { replace: true });
     }
   }, [accountRole, authLoading, navigate]);
 
@@ -24,11 +26,12 @@ export function StaffLogin() {
     try {
       const result = await signIn(email.trim(), password);
       if (result.error) throw result.error;
-      if (result.accountRole !== 'owner' && result.accountRole !== 'staff') {
+      const destination = staffLoginDestination(result.accountRole);
+      if (!isStaffRole(result.accountRole) || !destination) {
         await signOut();
         throw new Error('This login is not authorised for staff access. Use the client portal or ask the cattery owner to enable your exact email in Staff profiles.');
       }
-      navigate('/staff-dashboard', { replace: true });
+      navigate(destination, { replace: true });
     } catch (error: any) { setError(error.message || 'Please check your details and try again.'); }
     finally { setBusy(false); }
   };

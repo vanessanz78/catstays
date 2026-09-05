@@ -8,6 +8,7 @@
     "apply:supabase-email-templates": "node scripts/apply-supabase-email-templates.mjs",
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "test:physical-room-inventory": "pnpm --filter @workspace/api-server exec tsx --test ../catstays/src/app/lib/roomInventory.test.ts ../catstays/src/app/lib/staffRoomTimeline.test.ts src/lib/physicalRoomInventory.test.ts",
+    "test:auth-boundaries": "pnpm --filter @workspace/api-server exec tsx --test ../catstays/src/app/lib/authBoundary.test.ts",
     "test:staff-booking-operations": "pnpm --filter @workspace/api-server exec tsx --test ../catstays/src/app/lib/bookingAlerts.test.ts ../catstays/src/app/lib/bookingReview.test.ts ../catstays/src/app/lib/bookingSetup.test.ts ../catstays/src/app/lib/bookingOperations.test.ts ../catstays/src/app/lib/bookingPricing.test.ts ../catstays/src/app/lib/bookingSchedule.test.ts ../catstays/src/app/lib/customerDirectory.test.ts ../catstays/src/app/lib/roomInventory.test.ts ../catstays/src/app/lib/staffReports.test.ts ../catstays/src/app/lib/staffRoomTimeline.test.ts ../catstays/src/app/pages/staff/StaffDashboard.test.ts",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"

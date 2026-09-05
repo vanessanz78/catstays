@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/utils/supabase/client';
 import { sendCustomerReply } from '@/utils/email';
 import { enablePhoneNotifications } from '@/lib/pushService';
+import { canLoadCustomerData, clientPortalAccess } from '../../lib/authBoundary';
 
 type PortalSection = 'overview' | 'cats' | 'details' | 'messages' | 'updates';
 type ClientBooking = { id: string; check_in: string; check_out: string; check_in_time: string | null; check_out_time: string | null; status: string; cat_names: string | null; number_of_cats: number | null; total_amount: number | null };
@@ -40,6 +41,11 @@ export function ClientPortalEntry() {
   const { cattery: tenantCattery } = useSubdomainCattery();
   const { accountRole, cattery: accountCattery, customer, loading, refreshCattery, signIn, signOut, signUpCustomer, user } = useAuth();
   const cattery = tenantCattery || accountCattery;
+  const portalAccess = clientPortalAccess({
+    userId: user?.id ?? null,
+    accountRole,
+    customerId: customer?.id ?? null,
+  });
   const businessName = cattery?.name || 'your cattery';
   const bookingPath = tenantCattery ? '/booking-flow' : '/site/booking-flow';
   const websitePath = tenantCattery ? '/' : '/site';
@@ -64,7 +70,7 @@ export function ClientPortalEntry() {
   const [replyBookingId, setReplyBookingId] = useState('');
 
   const loadPortal = useCallback(async () => {
-    if (accountRole !== 'customer' || !customer?.id) {
+    if (!canLoadCustomerData({ accountRole, customerId: customer?.id ?? null })) {
       setDetails(null); setBookings([]); setCats([]); setCatUpdates([]); setMessages([]); return;
     }
     setPortalLoading(true);
@@ -162,9 +168,9 @@ export function ClientPortalEntry() {
       <main className="mx-auto max-w-5xl px-4 py-6 sm:py-10">
         {loading ? <div className="grid min-h-[50vh] place-items-center"><Loader2 className="h-7 w-7 animate-spin text-[#C46A3A]" /></div> : !user ? (
           <Card className="mx-auto max-w-xl rounded-2xl border-[#E8DED4] shadow-sm"><CardContent className="p-7 sm:p-9"><div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-xl bg-[#C46A3A]/10"><Lock className="h-7 w-7 text-[#C46A3A]" /></div><h2 className="text-center text-2xl font-semibold">{mode === 'signin' ? 'Client sign in' : 'Create client access'}</h2><p className="mt-2 text-center text-sm leading-6 text-[#4E5871]">{mode === 'signin' ? 'Sign in to manage your details and cats, see bookings and receive private updates.' : 'Use the same email address you used for your booking so CatStays can securely connect your account.'}</p><form onSubmit={submit} className="mt-7 space-y-4">{mode === 'create' && <label className="block text-sm font-medium">Your name<input className={fieldClass} value={name} onChange={(event) => setName(event.target.value)} required autoComplete="name" /></label>}<label className="block text-sm font-medium">Email<input className={fieldClass} type="email" value={email} onChange={(event) => setEmail(event.target.value)} required autoComplete="email" /></label><label className="block text-sm font-medium">Password<input className={fieldClass} type="password" value={password} onChange={(event) => setPassword(event.target.value)} required minLength={8} autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} /></label>{message && <p className="rounded-xl bg-[#F8F1EC] p-3 text-sm text-[#7A3D22]">{message}</p>}<Button disabled={busy} className="h-11 w-full rounded-xl bg-[#C46A3A] text-white hover:bg-[#A85A30]">{busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{mode === 'signin' ? 'Sign in' : 'Create client access'}</Button></form><button className="mt-5 w-full text-sm font-semibold text-[#C46A3A]" onClick={() => { setMode(mode === 'signin' ? 'create' : 'signin'); setMessage(null); }}>{mode === 'signin' ? 'Create client access from an existing booking' : 'Already have client access? Sign in'}</button></CardContent></Card>
-          ) : accountRole === 'owner' || accountRole === 'staff' ? (
+        ) : portalAccess === 'staff-blocked' ? (
            <Card className="mx-auto max-w-2xl rounded-2xl border-[#E8DED4] shadow-sm"><CardContent className="p-8 text-center"><Lock className="mx-auto h-10 w-10 text-[#C46A3A]" /><h2 className="mt-4 text-2xl font-semibold">Client access needs a customer account</h2><p className="mt-2 text-sm leading-6 text-[#4E5871]">This is an active staff account. To protect cattery records, staff sessions cannot open the client portal. Sign out, then sign in with the customer account linked to your booking.</p><Button onClick={() => void signOut()} className="mt-6 bg-[#0A1128] text-white hover:bg-[#19233D]"><LogOut className="mr-2 h-4 w-4" />Sign out</Button></CardContent></Card>
-        ) : accountRole === 'customer' && customer ? (
+        ) : portalAccess === 'customer' && customer ? (
           <div className="space-y-5">
             <section className="rounded-2xl bg-[#0A1128] p-5 text-white shadow-sm sm:flex sm:items-center sm:justify-between sm:p-6"><div className="min-w-0"><p className="text-sm text-white/65">Welcome back</p><h2 className="mt-1 truncate text-2xl font-semibold">{details?.name || customer.name}</h2><p className="mt-1 break-all text-sm text-white/70">{details?.email || customer.email}</p></div><div className="mt-5 flex flex-wrap gap-2 sm:mt-0"><Button onClick={enableAlerts} disabled={busy} className="bg-[#C46A3A] text-white hover:bg-[#A85A30]"><BellRing className="mr-2 h-4 w-4" />Phone alerts</Button><Button onClick={() => void signOut()} variant="outline" className="border-white/30 bg-transparent text-white hover:bg-white/10"><LogOut className="mr-2 h-4 w-4" />Sign out</Button></div></section>
             <nav className="grid grid-cols-2 gap-2 rounded-2xl border border-[#E8DED4] bg-white p-2 shadow-sm sm:grid-cols-5">{navItems.map((item) => { const Icon = item.icon; return <button key={item.id} onClick={() => { setSection(item.id); setMessage(null); }} className={`flex min-h-12 items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition ${section === item.id ? 'bg-[#C46A3A] text-white' : 'text-[#4E5871] hover:bg-[#F8F1EC]'}`}><Icon className="h-4 w-4" />{item.label}{item.count ? <span className={`rounded-full px-2 py-0.5 text-xs ${section === item.id ? 'bg-white/20' : 'bg-[#F1E6DC] text-[#7A3D22]'}`}>{item.count}</span> : null}</button>; })}</nav>

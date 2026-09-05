@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { Loader2, Lock } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from './ui/button';
+import { canAccessStaffWorkspace } from '../lib/authBoundary';
 
 export function StaffRouteGuard({ children }: { children: ReactNode }) {
   const { accountRole, cattery, loading, user } = useAuth();
@@ -18,7 +19,11 @@ export function StaffRouteGuard({ children }: { children: ReactNode }) {
     );
   }
 
-  const hasStaffAccess = Boolean(user && cattery && (accountRole === 'owner' || accountRole === 'staff'));
+  const hasStaffAccess = canAccessStaffWorkspace({
+    userId: user?.id ?? null,
+    catteryId: cattery?.id ?? null,
+    accountRole,
+  });
   if (!hasStaffAccess) {
     const customerSession = accountRole === 'customer';
     return (
