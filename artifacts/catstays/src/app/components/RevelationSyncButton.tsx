@@ -33,7 +33,13 @@ function refreshBookings() {
   window.dispatchEvent(new Event('catstays:bookings-changed'));
 }
 async function startSync() {
-  if (state.busy) { update({message:'Sync is still running. We’ll confirm when it finishes.'}); return; }
+  if (state.busy) {
+    generation++;
+    clearTimeout(timer);
+    clearTimeout(limitTimer);
+    update({busy:false,error:false,message:'Sync stopped. Any completed changes are saved.'});
+    return;
+  }
   const current=++generation;
   update({busy:true,error:false,message:'Syncing with Revelation Pets…'});
   try {
@@ -46,25 +52,26 @@ async function startSync() {
       if(current!==generation)return;
       generation++;clearTimeout(timer);
       refreshBookings();
-      update({busy:false,error:false,message:'Sync paused to limit usage. Imported changes are saved—tap sync to check again.'});
+      update({busy:false,error:false,message:'Sync paused after its bounded update. Imported changes are saved.'});
     },Math.max(0,until-Date.now()));
     const poll=async()=>{
       if(current!==generation)return;
       try {
         const progress=await api(`step/${encodeURIComponent(result.jobId)}`,{catteryId:tenant});
-        // A final in-flight batch can finish after the UI usage timer.
-        refreshBookings();
         if(current!==generation)return;
         if(progress.status==='completed') {
           clearTimeout(limitTimer);
+          refreshBookings();
           update({busy:false,error:false,message:syncSummaryText(progress.changes)});
         } else if(progress.status==='paused') {
           clearTimeout(limitTimer);
-          update({busy:false,error:false,message:'Sync paused to limit usage. Imported changes are saved—tap sync to check again.'});
+          refreshBookings();
+          update({busy:false,error:false,message:'Sync paused after its bounded update. Imported changes are saved.'});
         } else if(progress.status==='failed') {
           clearTimeout(limitTimer);
+          refreshBookings();
           update({busy:false,error:true,message:'Sync couldn’t finish. Please try again.'});
-        } else { timer=setTimeout(()=>void poll(),250); }
+        } else { timer=setTimeout(()=>void poll(),5000); }
       } catch(failure) {
         clearTimeout(limitTimer);
         if(current===generation) update({busy:false,error:true,message:failure instanceof Error?failure.message:'Could not check sync progress. Please try again.'});
@@ -79,7 +86,7 @@ export function RevelationSyncButton() {
   const {cattery}=useAuth();
   const current=useSyncExternalStore(subscribe,snapshot);
   if(cattery?.id!==tenant)return null;
-  return <button type="button" aria-label="Sync with Revelation Pets" aria-busy={current.busy} title="Sync with Revelation Pets" onClick={()=>void startSync()} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#C46A3A] hover:bg-[#C46A3A]/10 focus-visible:ring-2 focus-visible:ring-[#C46A3A]">
+  return <button type="button" aria-label={current.busy?'Stop Revelation Pets sync':'Sync with Revelation Pets'} aria-busy={current.busy} title={current.busy?'Stop sync':'Sync with Revelation Pets'} onClick={()=>void startSync()} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#C46A3A] hover:bg-[#C46A3A]/10 focus-visible:ring-2 focus-visible:ring-[#C46A3A]">
     <RefreshCw className={`h-4 w-4 ${current.busy?'animate-spin':''}`} />
   </button>;
 }
