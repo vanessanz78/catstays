@@ -16,3 +16,11 @@ test('customer booking flow supports communal rooms, plain availability, and an 
   assert.match(source, /Would you like to be added to the waitlist\?/);
   assert.match(source, /We'll notify you as soon as a suitable room becomes available\./);
 });
+
+test('live Book Now links open the booking form directly', () => {
+  const source = readFileSync(new URL('../onboarding/CatstaysTemplateSite.tsx', import.meta.url), 'utf8');
+
+  assert.match(source, /if \(href === '#booking'\)/);
+  assert.match(source, /window\.location\.href = liveBookingPath\(\)/);
+  assert.match(source, /if \(!embedded\)/);
+});
