@@ -24,6 +24,21 @@ export type PhysicalRoomPlanSegment = {
   endsOn: string;
 };
 
+export type AccommodationRoom = {
+  id: string;
+  name?: string | null;
+  type?: string | null;
+  capacity: number;
+  room_count: number;
+};
+
+export type AccommodationStayPlan = {
+  unitNumbers: number[];
+  segments: PhysicalRoomPlanSegment[];
+  roomMoves: number;
+  usesOneRoomPerCat: boolean;
+};
+
 function overlaps(booking: PhysicalRoomBooking, checkIn: string, checkOut: string) {
   return booking.check_in <= checkOut && booking.check_out >= checkIn;
 }
@@ -67,6 +82,41 @@ function roomUnitIsBlockedOn(
     ));
   }
   return usesRoomUnit(booking, roomId, unitNumber);
+}
+
+export function roomUsesOnePhysicalUnitPerCat(room: Pick<AccommodationRoom, 'name' | 'type'>) {
+  return `${room.name || ''} ${room.type || ''}`.toLowerCase().includes('communal');
+}
+
+export function accommodationCanHoldCats(room: AccommodationRoom, numberOfCats: number) {
+  const cats = Math.max(1, Math.floor(Number(numberOfCats) || 1));
+  return roomUsesOnePhysicalUnitPerCat(room)
+    ? cats <= Math.max(1, Math.floor(Number(room.room_count) || 1))
+    : cats <= Math.max(1, Math.floor(Number(room.capacity) || 1));
+}
+
+export function firstAvailablePhysicalRooms(
+  roomId: string,
+  roomCount: number,
+  bookings: PhysicalRoomBooking[],
+  checkIn: string,
+  checkOut: string,
+  requiredRooms: number,
+) {
+  const days = dateKeysBetween(checkIn, checkOut);
+  const count = Math.max(1, Math.floor(Number(roomCount) || 1));
+  const required = Math.max(1, Math.floor(Number(requiredRooms) || 1));
+  if (days.length === 0 || required > count) return null;
+
+  const available: number[] = [];
+  for (let unitNumber = 1; unitNumber <= count; unitNumber += 1) {
+    const freeForWholeStay = days.every((day) => (
+      !bookings.some((booking) => roomUnitIsBlockedOn(booking, roomId, unitNumber, day))
+    ));
+    if (freeForWholeStay) available.push(unitNumber);
+    if (available.length === required) return available;
+  }
+  return null;
 }
 
 /**
@@ -149,4 +199,46 @@ export function firstAvailablePhysicalRoom(
 ) {
   const plan = planPhysicalRoomStay(roomId, roomCount, bookings, checkIn, checkOut, 1);
   return plan?.[0]?.unitNumber || null;
+}
+
+export function planAccommodationStay(
+  room: AccommodationRoom,
+  numberOfCats: number,
+  bookings: PhysicalRoomBooking[],
+  checkIn: string,
+  checkOut: string,
+): AccommodationStayPlan | null {
+  const cats = Math.max(1, Math.floor(Number(numberOfCats) || 1));
+  if (!accommodationCanHoldCats(room, cats)) return null;
+
+  if (roomUsesOnePhysicalUnitPerCat(room)) {
+    const unitNumbers = firstAvailablePhysicalRooms(
+      room.id,
+      room.room_count,
+      bookings,
+      checkIn,
+      checkOut,
+      cats,
+    );
+    return unitNumbers ? {
+      unitNumbers,
+      segments: [],
+      roomMoves: 0,
+      usesOneRoomPerCat: true,
+    } : null;
+  }
+
+  const segments = planPhysicalRoomStay(
+    room.id,
+    room.room_count,
+    bookings,
+    checkIn,
+    checkOut,
+  );
+  return segments ? {
+    unitNumbers: [segments[0].unitNumber],
+    segments,
+    roomMoves: segments.length - 1,
+    usesOneRoomPerCat: false,
+  } : null;
 }

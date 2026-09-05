@@ -41,7 +41,7 @@ export function PetcoverIntakeFields({
         />
         <span>
           <span className="flex items-center gap-2 font-semibold text-[#0A1128]"><ShieldCheck className="h-4 w-4 text-[#C46A3A]" />Offer the 4-week Petcover introductory cover</span>
-          <span className="mt-1 block text-xs leading-5 text-[#4E5871]">For a first-time Petcover offer for cats under 12 months. CatStays collects the details for staff to enter manually.</span>
+          <span className="mt-1 block text-xs leading-5 text-[#4E5871]">For a first-time Petcover offer for cats under 12 months.</span>
         </span>
       </label>
 
@@ -77,17 +77,16 @@ export function PetcoverIntakeFields({
 
           <fieldset className="space-y-2">
             <legend className="text-sm font-semibold text-[#0A1128]">Declarations</legend>
-            <p className="text-xs leading-5 text-[#4E5871]">These confirmations are saved with the record for staff follow-up and manual portal entry.</p>
-            <label className="flex items-start gap-2 rounded-xl border border-[#F0C9B2] bg-white p-3 text-sm font-semibold text-[#0A1128]">
-              <input type="checkbox" checked={declarationsAccepted} onChange={(event) => setAllDeclarations(event.target.checked)} className="mt-0.5 h-4 w-4 accent-[#C46A3A]" />
-              <span>Accept all</span>
-            </label>
             {PETCOVER_DECLARATION_LABELS.map(({ key, label }) => (
               <label key={key} className="flex items-start gap-2 text-sm text-[#0A1128]">
                 <input type="checkbox" checked={value.declarations[key]} onChange={(event) => updateDeclaration(key, event.target.checked)} className="mt-0.5 h-4 w-4 accent-[#C46A3A]" />
                 <span>{label}</span>
               </label>
             ))}
+            <label className="flex items-start gap-2 text-sm font-semibold text-[#0A1128]">
+              <input type="checkbox" checked={declarationsAccepted} onChange={(event) => setAllDeclarations(event.target.checked)} className="mt-0.5 h-4 w-4 accent-[#C46A3A]" />
+              <span>Accept all</span>
+            </label>
           </fieldset>
         </div>
       )}

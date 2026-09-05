@@ -1,6 +1,10 @@
 import { Router, type IRouter, type Request, type Response } from 'express';
 import { createClient } from '@supabase/supabase-js';
-import { planPhysicalRoomStay, type PhysicalRoomBooking } from '../lib/physicalRoomInventory.js';
+import {
+  accommodationCanHoldCats,
+  planAccommodationStay,
+  type PhysicalRoomBooking,
+} from '../lib/physicalRoomInventory.js';
 import { waitlistAvailabilityOwnerHtml } from '../lib/emailTemplates.js';
 import { resend, FROM_ADDRESS } from '../lib/resend.js';
 import { notifyCatteryStaff } from '../push/notifications.js';
@@ -18,6 +22,7 @@ type RoomRow = {
   id: string;
   cattery_id: string;
   name: string;
+  type?: string | null;
   description?: string | null;
   capacity: number;
   room_count: number;
@@ -80,9 +85,15 @@ async function overlappingBookings(catteryId: string, checkIn: string, checkOut:
   return (data || []) as PhysicalRoomBooking[];
 }
 
-async function planForRoom(room: RoomRow, checkIn: string, checkOut: string, excludeBookingId?: string) {
+async function planForRoom(
+  room: RoomRow,
+  checkIn: string,
+  checkOut: string,
+  numberOfCats: number,
+  excludeBookingId?: string,
+) {
   const bookings = await overlappingBookings(room.cattery_id, checkIn, checkOut, excludeBookingId);
-  return planPhysicalRoomStay(room.id, Number(room.room_count), bookings, checkIn, checkOut);
+  return planAccommodationStay(room, numberOfCats, bookings, checkIn, checkOut);
 }
 
 router.get('/bookings/availability', async (req, res) => {
@@ -91,26 +102,26 @@ router.get('/bookings/availability', async (req, res) => {
   const checkIn = String(req.query.checkIn || '');
   const checkOut = String(req.query.checkOut || '');
   const cats = Number.parseInt(String(req.query.cats || '1'), 10);
-  if (!/^[0-9a-f-]{36}$/i.test(catteryId) || !validDateRange(checkIn, checkOut) || !Number.isInteger(cats) || cats < 1 || cats > 4) {
+  if (!/^[0-9a-f-]{36}$/i.test(catteryId) || !validDateRange(checkIn, checkOut) || !Number.isInteger(cats) || cats < 1 || cats > 25) {
     res.status(400).json({ error: 'Choose valid dates and cats before checking availability.' });
     return;
   }
 
   try {
     const [{ data: rooms, error: roomsError }, bookings] = await Promise.all([
-      admin.from('rooms').select('id,cattery_id,name,description,capacity,room_count,price_per_night,is_active').eq('cattery_id', catteryId).eq('is_active', true),
+      admin.from('rooms').select('id,cattery_id,name,type,description,capacity,room_count,price_per_night,is_active').eq('cattery_id', catteryId).eq('is_active', true),
       overlappingBookings(catteryId, checkIn, checkOut),
     ]);
     if (roomsError) throw roomsError;
     const availability = ((rooms || []) as RoomRow[]).map((room) => {
-      if (Number(room.capacity) < cats) {
+      if (!accommodationCanHoldCats(room, cats)) {
         return { roomId: room.id, availability: 'not_suitable' as const, roomMoves: 0 };
       }
-      const plan = planPhysicalRoomStay(room.id, Number(room.room_count), bookings, checkIn, checkOut);
+      const plan = planAccommodationStay(room, cats, bookings, checkIn, checkOut);
       return {
         roomId: room.id,
-        availability: !plan ? 'waitlist' as const : plan.length === 1 ? 'whole' as const : 'split' as const,
-        roomMoves: plan ? plan.length - 1 : 0,
+        availability: !plan ? 'waitlist' as const : plan.roomMoves === 0 ? 'whole' as const : 'split' as const,
+        roomMoves: plan?.roomMoves || 0,
       };
     });
     res.json({ availability });
@@ -126,11 +137,11 @@ export async function refreshAvailableWaitlists() {
   const { data, error } = await admin
     .from('bookings')
     .select(`
-      id, cattery_id, customer_id, room_id, check_in, check_out, cat_names,
+      id, cattery_id, customer_id, room_id, check_in, check_out, cat_names, number_of_cats,
       waitlist_available_at, waitlist_alert_claimed_at,
       waitlist_alert_email_sent_at, waitlist_alert_staff_notified_at,
       customer:customers(name,email),
-      room:rooms(id,cattery_id,name,capacity,room_count,price_per_night,is_active),
+      room:rooms(id,cattery_id,name,type,capacity,room_count,price_per_night,is_active),
       cattery:catteries(name,slug,email)
     `)
     .eq('status', 'waitlist')
@@ -148,7 +159,7 @@ export async function refreshAvailableWaitlists() {
     if (!room?.is_active) continue;
     let plan = null;
     try {
-      plan = await planForRoom(room, booking.check_in, booking.check_out, booking.id);
+      plan = await planForRoom(room, booking.check_in, booking.check_out, Math.max(1, Number(booking.number_of_cats) || 1), booking.id);
     } catch (planError) {
       console.warn('[waitlist] Availability check failed:', planError instanceof Error ? planError.message : planError);
       continue;
@@ -246,7 +257,7 @@ export async function refreshAvailableWaitlists() {
         booking_id: booking.id,
         event_type: 'waitlist_space_available',
         summary: 'Suitable room capacity became available; staff were alerted',
-        metadata: { room_id: booking.room_id, room_moves: plan.length - 1, email_sent: Boolean(emailSentAt), staff_notified: Boolean(staffNotifiedAt) },
+        metadata: { room_id: booking.room_id, room_moves: plan.roomMoves, email_sent: Boolean(emailSentAt), staff_notified: Boolean(staffNotifiedAt) },
         created_by: null,
       });
     }
@@ -276,7 +287,7 @@ router.post('/bookings/waitlist/:bookingId/slot', async (req: Request, res: Resp
   const user = await authenticatedUser(req);
   const { data: booking, error } = await admin
     .from('bookings')
-    .select('id,cattery_id,room_id,check_in,check_out,status,number_of_cats,room:rooms(id,cattery_id,name,capacity,room_count,price_per_night,is_active)')
+    .select('id,cattery_id,room_id,check_in,check_out,status,number_of_cats,booking_cats(cat_id),room:rooms(id,cattery_id,name,type,capacity,room_count,price_per_night,is_active)')
     .eq('id', bookingId)
     .maybeSingle();
   if (error || !booking || !user || !(await canManageCattery(user.id, booking.cattery_id))) {
@@ -289,20 +300,27 @@ router.post('/bookings/waitlist/:bookingId/slot', async (req: Request, res: Resp
   }
   const room = booking.room as unknown as RoomRow | null;
   if (!room?.is_active) { res.status(409).json({ error: 'The preferred room is no longer active.' }); return; }
-  if (Number(room.capacity) < Math.max(1, Number(booking.number_of_cats) || 1)) {
+  const numberOfCats = Math.max(1, Number(booking.number_of_cats) || 1);
+  if (!accommodationCanHoldCats(room, numberOfCats)) {
     res.status(409).json({ error: 'The preferred room can no longer accommodate all cats in this request.' });
     return;
   }
 
   try {
-    const plan = await planForRoom(room, booking.check_in, booking.check_out, booking.id);
-    if (!plan) {
+    const allocation = await planForRoom(room, booking.check_in, booking.check_out, numberOfCats, booking.id);
+    if (!allocation) {
       res.status(409).json({ error: 'That space is no longer available. The request is still on the waitlist.' });
+      return;
+    }
+    const bookingCats = ((booking as any).booking_cats || []) as Array<{ cat_id: string }>;
+    if (allocation.usesOneRoomPerCat && bookingCats.length !== numberOfCats) {
+      res.status(409).json({ error: 'Every cat needs to be linked to this request before the communal rooms can be assigned.' });
       return;
     }
     const { data: slotted, error: updateError } = await admin.from('bookings').update({
       status: 'pending',
-      room_unit_number: plan[0].unitNumber,
+      room_unit_number: allocation.unitNumbers[0],
+      room_arrangement: allocation.usesOneRoomPerCat ? 'separate' : 'shared',
       waitlist_available_at: null,
       waitlist_alert_claimed_at: null,
       waitlist_alert_email_sent_at: null,
@@ -315,9 +333,30 @@ router.post('/bookings/waitlist/:bookingId/slot', async (req: Request, res: Resp
       return;
     }
 
-    await admin.from('booking_room_segments').delete().eq('booking_id', booking.id);
-    if (plan.length > 1) {
-      const { error: segmentsError } = await admin.from('booking_room_segments').insert(plan.map((segment) => ({
+    const [{ error: clearSegmentsError }, { error: clearAssignmentsError }] = await Promise.all([
+      admin.from('booking_room_segments').delete().eq('booking_id', booking.id),
+      admin.from('booking_cat_rooms').delete().eq('booking_id', booking.id),
+    ]);
+    if (clearSegmentsError || clearAssignmentsError) {
+      await admin.from('bookings').update({ status: 'waitlist', room_unit_number: null }).eq('id', booking.id);
+      throw clearSegmentsError || clearAssignmentsError;
+    }
+    if (allocation.usesOneRoomPerCat) {
+      const { error: assignmentsError } = await admin.from('booking_cat_rooms').insert(
+        bookingCats.map((bookingCat, index) => ({
+          booking_id: booking.id,
+          cat_id: bookingCat.cat_id,
+          room_id: room.id,
+          room_unit_number: allocation.unitNumbers[index],
+        })),
+      );
+      if (assignmentsError) {
+        await admin.from('booking_cat_rooms').delete().eq('booking_id', booking.id);
+        await admin.from('bookings').update({ status: 'waitlist', room_unit_number: null }).eq('id', booking.id);
+        throw assignmentsError;
+      }
+    } else if (allocation.roomMoves > 0) {
+      const { error: segmentsError } = await admin.from('booking_room_segments').insert(allocation.segments.map((segment) => ({
         cattery_id: booking.cattery_id,
         booking_id: booking.id,
         room_id: segment.roomId,
@@ -335,12 +374,12 @@ router.post('/bookings/waitlist/:bookingId/slot', async (req: Request, res: Resp
       cattery_id: booking.cattery_id,
       booking_id: booking.id,
       event_type: 'waitlist_slotted',
-      summary: plan.length === 1 ? 'Waitlist request slotted into an available room' : 'Waitlist request slotted into a continuous split-room plan',
-      metadata: { room_id: room.id, room_moves: plan.length - 1 },
+      summary: allocation.roomMoves === 0 ? 'Waitlist request slotted into available rooms' : 'Waitlist request slotted into a continuous split-room plan',
+      metadata: { room_id: room.id, room_moves: allocation.roomMoves, physical_room_count: allocation.unitNumbers.length },
       created_by: user.id,
     });
     void refreshAvailableWaitlists();
-    res.json({ success: true, status: 'pending', availability: plan.length === 1 ? 'whole' : 'split', roomMoves: plan.length - 1 });
+    res.json({ success: true, status: 'pending', availability: allocation.roomMoves === 0 ? 'whole' : 'split', roomMoves: allocation.roomMoves });
   } catch (slotError) {
     console.error('[waitlist/slot]', slotError instanceof Error ? slotError.message : slotError);
     res.status(503).json({ error: 'The waitlist request could not be slotted. Please try again.' });

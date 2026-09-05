@@ -538,7 +538,6 @@ function PetcoverOfferSection({ content }: { content: TemplateContent }) {
         </div>
         <div className="space-y-4 text-sm leading-7 text-white/80">
           <p>Eligible first-time kittens and cats under 12 months may be considered for Petcover’s four-week introductory offer when you book with us.</p>
-          <p>CatStays collects the details for cattery staff to enter manually.</p>
           <a href="#booking" className="inline-flex rounded-md bg-white px-5 py-3 text-xs font-bold uppercase tracking-[0.1em] text-[#0A1128]">Ask about the offer</a>
         </div>
       </div>

@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { firstAvailablePhysicalRoom, planPhysicalRoomStay, type PhysicalRoomBooking } from './physicalRoomInventory';
+import {
+  accommodationCanHoldCats,
+  firstAvailablePhysicalRoom,
+  planAccommodationStay,
+  planPhysicalRoomStay,
+  type PhysicalRoomBooking,
+} from './physicalRoomInventory';
 
 const bookings: PhysicalRoomBooking[] = [
   {
@@ -81,4 +87,38 @@ test('returns no plan when continuous coverage would need more than three room s
     { id: 'two-b', room_id: 'private', room_unit_number: 2, check_in: '2026-12-23', check_out: '2026-12-23', status: 'confirmed' },
   ];
   assert.equal(planPhysicalRoomStay('private', 2, alternating, '2026-12-20', '2026-12-23'), null);
+});
+
+test('communal accommodation assigns one whole-stay physical room to every cat', () => {
+  const communal = { id: 'communal', name: 'Communal Room', type: 'standard', capacity: 1, room_count: 25 };
+  const occupied: PhysicalRoomBooking[] = [
+    { id: 'one', room_id: 'communal', room_unit_number: 1, check_in: '2026-12-20', check_out: '2026-12-24', status: 'confirmed' },
+    { id: 'two', check_in: '2026-12-20', check_out: '2026-12-24', status: 'confirmed', booking_cat_rooms: [{ room_id: 'communal', room_unit_number: 3 }] },
+  ];
+
+  assert.equal(accommodationCanHoldCats(communal, 5), true);
+  assert.deepEqual(planAccommodationStay(communal, 5, occupied, '2026-12-20', '2026-12-24'), {
+    unitNumbers: [2, 4, 5, 6, 7],
+    segments: [],
+    roomMoves: 0,
+    usesOneRoomPerCat: true,
+  });
+});
+
+test('communal accommodation waits when there are not enough whole-stay rooms', () => {
+  const communal = { id: 'communal', name: 'Communal Room', type: 'standard', capacity: 1, room_count: 3 };
+  const occupied: PhysicalRoomBooking[] = [
+    { id: 'one', room_id: 'communal', room_unit_number: 1, check_in: '2026-12-20', check_out: '2026-12-24', status: 'confirmed' },
+  ];
+
+  assert.equal(planAccommodationStay(communal, 3, occupied, '2026-12-20', '2026-12-24'), null);
+});
+
+test('communal waitlist entries do not reserve one-room-per-cat inventory', () => {
+  const communal = { id: 'communal', name: 'Communal Room', type: 'standard', capacity: 1, room_count: 2 };
+  const waitlist: PhysicalRoomBooking[] = [
+    { id: 'waiting', room_id: 'communal', room_unit_number: 1, check_in: '2026-12-20', check_out: '2026-12-24', status: 'waitlist' },
+  ];
+
+  assert.deepEqual(planAccommodationStay(communal, 2, waitlist, '2026-12-20', '2026-12-24')?.unitNumbers, [1, 2]);
 });

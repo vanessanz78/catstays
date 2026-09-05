@@ -6,12 +6,17 @@ Working ref: `feat/booking-flow-details-cats-waitlist-20260905`.
 
 Follow-up ref: `feat/dashboard-desktop-expanded-20260905`.
 
+Customer clarity follow-up ref: `feat/customer-room-waitlist-clarity-20260905`.
+
 - Reorder the public journey to Your Details → Your Cats → Dates & Room → Review & Submit. The number of cats comes only from the cat cards; adding a cat collapses the current card and opens the new one.
 - Keep Petcover optional. For a selected offer, date of birth is required with “Best estimate is fine”, microchip is optional, the public activation disclaimer is removed, and one Accept all control selects every declaration.
 - Check physical-room availability only after dates and cats are known. Offer a whole-stay room when possible, a continuous plan across no more than three physical rooms of the selected accommodation type when needed, or a waitlist request when no continuous plan exists.
 - Waitlist requests never consume room capacity, booking revenue, occupancy, or room-calendar space. When capacity becomes available, alert staff through CatStays/native phone notification and owner email; staff must deliberately slot the request, which rechecks capacity and leaves the booking pending for normal review.
 - Refresh waitlist availability after relevant CatStays booking changes and after both completed manual and nightly Revelation changes-only syncs. Preserve the existing rule that sync never revisits unchanged historical records.
 - On laptop and desktop, Today dashboard detail sections are full-width and already expanded. Smaller screens retain the compact native disclosure behaviour.
+- Public room wording now treats whole-room and internally split availability identically: customers see “Available for the whole stay” and never see physical room-move details. Fully booked options expose an explicit waitlist checkbox and notification promise.
+- The Communal Room is one shared facility with 25 individually bookable physical rooms. Public requests support up to 25 cats and allocate one distinct whole-stay communal room per cat; staff still retain the exact physical room assignments.
+- Normal public requests must be saved as pending before the CatStays bell/native alert and owner email are attempted. Waitlist requests remain non-reserving until staff deliberately slots them.
 - Release-coupled migration: `supabase/migrations/20260905070812_booking_waitlist_availability_alerts.sql`. Required gates are focused tests, full typecheck/build, migration review/rehearsal, GitHub PR/main merge, exact-SHA Replit Shell sync, development UAT, migration application, publish, and production desktop/phone UAT. Do not use Replit Agent and do not run `git clean`.
 
 ## Pending requests carry accommodation costs — 3 September 2026
