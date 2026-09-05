@@ -79,7 +79,9 @@ Test:
 - Staff dashboard opens after setup.
 - Menu opens and closes.
 - Dashboard is readable on laptop.
+- On laptop and desktop, Currently Occupied, Pending bookings, Latest bookings, Waiting list when present, 7-day occupancy, Workspace, and Website are full-width and open without a click.
 - Dashboard is readable on phone.
+- Below the laptop breakpoint, those sections remain individually collapsible and their disclosure controls are keyboard accessible.
 - Bookings page loads.
 - Customers page loads.
 - Calendar page loads.

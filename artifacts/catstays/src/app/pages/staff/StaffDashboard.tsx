@@ -312,12 +312,40 @@ function PagePanel({ children }: { children: ReactNode }) {
 }
 
 function TodayPanel({ title, count, children }: { title: string; count?: number; children: ReactNode }) {
+  const [desktopExpanded, setDesktopExpanded] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches,
+  );
+  const [mobileExpanded, setMobileExpanded] = useState(false);
+
+  useEffect(() => {
+    const desktopQuery = window.matchMedia('(min-width: 1024px)');
+    const updateDesktopMode = () => setDesktopExpanded(desktopQuery.matches);
+    updateDesktopMode();
+    desktopQuery.addEventListener('change', updateDesktopMode);
+    return () => desktopQuery.removeEventListener('change', updateDesktopMode);
+  }, []);
+
   return (
-    <details className="group self-start rounded-lg border border-[#E8DED4] bg-white p-5 shadow-sm">
-      <summary className="flex min-h-8 cursor-pointer list-none items-center gap-3 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C46A3A] [&::-webkit-details-marker]:hidden">
+    <details
+      open={desktopExpanded || mobileExpanded}
+      onToggle={(event) => {
+        if (!desktopExpanded) setMobileExpanded(event.currentTarget.open);
+      }}
+      className="group w-full self-start rounded-lg border border-[#E8DED4] bg-white p-5 shadow-sm"
+    >
+      <summary
+        tabIndex={desktopExpanded ? -1 : 0}
+        onClick={(event) => {
+          if (desktopExpanded) event.preventDefault();
+        }}
+        onKeyDown={(event) => {
+          if (desktopExpanded && (event.key === 'Enter' || event.key === ' ')) event.preventDefault();
+        }}
+        className="flex min-h-8 cursor-pointer list-none items-center gap-3 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C46A3A] lg:pointer-events-none lg:cursor-default [&::-webkit-details-marker]:hidden"
+      >
         <h2 className="min-w-0 flex-1 text-xl font-semibold">{title}</h2>
         {count !== undefined && <Badge className="shrink-0 rounded-full bg-[#F1E8DE] text-[#0A1128] hover:bg-[#F1E8DE]">{count}</Badge>}
-        <ChevronRight aria-hidden="true" className="h-5 w-5 shrink-0 text-[#C46A3A] transition-transform group-open:rotate-90" />
+        <ChevronRight aria-hidden="true" className="h-5 w-5 shrink-0 text-[#C46A3A] transition-transform group-open:rotate-90 lg:hidden" />
       </summary>
       <div className="mt-4">{children}</div>
     </details>
@@ -505,7 +533,7 @@ function TodaySection({
 
       {statusActionError && <p role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{statusActionError}</p>}
 
-      <div className="mt-5 grid gap-5 lg:grid-cols-[1.35fr_0.65fr]">
+      <div className="mt-5 space-y-5">
         <TodayPanel title="Currently Occupied" count={data.occupiedNow.length}>
           {isLoading ? (
             <p className="rounded-lg bg-[#F8F7F5] p-5 text-sm text-[#4E5871]">Loading room status...</p>
