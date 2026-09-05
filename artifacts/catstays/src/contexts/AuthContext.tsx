@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/utils/supabase/client';
 import { getConfirmEmailUrl } from '@/utils/appUrl';
@@ -35,7 +35,7 @@ interface AuthContextType {
   customer: CustomerProfile | null;
   loading: boolean;
   signUp: (email: string, password: string, businessName: string, ownerName: string) => Promise<{ error: Error | null; userId: string | null }>;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signIn: (email: string, password: string) => Promise<{ error: Error | null; accountRole: AccountRole }>;
   signUpCustomer: (email: string, password: string, fullName: string, catteryId: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshCattery: () => Promise<void>;
@@ -50,14 +50,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [accountRole, setAccountRole] = useState<AccountRole>(null);
   const [customer, setCustomer] = useState<CustomerProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const accountLoadVersion = useRef(0);
+  const accountLoad = useRef<{ userId: string; promise: Promise<AccountRole> } | null>(null);
 
-  const loadAccount = async (userId: string) => {
-    try {
+  const loadAccount = (userId: string): Promise<AccountRole> => {
+    if (accountLoad.current?.userId === userId) return accountLoad.current.promise;
+
+    const version = ++accountLoadVersion.current;
+    setCattery(null);
+    setAccountRole(null);
+    setCustomer(null);
+
+    const promise = (async (): Promise<AccountRole> => {
+      try {
       const { data: ownedCattery, error: ownerError } = await supabase
         .from('catteries')
         .select('*')
         .eq('owner_id', userId)
         .maybeSingle();
+      if (version !== accountLoadVersion.current) return null;
       if (!ownerError && ownedCattery) {
         setCattery(ownedCattery as Cattery);
         setAccountRole('owner');
@@ -65,11 +76,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         void import('@/lib/pwa').then(({ recoverCatStaysPhoneNotifications }) => {
           recoverCatStaysPhoneNotifications(String(ownedCattery.id));
         });
-        return;
+        return 'owner';
       }
 
       // Links only owner-created invitations to the user's verified email.
       await supabase.rpc('catstays_accept_staff_access');
+      if (version !== accountLoadVersion.current) return null;
       const { data: membership } = await supabase
         .from('staff_memberships')
         .select('cattery_id')
@@ -84,6 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .select('*')
           .eq('id', membership.cattery_id)
           .maybeSingle();
+        if (version !== accountLoadVersion.current) return null;
         if (staffCattery) {
           setCattery(staffCattery as Cattery);
           setAccountRole('staff');
@@ -91,7 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           void import('@/lib/pwa').then(({ recoverCatStaysPhoneNotifications }) => {
             recoverCatStaysPhoneNotifications(String(staffCattery.id));
           });
-          return;
+          return 'staff';
         }
       }
 
@@ -101,29 +114,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq('user_id', userId)
         .limit(1)
         .maybeSingle();
+      if (version !== accountLoadVersion.current) return null;
       if (customerProfile?.cattery_id) {
         const { data: customerCattery } = await supabase
           .from('catteries')
           .select('*')
           .eq('id', customerProfile.cattery_id)
           .maybeSingle();
+        if (version !== accountLoadVersion.current) return null;
         setCattery((customerCattery || null) as Cattery | null);
         setAccountRole('customer');
         setCustomer(customerProfile as CustomerProfile);
         void import('@/lib/pwa').then(({ recoverCatStaysPhoneNotifications }) => {
           recoverCatStaysPhoneNotifications(String(customerProfile.cattery_id));
         });
-        return;
+        return 'customer';
       }
 
       setCattery(null);
       setAccountRole(null);
       setCustomer(null);
-    } catch {
-      setCattery(null);
-      setAccountRole(null);
-      setCustomer(null);
-    }
+      return null;
+      } catch {
+        if (version !== accountLoadVersion.current) return null;
+        setCattery(null);
+        setAccountRole(null);
+        setCustomer(null);
+        return null;
+      }
+    })();
+
+    accountLoad.current = { userId, promise };
+    void promise.then(() => {
+      if (accountLoad.current?.promise === promise) accountLoad.current = null;
+    }, () => {
+      if (accountLoad.current?.promise === promise) accountLoad.current = null;
+    });
+    return promise;
   };
 
   const refreshCattery = async () => {
@@ -148,6 +175,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(true);
         loadAccount(session.user.id).finally(() => setLoading(false));
       } else {
+        accountLoadVersion.current++;
+        accountLoad.current = null;
         setCattery(null);
         setAccountRole(null);
         setCustomer(null);
@@ -189,8 +218,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error ?? null };
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error || !data.user) return { error: error ?? new Error('The account could not be loaded.'), accountRole: null };
+    const resolvedRole = await loadAccount(data.user.id);
+    return { error: null, accountRole: resolvedRole };
   };
 
   const signUpCustomer = async (email: string, password: string, fullName: string, catteryId: string) => {
@@ -210,6 +241,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    accountLoadVersion.current++;
+    accountLoad.current = null;
     await supabase.auth.signOut();
     setCattery(null);
     setAccountRole(null);

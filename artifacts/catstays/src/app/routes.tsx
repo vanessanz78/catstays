@@ -84,6 +84,7 @@ import { WebsiteBuilderStudio } from "./pages/WebsiteBuilderStudio";
 import { PlatformDashboard } from "./pages/platform/PlatformDashboard";
 import { AdminLogin } from "./pages/platform/AdminLogin";
 import { StaffDashboard } from "./pages/staff/StaffDashboard";
+import { withStaffGuard } from "./components/StaffRouteGuard";
 import { PwaLaunch } from "./pages/PwaLaunch";
 
 // Demo pages
@@ -201,47 +202,47 @@ export const router = createBrowserRouter([
   ...tenantStaffDashboardPaths,
   {
     path: "/staff-dashboard/booking-setup",
-    Component: BookingSetup,
+    Component: withStaffGuard(BookingSetup),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/staff-dashboard/smart-import",
-    Component: SmartImport,
+    Component: withStaffGuard(SmartImport),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/staff-dashboard/smart-data-import",
-    Component: SmartImport,
+    Component: withStaffGuard(SmartImport),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/staff-dashboard/payment",
-    Component: PaymentIntegration,
+    Component: withStaffGuard(PaymentIntegration),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/staff-dashboard/accounting",
-    Component: AdminAccounting,
+    Component: withStaffGuard(AdminAccounting),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/staff-dashboard/reports",
-    Component: AdminReports,
+    Component: withStaffGuard(AdminReports),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/staff-dashboard/bookings",
-    Component: AdminBookings,
+    Component: withStaffGuard(AdminBookings),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/staff-dashboard/website-editor",
-    Component: DashboardWebsiteEditor,
+    Component: withStaffGuard(DashboardWebsiteEditor),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/staff-dashboard/marketing",
-    Component: MarketingKit,
+    Component: withStaffGuard(MarketingKit),
     ErrorBoundary: RootErrorBoundary,
   },
 
@@ -303,12 +304,12 @@ export const router = createBrowserRouter([
   },
   {
     path: "/staff-dashboard/settings/notifications",
-    Component: NotificationSettings,
+    Component: withStaffGuard(NotificationSettings),
     ErrorBoundary: RootErrorBoundary,
   },
   {
     path: "/staff-dashboard/settings/staff",
-    Component: StaffProfiles,
+    Component: withStaffGuard(StaffProfiles),
     ErrorBoundary: RootErrorBoundary,
   },
   { path: "/staff-login", Component: StaffLogin, ErrorBoundary: RootErrorBoundary },
@@ -329,7 +330,7 @@ export const router = createBrowserRouter([
   },
   {
     path: "/staff-dashboard/messages",
-    Component: AdminMessages,
+    Component: withStaffGuard(AdminMessages),
     ErrorBoundary: RootErrorBoundary,
   },
   {
@@ -339,7 +340,7 @@ export const router = createBrowserRouter([
   },
   {
     path: "/staff-dashboard/promotions",
-    Component: AdminPromotions,
+    Component: withStaffGuard(AdminPromotions),
     ErrorBoundary: RootErrorBoundary,
   },
   {
@@ -349,7 +350,7 @@ export const router = createBrowserRouter([
   },
   {
     path: "/staff-dashboard/social",
-    Component: AdminSocial,
+    Component: withStaffGuard(AdminSocial),
     ErrorBoundary: RootErrorBoundary,
   },
   {
@@ -359,7 +360,7 @@ export const router = createBrowserRouter([
   },
   {
     path: "/staff-dashboard/cat-update-generator",
-    Component: CatUpdateGenerator,
+    Component: withStaffGuard(CatUpdateGenerator),
     ErrorBoundary: RootErrorBoundary,
   },
   {

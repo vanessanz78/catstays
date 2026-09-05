@@ -38,6 +38,7 @@ import { useBookings } from '@/hooks/useBookings';
 import { useCustomers } from '@/hooks/useCustomers';
 import { useRooms } from '@/hooks/useRooms';
 import { RightMenu } from '../../components/RightMenu';
+import { StaffRouteGuard } from '../../components/StaffRouteGuard';
 import { NotificationBell } from '../../components/NotificationBell';
 import { StaffInsights } from './StaffInsights';
 import { StaffRoomCalendar } from './StaffRoomCalendar';
@@ -1387,6 +1388,14 @@ function getBookingPhysicalRoomNames(booking: Booking, room: Room) {
 // Production staff workspace. Demo data stays isolated in DashboardPreviewMock and /demo routes.
 // The earlier sparse/admin dashboard path is retired for signed-up tenant dashboards.
 export function StaffDashboard() {
+  return (
+    <StaffRouteGuard>
+      <StaffDashboardContent />
+    </StaffRouteGuard>
+  );
+}
+
+function StaffDashboardContent() {
   const location = useLocation();
   const today = getLocalDateKey();
   const [selectedDate, setSelectedDate] = useState(() => new URLSearchParams(location.search).get('date') || today);

@@ -13,6 +13,7 @@ import { ClientPortalEntry } from './pages/customer/ClientPortalEntry';
 import { NotificationSettings } from './pages/admin/NotificationSettings';
 import { StaffProfiles } from './pages/admin/StaffProfiles';
 import { StaffLogin } from './pages/marketing/StaffLogin';
+import { withStaffGuard } from './components/StaffRouteGuard';
 import { PaymentIntegration } from './pages/admin/PaymentIntegration';
 import { AdminAccounting } from './pages/admin/Accounting';
 import { AdminReports } from './pages/admin/Reports';
@@ -107,21 +108,21 @@ export const subdomainRouter = createBrowserRouter([
   { path: '/booking-flow', Component: BookingFlow },
   { path: '/booking', element: <TenantHomeSection section="booking" /> },
   ...staffDashboardRoutes,
-  { path: '/staff-dashboard/booking-setup', Component: BookingSetup },
-  { path: '/staff-dashboard/smart-import', Component: SmartImport },
-  { path: '/staff-dashboard/smart-data-import', Component: SmartImport },
-  { path: '/staff-dashboard/messages', Component: AdminMessages },
-  { path: '/staff-dashboard/promotions', Component: AdminPromotions },
-  { path: '/staff-dashboard/social', Component: AdminSocial },
-  { path: '/staff-dashboard/cat-update-generator', Component: CatUpdateGenerator },
-  { path: '/staff-dashboard/payment', Component: PaymentIntegration },
-  { path: '/staff-dashboard/accounting', Component: AdminAccounting },
-  { path: '/staff-dashboard/reports', Component: AdminReports },
-  { path: '/staff-dashboard/bookings', Component: AdminBookings },
-  { path: '/staff-dashboard/website-editor', Component: DashboardWebsiteEditor },
-  { path: '/staff-dashboard/marketing', Component: MarketingKit },
-  { path: '/staff-dashboard/settings/notifications', Component: NotificationSettings },
-  { path: '/staff-dashboard/settings/staff', Component: StaffProfiles },
+  { path: '/staff-dashboard/booking-setup', Component: withStaffGuard(BookingSetup) },
+  { path: '/staff-dashboard/smart-import', Component: withStaffGuard(SmartImport) },
+  { path: '/staff-dashboard/smart-data-import', Component: withStaffGuard(SmartImport) },
+  { path: '/staff-dashboard/messages', Component: withStaffGuard(AdminMessages) },
+  { path: '/staff-dashboard/promotions', Component: withStaffGuard(AdminPromotions) },
+  { path: '/staff-dashboard/social', Component: withStaffGuard(AdminSocial) },
+  { path: '/staff-dashboard/cat-update-generator', Component: withStaffGuard(CatUpdateGenerator) },
+  { path: '/staff-dashboard/payment', Component: withStaffGuard(PaymentIntegration) },
+  { path: '/staff-dashboard/accounting', Component: withStaffGuard(AdminAccounting) },
+  { path: '/staff-dashboard/reports', Component: withStaffGuard(AdminReports) },
+  { path: '/staff-dashboard/bookings', Component: withStaffGuard(AdminBookings) },
+  { path: '/staff-dashboard/website-editor', Component: withStaffGuard(DashboardWebsiteEditor) },
+  { path: '/staff-dashboard/marketing', Component: withStaffGuard(MarketingKit) },
+  { path: '/staff-dashboard/settings/notifications', Component: withStaffGuard(NotificationSettings) },
+  { path: '/staff-dashboard/settings/staff', Component: withStaffGuard(StaffProfiles) },
   { path: '/staff-login', Component: StaffLogin },
   { path: '/client-portal', Component: ClientPortalEntry },
   { path: '/client-portal/bookings', Component: ClientPortalEntry },
