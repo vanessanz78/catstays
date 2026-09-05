@@ -98,6 +98,8 @@ export async function processTick(env, force=false, transport=clients(env)) {
   const job=await db('rpc/catstays_claim_legacy_sync',{force_start:force});
   if(!job)return {idle:true};
   const run=job.import_run_id,cp=job.checkpoint;let queue=[...job.queue],phase=job.phase;
+  const changesOnly=cp.scope==='changes_only';
+  const incremental=changesOnly||cp.scope==='operational';
   const rpc=(name,records)=>db(`rpc/catstays_import_legacy_${name}`,{target_import_run_id:run,records});
   const query=(table,filter,columns='*')=>db(`${table}?cattery_id=eq.${TENANT}&${filter}&select=${encodeURIComponent(columns)}&limit=1000`,undefined,'GET');
   const archive=async(name,rows)=>{
@@ -146,7 +148,11 @@ export async function processTick(env, force=false, transport=clients(env)) {
       const range=queue.shift(),rows=await source(phase,{from_date:apiDate(range.from),to_date:apiDate(range.to)});
       if(rows.length>=1000){queue.unshift(...splitRange(range));}
       else {
-        await archive(`${phase}-${range.from}-${range.to}.json`,rows);cp.source_pages++;
+        // Customer ranges contain source records touched since the watermark and
+        // remain auditable. A bookings range is only a discovery list, so the
+        // changes-only path archives the full detail only after its checksum changes.
+        if(!(changesOnly&&phase==='bookings'))await archive(`${phase}-${range.from}-${range.to}.json`,rows);
+        cp.source_pages++;
         if(phase==='customers') {
           await importCustomers(rows);
         } else {
@@ -156,16 +162,21 @@ export async function processTick(env, force=false, transport=clients(env)) {
         }
       }
       if(!queue.length){
-        if(phase==='customers'){phase='bookings';queue=[{from:cp.bookings_from||'2000-01-01',to:`${Number(job.local_day.slice(0,4))+10}-12-31`}];}
+        if(phase==='customers'){
+          const bookingsFrom=cp.bookings_from||(changesOnly?job.local_day:'2000-01-01');
+          phase='bookings';queue=[{from:bookingsFrom,to:`${Number(job.local_day.slice(0,4))+10}-12-31`}];
+        }
         else {phase='details';queue=cp.detail_queue.sort((a,b)=>Number(b.departure>=job.local_day)-Number(a.departure>=job.local_day)||b.reference.localeCompare(a.reference,undefined,{numeric:true}));delete cp.detail_queue;
-          if(cp.scope==='operational'){
-            cp.checked_checksums={};
-            for(let i=0;i<queue.length;i+=1000)Object.assign(cp.checked_checksums,await db('rpc/catstays_checked_source_bookings',{target_cattery_id:TENANT,booking_references:queue.slice(i,i+1000).map(x=>x.reference)}));
+          if(incremental){
+            const key=changesOnly?'observed_checksums':'checked_checksums';
+            const rpcName=changesOnly?'catstays_observed_source_bookings':'catstays_checked_source_bookings';
+            cp[key]={};
+            for(let i=0;i<queue.length;i+=1000)Object.assign(cp[key],await db(`rpc/${rpcName}`,{target_cattery_id:TENANT,booking_references:queue.slice(i,i+1000).map(x=>x.reference)}));
           }
         }
       }
     } else if(phase==='details') {
-      const deadline=Math.min(Date.now()+(cp.scope==='operational'?10000:45000),job.manual_until?Date.parse(job.manual_until):Infinity);
+      const deadline=Math.min(Date.now()+(incremental?10000:45000),job.manual_until?Date.parse(job.manual_until):Infinity);
       let done=0;
       // A short durable batch bounds runtime and keeps the provider request rate low.
       while(queue.length && done<40 && Date.now()<deadline){
@@ -173,14 +184,15 @@ export async function processTick(env, force=false, transport=clients(env)) {
         if(String(d.booking_id)!==item.reference)throw Error('Booking response identity mismatch');
         // Still read the complete live response: date, room, note, status and money changes cannot hide behind list fields.
         const checksum=await hash(JSON.stringify(d));
-        if(cp.scope==='operational'&&cp.checked_checksums?.[item.reference]===checksum&&!(d.pending==='Yes'&&Number(d.total_amount)===0)){
+        const priorChecksum=changesOnly?cp.observed_checksums?.[item.reference]:cp.checked_checksums?.[item.reference];
+        if(incremental&&priorChecksum===checksum&&!(d.pending==='Yes'&&Number(d.total_amount)===0)){
           queue.shift();done++;cp.processed++;cp.unchanged=(cp.unchanged||0)+1;continue;
         }
         await archive(`booking-${item.id}.json`,[d]);
         const found=await query('bookings',`external_source=eq.revelation_pets&external_id=eq.${item.reference}`);
         const old=found[0];
         let candidates=d.customer_email?await query('customers',`external_source=eq.revelation_pets&email=eq.${encodeURIComponent(d.customer_email)}`):[];
-        if(cp.scope==='operational'&&candidates.length===0&&d.customer_email){
+        if(incremental&&candidates.length===0&&d.customer_email){
           // A new booking may reference a customer outside the incremental update window.
           const matches=await source('customers',{keywords:d.customer_email});
           if(matches.length>=1000)throw Error('Customer search was capped; no identity guessed');

@@ -26,7 +26,17 @@ Working ref: `fix/booking-review-fresh-pricing`.
 - Per-click summaries exclude earlier manual windows. Keep credentials server-side; no emails, source writes or payments.
 - Release checks: authenticated endpoint guards, expired windows, duplicate-click/lease protection, disabled cron, rollback-only DB tests, builds and live mobile UAT. Full-history scanning remains a separate performance limitation.
 
-Last updated: 2026-09-03
+Last updated: 2026-09-05
+
+## Deloraine live booking and changes-only Revelation sync — 5 September 2026
+
+Working ref: `fix/deloraine-live-changes-only-sync-20260905`.
+
+- Founder explicitly ended the Deloraine parallel-run pause. CatStays must accept real public website booking requests and staff-created phone bookings while retaining Petcover intake.
+- The Revelation button and nightly schedule must both run the same changes-only workflow. Customer discovery uses the documented last-updated date filter with a one-day boundary overlap; booking discovery starts today and looks forward.
+- Full booking responses are checksum-compared. Previously observed unchanged bookings, including records with an earlier unresolved warning, are skipped without another import or reconciliation attempt. A changed response is processed normally.
+- Historical and earlier operational queues remain retained for audit but paused. This release must not resume, delete, complete, or repair them.
+- Required gates: focused tests, complete typecheck/build, reviewed migration, GitHub PR/main merge, exact-SHA Replit Shell sync, development UAT, publish the safe API, then activate live booking with the reviewed operation and complete production UAT of public booking, staff phone booking, Petcover, manual sync, and nightly status.
 
 ## Focused Follow-up: Confirmation Payment Links
 

@@ -41,7 +41,7 @@ async function startSync() {
     return;
   }
   const current=++generation;
-  update({busy:true,error:false,message:'Syncing with Revelation Pets…'});
+  update({busy:true,error:false,message:'Checking Revelation Pets for new and changed bookings…'});
   try {
     const result=await api('request',{catteryId:tenant});
     if(current!==generation)return;
@@ -52,7 +52,7 @@ async function startSync() {
       if(current!==generation)return;
       generation++;clearTimeout(timer);
       refreshBookings();
-      update({busy:false,error:false,message:'Sync paused after its bounded update. Imported changes are saved.'});
+      update({busy:false,error:false,message:'Sync paused after its bounded update. New and changed records are saved.'});
     },Math.max(0,until-Date.now()));
     const poll=async()=>{
       if(current!==generation)return;
@@ -66,7 +66,7 @@ async function startSync() {
         } else if(progress.status==='paused') {
           clearTimeout(limitTimer);
           refreshBookings();
-          update({busy:false,error:false,message:'Sync paused after its bounded update. Imported changes are saved.'});
+          update({busy:false,error:false,message:'Sync paused after its bounded update. New and changed records are saved.'});
         } else if(progress.status==='failed') {
           clearTimeout(limitTimer);
           refreshBookings();

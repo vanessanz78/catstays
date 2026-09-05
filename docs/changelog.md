@@ -6,6 +6,14 @@
 - Added a compact seven-day In / Out / Day end movement summary alongside physical-room occupancy.
 - Kept CatStays' independent modern visual language and availability-first booking model while adopting the proven operational shortcuts from the reference workflow.
 
+## 2026-09-05
+
+- Switched Deloraine from test-only to live CatStays booking requests while retaining staff-created phone bookings and Petcover intake.
+- Restricted both nightly and button-triggered Revelation synchronization to customers updated since the last successful day and bookings arriving today or later.
+- Made unchanged previously observed bookings—including earlier warned records—skip repeat import and reconciliation work.
+- Kept every historical and earlier operational queue paused and preserved for audit.
+- Tightened anonymous Petcover table privileges and aligned browser/server validation for required Petcover details.
+
 ## 2026-09-01
 
 - Reordered the staff dashboard around daily operational work: Today, Bookings, Calendar, Customers, Messages, and Cat Updates.

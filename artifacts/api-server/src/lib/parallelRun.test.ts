@@ -7,3 +7,4 @@ test('staff must explicitly submit a test', () => assert.ok(check('test_only', t
 test('staff cannot send test messages to customers', () => assert.ok(check('test_only', true, true, 'test@example.com', 'customer@example.com')));
 test('unverified email cannot receive a test', () => assert.ok(check('test_only', true, true, null, 'test@example.com')));
 test('verified staff can test using their own email', () => assert.equal(check('test_only', true, true, 'Test@Example.com', ' test@example.com '), null));
+test('live mode accepts public website bookings', () => assert.equal(check('live', false, false, null, 'customer@example.com'), null));

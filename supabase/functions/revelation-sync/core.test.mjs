@@ -129,10 +129,24 @@ test('operational customer discovery advances to current range, not year 2000',a
  f.job.checkpoint.scope='operational';f.job.checkpoint.bookings_from='2026-08-04';
  await tick(f);assert.equal(f.calls.at(-1).body.next_queue[0].from,'2026-08-04');
 });
+test('changes-only customer discovery fails closed to today when its booking watermark is absent',async()=>{
+ const f=fixture('customers',{queue:[{from:'2026-09-02',to:'2026-09-04'}]});
+ f.job.checkpoint.scope='changes_only';
+ await tick(f);assert.equal(f.calls.at(-1).body.next_queue[0].from,f.job.local_day);
+});
 test('fresh booking discovery includes newly created and pending references first',async()=>{
  const f=fixture('bookings',{queue:[{from:'2026-08-04',to:'2036-12-31'}]});
  f.sourceRows=[{id:1,booking_id:100,boarding_to_date:'10/09/2026'},{id:2,booking_id:101,boarding_to_date:'03/10/2026',pending:'Yes'},{id:3,booking_id:102,boarding_to_date:'28/09/2026'}];
  await tick(f);assert.deepEqual(f.calls.at(-1).body.next_queue.map(x=>x.reference),['102','101','100']);
+});
+test('changes-only discovery stores no unchanged booking-list archive and loads observed checksums',async()=>{
+ const f=fixture('bookings',{queue:[{from:'2026-09-03',to:'2036-12-31'}]});
+ f.job.checkpoint.scope='changes_only';
+ f.sourceRows=[{id:1,booking_id:100,boarding_to_date:'10/09/2026'}];
+ await tick(f);
+ assert.ok(!f.calls.some(c=>c.path==='rpc/catstays_stage_legacy_source_file'));
+ assert.ok(f.calls.some(c=>c.path==='rpc/catstays_observed_source_bookings'));
+ assert.deepEqual(f.calls.at(-1).body.next_checkpoint.observed_checksums,{});
 });
 test('source pending status is retained and cancelled takes precedence',async()=>{
  for(const [pending,cancelled,status] of [['Yes','No','pending'],['Yes','Yes','cancelled'],['No','No','confirmed']]){
@@ -170,6 +184,14 @@ test('verified unchanged full response avoids repeat database imports',async()=>
  const out=await tick(f);assert.equal(out.processed,1);
  assert.ok(!f.calls.some(c=>c.path==='rpc/catstays_import_legacy_bookings'));
  assert.ok(!f.calls.some(c=>c.path==='rpc/catstays_stage_legacy_source_file'));
+});
+test('changes-only sync does not revisit an unchanged previously observed warning',async()=>{
+ const f=fixture();f.job.checkpoint.scope='changes_only';
+ const {hash}=await import('./core.mjs');f.job.checkpoint.observed_checksums={'100':await hash(JSON.stringify(f.detail))};
+ const out=await tick(f);assert.equal(out.processed,1);
+ assert.ok(!f.calls.some(c=>c.path==='rpc/catstays_import_legacy_bookings'));
+ assert.ok(!f.calls.some(c=>c.path==='rpc/catstays_stage_legacy_source_file'));
+ assert.ok(!f.calls.some(c=>c.body?.issue_type));
 });
 test('a note-only change invalidates a verified snapshot',async()=>{
  const f=fixture();f.job.checkpoint.scope='operational';

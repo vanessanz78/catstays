@@ -656,7 +656,8 @@ router.post('/bookings/request', async (req, res) => {
     const catteryPhone = catteryRecord.phone;
     const testOnly = catteryRecord.website_settings?.bookingMode === 'test_only';
     const petcoverOfferEnabled = catteryRecord.website_settings?.petcoverOfferEnabled === true;
-    const tester = testOnly ? await authenticatedUser(req) : null;
+    const requester = await authenticatedUser(req);
+    const tester = testOnly ? requester : null;
     const testError = checkParallelRunRequest(catteryRecord.website_settings?.bookingMode,
       Boolean(tester && await canManageCattery(tester.id, catteryId)), req.body?.testOnly,
       tester?.email_confirmed_at ? tester.email : null, customerEmail);
@@ -677,11 +678,23 @@ router.post('/bookings/request', async (req, res) => {
       resolvedRoomId = roomData?.id || null;
     }
 
-    const catNamesStr = Array.isArray(catNames) ? catNames.join(', ') : String(catNames || '');
-    const numCats = Array.isArray(catNames) ? catNames.length : 1;
+    const normalizedCatNames = (Array.isArray(catNames) ? catNames : [catNames])
+      .map((value: unknown) => String(value || '').trim());
+    const catNameKeys = normalizedCatNames.map((name) => name.toLowerCase());
+    if (!normalizedCatNames.length || normalizedCatNames.some((name) => !name) || new Set(catNameKeys).size !== normalizedCatNames.length) {
+      res.status(400).json({ error: 'Enter one distinct name for each cat.' });
+      return;
+    }
+    const catNamesStr = normalizedCatNames.join(', ');
+    const numCats = normalizedCatNames.length;
     const requestedPetcoverApplications = petcoverOfferEnabled && Array.isArray(petcoverApplications)
       ? petcoverApplications.filter((application: any) => application?.requested)
       : [];
+    const requestedPetcoverKeys = requestedPetcoverApplications.map((application: any) => String(application.catName || '').trim().toLowerCase());
+    if (new Set(requestedPetcoverKeys).size !== requestedPetcoverKeys.length || requestedPetcoverKeys.some((key: string) => !catNameKeys.includes(key))) {
+      res.status(400).json({ error: 'Choose each Petcover cat once from this booking.' });
+      return;
+    }
 
     for (const application of requestedPetcoverApplications) {
       const eligibility = petcoverEligibility(String(application.dateOfBirth || ''), checkIn);
@@ -752,24 +765,38 @@ router.post('/bookings/request', async (req, res) => {
     }
 
     const normalizedEmail = String(customerEmail).trim().toLowerCase();
-    const { data: existingCustomer } = await supabase
-      .from('customers')
-      .select('id,user_id')
-      .eq('cattery_id', catteryId)
-      .ilike('email', normalizedEmail)
-      .limit(1)
-      .maybeSingle();
+    const { data: existingCustomer } = requester && !testOnly
+      ? await supabase
+        .from('customers')
+        .select('id,user_id,email')
+        .eq('cattery_id', catteryId)
+        .eq('user_id', requester.id)
+        .limit(1)
+        .maybeSingle()
+      : { data: null };
 
-    // Tests must never update an existing real customer with a matching email.
-    let customerId = testOnly ? null : existingCustomer?.id || null;
-    if (customerId) {
-      await supabase.from('customers').update({
-        name: customerName,
-        email: normalizedEmail,
-        phone: phone || null,
-        updated_at: new Date().toISOString(),
-      }).eq('id', customerId);
-    } else {
+    // A public email address is not proof of identity. Reuse only the signed-in
+    // customer's exact linked record; otherwise create a separate request that
+    // staff can review or merge without overwriting an existing profile.
+    let customerId = !testOnly && existingCustomer?.email?.trim().toLowerCase() === normalizedEmail
+      ? existingCustomer.id
+      : null;
+    let createdCustomerId: string | null = null;
+    const createdCatIds: string[] = [];
+    const rollbackBookingRequest = async (bookingId?: string) => {
+      if (bookingId) {
+        const { error } = await supabase.from('bookings').delete().eq('id', bookingId).eq('cattery_id', catteryId);
+        if (error) console.warn('[bookings/request] booking rollback failed:', error.message);
+      }
+      if (createdCustomerId) {
+        const { error } = await supabase.from('customers').delete().eq('id', createdCustomerId).eq('cattery_id', catteryId);
+        if (error) console.warn('[bookings/request] customer rollback failed:', error.message);
+      } else if (createdCatIds.length) {
+        const { error } = await supabase.from('cats').delete().in('id', createdCatIds).eq('customer_id', customerId).eq('cattery_id', catteryId);
+        if (error) console.warn('[bookings/request] cat rollback failed:', error.message);
+      }
+    };
+    if (!customerId) {
       const { data: createdCustomer, error: customerError } = await supabase.from('customers').insert({
         cattery_id: catteryId,
         name: testOnly ? `[TEST] ${customerName}` : customerName,
@@ -782,6 +809,7 @@ router.post('/bookings/request', async (req, res) => {
         return;
       }
       customerId = createdCustomer.id;
+      createdCustomerId = createdCustomer.id;
     }
 
     const { data: booking, error: bookingError } = await supabase.from('bookings').insert({
@@ -806,6 +834,7 @@ router.post('/bookings/request', async (req, res) => {
 
     if (bookingError) {
       console.error('[bookings/request] DB insert failed:', bookingError);
+      await rollbackBookingRequest();
       res.status(500).json({ error: 'Booking could not be saved. Please contact the cattery directly.' });
       return;
     }
@@ -813,10 +842,8 @@ router.post('/bookings/request', async (req, res) => {
     const requestedByCatName = new Map(
       requestedPetcoverApplications.map((application: any) => [String(application.catName).trim().toLowerCase(), application]),
     );
-    const resolvedCatIds: string[] = [];
-    for (const rawName of (Array.isArray(catNames) ? catNames : [catNames])) {
-      const name = String(rawName || '').trim();
-      if (!name) continue;
+    const resolvedCats: Array<{ id: string; key: string }> = [];
+    for (const name of normalizedCatNames) {
       const application = requestedByCatName.get(name.toLowerCase());
       const catFields = application ? {
         date_of_birth: application.dateOfBirth || null,
@@ -825,19 +852,22 @@ router.post('/bookings/request', async (req, res) => {
         purchase_price: application.purchasePrice === '' ? null : Number(application.purchasePrice),
         microchip_number: String(application.microchipNumber || '').trim() || null,
       } : {};
-      const { data: existingCat } = await supabase
+      const { data: existingCat, error: existingCatError } = await supabase
         .from('cats')
         .select('id')
         .eq('customer_id', customerId)
+        .eq('cattery_id', catteryId)
         .ilike('name', name)
         .limit(1)
         .maybeSingle();
+      if (existingCatError) {
+        console.error('[bookings/request] existing cat lookup failed:', existingCatError.message);
+        await rollbackBookingRequest(booking.id);
+        res.status(500).json({ error: 'Booking could not be saved. Please contact the cattery directly.' });
+        return;
+      }
       let catId = existingCat?.id;
-      if (catId) {
-        if (application) {
-          await supabase.from('cats').update(catFields).eq('id', catId).eq('cattery_id', catteryId);
-        }
-      } else {
+      if (!catId) {
         const { data: createdCat, error: catError } = await supabase.from('cats').insert({
           cattery_id: catteryId,
           customer_id: customerId,
@@ -847,22 +877,23 @@ router.post('/bookings/request', async (req, res) => {
         }).select('id').single();
         if (catError || !createdCat) {
           console.error('[bookings/request] cat record failed:', catError?.message);
-          await supabase.from('bookings').delete().eq('id', booking.id);
+          await rollbackBookingRequest(booking.id);
           res.status(500).json({ error: 'Booking could not be saved. Please contact the cattery directly.' });
           return;
         }
         catId = createdCat.id;
+        createdCatIds.push(createdCat.id);
       }
-      if (catId) resolvedCatIds.push(catId);
+      if (catId) resolvedCats.push({ id: catId, key: name.toLowerCase() });
     }
 
-    if (resolvedCatIds.length > 0) {
+    if (resolvedCats.length > 0) {
       const { error: bookingCatsError } = await supabase.from('booking_cats').insert(
-        resolvedCatIds.map((catId) => ({ booking_id: booking.id, cat_id: catId })),
+        resolvedCats.map(({ id }) => ({ booking_id: booking.id, cat_id: id })),
       );
       if (bookingCatsError) {
         console.error('[bookings/request] booking cat link failed:', bookingCatsError.message);
-        await supabase.from('bookings').delete().eq('id', booking.id);
+        await rollbackBookingRequest(booking.id);
         res.status(500).json({ error: 'Booking could not be saved. Please contact the cattery directly.' });
         return;
       }
@@ -870,10 +901,7 @@ router.post('/bookings/request', async (req, res) => {
 
     if (requestedPetcoverApplications.length > 0) {
       const catIdByName = new Map(
-        (Array.isArray(catNames) ? catNames : [catNames]).map((name: unknown, index: number) => [
-          String(name || '').trim().toLowerCase(),
-          resolvedCatIds[index],
-        ]),
+        resolvedCats.map(({ id, key }) => [key, id]),
       );
       const { error: insuranceError } = await supabase.from('petcover_applications').insert(
         requestedPetcoverApplications.map((application: any) => ({
@@ -894,7 +922,7 @@ router.post('/bookings/request', async (req, res) => {
       );
       if (insuranceError) {
         console.error('[bookings/request] Petcover record failed:', insuranceError.message);
-        await supabase.from('bookings').delete().eq('id', booking.id);
+        await rollbackBookingRequest(booking.id);
         res.status(500).json({ error: 'Booking could not be saved. Please contact the cattery directly.' });
         return;
       }
