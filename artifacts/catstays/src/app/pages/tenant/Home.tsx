@@ -14,6 +14,12 @@ import { isOriginalTemplate, normalizePreviewTemplateId } from '../../lib/previe
 import { sourcePreviewProxyUrl, sourcePreviewUrlFromData, sourceRebuildHtmlFromData } from '../../lib/sourceRebuildPreview';
 import { normalizeTenantFeatures } from '@/app/lib/tenantFeatures';
 import { breadcrumbSchema, localBusinessSchema, useSeoMetadata } from '@/app/lib/seo';
+import {
+  isDeloraineCatteryWebsite,
+  PETCOVER_CAT_INSURANCE_URL,
+  PETCOVER_TRIAL_POLICY_DOWNLOAD_NAME,
+  PETCOVER_TRIAL_POLICY_URL,
+} from '@/app/lib/petcoverLinks';
 
 const DEFAULT_HERO = 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080';
 const ABOUT_IMG = 'https://images.unsplash.com/photo-1573865526739-10c1dd7aa736?w=1200&q=80';
@@ -136,6 +142,12 @@ export function TenantHome() {
   const publishedWebsiteData = buildPublishedWebsiteData(cattery, ws);
   const publishedTemplate = normalizePreviewTemplateId(publishedWebsiteData.liveTemplate || publishedWebsiteData.selectedTemplate);
   const sourcePreviewUrl = sourcePreviewUrlFromData(publishedWebsiteData);
+  const showDelorainePetcoverPromotion = tenantFeatures.petcoverOfferEnabled && isDeloraineCatteryWebsite(
+    cattery.name,
+    cattery.slug,
+    ws.sourceUrl,
+    ws.importSourceUrl,
+  );
 
   if (hasPublishedBuilderSettings(ws)) {
     if (isOriginalTemplate(publishedTemplate) && sourcePreviewUrl) {
@@ -166,7 +178,7 @@ export function TenantHome() {
               </div>
             </button>
             <div className="hidden md:flex items-center gap-6">
-              {['hero', 'about', 'rooms', ...(tenantFeatures.petcoverOfferEnabled ? ['petcover'] : []), 'contact'].map(s => (
+              {['hero', 'about', 'rooms', ...(showDelorainePetcoverPromotion ? ['petcover'] : []), 'contact'].map(s => (
                 <button key={s} onClick={() => scrollToSection(s)} className="text-forest/70 hover:text-forest transition-colors capitalize">{s === 'hero' ? 'Home' : s.charAt(0).toUpperCase() + s.slice(1)}</button>
               ))}
               <div className="h-4 w-px bg-sage/20" />
@@ -228,16 +240,19 @@ export function TenantHome() {
         </div>
       </section>
 
-      {tenantFeatures.petcoverOfferEnabled && (
+      {showDelorainePetcoverPromotion && (
         <section id="petcover" className="bg-forest px-4 py-16 text-cream">
           <div className="mx-auto grid max-w-6xl gap-8 md:grid-cols-[0.8fr_1.2fr] md:items-center">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sage-light">A little extra reassurance</p>
-              <h2 className="mt-3 text-3xl font-serif font-semibold md:text-5xl">Petcover introductory offer</h2>
+              <h2 className="mt-3 text-3xl font-serif font-semibold md:text-5xl">Four weeks of free Petcover</h2>
             </div>
             <div className="space-y-4 text-sm leading-7 text-cream/80">
-              <p>Eligible first-time kittens and cats under 12 months may be considered for Petcover’s four-week introductory offer when you book with us.</p>
-              <Link to={`${base}/booking-flow`} className="inline-flex rounded-xl bg-white px-5 py-3 text-sm font-semibold text-forest">Ask about the offer</Link>
+              <p>Deloraine Cattery offers a four-week free Petcover trial for first-time cats under 12 months when you book through CatStays. Eligibility and policy terms apply.</p>
+              <div className="flex flex-wrap gap-3">
+                <a href={PETCOVER_CAT_INSURANCE_URL} target="_blank" rel="noopener noreferrer" className="inline-flex rounded-xl bg-white px-5 py-3 text-sm font-semibold text-forest">Visit Petcover</a>
+                <a href={PETCOVER_TRIAL_POLICY_URL} download={PETCOVER_TRIAL_POLICY_DOWNLOAD_NAME} className="inline-flex rounded-xl border border-cream/50 px-5 py-3 text-sm font-semibold text-cream">Download the policy (PDF)</a>
+              </div>
             </div>
           </div>
         </section>

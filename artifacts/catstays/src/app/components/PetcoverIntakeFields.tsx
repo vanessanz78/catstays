@@ -6,6 +6,11 @@ import {
   petcoverEligibility,
   type PetcoverCatIntake,
 } from '../lib/petcover';
+import {
+  PETCOVER_CAT_INSURANCE_URL,
+  PETCOVER_TRIAL_POLICY_DOWNLOAD_NAME,
+  PETCOVER_TRIAL_POLICY_URL,
+} from '../lib/petcoverLinks';
 
 export function PetcoverIntakeFields({
   value,
@@ -32,18 +37,30 @@ export function PetcoverIntakeFields({
 
   return (
     <div className={`space-y-4 rounded-2xl border ${value.requested ? 'border-[#F0C9B2] bg-[#FFF8F2]' : 'border-[#E8DED4] bg-white'} p-4`}>
-      <label className="flex cursor-pointer items-start gap-3">
+      <div className="flex items-start gap-3">
         <input
+          id={`${idPrefix}-requested`}
           type="checkbox"
           checked={value.requested}
           onChange={(event) => onChange({ requested: event.target.checked })}
           className="mt-1 h-4 w-4 accent-[#C46A3A]"
         />
         <span>
-          <span className="flex items-center gap-2 font-semibold text-[#0A1128]"><ShieldCheck className="h-4 w-4 text-[#C46A3A]" />Offer the 4-week Petcover introductory cover</span>
-          <span className="mt-1 block text-xs leading-5 text-[#4E5871]">For a first-time Petcover offer for cats under 12 months.</span>
+          <label htmlFor={`${idPrefix}-requested`} className="flex cursor-pointer items-center gap-2 font-semibold text-[#0A1128]"><ShieldCheck className="h-4 w-4 text-[#C46A3A]" />Offer the 4-week Petcover introductory cover</label>
+          <span className="mt-1 block text-xs leading-5 text-[#4E5871]">
+            For a first-time{' '}
+            <a href={PETCOVER_CAT_INSURANCE_URL} target="_blank" rel="noopener noreferrer" className="font-semibold text-[#A9552F] underline underline-offset-2">Petcover</a>{' '}
+            offer for cats under 12 months.
+          </span>
+          <a
+            href={PETCOVER_TRIAL_POLICY_URL}
+            download={PETCOVER_TRIAL_POLICY_DOWNLOAD_NAME}
+            className="mt-1 inline-flex text-xs font-semibold text-[#A9552F] underline underline-offset-2"
+          >
+            Download the 4-week trial policy (PDF)
+          </a>
         </span>
-      </label>
+      </div>
 
       {value.requested && (
         <div className="space-y-4 border-t border-[#F0C9B2] pt-4">

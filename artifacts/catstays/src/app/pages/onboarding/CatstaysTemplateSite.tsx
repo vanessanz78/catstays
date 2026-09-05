@@ -36,6 +36,12 @@ import {
 import { sourceImageIdentityKey } from '../../lib/sourceUnderstanding';
 import { ChatWidget } from '../../components/ChatWidget';
 import { sendContactEnquiry } from '@/utils/email';
+import {
+  isDeloraineCatteryWebsite,
+  PETCOVER_CAT_INSURANCE_URL,
+  PETCOVER_TRIAL_POLICY_DOWNLOAD_NAME,
+  PETCOVER_TRIAL_POLICY_URL,
+} from '../../lib/petcoverLinks';
 
 interface CatstaysTemplateSiteProps {
   data: Record<string, any>;
@@ -527,18 +533,21 @@ function SourceSectionsFlow({ content }: { content: TemplateContent }) {
 }
 
 function PetcoverOfferSection({ content }: { content: TemplateContent }) {
-  if (!content.petcoverOfferEnabled) return null;
+  if (!content.petcoverOfferEnabled || !isDeloraineCatteryWebsite(content.business.name)) return null;
 
   return (
     <section id="petcover" className="scroll-mt-28 bg-[#0A1128] px-6 py-16 text-white">
       <div className="mx-auto grid max-w-[1180px] gap-8 md:grid-cols-[0.8fr_1.2fr] md:items-center">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#F5C08A]">A little extra reassurance</p>
-          <h2 className="mt-3 text-3xl leading-tight md:text-5xl">Petcover introductory offer</h2>
+          <h2 className="mt-3 text-3xl leading-tight md:text-5xl">Four weeks of free Petcover</h2>
         </div>
         <div className="space-y-4 text-sm leading-7 text-white/80">
-          <p>Eligible first-time kittens and cats under 12 months may be considered for Petcover’s four-week introductory offer when you book with us.</p>
-          <a href="#booking" className="inline-flex rounded-md bg-white px-5 py-3 text-xs font-bold uppercase tracking-[0.1em] text-[#0A1128]">Ask about the offer</a>
+          <p>Deloraine Cattery offers a four-week free Petcover trial for first-time cats under 12 months when you book through CatStays. Eligibility and policy terms apply.</p>
+          <div className="flex flex-wrap gap-3">
+            <a href={PETCOVER_CAT_INSURANCE_URL} target="_blank" rel="noopener noreferrer" className="inline-flex rounded-md bg-white px-5 py-3 text-xs font-bold uppercase tracking-[0.1em] text-[#0A1128]">Visit Petcover</a>
+            <a href={PETCOVER_TRIAL_POLICY_URL} download={PETCOVER_TRIAL_POLICY_DOWNLOAD_NAME} className="inline-flex rounded-md border border-white/60 px-5 py-3 text-xs font-bold uppercase tracking-[0.1em] text-white">Download the policy (PDF)</a>
+          </div>
         </div>
       </div>
     </section>
